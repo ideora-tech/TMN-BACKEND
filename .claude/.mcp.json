@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "mydb": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@bytebase/dbhub",
+                "--dsn",
+                "mysql://root:@localhost:3306/penggajian"
+            ]
+        }
+    }
+}
