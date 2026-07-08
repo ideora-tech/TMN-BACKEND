@@ -6,6 +6,7 @@ namespace App\Modules\DokumenArmada;
 
 use App\Helpers\ApiResponse;
 use App\Modules\DokumenArmada\Requests\StoreDokumenArmadaRequest;
+use App\Modules\DokumenArmada\Requests\UpdateDokumenArmadaRequest;
 use App\Modules\DokumenArmada\Resources\DokumenArmadaResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,9 +21,8 @@ class DokumenArmadaController extends Controller
         $result = $this->service->listByArmada(
             $idArmada,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 100)
         );
-
         return ApiResponse::paginated(
             DokumenArmadaResource::collection($result['data']),
             $result['meta']
@@ -31,8 +31,14 @@ class DokumenArmadaController extends Controller
 
     public function store(StoreDokumenArmadaRequest $request, string $idArmada): JsonResponse
     {
-        $record = $this->service->create($idArmada, $request->validated());
+        $record = $this->service->create($idArmada, $request->validated(), $request->file('file'));
         return ApiResponse::success(new DokumenArmadaResource($record), 'Dokumen armada berhasil dibuat', 201);
+    }
+
+    public function update(UpdateDokumenArmadaRequest $request, string $idArmada, string $id): JsonResponse
+    {
+        $record = $this->service->update($id, $request->validated(), $request->file('file'));
+        return ApiResponse::success(new DokumenArmadaResource($record), 'Dokumen armada berhasil diperbarui');
     }
 
     public function destroy(string $idArmada, string $id): JsonResponse
@@ -45,9 +51,7 @@ class DokumenArmadaController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $days = (int) $request->get('days', 30);
-
         $records = $this->service->getExpiring($idPerusahaan, $days);
-
         return ApiResponse::success(DokumenArmadaResource::collection($records));
     }
 }

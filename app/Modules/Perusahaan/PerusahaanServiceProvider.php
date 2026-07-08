@@ -19,7 +19,7 @@ class PerusahaanServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN,ADMIN,MANAGER'])
             ->group(function () {
                 Route::apiResource('perusahaan', PerusahaanController::class)
                     ->parameters(['perusahaan' => 'id']);

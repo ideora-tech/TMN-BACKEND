@@ -26,9 +26,10 @@ class AuthRepository
 
     public function findActiveByUsernameOrEmail(string $identifier): ?Pengguna
     {
-        return Pengguna::where(function ($q) use ($identifier) {
-            $q->where('username', $identifier)->orWhere('email', $identifier);
-        })
+        return Pengguna::with('karyawan')
+            ->where(function ($q) use ($identifier) {
+                $q->where('username', $identifier)->orWhere('email', $identifier);
+            })
             ->whereNull('dihapus_pada')
             ->where('aktif', 1)
             ->first();

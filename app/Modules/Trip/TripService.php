@@ -85,4 +85,10 @@ class TripService
         $trip = $this->findOrFail($id);
         $this->repo->delete($trip);
     }
+
+    public function rekapBiaya(string $id): array
+    {
+        $this->findOrFail($id); // ensures 404 if trip doesn't exist
+        return $this->repo->rekapBiaya($id);
+    }
 }

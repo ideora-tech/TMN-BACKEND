@@ -11,10 +11,10 @@ RUN composer install \
     --ignore-platform-reqs
 
 COPY . .
-RUN composer dump-autoload --optimize --no-dev
+RUN composer dump-autoload --optimize --no-dev --ignore-platform-reqs --no-scripts
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
-FROM php:8.2-cli-alpine
+FROM php:8.4-cli-alpine
 
 # System deps
 RUN apk add --no-cache \
@@ -42,6 +42,11 @@ WORKDIR /var/www/html
 # Copy app
 COPY . .
 COPY --from=vendor /app/vendor ./vendor
+
+# Remove dev-generated cache files so Laravel re-discovers from production vendor only
+# (a stale config.php here would bake in a mismatched APP_KEY and break key:generate at boot)
+RUN rm -f bootstrap/cache/packages.php bootstrap/cache/services.php \
+    bootstrap/cache/config.php bootstrap/cache/routes-v7.php bootstrap/cache/events.php
 
 # Permissions
 RUN chown -R www-data:www-data storage bootstrap/cache \

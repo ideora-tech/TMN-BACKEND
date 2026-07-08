@@ -28,6 +28,7 @@ class TripServiceProvider extends ServiceProvider
 
                 Route::post('trip/{id}/checkin', [TripController::class, 'checkin']);
                 Route::post('trip/{id}/checkout', [TripController::class, 'checkout']);
+                Route::get('trip/{id}/rekap-biaya', [TripController::class, 'rekapBiaya']);
             });
     }
 }

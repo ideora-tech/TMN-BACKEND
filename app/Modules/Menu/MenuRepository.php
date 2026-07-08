@@ -26,9 +26,21 @@ class MenuRepository implements MenuRepositoryInterface
         return $query->get()->all();
     }
 
-    public function tree(): array
+    public function tree(?string $kodePeran = null): array
     {
-        $all = MenuModel::active()->where('aktif', 1)->orderBy('urutan')->get();
+        $query = MenuModel::active()->where('aktif', 1)->orderBy('urutan');
+
+        if ($kodePeran !== null) {
+            $role = strtolower($kodePeran);
+            $query->where(function ($q) use ($role) {
+                // Menu tanpa role di menu_peran = tampil untuk semua (misal Dashboard)
+                $q->whereDoesntHave('perans')
+                  // Menu yang punya role ini di menu_peran
+                  ->orWhereHas('perans', fn ($p) => $p->where('kode_peran', $role));
+            });
+        }
+
+        $all = $query->get();
         return $this->buildTree($all, null);
     }
 

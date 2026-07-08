@@ -19,7 +19,7 @@ class PenggunaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN,ADMIN,MANAGER'])
             ->group(function () {
                 Route::apiResource('pengguna', PenggunaController::class)
                     ->parameters(['pengguna' => 'id']);

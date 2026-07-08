@@ -20,6 +20,7 @@ class StoreDokumenArmadaRequest extends FormRequest
             'nomor'          => ['sometimes', 'nullable', 'string', 'max:100'],
             'berlaku_sampai' => ['sometimes', 'nullable', 'date'],
             'url_file'       => ['sometimes', 'nullable', 'string', 'max:500'],
+            'file'           => ['sometimes', 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ];
     }
 }

@@ -16,4 +16,5 @@ interface TripRepositoryInterface
     public function create(array $data): TripModel;
     public function update(TripModel $model, array $data): TripModel;
     public function delete(TripModel $model): void;
+    public function rekapBiaya(string $idTrip): array;
 }

@@ -7,6 +7,7 @@ namespace App\Modules\JadwalKeberangkatan;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
 use App\Modules\Penugasan\PenugasanModel;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class JadwalKeberangkatanRepository implements JadwalKeberangkatanRepositoryInterface
 {
@@ -14,7 +15,23 @@ class JadwalKeberangkatanRepository implements JadwalKeberangkatanRepositoryInte
     {
         return JadwalKeberangkatanModel::active()
             ->where('id_penugasan', $idPenugasan)
-            ->orderBy('waktu_berangkat', 'desc')
+            ->leftJoin('trip as t', 't.id_jadwal', '=', 'jadwal_keberangkatan.id_jadwal')
+            ->select('jadwal_keberangkatan.*', DB::raw("COALESCE(t.status, 'terjadwal') as status"))
+            ->orderBy('jadwal_keberangkatan.waktu_berangkat', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    {
+        return JadwalKeberangkatanModel::active()
+            ->join('penugasan as p', 'p.id_penugasan', '=', 'jadwal_keberangkatan.id_penugasan')
+            ->join('proyek as pr', 'pr.id_proyek', '=', 'p.id_proyek')
+            ->leftJoin('trip as t', 't.id_jadwal', '=', 'jadwal_keberangkatan.id_jadwal')
+            ->where('pr.id_perusahaan', $idPerusahaan)
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('pr.dihapus_pada')
+            ->select('jadwal_keberangkatan.*', DB::raw("COALESCE(t.status, 'terjadwal') as status"))
+            ->orderBy('jadwal_keberangkatan.waktu_berangkat', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
 

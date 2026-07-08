@@ -16,13 +16,13 @@ class StorePenggunaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_perusahaan' => ['required', 'string', 'size:36'],
-            'id_peran'      => ['required', 'string', 'size:36'],
-            'username'      => ['required', 'string', 'max:100'],
-            'email'         => ['required', 'email', 'max:150'],
-            'password'      => ['required', 'string', 'min:8'],
-            'id_karyawan'   => ['nullable', 'string', 'size:36'],
-            'aktif'         => ['sometimes', 'boolean'],
+            'kode_peran'           => ['sometimes', 'nullable', 'string', 'max:50'],
+            'username'             => ['required', 'string', 'max:100'],
+            'email'                => ['required', 'email', 'max:150'],
+            'password'             => ['required', 'string', 'min:8'],
+            'id_karyawan'          => ['sometimes', 'nullable', 'string', 'size:36'],
+            'aktif'                => ['sometimes', 'boolean'],
+            'harus_ganti_password' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 interface JadwalKeberangkatanRepositoryInterface
 {
     public function paginateByPenugasan(string $idPenugasan, int $page, int $limit): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
     public function findById(string $id): ?JadwalKeberangkatanModel;
     public function findBySupir(string $idSupir, int $page, int $limit): LengthAwarePaginator;
     public function create(array $data): JadwalKeberangkatanModel;

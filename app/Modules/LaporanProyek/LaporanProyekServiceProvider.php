@@ -21,6 +21,9 @@ class LaporanProyekServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum'])
             ->group(function () {
+                Route::get('laporan/export/excel', [LaporanProyekController::class, 'exportExcel']);
+                Route::get('laporan/export/pdf', [LaporanProyekController::class, 'exportPdf']);
+
                 Route::get('laporan', [LaporanProyekController::class, 'index']);
                 Route::post('laporan', [LaporanProyekController::class, 'store']);
                 Route::get('laporan/{id}', [LaporanProyekController::class, 'show']);

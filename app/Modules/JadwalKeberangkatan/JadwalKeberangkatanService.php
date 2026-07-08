@@ -13,14 +13,24 @@ class JadwalKeberangkatanService
     public function list(string $idPenugasan, int $page = 1, int $limit = 10): array
     {
         $result = $this->repo->paginateByPenugasan($idPenugasan, $page, $limit);
+        return $this->toPagedArray($result);
+    }
 
+    public function listByPerusahaan(string $idPerusahaan, int $page = 1, int $limit = 10): array
+    {
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit);
+        return $this->toPagedArray($result);
+    }
+
+    private function toPagedArray($paginator): array
+    {
         return [
-            'data' => $result->items(),
+            'data' => $paginator->items(),
             'meta' => [
-                'page'       => $result->currentPage(),
-                'limit'      => $result->perPage(),
-                'total'      => $result->total(),
-                'totalPages' => $result->lastPage(),
+                'page'       => $paginator->currentPage(),
+                'limit'      => $paginator->perPage(),
+                'total'      => $paginator->total(),
+                'totalPages' => $paginator->lastPage(),
             ],
         ];
     }

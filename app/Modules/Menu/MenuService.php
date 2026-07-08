@@ -15,9 +15,9 @@ class MenuService
         return $this->repo->allAktif($kodeModul);
     }
 
-    public function tree(): array
+    public function tree(?string $kodePeran = null): array
     {
-        return $this->repo->tree();
+        return $this->repo->tree($kodePeran);
     }
 
     public function list(int $page = 1, int $limit = 10): array

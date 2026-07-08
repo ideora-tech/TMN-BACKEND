@@ -15,6 +15,7 @@ class MenuResource extends JsonResource
             'nama_menu'     => $this->nama_menu,
             'path'          => $this->path,
             'id_menu_induk' => $this->id_menu_induk,
+            'icon'          => $this->icon,
             'urutan'        => (int) $this->urutan,
             'aktif'         => (bool) $this->aktif,
             'children'      => $this->when(

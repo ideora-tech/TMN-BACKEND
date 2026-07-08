@@ -13,5 +13,6 @@ interface DokumenArmadaRepositoryInterface
     public function findById(string $id): ?DokumenArmadaModel;
     public function findExpiring(string $idPerusahaan, int $days): array;
     public function create(array $data): DokumenArmadaModel;
+    public function update(DokumenArmadaModel $model, array $data): DokumenArmadaModel;
     public function delete(DokumenArmadaModel $model): void;
 }

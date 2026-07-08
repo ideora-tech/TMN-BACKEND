@@ -9,9 +9,15 @@ use App\Modules\Faktur\Requests\StoreFakturRequest;
 use App\Modules\Faktur\Requests\UpdateFakturRequest;
 use App\Modules\Faktur\Requests\UpdateStatusFakturRequest;
 use App\Modules\Faktur\Resources\FakturResource;
+use App\Modules\Faktur\Exports\FakturExport;
+use App\Modules\Faktur\FakturModel;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FakturController extends Controller
 {
@@ -65,5 +71,38 @@ class FakturController extends Controller
     {
         $this->service->delete($id);
         return ApiResponse::success(null, 'Faktur berhasil dihapus');
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        $items = FakturModel::whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->with('klien')
+            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            ->orderBy('dibuat_pada', 'DESC')
+            ->get();
+
+        return Excel::download(
+            new FakturExport(collect($items)),
+            'faktur-' . date('Ymd') . '.xlsx'
+        );
+    }
+
+    public function exportPdf(Request $request): Response
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        $items = FakturModel::whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->with('klien')
+            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
+            ->orderBy('dibuat_pada', 'DESC')
+            ->get();
+
+        $pdf = Pdf::loadView('exports.faktur', ['items' => $items]);
+
+        return $pdf->download('faktur-' . date('Ymd') . '.pdf');
     }
 }

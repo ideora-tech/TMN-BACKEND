@@ -39,6 +39,12 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
         return DokumenArmadaModel::create($data);
     }
 
+    public function update(DokumenArmadaModel $model, array $data): DokumenArmadaModel
+    {
+        $model->update($data);
+        return $model->fresh() ?? $model;
+    }
+
     public function delete(DokumenArmadaModel $model): void
     {
         $model->softDelete();

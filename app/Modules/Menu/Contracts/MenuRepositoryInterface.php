@@ -10,7 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 interface MenuRepositoryInterface
 {
     public function allAktif(?string $kodeModul = null): array;
-    public function tree(): array;
+    public function tree(?string $kodePeran = null): array;
     public function paginate(int $page, int $limit): LengthAwarePaginator;
     public function findById(string $id): ?MenuModel;
     public function create(array $data): MenuModel;

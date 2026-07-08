@@ -24,6 +24,7 @@ class DokumenArmadaServiceProvider extends ServiceProvider
                 // Nested under armada
                 Route::get('armada/{idArmada}/dokumen', [DokumenArmadaController::class, 'indexByArmada']);
                 Route::post('armada/{idArmada}/dokumen', [DokumenArmadaController::class, 'store']);
+                Route::put('armada/{idArmada}/dokumen/{id}', [DokumenArmadaController::class, 'update']);
                 Route::delete('armada/{idArmada}/dokumen/{id}', [DokumenArmadaController::class, 'destroy']);
 
                 // Standalone expiring query

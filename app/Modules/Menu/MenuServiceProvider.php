@@ -22,6 +22,11 @@ class MenuServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum'])
             ->group(function () {
                 Route::get('menu/tree', [MenuController::class, 'tree']);
+            });
+
+        Route::prefix('api/v1')
+            ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN,ADMIN,MANAGER'])
+            ->group(function () {
                 Route::apiResource('menu', MenuController::class)
                     ->parameters(['menu' => 'id']);
             });

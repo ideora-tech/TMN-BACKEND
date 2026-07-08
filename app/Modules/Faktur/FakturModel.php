@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Faktur;
 
 use App\Models\BaseModel;
+use App\Modules\Klien\KlienModel;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FakturModel extends BaseModel
@@ -29,6 +31,11 @@ class FakturModel extends BaseModel
         'tanggal_faktur' => 'date',
         'jatuh_tempo'    => 'date',
     ];
+
+    public function klien(): BelongsTo
+    {
+        return $this->belongsTo(KlienModel::class, 'id_klien', 'id_klien');
+    }
 
     public function items(): HasMany
     {

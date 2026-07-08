@@ -59,4 +59,10 @@ class TripController extends Controller
         $this->service->delete($id);
         return ApiResponse::success(null, 'Trip berhasil dihapus');
     }
+
+    public function rekapBiaya(string $id): JsonResponse
+    {
+        $data = $this->service->rekapBiaya($id);
+        return ApiResponse::success($data, 'Rekap biaya berhasil dimuat');
+    }
 }

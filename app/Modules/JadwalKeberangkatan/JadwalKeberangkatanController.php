@@ -19,15 +19,18 @@ class JadwalKeberangkatanController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $request->validate([
-            'id_penugasan' => ['required', 'string', 'max:36'],
-        ]);
+        $page  = (int) $request->get('page', 1);
+        $limit = (int) $request->get('limit', 10);
 
-        $result = $this->service->list(
-            (string) $request->get('id_penugasan'),
-            (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
-        );
+        if ($request->filled('id_penugasan')) {
+            $result = $this->service->list((string) $request->get('id_penugasan'), $page, $limit);
+        } else {
+            $idPerusahaan = $request->user()->id_perusahaan;
+            if (!$idPerusahaan) {
+                return ApiResponse::paginated(collect([]), ['page'=>1,'limit'=>$limit,'total'=>0,'totalPages'=>0]);
+            }
+            $result = $this->service->listByPerusahaan($idPerusahaan, $page, $limit);
+        }
 
         return ApiResponse::paginated(
             JadwalKeberangkatanResource::collection($result['data']),

@@ -38,7 +38,8 @@ class MenuController extends Controller
 
     public function tree(): JsonResponse
     {
-        $data = $this->service->tree();
+        $kodePeran = auth()->user()?->kode_peran;
+        $data = $this->service->tree($kodePeran);
         return ApiResponse::success(MenuResource::collection($data));
     }
 

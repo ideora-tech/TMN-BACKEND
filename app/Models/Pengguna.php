@@ -21,7 +21,7 @@ class Pengguna extends Authenticatable
     protected $hidden = ['kata_sandi'];
 
     protected $fillable = [
-        'id_pengguna', 'id_perusahaan', 'id_karyawan',
+        'id_pengguna', 'id_perusahaan', 'kode_peran', 'id_karyawan',
         'username', 'email', 'kata_sandi', 'aktif',
         'harus_ganti_password', 'login_terakhir',
     ];
@@ -29,5 +29,14 @@ class Pengguna extends Authenticatable
     public function getAuthPassword(): string
     {
         return $this->kata_sandi;
+    }
+
+    public function karyawan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(
+            \App\Modules\Karyawan\KaryawanModel::class,
+            'id_karyawan',
+            'id_karyawan'
+        );
     }
 }

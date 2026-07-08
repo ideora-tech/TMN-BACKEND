@@ -17,6 +17,7 @@ class PenggunaSeeder extends Seeder
             [
                 'id_pengguna'          => 'c1d2e3f4-0000-4000-8000-000000000001',
                 'id_perusahaan'        => null,
+                'kode_peran'           => 'SUPERADMIN',
                 'username'             => 'superadmin',
                 'email'                => 'superadmin@tmntransport.id',
                 'kata_sandi'           => Hash::make('Password123!'),
@@ -28,6 +29,7 @@ class PenggunaSeeder extends Seeder
             [
                 'id_pengguna'          => 'c1d2e3f4-0000-4000-8000-000000000002',
                 'id_perusahaan'        => $idPerusahaan,
+                'kode_peran'           => 'ADMIN',
                 'username'             => 'admin',
                 'email'                => 'admin@tmn.id',
                 'kata_sandi'           => Hash::make('Password123!'),

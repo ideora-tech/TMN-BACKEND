@@ -15,6 +15,6 @@ trait HasSoftDeleteColumns
 
     public function scopeActive($query)
     {
-        return $query->whereNull('dihapus_pada');
+        return $query->whereNull($query->getModel()->getTable() . '.dihapus_pada');
     }
 }

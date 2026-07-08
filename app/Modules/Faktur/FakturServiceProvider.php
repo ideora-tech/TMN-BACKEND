@@ -23,6 +23,9 @@ class FakturServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum'])
             ->group(function () {
+                Route::get('faktur/export/excel', [FakturController::class, 'exportExcel']);
+                Route::get('faktur/export/pdf', [FakturController::class, 'exportPdf']);
+
                 Route::apiResource('faktur', FakturController::class)
                     ->parameters(['faktur' => 'id']);
 

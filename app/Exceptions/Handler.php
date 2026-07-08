@@ -41,6 +41,9 @@ class Handler extends ExceptionHandler
         }
 
         if ($request->expectsJson() || $request->is('api/*')) {
+            if ($e instanceof AuthenticationException) {
+                return $this->unauthenticated($request, $e);
+            }
             if ($e instanceof ValidationException) {
                 return ApiResponse::error('Validasi gagal', $e->errors(), 422);
             }
