@@ -14,6 +14,7 @@ class PenugasanResource extends JsonResource
             'id_penugasan'  => $this->id_penugasan,
             'id_proyek'     => $this->id_proyek,
             'id_armada'     => $this->id_armada,
+            'id_supir'      => $this->id_supir,
             'id_karyawan'   => $this->id_karyawan,
             'tanggal_tugas' => $this->tanggal_tugas,
             'status'        => $this->status,

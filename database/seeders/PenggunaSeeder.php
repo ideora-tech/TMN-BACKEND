@@ -16,7 +16,7 @@ class PenggunaSeeder extends Seeder
         $users = [
             [
                 'id_pengguna'          => 'c1d2e3f4-0000-4000-8000-000000000001',
-                'id_perusahaan'        => null,
+                'id_perusahaan'        => $idPerusahaan,
                 'kode_peran'           => 'SUPERADMIN',
                 'username'             => 'superadmin',
                 'email'                => 'superadmin@tmntransport.id',

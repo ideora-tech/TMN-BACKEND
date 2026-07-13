@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Vendor\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreVendorRequest extends FormRequest
 {
@@ -16,7 +17,7 @@ class StoreVendorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_vendor' => ['required', 'string', 'max:50'],
+            'kode_vendor' => ['required', 'string', 'max:50', Rule::unique('vendor', 'kode_vendor')],
             'nama_vendor' => ['required', 'string', 'max:200'],
             'email'       => ['sometimes', 'nullable', 'email', 'max:150'],
             'telepon'     => ['sometimes', 'nullable', 'string', 'max:30'],

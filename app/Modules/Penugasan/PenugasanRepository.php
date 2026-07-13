@@ -17,6 +17,22 @@ class PenugasanRepository implements PenugasanRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    public function paginateByArmada(string $idArmada, int $page, int $limit): LengthAwarePaginator
+    {
+        return PenugasanModel::active()
+            ->where('id_armada', $idArmada)
+            ->orderBy('tanggal_tugas', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    public function paginateBySupir(string $idSupir, int $page, int $limit): LengthAwarePaginator
+    {
+        return PenugasanModel::active()
+            ->where('id_supir', $idSupir)
+            ->orderBy('tanggal_tugas', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
+    }
+
     public function countSelesaiByProyek(string $idProyek): int
     {
         return PenugasanModel::active()

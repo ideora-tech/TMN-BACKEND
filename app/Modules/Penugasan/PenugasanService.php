@@ -26,6 +26,36 @@ class PenugasanService
         ];
     }
 
+    public function listByArmada(string $idArmada, int $page = 1, int $limit = 20): array
+    {
+        $result = $this->repo->paginateByArmada($idArmada, $page, $limit);
+
+        return [
+            'data' => $result->items(),
+            'meta' => [
+                'page'       => $result->currentPage(),
+                'limit'      => $result->perPage(),
+                'total'      => $result->total(),
+                'totalPages' => $result->lastPage(),
+            ],
+        ];
+    }
+
+    public function listBySupir(string $idSupir, int $page = 1, int $limit = 20): array
+    {
+        $result = $this->repo->paginateBySupir($idSupir, $page, $limit);
+
+        return [
+            'data' => $result->items(),
+            'meta' => [
+                'page'       => $result->currentPage(),
+                'limit'      => $result->perPage(),
+                'total'      => $result->total(),
+                'totalPages' => $result->lastPage(),
+            ],
+        ];
+    }
+
     public function findOrFail(string $id): PenugasanModel
     {
         $record = $this->repo->findById($id);
@@ -42,8 +72,8 @@ class PenugasanService
             if ($armada === null) {
                 abort(422, 'Armada tidak ditemukan');
             }
-            if ($armada->status !== 'tersedia') {
-                abort(422, 'Armada tidak tersedia untuk ditugaskan');
+            if ($armada->status !== 'aktif') {
+                abort(422, 'Armada tidak tersedia untuk ditugaskan (status: ' . $armada->status . ')');
             }
         }
 

@@ -17,11 +17,16 @@ class PerawatanArmadaModel extends BaseModel
         'tanggal',
         'jenis_perawatan',
         'biaya',
+        'km_odometer',
+        'status',
+        'jadwal_servis_berikutnya',
         'keterangan',
     ];
 
     protected $casts = [
-        'tanggal' => 'date',
-        'biaya'   => 'decimal:2',
+        'tanggal'                  => 'date',
+        'biaya'                    => 'decimal:2',
+        'km_odometer'              => 'integer',
+        'jadwal_servis_berikutnya' => 'date',
     ];
 }

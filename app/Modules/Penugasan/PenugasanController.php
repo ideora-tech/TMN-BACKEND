@@ -18,17 +18,18 @@ class PenugasanController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $idProyek = (string) $request->get('id_proyek');
+        $page  = (int) $request->get('page', 1);
+        $limit = (int) $request->get('limit', 10);
 
-        if (empty($idProyek)) {
-            abort(422, 'Parameter id_proyek wajib diisi');
+        if ($request->filled('id_armada')) {
+            $result = $this->service->listByArmada((string) $request->get('id_armada'), $page, $limit);
+        } elseif ($request->filled('id_supir')) {
+            $result = $this->service->listBySupir((string) $request->get('id_supir'), $page, $limit);
+        } elseif ($request->filled('id_proyek')) {
+            $result = $this->service->list((string) $request->get('id_proyek'), $page, $limit);
+        } else {
+            abort(422, 'Parameter id_proyek, id_armada, atau id_supir wajib diisi');
         }
-
-        $result = $this->service->list(
-            $idProyek,
-            (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
-        );
 
         return ApiResponse::paginated(
             PenugasanResource::collection($result['data']),

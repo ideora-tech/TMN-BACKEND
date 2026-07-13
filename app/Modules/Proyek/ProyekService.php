@@ -27,6 +27,21 @@ class ProyekService
         ];
     }
 
+    public function listByKlien(string $idKlien, int $page = 1, int $limit = 20): array
+    {
+        $result = $this->repo->paginateByKlien($idKlien, $page, $limit);
+
+        return [
+            'data' => $result->items(),
+            'meta' => [
+                'page'       => $result->currentPage(),
+                'limit'      => $result->perPage(),
+                'total'      => $result->total(),
+                'totalPages' => $result->lastPage(),
+            ],
+        ];
+    }
+
     public function findOrFail(string $id): ProyekModel
     {
         $record = $this->repo->findById($id);

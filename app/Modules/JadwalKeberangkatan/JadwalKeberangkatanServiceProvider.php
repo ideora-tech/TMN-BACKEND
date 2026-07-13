@@ -21,8 +21,9 @@ class JadwalKeberangkatanServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum'])
             ->group(function () {
-                // /jadwal/saya MUST be registered before the apiResource to avoid conflict
+                // static routes MUST be registered before apiResource to avoid conflict
                 Route::get('jadwal/saya', [JadwalKeberangkatanController::class, 'saya']);
+                Route::get('jadwal/supir/{idSupir}', [JadwalKeberangkatanController::class, 'bySupir']);
 
                 Route::apiResource('jadwal', JadwalKeberangkatanController::class)
                     ->parameters(['jadwal' => 'id']);

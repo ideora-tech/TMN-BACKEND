@@ -10,6 +10,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 interface PenugasanRepositoryInterface
 {
     public function paginateByProyek(string $idProyek, int $page, int $limit): LengthAwarePaginator;
+    public function paginateByArmada(string $idArmada, int $page, int $limit): LengthAwarePaginator;
+    public function paginateBySupir(string $idSupir, int $page, int $limit): LengthAwarePaginator;
     public function countSelesaiByProyek(string $idProyek): int;
     public function findById(string $id): ?PenugasanModel;
     public function hasConflict(string $idKaryawan, string $tanggalTugas, ?string $excludeId = null): bool;

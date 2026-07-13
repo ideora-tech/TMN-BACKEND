@@ -17,6 +17,14 @@ class FakturRepository implements FakturRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    public function paginateByKlien(string $idKlien, int $page, int $limit): LengthAwarePaginator
+    {
+        return FakturModel::active()
+            ->where('id_klien', $idKlien)
+            ->orderBy('dibuat_pada', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
+    }
+
     public function findById(string $id): ?FakturModel
     {
         return FakturModel::active()->with('items')->find($id);

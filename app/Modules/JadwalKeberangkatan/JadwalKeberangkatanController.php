@@ -65,6 +65,20 @@ class JadwalKeberangkatanController extends Controller
         );
     }
 
+    public function bySupir(Request $request, string $idSupir): JsonResponse
+    {
+        $result = $this->service->listBySupir(
+            $idSupir,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 20)
+        );
+
+        return ApiResponse::paginated(
+            JadwalKeberangkatanResource::collection($result['data']),
+            $result['meta']
+        );
+    }
+
     public function store(StoreJadwalKeberangkatanRequest $request): JsonResponse
     {
         $record = $this->service->create($request->validated());

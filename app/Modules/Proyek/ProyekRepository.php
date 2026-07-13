@@ -17,6 +17,14 @@ class ProyekRepository implements ProyekRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    public function paginateByKlien(string $idKlien, int $page, int $limit): LengthAwarePaginator
+    {
+        return ProyekModel::active()
+            ->where('id_klien', $idKlien)
+            ->orderBy('dibuat_pada', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
+    }
+
     public function findById(string $id): ?ProyekModel
     {
         return ProyekModel::active()->find($id);
