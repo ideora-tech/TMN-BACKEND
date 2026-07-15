@@ -9,26 +9,29 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class PenugasanRepository implements PenugasanRepositoryInterface
 {
-    public function paginateByProyek(string $idProyek, int $page, int $limit): LengthAwarePaginator
+    public function paginateByProyek(string $idProyek, int $page, int $limit, ?string $sumber = null): LengthAwarePaginator
     {
         return PenugasanModel::active()
             ->where('id_proyek', $idProyek)
+            ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
             ->orderBy('dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
 
-    public function paginateByArmada(string $idArmada, int $page, int $limit): LengthAwarePaginator
+    public function paginateByArmada(string $idArmada, int $page, int $limit, ?string $sumber = null): LengthAwarePaginator
     {
         return PenugasanModel::active()
             ->where('id_armada', $idArmada)
+            ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
             ->orderBy('tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
 
-    public function paginateBySupir(string $idSupir, int $page, int $limit): LengthAwarePaginator
+    public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null): LengthAwarePaginator
     {
         return PenugasanModel::active()
             ->where('id_supir', $idSupir)
+            ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
             ->orderBy('tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }

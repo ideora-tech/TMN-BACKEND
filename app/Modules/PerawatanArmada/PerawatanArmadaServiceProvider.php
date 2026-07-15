@@ -19,7 +19,7 @@ class PerawatanArmadaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:armada'])
             ->group(function () {
                 Route::get('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'indexByArmada']);
                 Route::get('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'show']);

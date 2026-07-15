@@ -11,15 +11,20 @@ class PenugasanResource extends JsonResource
     public function toArray($request): array
     {
         return [
-            'id_penugasan'  => $this->id_penugasan,
-            'id_proyek'     => $this->id_proyek,
-            'id_armada'     => $this->id_armada,
-            'id_supir'      => $this->id_supir,
-            'id_karyawan'   => $this->id_karyawan,
-            'tanggal_tugas' => $this->tanggal_tugas,
-            'status'        => $this->status,
-            'dibuat_pada'   => $this->dibuat_pada,
-            'diubah_pada'   => $this->diubah_pada,
+            'id_penugasan'   => $this->id_penugasan,
+            'id_proyek'      => $this->id_proyek,
+            'id_armada'      => $this->id_armada,
+            'id_supir'       => $this->id_supir,
+            'id_karyawan'    => $this->id_karyawan,
+            'tanggal_tugas'  => $this->tanggal_tugas,
+            'status'         => $this->status,
+            'estimasi_biaya' => $this->estimasi_biaya !== null ? (float) $this->estimasi_biaya : null,
+            'sumber'            => $this->sumber,
+            'id_kontrak_vendor' => $this->id_kontrak_vendor,
+            'id_armada_vendor'  => $this->id_armada_vendor,
+            'id_supir_vendor'   => $this->id_supir_vendor,
+            'dibuat_pada'    => $this->dibuat_pada,
+            'diubah_pada'    => $this->diubah_pada,
         ];
     }
 }

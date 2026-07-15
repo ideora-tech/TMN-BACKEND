@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Klien;
 
 use App\Modules\Klien\Contracts\KlienRepositoryInterface;
+use App\Modules\Proyek\ProyekModel;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class KlienRepository implements KlienRepositoryInterface
@@ -44,5 +45,13 @@ class KlienRepository implements KlienRepositoryInterface
     public function delete(KlienModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function paginateProyek(string $idKlien, int $page, int $limit): LengthAwarePaginator
+    {
+        return ProyekModel::active()
+            ->where('id_klien', $idKlien)
+            ->orderBy('dibuat_pada', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
     }
 }

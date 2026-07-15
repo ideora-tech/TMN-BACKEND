@@ -18,15 +18,16 @@ class PenugasanController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $page  = (int) $request->get('page', 1);
-        $limit = (int) $request->get('limit', 10);
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $sumber = $request->filled('sumber') ? (string) $request->get('sumber') : null;
 
         if ($request->filled('id_armada')) {
-            $result = $this->service->listByArmada((string) $request->get('id_armada'), $page, $limit);
+            $result = $this->service->listByArmada((string) $request->get('id_armada'), $page, $limit, $sumber);
         } elseif ($request->filled('id_supir')) {
-            $result = $this->service->listBySupir((string) $request->get('id_supir'), $page, $limit);
+            $result = $this->service->listBySupir((string) $request->get('id_supir'), $page, $limit, $sumber);
         } elseif ($request->filled('id_proyek')) {
-            $result = $this->service->list((string) $request->get('id_proyek'), $page, $limit);
+            $result = $this->service->list((string) $request->get('id_proyek'), $page, $limit, $sumber);
         } else {
             abort(422, 'Parameter id_proyek, id_armada, atau id_supir wajib diisi');
         }
@@ -44,13 +45,15 @@ class PenugasanController extends Controller
 
     public function store(StorePenugasanRequest $request): JsonResponse
     {
-        $record = $this->service->create($request->validated());
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->create($request->validated(), $idPerusahaan);
         return ApiResponse::success(new PenugasanResource($record), 'Penugasan berhasil dibuat', 201);
     }
 
     public function update(UpdatePenugasanRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->update($id, $request->validated(), $idPerusahaan);
         return ApiResponse::success(new PenugasanResource($record), 'Penugasan berhasil diperbarui');
     }
 

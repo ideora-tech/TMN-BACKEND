@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Proyek\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateProyekRequest extends FormRequest
 {
@@ -17,12 +18,19 @@ class UpdateProyekRequest extends FormRequest
     {
         return [
             'id_klien'        => ['sometimes', 'string', 'max:36'],
-            'kode_proyek'     => ['sometimes', 'string', 'max:50'],
+            'kode_proyek'     => ['sometimes', 'string', 'max:50', Rule::unique('proyek', 'kode_proyek')->ignore($this->route('id'), 'id_proyek')],
             'nama_proyek'     => ['sometimes', 'string', 'max:200'],
             'tanggal_mulai'   => ['sometimes', 'nullable', 'date'],
             'tanggal_selesai' => ['sometimes', 'nullable', 'date', 'after_or_equal:tanggal_mulai'],
             'status'          => ['sometimes', 'string', 'in:draft,aktif,selesai,batal'],
             'keterangan'      => ['sometimes', 'nullable', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'kode_proyek.unique' => 'Kode proyek sudah digunakan',
         ];
     }
 }

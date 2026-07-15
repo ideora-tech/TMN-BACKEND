@@ -19,7 +19,7 @@ class RekonsiliasiServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:rekonsiliasi'])
             ->group(function () {
                 Route::apiResource('rekonsiliasi', RekonsiliasiController::class)
                     ->parameters(['rekonsiliasi' => 'id']);

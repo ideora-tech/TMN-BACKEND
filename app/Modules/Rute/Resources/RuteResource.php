@@ -11,6 +11,8 @@ class RuteResource extends JsonResource {
             'nama_rute'             => $this->nama_rute,
             'asal'                  => $this->asal,
             'tujuan'                => $this->tujuan,
+            'id_lokasi_asal'        => $this->id_lokasi_asal,
+            'id_lokasi_tujuan'      => $this->id_lokasi_tujuan,
             'estimasi_jarak_km'     => $this->estimasi_jarak_km ? (float) $this->estimasi_jarak_km : null,
             'estimasi_durasi_menit' => $this->estimasi_durasi_menit,
             'keterangan'            => $this->keterangan,

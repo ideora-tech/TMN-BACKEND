@@ -63,4 +63,24 @@ class KlienService
         $record = $this->findOrFail($id);
         $this->repo->delete($record);
     }
+
+    public function riwayatProyek(string $idKlien, string $idPerusahaan, int $page = 1, int $limit = 10): array
+    {
+        $klien = $this->repo->findById($idKlien);
+        if ($klien === null || $klien->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Klien tidak ditemukan');
+        }
+
+        $result = $this->repo->paginateProyek($idKlien, $page, $limit);
+
+        return [
+            'data' => $result->items(),
+            'meta' => [
+                'page'       => $result->currentPage(),
+                'limit'      => $result->perPage(),
+                'total'      => $result->total(),
+                'totalPages' => $result->lastPage(),
+            ],
+        ];
+    }
 }

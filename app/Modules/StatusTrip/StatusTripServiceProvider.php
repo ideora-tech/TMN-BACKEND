@@ -19,7 +19,7 @@ class StatusTripServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:trip'])
             ->group(function () {
                 Route::get('trip/{idTrip}/status', [StatusTripController::class, 'index']);
                 Route::post('trip/{idTrip}/status', [StatusTripController::class, 'store']);

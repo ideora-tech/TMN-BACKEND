@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
+            'izin' => \App\Http\Middleware\CheckIzinPeran::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

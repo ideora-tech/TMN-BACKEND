@@ -52,6 +52,39 @@ class JadwalKeberangkatanRepository implements JadwalKeberangkatanRepositoryInte
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    public function findKandidatBentrok(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor, ?string $excludeJadwalId): array
+    {
+        if (!$idArmada && !$idSupir && !$idArmadaVendor && !$idSupirVendor) {
+            return [];
+        }
+
+        return JadwalKeberangkatanModel::active()
+            ->join('penugasan as p', 'p.id_penugasan', '=', 'jadwal_keberangkatan.id_penugasan')
+            ->leftJoin('trip as t', 't.id_jadwal', '=', 'jadwal_keberangkatan.id_jadwal')
+            ->whereNull('p.dihapus_pada')
+            ->whereNotNull('jadwal_keberangkatan.waktu_berangkat')
+            ->where(function ($q) use ($idArmada, $idSupir, $idArmadaVendor, $idSupirVendor) {
+                if ($idArmada) {
+                    $q->orWhere('p.id_armada', $idArmada);
+                }
+                if ($idSupir) {
+                    $q->orWhere('p.id_supir', $idSupir);
+                }
+                if ($idArmadaVendor) {
+                    $q->orWhere('p.id_armada_vendor', $idArmadaVendor);
+                }
+                if ($idSupirVendor) {
+                    $q->orWhere('p.id_supir_vendor', $idSupirVendor);
+                }
+            })
+            ->where(function ($q) {
+                $q->whereNull('t.status')->orWhereNotIn('t.status', ['selesai', 'dibatalkan']);
+            })
+            ->when($excludeJadwalId, fn ($q) => $q->where('jadwal_keberangkatan.id_jadwal', '!=', $excludeJadwalId))
+            ->select('jadwal_keberangkatan.id_jadwal', 'jadwal_keberangkatan.waktu_berangkat', 'jadwal_keberangkatan.estimasi_tiba')
+            ->get()->all();
+    }
+
     public function create(array $data): JadwalKeberangkatanModel
     {
         return JadwalKeberangkatanModel::create($data);

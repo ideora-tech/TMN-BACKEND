@@ -19,7 +19,7 @@ class LaporanProyekServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:laporan'])
             ->group(function () {
                 Route::get('laporan/export/excel', [LaporanProyekController::class, 'exportExcel']);
                 Route::get('laporan/export/pdf', [LaporanProyekController::class, 'exportPdf']);

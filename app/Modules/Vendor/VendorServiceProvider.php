@@ -19,7 +19,7 @@ class VendorServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:vendor'])
             ->group(function () {
                 Route::apiResource('vendor', VendorController::class)
                     ->parameters(['vendor' => 'id']);

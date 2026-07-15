@@ -19,7 +19,7 @@ class TripServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:trip'])
             ->group(function () {
                 Route::get('trip', [TripController::class, 'index']);
                 Route::post('trip', [TripController::class, 'store']);
@@ -28,6 +28,7 @@ class TripServiceProvider extends ServiceProvider
 
                 Route::post('trip/{id}/checkin', [TripController::class, 'checkin']);
                 Route::post('trip/{id}/checkout', [TripController::class, 'checkout']);
+                Route::post('trip/{id}/batalkan', [TripController::class, 'batalkan']);
                 Route::get('trip/{id}/rekap-biaya', [TripController::class, 'rekapBiaya']);
             });
     }

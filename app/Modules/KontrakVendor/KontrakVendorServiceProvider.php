@@ -19,7 +19,7 @@ class KontrakVendorServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:vendor'])
             ->group(function () {
                 // Nested under proyek: list + create
                 Route::get('proyek/{idProyek}/kontrak', [KontrakVendorController::class, 'indexByProyek']);

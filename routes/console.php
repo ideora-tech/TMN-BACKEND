@@ -23,11 +23,6 @@ Artisan::command('notifikasi:dokumen-kadaluarsa', function () {
         ->select('d.id_dokumen_armada', 'd.jenis_dokumen', 'd.berlaku_sampai', 'a.nopol', 'a.id_perusahaan')
         ->get();
 
-    if ($dokumen->isEmpty()) {
-        $this->info('Tidak ada dokumen yang akan kadaluarsa.');
-        return;
-    }
-
     $created = 0;
     foreach ($dokumen as $dok) {
         $exists = NotifikasiModel::where('referensi_id', $dok->id_dokumen_armada)
@@ -50,6 +45,40 @@ Artisan::command('notifikasi:dokumen-kadaluarsa', function () {
             'tipe'           => 'alert_dokumen',
             'referensi_id'   => $dok->id_dokumen_armada,
             'referensi_tipe' => 'dokumen_armada',
+            'dibaca'         => 0,
+        ]);
+        $created++;
+    }
+
+    $dokumenVendor = DB::table('dokumen_vendor as d')
+        ->join('vendor as v', 'd.id_vendor', '=', 'v.id_vendor')
+        ->whereNull('d.dihapus_pada')
+        ->whereNull('v.dihapus_pada')
+        ->whereBetween('d.berlaku_sampai', [$today, $batas])
+        ->select('d.id_dokumen_vendor', 'd.jenis_dokumen', 'd.berlaku_sampai', 'v.nama_vendor', 'v.id_perusahaan')
+        ->get();
+
+    foreach ($dokumenVendor as $dok) {
+        $exists = NotifikasiModel::where('referensi_id', $dok->id_dokumen_vendor)
+            ->where('referensi_tipe', 'dokumen_vendor')
+            ->whereDate('dibuat_pada', $today)
+            ->exists();
+        if ($exists) continue;
+
+        $exp      = now()->parse($dok->berlaku_sampai);
+        $daysLeft = (int) now()->diffInDays($exp, false);
+        $prefix   = $daysLeft <= 7 ? '[SEGERA] ' : '';
+
+        NotifikasiModel::create([
+            'id_notifikasi'  => Str::uuid()->toString(),
+            'id_perusahaan'  => $dok->id_perusahaan,
+            'id_pengguna'    => null,
+            'judul'          => "{$prefix}Dokumen {$dok->jenis_dokumen} vendor {$dok->nama_vendor} kadaluarsa dalam {$daysLeft} hari",
+            'isi'            => "Dokumen {$dok->jenis_dokumen} untuk vendor {$dok->nama_vendor} akan kadaluarsa pada ".
+                                $exp->format('d M Y')." ({$daysLeft} hari lagi). Segera perbarui.",
+            'tipe'           => 'alert_dokumen',
+            'referensi_id'   => $dok->id_dokumen_vendor,
+            'referensi_tipe' => 'dokumen_vendor',
             'dibaca'         => 0,
         ]);
         $created++;
@@ -89,7 +118,7 @@ Artisan::command('notifikasi:trip-belum-selesai', function () {
             ->exists();
         if ($exists) continue;
 
-        $hours = (int) now()->diffInHours(now()->parse($trip->waktu_checkin));
+        $hours = (int) now()->diffInHours(now()->parse($trip->waktu_checkin), true);
 
         NotifikasiModel::create([
             'id_notifikasi'  => Str::uuid()->toString(),

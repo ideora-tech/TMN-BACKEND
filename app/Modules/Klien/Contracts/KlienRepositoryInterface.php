@@ -15,4 +15,9 @@ interface KlienRepositoryInterface
     public function create(array $data): KlienModel;
     public function update(KlienModel $model, array $data): KlienModel;
     public function delete(KlienModel $model): void;
+
+    /**
+     * Riwayat proyek milik satu klien, terbaru lebih dulu.
+     */
+    public function paginateProyek(string $idKlien, int $page, int $limit): LengthAwarePaginator;
 }

@@ -31,6 +31,14 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
         return KontrakVendorModel::active()->find($id);
     }
 
+    public function findAktifMilikPerusahaan(string $id, string $idPerusahaan): ?KontrakVendorModel
+    {
+        return KontrakVendorModel::active()
+            ->where('id_kontrak_vendor', $id)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->first();
+    }
+
     public function create(array $data): KontrakVendorModel
     {
         return KontrakVendorModel::create($data);

@@ -10,6 +10,8 @@ class StoreRuteRequest extends FormRequest {
             'nama_rute'             => 'required|string|max:200',
             'asal'                  => 'sometimes|nullable|string|max:200',
             'tujuan'                => 'sometimes|nullable|string|max:200',
+            'id_lokasi_asal'        => ['sometimes', 'nullable', 'string', 'max:36'],
+            'id_lokasi_tujuan'      => ['sometimes', 'nullable', 'string', 'max:36'],
             'estimasi_jarak_km'     => 'sometimes|nullable|numeric|min:0',
             'estimasi_durasi_menit' => 'sometimes|nullable|integer|min:0',
             'keterangan'            => 'sometimes|nullable|string',

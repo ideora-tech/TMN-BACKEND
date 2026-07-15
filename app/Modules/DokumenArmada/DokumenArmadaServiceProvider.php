@@ -19,7 +19,7 @@ class DokumenArmadaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:armada'])
             ->group(function () {
                 // Nested under armada
                 Route::get('armada/{idArmada}/dokumen', [DokumenArmadaController::class, 'indexByArmada']);

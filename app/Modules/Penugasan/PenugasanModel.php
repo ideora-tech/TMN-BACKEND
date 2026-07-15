@@ -19,5 +19,14 @@ class PenugasanModel extends BaseModel
         'id_karyawan',
         'tanggal_tugas',
         'status',
+        'estimasi_biaya',
+        'sumber',
+        'id_kontrak_vendor',
+        'id_armada_vendor',
+        'id_supir_vendor',
+    ];
+
+    protected $attributes = [
+        'sumber' => 'internal',
     ];
 }

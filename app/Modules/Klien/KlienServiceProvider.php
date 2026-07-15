@@ -19,8 +19,9 @@ class KlienServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:klien'])
             ->group(function () {
+                Route::get('klien/{id}/proyek', [KlienController::class, 'riwayatProyek']);
                 Route::apiResource('klien', KlienController::class)
                     ->parameters(['klien' => 'id']);
             });

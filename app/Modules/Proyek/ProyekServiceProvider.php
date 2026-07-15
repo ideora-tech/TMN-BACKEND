@@ -19,7 +19,7 @@ class ProyekServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:project'])
             ->group(function () {
                 Route::apiResource('proyek', ProyekController::class)
                     ->parameters(['proyek' => 'id']);

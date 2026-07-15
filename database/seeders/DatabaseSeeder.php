@@ -15,12 +15,12 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ZonaWaktuSeeder::class,
             MataUangSeeder::class,
-            PaketLanggananSeeder::class,
             ModulSeeder::class,
             PerusahaanSeeder::class,
             PeranSeeder::class,
             PenggunaSeeder::class,
             MenuSeeder::class,
+            IzinPeranSeeder::class,
         ]);
     }
 }

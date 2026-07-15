@@ -22,7 +22,8 @@ class TripController extends Controller
         $result = $this->service->list(
             $idPerusahaan,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            $request->get('id_jadwal')
         );
 
         return ApiResponse::paginated(
@@ -54,15 +55,23 @@ class TripController extends Controller
         return ApiResponse::success(new TripResource($record), 'Checkout berhasil');
     }
 
+    public function batalkan(Request $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->batalkan($id, $idPerusahaan);
+        return ApiResponse::success(new TripResource($record), 'Trip berhasil dibatalkan');
+    }
+
     public function destroy(string $id): JsonResponse
     {
         $this->service->delete($id);
         return ApiResponse::success(null, 'Trip berhasil dihapus');
     }
 
-    public function rekapBiaya(string $id): JsonResponse
+    public function rekapBiaya(Request $request, string $id): JsonResponse
     {
-        $data = $this->service->rekapBiaya($id);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $data = $this->service->rekapBiaya($id, $idPerusahaan);
         return ApiResponse::success($data, 'Rekap biaya berhasil dimuat');
     }
 }

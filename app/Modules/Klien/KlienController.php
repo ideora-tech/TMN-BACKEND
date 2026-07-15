@@ -8,6 +8,7 @@ use App\Helpers\ApiResponse;
 use App\Modules\Klien\Requests\StoreKlienRequest;
 use App\Modules\Klien\Requests\UpdateKlienRequest;
 use App\Modules\Klien\Resources\KlienResource;
+use App\Modules\Proyek\Resources\ProyekResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -59,5 +60,22 @@ class KlienController extends Controller
     {
         $this->service->delete($id);
         return ApiResponse::success(null, 'Klien berhasil dihapus');
+    }
+
+    public function riwayatProyek(Request $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        $result = $this->service->riwayatProyek(
+            $id,
+            $idPerusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10)
+        );
+
+        return ApiResponse::paginated(
+            ProyekResource::collection($result['data']),
+            $result['meta']
+        );
     }
 }

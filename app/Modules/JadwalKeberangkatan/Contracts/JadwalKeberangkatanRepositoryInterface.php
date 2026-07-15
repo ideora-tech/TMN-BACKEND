@@ -13,6 +13,7 @@ interface JadwalKeberangkatanRepositoryInterface
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
     public function findById(string $id): ?JadwalKeberangkatanModel;
     public function findBySupir(string $idSupir, int $page, int $limit): LengthAwarePaginator;
+    public function findKandidatBentrok(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor, ?string $excludeJadwalId): array;
     public function create(array $data): JadwalKeberangkatanModel;
     public function update(JadwalKeberangkatanModel $model, array $data): JadwalKeberangkatanModel;
     public function delete(JadwalKeberangkatanModel $model): void;

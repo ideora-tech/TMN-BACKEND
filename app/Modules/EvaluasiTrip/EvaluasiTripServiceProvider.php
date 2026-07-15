@@ -19,7 +19,7 @@ class EvaluasiTripServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:trip'])
             ->group(function () {
                 Route::get('penugasan/{idPenugasan}/evaluasi', [EvaluasiTripController::class, 'showByPenugasan']);
                 Route::post('penugasan/{idPenugasan}/evaluasi', [EvaluasiTripController::class, 'storeByPenugasan']);

@@ -17,7 +17,7 @@ class SupirServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:supir'])
             ->group(function () {
                 Route::get('supir/me', [SupirController::class, 'me']);
                 Route::apiResource('supir', SupirController::class)

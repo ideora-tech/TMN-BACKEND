@@ -10,9 +10,9 @@ class TripService
 {
     public function __construct(private readonly TripRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null): array
     {
-        $result = $this->repo->paginate($idPerusahaan, $page, $limit);
+        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal);
 
         return [
             'data' => $result->items(),
@@ -80,15 +80,37 @@ class TripService
         return $this->repo->update($trip, $data);
     }
 
+    public function batalkan(string $id, string $idPerusahaan): TripModel
+    {
+        $trip = $this->findOrFail($id);
+
+        if (!$this->repo->milikPerusahaan($id, $idPerusahaan)) {
+            abort(404, 'Trip tidak ditemukan');
+        }
+
+        if ($trip->status === 'selesai') {
+            abort(422, 'Trip yang sudah selesai tidak dapat dibatalkan');
+        }
+
+        return $this->repo->update($trip, [
+            'status' => 'dibatalkan',
+        ]);
+    }
+
     public function delete(string $id): void
     {
         $trip = $this->findOrFail($id);
         $this->repo->delete($trip);
     }
 
-    public function rekapBiaya(string $id): array
+    public function rekapBiaya(string $id, string $idPerusahaan): array
     {
         $this->findOrFail($id); // ensures 404 if trip doesn't exist
+
+        if (!$this->repo->milikPerusahaan($id, $idPerusahaan)) {
+            abort(404, 'Trip tidak ditemukan');
+        }
+
         return $this->repo->rekapBiaya($id);
     }
 }
