@@ -18,7 +18,7 @@ class StoreMenuRequest extends FormRequest
         return [
             'nama_menu'     => ['required', 'string', 'max:100'],
             'path'          => ['sometimes', 'nullable', 'string', 'max:200'],
-            'id_menu_induk' => ['sometimes', 'nullable', 'string', 'uuid'],
+            'id_menu_induk' => ['sometimes', 'nullable', 'string', 'exists:menu,id_menu'],
             'urutan'        => ['sometimes', 'integer', 'min:0'],
             'aktif'         => ['sometimes', 'boolean'],
         ];

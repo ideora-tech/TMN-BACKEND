@@ -18,10 +18,8 @@ class MenuController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $kodeModul = $request->get('kode_modul');
-
-        if ($request->boolean('all') || $kodeModul !== null) {
-            $data = $this->service->listAktif($kodeModul);
+        if ($request->boolean('all')) {
+            $data = $this->service->listAktif();
             return ApiResponse::success(MenuResource::collection($data));
         }
 

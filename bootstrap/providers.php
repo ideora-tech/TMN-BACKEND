@@ -24,7 +24,6 @@ return [
     App\Modules\LaporanProyek\LaporanProyekServiceProvider::class,
     App\Modules\LokasiKantor\LokasiKantorServiceProvider::class,
     App\Modules\Menu\MenuServiceProvider::class,
-    App\Modules\Modul\ModulServiceProvider::class,
     App\Modules\Notifikasi\NotifikasiServiceProvider::class,
     App\Modules\Pengguna\PenggunaServiceProvider::class,
     App\Modules\Penugasan\PenugasanServiceProvider::class,

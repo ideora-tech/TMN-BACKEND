@@ -10,9 +10,9 @@ class KontrakVendorService
 {
     public function __construct(private readonly KontrakVendorRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idVendor = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idVendor);
 
         return [
             'data' => $result->items(),

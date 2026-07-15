@@ -14,6 +14,10 @@ class KontrakVendorResource extends JsonResource
             'id_kontrak_vendor' => $this->id_kontrak_vendor,
             'id_perusahaan'     => $this->id_perusahaan,
             'id_vendor'         => $this->id_vendor,
+            'vendor'            => $this->vendor_nama !== null ? [
+                'id_vendor'   => $this->id_vendor,
+                'nama_vendor' => $this->vendor_nama,
+            ] : null,
             'id_proyek'         => $this->id_proyek,
             'mekanisme'         => $this->mekanisme,
             'nilai_kontrak'     => (float) $this->nilai_kontrak,

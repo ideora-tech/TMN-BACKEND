@@ -33,15 +33,23 @@ class MenuSeeder extends Seeder
             'pengguna'         => 'm0000001-0000-4000-8000-000000000041',
             'peran'            => 'm0000001-0000-4000-8000-000000000042',
             'log_error'        => 'm0000001-0000-4000-8000-000000000043',
+            'perusahaan_menu'  => 'm0000001-0000-4000-8000-000000000044',
+            'menu_admin'       => 'm0000001-0000-4000-8000-000000000046',
             // Data Master
             'data_master'      => 'm0000001-0000-4000-8000-000000000050',
             'jenis_kendaraan'  => 'm0000001-0000-4000-8000-000000000051',
             'lokasi_kantor'    => 'm0000001-0000-4000-8000-000000000052',
             'departemen'       => 'm0000001-0000-4000-8000-000000000053',
             'jabatan'          => 'm0000001-0000-4000-8000-000000000054',
+            'lokasi'           => 'm0000001-0000-4000-8000-000000000055',
             // HR
             'hr'               => 'm0000001-0000-4000-8000-000000000060',
             'karyawan'         => 'm0000001-0000-4000-8000-000000000061',
+            // Operasional Vendor
+            'operasional_vendor' => 'm0000001-0000-4000-8000-000000000070',
+            'armada_vendor'      => 'm0000001-0000-4000-8000-000000000071',
+            'supir_vendor'       => 'm0000001-0000-4000-8000-000000000072',
+            'penugasan_vendor'   => 'm0000001-0000-4000-8000-000000000073',
         ];
 
         $now = now();
@@ -69,15 +77,23 @@ class MenuSeeder extends Seeder
             ['id_menu' => $ids['pengguna'],         'nama_menu' => 'Pengguna',         'path' => '/pengguna',        'id_menu_induk' => $ids['pengaturan'],    'icon' => 'userCheck',        'urutan' => 1],
             ['id_menu' => $ids['peran'],            'nama_menu' => 'Peran & Akses',    'path' => '/peran',           'id_menu_induk' => $ids['pengaturan'],    'icon' => 'shield',           'urutan' => 2],
             ['id_menu' => $ids['log_error'],        'nama_menu' => 'Log Error',        'path' => '/log-error',       'id_menu_induk' => $ids['pengaturan'],    'icon' => 'bug',              'urutan' => 3],
+            ['id_menu' => $ids['perusahaan_menu'],  'nama_menu' => 'Perusahaan',       'path' => '/perusahaan',      'id_menu_induk' => $ids['pengaturan'],    'icon' => 'office',           'urutan' => 4],
+            ['id_menu' => $ids['menu_admin'],       'nama_menu' => 'Menu',             'path' => '/menu-admin',      'id_menu_induk' => $ids['pengaturan'],    'icon' => 'treeStructure',    'urutan' => 5],
             // Data Master
             ['id_menu' => $ids['data_master'],     'nama_menu' => 'Data Master',     'path' => null,               'id_menu_induk' => null,                  'icon' => 'database',         'urutan' => 6],
             ['id_menu' => $ids['jenis_kendaraan'], 'nama_menu' => 'Jenis Kendaraan', 'path' => '/jenis-kendaraan', 'id_menu_induk' => $ids['data_master'],   'icon' => 'truck',            'urutan' => 1],
             ['id_menu' => $ids['lokasi_kantor'],   'nama_menu' => 'Lokasi Kantor',   'path' => '/lokasi-kantor',   'id_menu_induk' => $ids['data_master'],   'icon' => 'mapPin',           'urutan' => 2],
             ['id_menu' => $ids['departemen'],      'nama_menu' => 'Departemen',      'path' => '/departemen',      'id_menu_induk' => $ids['data_master'],   'icon' => 'layers',           'urutan' => 3],
             ['id_menu' => $ids['jabatan'],         'nama_menu' => 'Jabatan',         'path' => '/jabatan',         'id_menu_induk' => $ids['data_master'],   'icon' => 'briefcase',        'urutan' => 4],
+            ['id_menu' => $ids['lokasi'],          'nama_menu' => 'Lokasi',          'path' => '/lokasi',          'id_menu_induk' => $ids['data_master'],   'icon' => 'mapPin',           'urutan' => 5],
             // HR
             ['id_menu' => $ids['hr'],              'nama_menu' => 'HR',              'path' => null,               'id_menu_induk' => null,                  'icon' => 'users',            'urutan' => 7],
             ['id_menu' => $ids['karyawan'],        'nama_menu' => 'Karyawan',        'path' => '/karyawan',        'id_menu_induk' => $ids['hr'],            'icon' => 'userCircle',       'urutan' => 1],
+            // Operasional Vendor
+            ['id_menu' => $ids['operasional_vendor'], 'nama_menu' => 'Operasional Vendor', 'path' => null,                  'id_menu_induk' => null,                          'icon' => 'building',   'urutan' => 8],
+            ['id_menu' => $ids['armada_vendor'],      'nama_menu' => 'Armada Vendor',      'path' => '/armada-vendor',      'id_menu_induk' => $ids['operasional_vendor'],    'icon' => 'truck',      'urutan' => 1],
+            ['id_menu' => $ids['supir_vendor'],       'nama_menu' => 'Supir Vendor',       'path' => '/supir-vendor',       'id_menu_induk' => $ids['operasional_vendor'],    'icon' => 'users',      'urutan' => 2],
+            ['id_menu' => $ids['penugasan_vendor'],   'nama_menu' => 'Penugasan Vendor',   'path' => '/penugasan-vendor',   'id_menu_induk' => $ids['operasional_vendor'],    'icon' => 'clipboard',  'urutan' => 3],
         ];
 
         foreach ($menus as $menu) {
@@ -167,6 +183,10 @@ class MenuSeeder extends Seeder
             [$ids['peran'],      'SUPERADMIN'],
             [$ids['log_error'],  'ADMIN'],
             [$ids['log_error'],  'SUPERADMIN'],
+            [$ids['perusahaan_menu'], 'ADMIN'],
+            [$ids['perusahaan_menu'], 'SUPERADMIN'],
+            [$ids['menu_admin'], 'ADMIN'],
+            [$ids['menu_admin'], 'SUPERADMIN'],
 
             // Data Master — ADMIN, SUPERADMIN, MANAGER
             [$ids['data_master'],     'ADMIN'],
@@ -184,6 +204,10 @@ class MenuSeeder extends Seeder
             [$ids['jabatan'],         'ADMIN'],
             [$ids['jabatan'],         'SUPERADMIN'],
             [$ids['jabatan'],         'MANAGER'],
+            [$ids['lokasi'],          'ADMIN'],
+            [$ids['lokasi'],          'SUPERADMIN'],
+            [$ids['lokasi'],          'MANAGER'],
+            [$ids['lokasi'],          'DISPATCHER'],
 
             // HR — ADMIN, SUPERADMIN, MANAGER
             [$ids['hr'],       'ADMIN'],
@@ -192,6 +216,24 @@ class MenuSeeder extends Seeder
             [$ids['karyawan'], 'ADMIN'],
             [$ids['karyawan'], 'SUPERADMIN'],
             [$ids['karyawan'], 'MANAGER'],
+
+            // Operasional Vendor — DISPATCHER, MANAGER, ADMIN, SUPERADMIN
+            [$ids['operasional_vendor'], 'DISPATCHER'],
+            [$ids['operasional_vendor'], 'MANAGER'],
+            [$ids['operasional_vendor'], 'ADMIN'],
+            [$ids['operasional_vendor'], 'SUPERADMIN'],
+            [$ids['armada_vendor'],      'DISPATCHER'],
+            [$ids['armada_vendor'],      'MANAGER'],
+            [$ids['armada_vendor'],      'ADMIN'],
+            [$ids['armada_vendor'],      'SUPERADMIN'],
+            [$ids['supir_vendor'],       'DISPATCHER'],
+            [$ids['supir_vendor'],       'MANAGER'],
+            [$ids['supir_vendor'],       'ADMIN'],
+            [$ids['supir_vendor'],       'SUPERADMIN'],
+            [$ids['penugasan_vendor'],   'DISPATCHER'],
+            [$ids['penugasan_vendor'],   'MANAGER'],
+            [$ids['penugasan_vendor'],   'ADMIN'],
+            [$ids['penugasan_vendor'],   'SUPERADMIN'],
         ];
 
         foreach ($menuPeran as [$idMenu, $kodePeran]) {

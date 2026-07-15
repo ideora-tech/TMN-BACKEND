@@ -19,7 +19,7 @@ class SupirVendorServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:supir-vendor'])
             ->group(function () {
                 Route::apiResource('supir-vendor', SupirVendorController::class)
                     ->parameters(['supir-vendor' => 'id']);

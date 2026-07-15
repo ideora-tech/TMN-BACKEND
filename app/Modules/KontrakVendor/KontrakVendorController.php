@@ -27,7 +27,8 @@ class KontrakVendorController extends Controller
         $result = $this->service->list(
             $idPerusahaan,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            $request->get('id_vendor')
         );
 
         return ApiResponse::paginated(

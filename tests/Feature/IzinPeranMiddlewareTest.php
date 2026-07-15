@@ -14,6 +14,7 @@ class IzinPeranMiddlewareTest extends TestCase
     use RefreshDatabase;
 
     private const ID_MENU_TRIP = 'aaaa1111-0000-4000-8000-000000000001';
+    private const ID_MENU_ARMADA_VENDOR = 'aaaa1111-0000-4000-8000-000000000002';
 
     private function seedMenuTrip(): string
     {
@@ -26,6 +27,19 @@ class IzinPeranMiddlewareTest extends TestCase
         ]);
 
         return self::ID_MENU_TRIP;
+    }
+
+    private function seedMenuArmadaVendor(): string
+    {
+        DB::table('menu')->insertOrIgnore([
+            'id_menu'     => self::ID_MENU_ARMADA_VENDOR,
+            'nama_menu'   => 'Armada Vendor',
+            'path'        => '/armada-vendor',
+            'aktif'       => 1,
+            'dibuat_pada' => now(),
+        ]);
+
+        return self::ID_MENU_ARMADA_VENDOR;
     }
 
     private function seedIzin(string $idMenu, string $kodePeran, string $aksi, int $diizinkan = 1): void
@@ -149,5 +163,29 @@ class IzinPeranMiddlewareTest extends TestCase
         $res = $this->getJson('/api/v1/trip');
 
         $res->assertStatus(200);
+    }
+
+    // ── Task 6: izin:armada-vendor ──────────────────────────────────────────
+
+    public function test_dispatcher_dengan_izin_lihat_boleh_akses_armada_vendor(): void
+    {
+        $this->actingAsRole('DISPATCHER');
+        $idMenu = $this->seedMenuArmadaVendor();
+        $this->seedIzin($idMenu, 'DISPATCHER', 'lihat', 1);
+
+        $res = $this->getJson('/api/v1/armada-vendor');
+
+        $res->assertStatus(200);
+    }
+
+    public function test_dispatcher_tanpa_izin_ditolak_akses_armada_vendor(): void
+    {
+        $this->actingAsRole('DISPATCHER');
+        $this->seedMenuArmadaVendor();
+
+        $res = $this->getJson('/api/v1/armada-vendor');
+
+        $res->assertStatus(403)
+            ->assertJsonPath('message', 'Anda tidak memiliki izin untuk aksi ini');
     }
 }

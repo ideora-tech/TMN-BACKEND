@@ -11,19 +11,9 @@ use Illuminate\Support\Facades\DB;
 
 class MenuRepository implements MenuRepositoryInterface
 {
-    public function allAktif(?string $kodeModul = null): array
+    public function allAktif(): array
     {
-        $query = MenuModel::active()->where('aktif', 1)->orderBy('urutan');
-
-        if ($kodeModul !== null) {
-            $query->whereIn('id_menu', function ($sub) use ($kodeModul) {
-                $sub->select('id_menu')
-                    ->from('modul_menu')
-                    ->where('kode_modul', $kodeModul);
-            });
-        }
-
-        return $query->get()->all();
+        return MenuModel::active()->where('aktif', 1)->orderBy('urutan')->get()->all();
     }
 
     public function tree(?string $kodePeran = null): array

@@ -10,9 +10,9 @@ class MenuService
 {
     public function __construct(private readonly MenuRepositoryInterface $repo) {}
 
-    public function listAktif(?string $kodeModul = null): array
+    public function listAktif(): array
     {
-        return $this->repo->allAktif($kodeModul);
+        return $this->repo->allAktif();
     }
 
     public function tree(?string $kodePeran = null): array
