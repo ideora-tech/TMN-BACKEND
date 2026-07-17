@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             PenggunaSeeder::class,
             MenuSeeder::class,
             IzinPeranSeeder::class,
+            LokasiKotaSeeder::class,
         ]);
     }
 }

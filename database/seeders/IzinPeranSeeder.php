@@ -23,6 +23,7 @@ class IzinPeranSeeder extends Seeder
         ['SUPIR', '/jadwal', ['lihat']],
         ['SUPIR', '/supir', ['lihat']],
         ['DISPATCHER', '/project', ['lihat']],
+        ['DISPATCHER', '/tarif-rute', ['lihat']],
     ];
 
     public function run(): void

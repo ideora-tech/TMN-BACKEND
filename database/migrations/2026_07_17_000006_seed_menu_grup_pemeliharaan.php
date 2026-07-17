@@ -19,7 +19,7 @@ return new class extends Migration
         DB::table('menu')->upsert([
             [
                 'id_menu' => $this->idGrup, 'nama_menu' => 'Pemeliharaan', 'path' => null,
-                'icon' => 'wrench', 'id_menu_induk' => null, 'urutan' => 9,
+                'icon' => 'wrench', 'id_menu_induk' => null, 'urutan' => 5,
                 'aktif' => 1, 'dibuat_pada' => $now, 'dibuat_oleh' => null,
             ],
             [
