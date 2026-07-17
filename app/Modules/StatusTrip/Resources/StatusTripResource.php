@@ -15,8 +15,8 @@ class StatusTripResource extends JsonResource
             'id_trip'     => $this->id_trip,
             'status'      => $this->status,
             'keterangan'  => $this->keterangan,
-            'latitude'    => $this->latitude,
-            'longitude'   => $this->longitude,
+            'latitude'    => $this->latitude !== null ? (float) $this->latitude : null,
+            'longitude'   => $this->longitude !== null ? (float) $this->longitude : null,
             'dibuat_oleh' => $this->dibuat_oleh,
             'dibuat_pada' => $this->dibuat_pada,
         ];

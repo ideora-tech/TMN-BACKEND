@@ -30,13 +30,4 @@ class Pengguna extends Authenticatable
     {
         return $this->kata_sandi;
     }
-
-    public function karyawan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(
-            \App\Modules\Karyawan\KaryawanModel::class,
-            'id_karyawan',
-            'id_karyawan'
-        );
-    }
 }

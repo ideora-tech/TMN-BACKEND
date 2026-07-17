@@ -6,6 +6,7 @@ namespace App\Modules\DokumenArmada;
 
 use App\Modules\DokumenArmada\Contracts\DokumenArmadaRepositoryInterface;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Storage;
 
 class DokumenArmadaService
@@ -14,19 +15,28 @@ class DokumenArmadaService
 
     public function listByArmada(string $idArmada, int $page = 1, int $limit = 100): array
     {
-        $result = $this->repo->paginateByArmada($idArmada, $page, $limit);
+        return $this->toPagedArray($this->repo->paginateByArmada($idArmada, $page, $limit));
+    }
+
+    public function listByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen): array
+    {
+        return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $jenisDokumen));
+    }
+
+    private function toPagedArray(LengthAwarePaginator $paginator): array
+    {
         return [
-            'data' => $result->items(),
+            'data' => $paginator->items(),
             'meta' => [
-                'page'       => $result->currentPage(),
-                'limit'      => $result->perPage(),
-                'total'      => $result->total(),
-                'totalPages' => $result->lastPage(),
+                'page'       => $paginator->currentPage(),
+                'limit'      => $paginator->perPage(),
+                'total'      => $paginator->total(),
+                'totalPages' => $paginator->lastPage(),
             ],
         ];
     }
 
-    public function findOrFail(string $id): DokumenArmadaModel
+    public function findOrFail(string $id): object
     {
         $record = $this->repo->findById($id);
         if ($record === null) {
@@ -40,7 +50,7 @@ class DokumenArmadaService
         return $this->repo->findExpiring($idPerusahaan, $days);
     }
 
-    public function create(string $idArmada, array $data, ?UploadedFile $file = null): DokumenArmadaModel
+    public function create(string $idArmada, array $data, ?UploadedFile $file = null): object
     {
         if ($file) {
             $path = $file->store('dokumen', 'public');
@@ -50,7 +60,7 @@ class DokumenArmadaService
         return $this->repo->create(array_merge($data, ['id_armada' => $idArmada]));
     }
 
-    public function update(string $id, array $data, ?UploadedFile $file = null): DokumenArmadaModel
+    public function update(string $id, array $data, ?UploadedFile $file = null): object
     {
         if ($file) {
             $path = $file->store('dokumen', 'public');

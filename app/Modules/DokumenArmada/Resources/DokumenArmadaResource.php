@@ -13,9 +13,11 @@ class DokumenArmadaResource extends JsonResource
         return [
             'id_dokumen_armada' => $this->id_dokumen_armada,
             'id_armada'         => $this->id_armada,
+            'armada_nopol'      => $this->armada_nopol ?? null,
+            'armada_merk'       => $this->armada_merk ?? null,
             'jenis_dokumen'     => $this->jenis_dokumen,
             'nomor'             => $this->nomor,
-            'berlaku_sampai'    => $this->berlaku_sampai?->toDateString(),
+            'berlaku_sampai'    => $this->berlaku_sampai,
             'url_file'          => $this->url_file,
             'dibuat_pada'       => $this->dibuat_pada,
             'diubah_pada'       => $this->diubah_pada,

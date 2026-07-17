@@ -13,6 +13,7 @@ class JadwalKeberangkatanResource extends JsonResource
         return [
             'id_jadwal'          => $this->id_jadwal,
             'id_penugasan'       => $this->id_penugasan,
+            'id_rute'            => $this->id_rute,
             'waktu_berangkat'    => $this->waktu_berangkat,
             'tgl_keberangkatan'  => $this->waktu_berangkat,
             'rute'               => $this->rute,

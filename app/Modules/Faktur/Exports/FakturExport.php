@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 declare(strict_types=1);
 
@@ -28,7 +28,7 @@ class FakturExport implements FromCollection, WithHeadings, WithMapping, ShouldA
     {
         return [
             $row->nomor_faktur ?? '',
-            $row->klien->nama_klien ?? '-',
+            $row->klien_nama ?? '-',
             $row->status ?? '',
             $row->total ?? 0,
             $row->tanggal_faktur ? $row->tanggal_faktur->format('d/m/Y') : '',

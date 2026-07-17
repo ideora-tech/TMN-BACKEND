@@ -3,16 +3,33 @@ declare(strict_types=1);
 namespace App\Modules\Supir;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Supir\Exports\SupirTemplateExport;
+use App\Modules\Supir\Requests\ImportSupirRequest;
 use App\Modules\Supir\Requests\StoreSupirRequest;
 use App\Modules\Supir\Requests\UpdateSupirRequest;
 use App\Modules\Supir\Resources\SupirResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SupirController extends Controller
 {
     public function __construct(private readonly SupirService $service) {}
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        return Excel::download(new SupirTemplateExport(), 'template-import-supir.xlsx');
+    }
+
+    public function import(ImportSupirRequest $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $result = $this->service->import($request->file('file'), $idPerusahaan);
+
+        return ApiResponse::success($result, 'Import supir selesai diproses');
+    }
 
     public function index(Request $request): JsonResponse
     {

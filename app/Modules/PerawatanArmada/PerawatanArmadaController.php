@@ -30,6 +30,24 @@ class PerawatanArmadaController extends Controller
         );
     }
 
+    public function index(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        $result = $this->service->listByPerusahaan(
+            $idPerusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            $request->get('id_armada'),
+            $request->get('status')
+        );
+
+        return ApiResponse::paginated(
+            PerawatanArmadaResource::collection($result['data']),
+            $result['meta']
+        );
+    }
+
     public function show(string $idArmada, string $id): JsonResponse
     {
         return ApiResponse::success(new PerawatanArmadaResource($this->service->findOrFail($id)));

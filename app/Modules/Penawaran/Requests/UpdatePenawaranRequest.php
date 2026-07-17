@@ -24,6 +24,14 @@ class UpdatePenawaranRequest extends FormRequest
             'tanggal_penawaran'=> ['sometimes', 'nullable', 'date'],
             'tanggal_berlaku'  => ['sometimes', 'nullable', 'date'],
             'catatan'          => ['sometimes', 'nullable', 'string'],
+
+            'items'                      => ['sometimes', 'array'],
+            'items.*.id_rute'            => ['required_with:items', 'string', 'max:36'],
+            'items.*.id_jenis_kendaraan' => ['required_with:items', 'string', 'max:36'],
+            'items.*.id_tarif_rute'      => ['sometimes', 'nullable', 'string', 'max:36'],
+            'items.*.harga_satuan'       => ['required_with:items', 'numeric', 'min:0'],
+            'items.*.estimasi_ritase'    => ['sometimes', 'integer', 'min:1'],
+            'items.*.keterangan'         => ['sometimes', 'nullable', 'string'],
         ];
     }
 }

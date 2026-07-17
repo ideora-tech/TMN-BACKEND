@@ -63,6 +63,25 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return $query->exists();
     }
 
+    /**
+     * Penugasan lain (bukan $excludeId) yang masih aktif (pending/aktif) dan
+     * memakai armada ini. Dipakai sebagai pertahanan ekstra sebelum
+     * melepaskan armada ke 'tersedia' — walau guard create() harusnya sudah
+     * mencegah dua penugasan aktif berbagi satu armada.
+     */
+    public function hasOtherActiveArmadaUsage(string $idArmada, ?string $excludeId = null): bool
+    {
+        $query = PenugasanModel::active()
+            ->where('id_armada', $idArmada)
+            ->whereIn('status', ['pending', 'aktif']);
+
+        if ($excludeId !== null) {
+            $query->where('id_penugasan', '!=', $excludeId);
+        }
+
+        return $query->exists();
+    }
+
     public function create(array $data): PenugasanModel
     {
         return PenugasanModel::create($data);

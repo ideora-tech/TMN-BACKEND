@@ -6,6 +6,7 @@ namespace App\Modules\LaporanOperasional\Contracts;
 
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 
 interface LaporanOperasionalRepositoryInterface
 {
@@ -22,7 +23,7 @@ interface LaporanOperasionalRepositoryInterface
     /**
      * Master karyawan aktif milik perusahaan, untuk export.
      */
-    public function karyawanAktif(string $idPerusahaan): EloquentCollection;
+    public function karyawanAktif(string $idPerusahaan): Collection;
 
     /**
      * Master armada aktif milik perusahaan, untuk export.

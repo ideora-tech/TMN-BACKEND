@@ -30,7 +30,7 @@ class DepartemenService
         return $this->repo->tree($idPerusahaan);
     }
 
-    public function findOrFail(string $id): DepartemenModel
+    public function findOrFail(string $id): object
     {
         $record = $this->repo->findById($id);
         if ($record === null) {
@@ -39,12 +39,12 @@ class DepartemenService
         return $record;
     }
 
-    public function create(array $data): DepartemenModel
+    public function create(array $data): object
     {
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): DepartemenModel
+    public function update(string $id, array $data): object
     {
         $record = $this->findOrFail($id);
         return $this->repo->update($record, $data);

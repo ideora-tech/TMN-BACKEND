@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Modules\Klien\KlienModel;
 use App\Modules\Proyek\ProyekModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -14,13 +14,17 @@ class ProyekTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeKlien(): KlienModel
+    private function makeKlien(): object
     {
-        return KlienModel::create([
+        $id = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien'      => $id,
             'id_perusahaan' => self::PERUSAHAAN_ID,
             'kode_klien'    => 'KLN-' . Str::random(8),
             'nama_klien'    => 'Klien Test',
+            'dibuat_pada'   => now(),
         ]);
+        return DB::table('klien')->where('id_klien', $id)->first();
     }
 
     private function makeProyek(string $idKlien, string $kodeProyek): ProyekModel

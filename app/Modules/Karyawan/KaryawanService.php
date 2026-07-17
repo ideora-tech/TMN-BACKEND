@@ -25,7 +25,7 @@ class KaryawanService
         ];
     }
 
-    public function findOrFail(string $id): KaryawanModel
+    public function findOrFail(string $id): object
     {
         $record = $this->repo->findById($id);
         if ($record === null) {
@@ -34,7 +34,7 @@ class KaryawanService
         return $record;
     }
 
-    public function create(array $data): KaryawanModel
+    public function create(array $data): object
     {
         $existing = $this->repo->findByNik($data['nik']);
         if ($existing !== null) {
@@ -44,7 +44,7 @@ class KaryawanService
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): KaryawanModel
+    public function update(string $id, array $data): object
     {
         $record = $this->findOrFail($id);
         return $this->repo->update($record, $data);

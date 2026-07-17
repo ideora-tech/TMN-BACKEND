@@ -17,6 +17,8 @@ class StoreLaporanPerjalananRequest extends FormRequest
     {
         return [
             'biaya_bbm'               => ['sometimes', 'numeric', 'min:0'],
+            'id_jenis_bbm'            => ['sometimes', 'nullable', 'string', 'max:36'],
+            'jumlah_liter'            => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'jarak_tempuh_km'         => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'uang_jalan'              => ['sometimes', 'numeric', 'min:0'],
             'catatan_insiden'         => ['sometimes', 'nullable', 'string'],

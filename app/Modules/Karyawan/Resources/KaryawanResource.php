@@ -23,14 +23,14 @@ class KaryawanResource extends JsonResource
             'status_kepegawaian' => $this->status_kepegawaian,
             'gaji_pokok'         => (float) $this->gaji_pokok,
             'aktif'              => (bool) $this->aktif,
-            'jabatan'            => $this->whenLoaded('jabatan', fn () => [
-                'id_jabatan'   => $this->jabatan->id_jabatan,
-                'nama_jabatan' => $this->jabatan->nama_jabatan,
-            ]),
-            'lokasi'             => $this->whenLoaded('lokasi', fn () => [
-                'id_lokasi'   => $this->lokasi->id_lokasi,
-                'nama_lokasi' => $this->lokasi->nama_lokasi,
-            ]),
+            'jabatan'            => $this->jabatan_nama !== null ? [
+                'id_jabatan'   => $this->id_jabatan,
+                'nama_jabatan' => $this->jabatan_nama,
+            ] : null,
+            'lokasi'             => $this->lokasi_nama !== null ? [
+                'id_lokasi'   => $this->id_lokasi,
+                'nama_lokasi' => $this->lokasi_nama,
+            ] : null,
             'dibuat_pada'        => $this->dibuat_pada,
             'diubah_pada'        => $this->diubah_pada,
         ];

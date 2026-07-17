@@ -6,13 +6,15 @@ namespace App\Modules\JadwalKeberangkatan;
 
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
+use App\Modules\Rute\Contracts\RuteRepositoryInterface;
 use Carbon\Carbon;
 
 class JadwalKeberangkatanService
 {
     public function __construct(
         private readonly JadwalKeberangkatanRepositoryInterface $repo,
-        private readonly PenugasanRepositoryInterface $penugasanRepo
+        private readonly PenugasanRepositoryInterface $penugasanRepo,
+        private readonly RuteRepositoryInterface $ruteRepo
     ) {}
 
     public function list(string $idPenugasan, int $page = 1, int $limit = 10): array
@@ -66,6 +68,7 @@ class JadwalKeberangkatanService
 
     public function create(array $data): JadwalKeberangkatanModel
     {
+        $data = $this->applyRuteSnapshot($data);
         $this->assertTidakBentrok($data);
         return $this->repo->create($data);
     }
@@ -73,6 +76,7 @@ class JadwalKeberangkatanService
     public function update(string $id, array $data): JadwalKeberangkatanModel
     {
         $record = $this->findOrFail($id);
+        $data   = $this->applyRuteSnapshot($data);
 
         $merged = [
             'id_penugasan'    => $data['id_penugasan'] ?? $record->id_penugasan,
@@ -82,6 +86,25 @@ class JadwalKeberangkatanService
         $this->assertTidakBentrok($merged, $id);
 
         return $this->repo->update($record, $data);
+    }
+
+    /**
+     * id_rute adalah sumber kebenaran (dipilih via dropdown master data Rute).
+     * Kolom 'rute' tetap disimpan sebagai snapshot nama_rute agar konsumen lama
+     * (tabel riwayat jadwal, halaman detail jadwal, Trip list) tetap tampil
+     * tanpa perlu join, dan otomatis sinkron setiap kali id_rute berubah.
+     */
+    private function applyRuteSnapshot(array $data): array
+    {
+        if (!array_key_exists('id_rute', $data)) {
+            return $data;
+        }
+
+        $data['rute'] = $data['id_rute'] !== null
+            ? $this->ruteRepo->findById($data['id_rute'])?->nama_rute
+            : null;
+
+        return $data;
     }
 
     private function assertTidakBentrok(array $data, ?string $excludeJadwalId = null): void

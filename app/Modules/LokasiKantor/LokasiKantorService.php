@@ -25,7 +25,7 @@ class LokasiKantorService
         ];
     }
 
-    public function findOrFail(string $id): LokasiKantorModel
+    public function findOrFail(string $id): object
     {
         $record = $this->repo->findById($id);
         if ($record === null) {
@@ -34,12 +34,12 @@ class LokasiKantorService
         return $record;
     }
 
-    public function create(array $data): LokasiKantorModel
+    public function create(array $data): object
     {
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): LokasiKantorModel
+    public function update(string $id, array $data): object
     {
         $record = $this->findOrFail($id);
         return $this->repo->update($record, $data);

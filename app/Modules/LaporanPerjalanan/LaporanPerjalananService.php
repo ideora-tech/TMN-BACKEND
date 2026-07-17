@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LaporanPerjalanan;
 
+use App\Modules\JenisBbm\Contracts\JenisBbmRepositoryInterface;
 use App\Modules\LaporanPerjalanan\Contracts\LaporanPerjalananRepositoryInterface;
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
 use Illuminate\Http\UploadedFile;
@@ -14,6 +15,7 @@ class LaporanPerjalananService
     public function __construct(
         private readonly LaporanPerjalananRepositoryInterface $repo,
         private readonly TripRepositoryInterface $tripRepo,
+        private readonly JenisBbmRepositoryInterface $jenisBbmRepo,
     ) {}
 
     public function createForTrip(string $idTrip, array $data, string $idPerusahaan): LaporanPerjalananModel
@@ -28,6 +30,8 @@ class LaporanPerjalananService
         if ($this->repo->findByTrip($idTrip)) {
             abort(409, 'Laporan perjalanan untuk trip ini sudah ada');
         }
+
+        $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
 
         $biayaLain = $data['biaya_lain'] ?? [];
         unset($data['biaya_lain']);
@@ -75,6 +79,8 @@ class LaporanPerjalananService
     {
         $record = $this->findOrFailMilik($id, $idPerusahaan);
 
+        $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
+
         $hasBiayaLain = array_key_exists('biaya_lain', $data);
         $biayaLain = $data['biaya_lain'] ?? [];
         unset($data['biaya_lain']);
@@ -86,6 +92,17 @@ class LaporanPerjalananService
         }
 
         return $this->repo->reload($record);
+    }
+
+    private function pastikanJenisBbmMilikPerusahaan(array $data, string $idPerusahaan): void
+    {
+        if (!array_key_exists('id_jenis_bbm', $data) || $data['id_jenis_bbm'] === null) {
+            return;
+        }
+
+        if ($this->jenisBbmRepo->findByIdMilik($data['id_jenis_bbm'], $idPerusahaan) === null) {
+            abort(404, 'Jenis BBM tidak ditemukan');
+        }
     }
 
     public function addFoto(string $idLaporan, array $data, UploadedFile $file, string $idPerusahaan): FotoLaporanPerjalananModel

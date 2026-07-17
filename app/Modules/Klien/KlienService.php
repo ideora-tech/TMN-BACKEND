@@ -25,7 +25,7 @@ class KlienService
         ];
     }
 
-    public function findOrFail(string $id): KlienModel
+    public function findOrFail(string $id): object
     {
         $record = $this->repo->findById($id);
         if ($record === null) {
@@ -34,7 +34,7 @@ class KlienService
         return $record;
     }
 
-    public function create(array $data): KlienModel
+    public function create(array $data): object
     {
         $idPerusahaan = $data['id_perusahaan'];
 
@@ -45,7 +45,7 @@ class KlienService
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data, string $idPerusahaan): KlienModel
+    public function update(string $id, array $data, string $idPerusahaan): object
     {
         $record = $this->findOrFail($id);
 

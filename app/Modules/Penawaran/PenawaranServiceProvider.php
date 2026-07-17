@@ -10,6 +10,10 @@ class PenawaranServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(PenawaranRepositoryInterface::class, PenawaranRepository::class);
+        $this->app->bind(
+            \App\Modules\Penawaran\Contracts\PenawaranItemRepositoryInterface::class,
+            \App\Modules\Penawaran\PenawaranItemRepository::class,
+        );
         $this->app->bind(PenawaranService::class);
     }
 

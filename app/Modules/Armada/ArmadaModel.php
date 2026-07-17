@@ -23,5 +23,15 @@ class ArmadaModel extends BaseModel
         'kepemilikan',
         'status',
         'aktif',
+        'nomor_rangka',
+        'nomor_mesin',
+        'warna',
+        'jenis_bahan_bakar',
+        'kapasitas_muatan_kg',
+        'tanggal_beli',
+        'harga_beli',
+        'kondisi_beli',
+        'url_foto',
+        'keterangan',
     ];
 }

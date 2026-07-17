@@ -11,6 +11,7 @@ use App\Modules\Faktur\Requests\UpdateStatusFakturRequest;
 use App\Modules\Faktur\Resources\FakturResource;
 use App\Modules\Faktur\Exports\FakturExport;
 use App\Modules\Faktur\FakturModel;
+use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -81,10 +82,11 @@ class FakturController extends Controller
 
         $items = FakturModel::whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
-            ->with('klien')
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->orderBy('dibuat_pada', 'DESC')
             ->get();
+
+        $this->attachNamaKlien($items);
 
         return Excel::download(
             new FakturExport(collect($items)),
@@ -98,13 +100,33 @@ class FakturController extends Controller
 
         $items = FakturModel::whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
-            ->with('klien')
             ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
             ->orderBy('dibuat_pada', 'DESC')
             ->get();
 
+        $this->attachNamaKlien($items);
+
         $pdf = Pdf::loadView('exports.faktur', ['items' => $items]);
 
         return $pdf->download('faktur-' . date('Ymd') . '.pdf');
+    }
+
+    /**
+     * Tempel nama_klien via raw query builder (join manual), bukan Eloquent
+     * relationship — KlienModel sudah dikonversi ke Query Builder (Task 9)
+     * dan tidak lagi punya class Eloquent.
+     */
+    private function attachNamaKlien(\Illuminate\Support\Collection $items): void
+    {
+        $idKlienList = $items->pluck('id_klien')->filter()->unique()->values()->all();
+        if (empty($idKlienList)) {
+            return;
+        }
+
+        $namaByIdKlien = DB::table('klien')->whereIn('id_klien', $idKlienList)->pluck('nama_klien', 'id_klien');
+
+        foreach ($items as $item) {
+            $item->klien_nama = $namaByIdKlien[$item->id_klien] ?? null;
+        }
     }
 }

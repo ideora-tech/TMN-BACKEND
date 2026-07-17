@@ -29,6 +29,24 @@ class DokumenArmadaController extends Controller
         );
     }
 
+    public function index(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        $result = $this->service->listByPerusahaan(
+            $idPerusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            $request->get('id_armada'),
+            $request->get('jenis_dokumen')
+        );
+
+        return ApiResponse::paginated(
+            DokumenArmadaResource::collection($result['data']),
+            $result['meta']
+        );
+    }
+
     public function store(StoreDokumenArmadaRequest $request, string $idArmada): JsonResponse
     {
         $record = $this->service->create($idArmada, $request->validated(), $request->file('file'));

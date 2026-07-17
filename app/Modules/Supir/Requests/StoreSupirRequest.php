@@ -22,6 +22,7 @@ class StoreSupirRequest extends FormRequest
             'status'              => ['sometimes', 'in:aktif,nonaktif'],
             'foto'                => ['sometimes', 'nullable', 'string', 'max:255'],
             'id_pengguna'         => ['sometimes', 'nullable', 'string', 'max:36'],
+            'id_armada_default'   => ['sometimes', 'nullable', 'string', 'max:36'],
         ];
     }
 }

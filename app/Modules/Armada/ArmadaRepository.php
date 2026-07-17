@@ -32,6 +32,24 @@ class ArmadaRepository implements ArmadaRepositoryInterface
         return ArmadaModel::active()->where('nopol', $nopol)->first();
     }
 
+    /**
+     * Cari armada by nopol, di-scope ke perusahaan (dipakai oleh import supir
+     * untuk matching id_armada_default). Perbandingan case-insensitive & trim
+     * agar nopol dari file Excel tetap match walau beda kapitalisasi/spasi.
+     */
+    public function findByNopolMilikPerusahaan(string $nopol, string $idPerusahaan): ?ArmadaModel
+    {
+        return ArmadaModel::active()
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereRaw('UPPER(TRIM(nopol)) = ?', [mb_strtoupper(trim($nopol))])
+            ->first();
+    }
+
+    public function findByNomorRangka(string $nomorRangka): ?ArmadaModel
+    {
+        return ArmadaModel::active()->where('nomor_rangka', $nomorRangka)->first();
+    }
+
     public function create(array $data): ArmadaModel
     {
         return ArmadaModel::create($data);

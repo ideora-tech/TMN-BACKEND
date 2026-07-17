@@ -1,11 +1,21 @@
 <?php
 namespace App\Modules\Rute;
 use App\Modules\Rute\Contracts\RuteRepositoryInterface;
+use App\Support\RecordHelper;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class RuteRepository implements RuteRepositoryInterface {
+    private const COLUMNS = [
+        'id_rute', 'id_perusahaan', 'kode_rute', 'nama_rute', 'asal', 'tujuan',
+        'id_lokasi_asal', 'id_lokasi_tujuan', 'estimasi_jarak_km', 'estimasi_durasi_menit',
+        'keterangan', 'aktif',
+        'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
+    ];
+
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search): LengthAwarePaginator {
-        return RuteModel::active()
+        return DB::table('rute')
+            ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
             ->when($search, fn($q) => $q->where(function($q2) use ($search) {
                 $q2->where('nama_rute','like',"%{$search}%")
@@ -14,19 +24,43 @@ class RuteRepository implements RuteRepositoryInterface {
                    ->orWhere('tujuan','like',"%{$search}%");
             }))
             ->orderBy('nama_rute')
-            ->paginate($limit, ['*'], 'page', $page);
+            ->paginate($limit, self::COLUMNS, 'page', $page);
     }
-    public function findById(string $id): ?RuteModel {
-        return RuteModel::active()->where('id_rute', $id)->first();
+
+    public function findById(string $id): ?object {
+        return DB::table('rute')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_rute', $id)
+            ->first();
     }
-    public function findByKode(string $idPerusahaan, string $kode, ?string $excludeId = null): ?RuteModel {
-        return RuteModel::active()
+
+    public function findByKode(string $idPerusahaan, string $kode, ?string $excludeId = null): ?object {
+        return DB::table('rute')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
             ->where('kode_rute', $kode)
             ->when($excludeId, fn($q) => $q->where('id_rute','!=',$excludeId))
             ->first();
     }
-    public function create(array $data): RuteModel { return RuteModel::create($data); }
-    public function update(RuteModel $model, array $data): RuteModel { $model->update($data); return $model->fresh(); }
-    public function delete(RuteModel $model): void { $model->softDelete(); }
+
+    public function create(array $data): object {
+        $data = RecordHelper::stampCreate($data, 'id_rute');
+        DB::table('rute')->insert($data);
+        return $this->findById($data['id_rute']);
+    }
+
+    public function update(object $record, array $data): object {
+        DB::table('rute')
+            ->where('id_rute', $record->id_rute)
+            ->update(RecordHelper::stampUpdate($data));
+        return $this->findById($record->id_rute);
+    }
+
+    public function delete(object $record): void {
+        DB::table('rute')
+            ->where('id_rute', $record->id_rute)
+            ->update(RecordHelper::stampDelete());
+    }
 }

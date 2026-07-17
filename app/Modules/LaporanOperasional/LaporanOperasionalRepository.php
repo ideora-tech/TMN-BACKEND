@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\LaporanOperasional;
 
 use App\Modules\Armada\ArmadaModel;
-use App\Modules\Karyawan\KaryawanModel;
 use App\Modules\LaporanOperasional\Contracts\LaporanOperasionalRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder;
@@ -71,9 +70,16 @@ class LaporanOperasionalRepository implements LaporanOperasionalRepositoryInterf
         ];
     }
 
-    public function karyawanAktif(string $idPerusahaan): EloquentCollection
+    private const KARYAWAN_COLUMNS = [
+        'id_karyawan', 'nik', 'nama_karyawan', 'email', 'telepon',
+        'jenis_kelamin', 'status_kepegawaian', 'tanggal_masuk', 'aktif',
+    ];
+
+    public function karyawanAktif(string $idPerusahaan): \Illuminate\Support\Collection
     {
-        return KaryawanModel::active()
+        return DB::table('karyawan')
+            ->select(self::KARYAWAN_COLUMNS)
+            ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
             ->orderBy('nama_karyawan')
             ->get();

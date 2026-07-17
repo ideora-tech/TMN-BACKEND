@@ -14,6 +14,7 @@ class JadwalKeberangkatanModel extends BaseModel
     protected $fillable = [
         'id_jadwal',
         'id_penugasan',
+        'id_rute',
         'waktu_berangkat',
         'rute',
         'estimasi_tiba',

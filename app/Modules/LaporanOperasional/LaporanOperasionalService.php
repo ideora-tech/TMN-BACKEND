@@ -40,7 +40,7 @@ class LaporanOperasionalService
             ->map(fn ($row) => $this->castRow($row));
     }
 
-    public function karyawanAktif(string $idPerusahaan): EloquentCollection
+    public function karyawanAktif(string $idPerusahaan): Collection
     {
         return $this->repo->karyawanAktif($idPerusahaan);
     }

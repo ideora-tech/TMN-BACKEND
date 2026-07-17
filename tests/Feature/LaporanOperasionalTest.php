@@ -6,19 +6,17 @@ namespace Tests\Feature;
 
 use App\Modules\Armada\ArmadaModel;
 use App\Modules\ArmadaVendor\ArmadaVendorModel;
-use App\Modules\Karyawan\KaryawanModel;
-use App\Modules\Klien\KlienModel;
 use App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel;
 use App\Modules\KontrakVendor\KontrakVendorModel;
 use App\Modules\LaporanPerjalanan\BiayaLainTripModel;
 use App\Modules\LaporanPerjalanan\LaporanPerjalananModel;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
-use App\Modules\Supir\SupirModel;
 use App\Modules\SupirVendor\SupirVendorModel;
 use App\Modules\Trip\TripModel;
 use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -26,13 +24,17 @@ class LaporanOperasionalTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeKlien(string $nama = 'PT Klien Test'): KlienModel
+    private function makeKlien(string $nama = 'PT Klien Test'): object
     {
-        return KlienModel::create([
+        $id = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien'      => $id,
             'id_perusahaan' => self::PERUSAHAAN_ID,
             'kode_klien'    => 'KLN-' . Str::random(8),
             'nama_klien'    => $nama,
+            'dibuat_pada'   => now(),
         ]);
+        return DB::table('klien')->where('id_klien', $id)->first();
     }
 
     private function makeArmada(): ArmadaModel
@@ -44,13 +46,17 @@ class LaporanOperasionalTest extends TestCase
         ]);
     }
 
-    private function makeSupir(string $nama = 'Budi Santoso'): SupirModel
+    private function makeSupir(string $nama = 'Budi Santoso'): object
     {
-        return SupirModel::create([
+        $id = (string) Str::uuid();
+        DB::table('supir')->insert([
+            'id_supir'      => $id,
             'id_perusahaan' => self::PERUSAHAAN_ID,
             'nama'          => $nama,
             'no_sim'        => 'SIM-' . Str::random(8),
+            'dibuat_pada'   => now(),
         ]);
+        return DB::table('supir')->where('id_supir', $id)->first();
     }
 
     private function makeTrip(
@@ -290,12 +296,14 @@ class LaporanOperasionalTest extends TestCase
     public function test_export_karyawan_excel_dan_pdf_200(): void
     {
         $this->actingAsRole('ADMIN');
-        KaryawanModel::create([
+        DB::table('karyawan')->insert([
+            'id_karyawan'         => (string) Str::uuid(),
             'id_perusahaan'       => self::PERUSAHAAN_ID,
             'nik'                 => 'NIK-' . Str::random(8),
             'nama_karyawan'       => 'Siti Aminah',
             'status_kepegawaian'  => 'tetap',
             'aktif'               => 1,
+            'dibuat_pada'         => now(),
         ]);
 
         $resExcel = $this->get('/api/v1/laporan/karyawan/export/excel');

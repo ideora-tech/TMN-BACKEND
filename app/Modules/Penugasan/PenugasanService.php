@@ -79,14 +79,9 @@ class PenugasanService
 
         $this->assertVendorRules($data, $idPerusahaan);
 
+        $armada = null;
         if (!empty($data['id_armada'])) {
-            $armada = ArmadaModel::active()->find($data['id_armada']);
-            if ($armada === null) {
-                abort(422, 'Armada tidak ditemukan');
-            }
-            if ($armada->status !== 'aktif') {
-                abort(422, 'Armada tidak tersedia untuk ditugaskan (status: ' . $armada->status . ')');
-            }
+            $armada = $this->assertArmadaTersediaOrFail($data['id_armada']);
         }
 
         if (!empty($data['id_karyawan']) && !empty($data['tanggal_tugas'])) {
@@ -97,8 +92,8 @@ class PenugasanService
 
         $penugasan = $this->repo->create($data);
 
-        if (!empty($data['id_armada'])) {
-            ArmadaModel::active()->find($data['id_armada'])?->update(['status' => 'digunakan']);
+        if ($armada !== null) {
+            $armada->update(['status' => 'digunakan']);
         }
 
         return $penugasan;
@@ -126,7 +121,77 @@ class PenugasanService
             }
         }
 
-        return $this->repo->update($record, $data);
+        // --- Siklus hidup status armada internal (id_armada_vendor tidak disentuh) ---
+        $idArmadaLama  = $record->id_armada;
+        $armadaBerubah = array_key_exists('id_armada', $data) && $data['id_armada'] !== $idArmadaLama;
+        $idArmadaBaru  = $armadaBerubah ? $data['id_armada'] : $idArmadaLama;
+
+        $armadaBaruUntukDikunci = null;
+        if ($armadaBerubah && !empty($idArmadaBaru)) {
+            // Armada baru wajib 'tersedia' sebelum data disimpan.
+            $armadaBaruUntukDikunci = $this->assertArmadaTersediaOrFail($idArmadaBaru);
+        }
+
+        $statusLama    = $record->status;
+        $statusBaru    = array_key_exists('status', $data) ? $data['status'] : $statusLama;
+        $statusBerubah = array_key_exists('status', $data) && $statusBaru !== $statusLama;
+
+        $statusFinal = ['selesai', 'batal'];
+        $statusAktif = ['pending', 'aktif'];
+
+        $armadaUntukDikunciUlang = null;
+        if (!$armadaBerubah && $statusBerubah && !empty($idArmadaLama)
+            && in_array($statusLama, $statusFinal, true) && in_array($statusBaru, $statusAktif, true)) {
+            // Reaktivasi dari selesai/batal -> armada wajib masih 'tersedia'.
+            $armadaUntukDikunciUlang = $this->assertArmadaTersediaOrFail($idArmadaLama);
+        }
+
+        $updated = $this->repo->update($record, $data);
+
+        if ($armadaBerubah) {
+            if (!empty($idArmadaLama)) {
+                $this->releaseArmadaIfUnused($idArmadaLama, $id);
+            }
+            $armadaBaruUntukDikunci?->update(['status' => 'digunakan']);
+        } elseif ($statusBerubah && !empty($idArmadaLama)) {
+            if (in_array($statusBaru, $statusFinal, true)) {
+                $this->releaseArmadaIfUnused($idArmadaLama, $id);
+            } elseif ($armadaUntukDikunciUlang !== null) {
+                $armadaUntukDikunciUlang->update(['status' => 'digunakan']);
+            }
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Validasi armada internal siap ditugaskan: harus ada & berstatus
+     * 'tersedia'. Sama persis dengan guard create() — dipakai ulang saat
+     * update() mengganti armada atau mereaktivasi penugasan.
+     */
+    private function assertArmadaTersediaOrFail(string $idArmada): ArmadaModel
+    {
+        $armada = ArmadaModel::active()->find($idArmada);
+        if ($armada === null) {
+            abort(422, 'Armada tidak ditemukan');
+        }
+        if ($armada->status !== 'tersedia') {
+            abort(422, 'Armada tidak tersedia untuk ditugaskan (status: ' . $armada->status . ')');
+        }
+        return $armada;
+    }
+
+    /**
+     * Set armada -> 'tersedia' HANYA bila tidak ada penugasan aktif lain
+     * (pending/aktif, id_penugasan != $excludeId) yang masih memakainya.
+     * Pertahanan ekstra walau guard create() harusnya mencegah dobel pakai.
+     */
+    private function releaseArmadaIfUnused(string $idArmada, string $excludeId): void
+    {
+        if ($this->repo->hasOtherActiveArmadaUsage($idArmada, $excludeId)) {
+            return;
+        }
+        ArmadaModel::active()->find($idArmada)?->update(['status' => 'tersedia']);
     }
 
     /**
@@ -194,7 +259,13 @@ class PenugasanService
 
     public function delete(string $id): void
     {
-        $record = $this->findOrFail($id);
+        $record   = $this->findOrFail($id);
+        $idArmada = $record->id_armada;
+
         $this->repo->delete($record);
+
+        if (!empty($idArmada)) {
+            $this->releaseArmadaIfUnused($idArmada, $id);
+        }
     }
 }

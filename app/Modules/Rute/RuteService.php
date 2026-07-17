@@ -23,13 +23,13 @@ class RuteService {
         ];
     }
 
-    public function findOrFail(string $id): RuteModel {
+    public function findOrFail(string $id): object {
         $rute = $this->repo->findById($id);
         if (!$rute) abort(404, 'Rute tidak ditemukan');
         return $rute;
     }
 
-    public function create(array $data): RuteModel {
+    public function create(array $data): object {
         if ($this->repo->findByKode($data['id_perusahaan'], $data['kode_rute'])) {
             abort(409, 'Kode rute sudah digunakan');
         }
@@ -38,7 +38,7 @@ class RuteService {
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): RuteModel {
+    public function update(string $id, array $data): object {
         $rute = $this->findOrFail($id);
         if (isset($data['kode_rute']) && $data['kode_rute'] !== $rute->kode_rute) {
             if ($this->repo->findByKode($rute->id_perusahaan, $data['kode_rute'], $id)) {

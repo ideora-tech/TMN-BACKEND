@@ -21,7 +21,7 @@ class StatusTripService
         return $this->repo->listByTrip($idTrip);
     }
 
-    public function create(string $idTrip, array $data): StatusTripModel
+    public function create(string $idTrip, array $data): object
     {
         $this->ensureTripExists($idTrip);
 

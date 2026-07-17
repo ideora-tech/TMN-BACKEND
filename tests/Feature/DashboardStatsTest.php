@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use App\Modules\Armada\ArmadaModel;
 use App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel;
-use App\Modules\Klien\KlienModel;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
 use App\Modules\Trip\TripModel;
@@ -38,13 +37,17 @@ class DashboardStatsTest extends TestCase
         ]);
     }
 
-    private function makeKlien(): KlienModel
+    private function makeKlien(): object
     {
-        return KlienModel::create([
+        $id = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien'      => $id,
             'id_perusahaan' => self::PERUSAHAAN_ID,
             'kode_klien'    => 'KLN-' . Str::random(8),
             'nama_klien'    => 'Klien Dashboard Test',
+            'dibuat_pada'   => now(),
         ]);
+        return DB::table('klien')->where('id_klien', $id)->first();
     }
 
     private function makeTripBerjalan(string $waktuCheckin, ?string $waktuCheckout = null): TripModel

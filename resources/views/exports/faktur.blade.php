@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -32,7 +32,7 @@
             @forelse($items as $item)
             <tr>
                 <td>{{ $item->nomor_faktur }}</td>
-                <td>{{ $item->klien->nama_klien ?? '-' }}</td>
+                <td>{{ $item->klien_nama ?? '-' }}</td>
                 <td>{{ $item->status }}</td>
                 <td class="amount">Rp {{ number_format($item->total, 0, ',', '.') }}</td>
                 <td>{{ $item->tanggal_faktur ? $item->tanggal_faktur->format('d/m/Y') : '-' }}</td>

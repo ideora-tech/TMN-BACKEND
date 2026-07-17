@@ -15,6 +15,7 @@ interface PenugasanRepositoryInterface
     public function countSelesaiByProyek(string $idProyek): int;
     public function findById(string $id): ?PenugasanModel;
     public function hasConflict(string $idKaryawan, string $tanggalTugas, ?string $excludeId = null): bool;
+    public function hasOtherActiveArmadaUsage(string $idArmada, ?string $excludeId = null): bool;
     public function create(array $data): PenugasanModel;
     public function update(PenugasanModel $model, array $data): PenugasanModel;
     public function delete(PenugasanModel $model): void;

@@ -25,7 +25,7 @@ class JabatanService
         ];
     }
 
-    public function findOrFail(string $id): JabatanModel
+    public function findOrFail(string $id): object
     {
         $record = $this->repo->findById($id);
         if ($record === null) {
@@ -34,12 +34,12 @@ class JabatanService
         return $record;
     }
 
-    public function create(array $data): JabatanModel
+    public function create(array $data): object
     {
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): JabatanModel
+    public function update(string $id, array $data): object
     {
         $record = $this->findOrFail($id);
         return $this->repo->update($record, $data);

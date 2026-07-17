@@ -25,6 +25,10 @@ class PenawaranResource extends JsonResource
             'aktif'            => (bool) $this->aktif,
             'dibuat_pada'      => $this->dibuat_pada,
             'diubah_pada'      => $this->diubah_pada,
+            'items'            => $this->when(
+                $this->relationLoaded('items'),
+                fn () => PenawaranItemResource::collection($this->getRelation('items')),
+            ),
         ];
     }
 }

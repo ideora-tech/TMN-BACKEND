@@ -18,6 +18,7 @@ class StoreJadwalKeberangkatanRequest extends FormRequest
         return [
             'id_penugasan'    => ['required', 'string', 'max:36'],
             'waktu_berangkat' => ['sometimes', 'nullable', 'date_format:Y-m-d H:i:s'],
+            'id_rute'         => ['sometimes', 'nullable', 'string', 'exists:rute,id_rute'],
             'rute'            => ['sometimes', 'nullable', 'string'],
             'estimasi_tiba'   => ['sometimes', 'nullable', 'date_format:Y-m-d H:i:s'],
         ];

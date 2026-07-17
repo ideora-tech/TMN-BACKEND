@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\JenisKendaraan\Contracts;
 
-use App\Modules\JenisKendaraan\JenisKendaraanModel;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 interface JenisKendaraanRepositoryInterface
 {
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
-    public function findById(string $id): ?JenisKendaraanModel;
-    public function findByKode(string $idPerusahaan, string $kode): ?JenisKendaraanModel;
-    public function create(array $data): JenisKendaraanModel;
-    public function update(JenisKendaraanModel $model, array $data): JenisKendaraanModel;
-    public function delete(JenisKendaraanModel $model): void;
+    public function findById(string $id): ?object;
+    public function findByKode(string $idPerusahaan, string $kode): ?object;
+    public function create(array $data): object;
+    public function update(object $record, array $data): object;
+    public function delete(object $record): void;
 }

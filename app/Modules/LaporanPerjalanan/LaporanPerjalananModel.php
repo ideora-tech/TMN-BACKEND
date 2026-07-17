@@ -16,7 +16,9 @@ class LaporanPerjalananModel extends BaseModel
         'id_laporan',
         'id_perusahaan',
         'id_trip',
+        'id_jenis_bbm',
         'biaya_bbm',
+        'jumlah_liter',
         'jarak_tempuh_km',
         'uang_jalan',
         'catatan_insiden',
@@ -24,6 +26,7 @@ class LaporanPerjalananModel extends BaseModel
 
     protected $casts = [
         'biaya_bbm'       => 'float',
+        'jumlah_liter'    => 'float',
         'jarak_tempuh_km' => 'float',
         'uang_jalan'      => 'float',
     ];

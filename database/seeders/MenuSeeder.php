@@ -42,6 +42,7 @@ class MenuSeeder extends Seeder
             'departemen'       => 'm0000001-0000-4000-8000-000000000053',
             'jabatan'          => 'm0000001-0000-4000-8000-000000000054',
             'lokasi'           => 'm0000001-0000-4000-8000-000000000055',
+            'jenis_bbm'        => 'm0000001-0000-4000-8000-000000000056',
             // HR
             'hr'               => 'm0000001-0000-4000-8000-000000000060',
             'karyawan'         => 'm0000001-0000-4000-8000-000000000061',
@@ -86,6 +87,7 @@ class MenuSeeder extends Seeder
             ['id_menu' => $ids['departemen'],      'nama_menu' => 'Departemen',      'path' => '/departemen',      'id_menu_induk' => $ids['data_master'],   'icon' => 'layers',           'urutan' => 3],
             ['id_menu' => $ids['jabatan'],         'nama_menu' => 'Jabatan',         'path' => '/jabatan',         'id_menu_induk' => $ids['data_master'],   'icon' => 'briefcase',        'urutan' => 4],
             ['id_menu' => $ids['lokasi'],          'nama_menu' => 'Lokasi',          'path' => '/lokasi',          'id_menu_induk' => $ids['data_master'],   'icon' => 'mapPin',           'urutan' => 5],
+            ['id_menu' => $ids['jenis_bbm'],       'nama_menu' => 'Jenis BBM',       'path' => '/jenis-bbm',       'id_menu_induk' => $ids['data_master'],   'icon' => 'database',         'urutan' => 6],
             // HR
             ['id_menu' => $ids['hr'],              'nama_menu' => 'HR',              'path' => null,               'id_menu_induk' => null,                  'icon' => 'users',            'urutan' => 7],
             ['id_menu' => $ids['karyawan'],        'nama_menu' => 'Karyawan',        'path' => '/karyawan',        'id_menu_induk' => $ids['hr'],            'icon' => 'userCircle',       'urutan' => 1],
@@ -208,6 +210,10 @@ class MenuSeeder extends Seeder
             [$ids['lokasi'],          'SUPERADMIN'],
             [$ids['lokasi'],          'MANAGER'],
             [$ids['lokasi'],          'DISPATCHER'],
+            [$ids['jenis_bbm'],       'ADMIN'],
+            [$ids['jenis_bbm'],       'SUPERADMIN'],
+            [$ids['jenis_bbm'],       'MANAGER'],
+            [$ids['jenis_bbm'],       'DISPATCHER'],
 
             // HR — ADMIN, SUPERADMIN, MANAGER
             [$ids['hr'],       'ADMIN'],

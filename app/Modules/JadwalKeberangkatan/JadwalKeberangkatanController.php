@@ -8,14 +8,17 @@ use App\Helpers\ApiResponse;
 use App\Modules\JadwalKeberangkatan\Requests\StoreJadwalKeberangkatanRequest;
 use App\Modules\JadwalKeberangkatan\Requests\UpdateJadwalKeberangkatanRequest;
 use App\Modules\JadwalKeberangkatan\Resources\JadwalKeberangkatanResource;
-use App\Modules\Supir\SupirModel;
+use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class JadwalKeberangkatanController extends Controller
 {
-    public function __construct(private readonly JadwalKeberangkatanService $service) {}
+    public function __construct(
+        private readonly JadwalKeberangkatanService $service,
+        private readonly SupirRepositoryInterface $supirRepo,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -45,9 +48,7 @@ class JadwalKeberangkatanController extends Controller
 
     public function saya(Request $request): JsonResponse
     {
-        $supir = SupirModel::active()
-            ->where('id_pengguna', (string) $request->user()->id_pengguna)
-            ->first();
+        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
 
         if (!$supir) {
             abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
