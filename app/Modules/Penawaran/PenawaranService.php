@@ -29,9 +29,10 @@ class PenawaranService
         int $page = 1,
         int $limit = 10,
         ?string $search = null,
-        ?string $status = null
+        ?string $status = null,
+        ?string $idProyek = null
     ): array {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status, $idProyek);
 
         return [
             'data' => $result->items(),

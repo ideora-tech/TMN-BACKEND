@@ -32,7 +32,8 @@ class PenawaranController extends Controller
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
             $request->get('search'),
-            $request->get('status')
+            $request->get('status'),
+            $request->get('id_proyek')
         );
 
         return ApiResponse::paginated(

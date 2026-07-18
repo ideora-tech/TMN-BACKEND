@@ -14,7 +14,8 @@ interface PenawaranRepositoryInterface
         int $page,
         int $limit,
         ?string $search,
-        ?string $status
+        ?string $status,
+        ?string $idProyek = null
     ): LengthAwarePaginator;
 
     public function findById(string $id): ?PenawaranModel;
