@@ -132,9 +132,6 @@ class PerawatanArmadaService
             if ($sp === null) {
                 abort(422, 'Spare part tidak ditemukan');
             }
-            if ((int) $sp->stok < $agg['qty']) {
-                abort(422, "Stok {$sp->nama} tidak cukup (tersisa {$sp->stok}, diminta {$agg['qty']})");
-            }
 
             $this->repo->setSparepartStok($idSparepart, (int) $sp->stok - $agg['qty']);
             $this->repo->insertLine([
@@ -181,9 +178,6 @@ class PerawatanArmadaService
 
             if ($delta === 0) {
                 continue;
-            }
-            if ($delta > 0 && (int) $sp->stok < $delta) {
-                abort(422, "Stok {$sp->nama} tidak cukup (tersisa {$sp->stok}, diminta tambahan {$delta})");
             }
 
             $this->repo->setSparepartStok($idSparepart, (int) $sp->stok - $delta);

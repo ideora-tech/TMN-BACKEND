@@ -88,8 +88,9 @@ class PerawatanSparepartTest extends TestCase
         $this->assertSame(2, DB::table('sparepart_mutasi')->where('id_perawatan', $idPerawatan)->where('jenis', 'keluar')->count());
     }
 
-    public function test_create_stok_tidak_cukup_ditolak_422_dan_rollback_total(): void
+    public function test_create_stok_tidak_cukup_tetap_tersimpan_stok_boleh_minus(): void
     {
+        // Pencatatan saja — perusahaan tidak punya bengkel sendiri, servis dikerjakan pihak luar.
         $this->actingAsRole('ADMIN');
         $armada = $this->makeArmada();
         $sp     = $this->makeSparepart('Filter Oli', 1);
@@ -102,11 +103,10 @@ class PerawatanSparepartTest extends TestCase
             ],
         ]);
 
-        $res->assertStatus(422);
-        $this->assertStringContainsString('tidak cukup', (string) $res->json('message'));
-        $this->assertSame(1, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
-        $this->assertSame(0, DB::table('perawatan_armada')->where('id_armada', $armada->id_armada)->count());
-        $this->assertSame(0, DB::table('sparepart_mutasi')->count());
+        $res->assertStatus(201)->assertJsonCount(1, 'data.sparepart');
+        $this->assertSame(-4, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
+        $this->assertSame(1, DB::table('perawatan_armada')->where('id_armada', $armada->id_armada)->count());
+        $this->assertSame(1, DB::table('sparepart_mutasi')->where('jenis', 'keluar')->count());
     }
 
     public function test_update_item_menghitung_delta_stok_dua_arah(): void
