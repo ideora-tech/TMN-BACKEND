@@ -30,8 +30,10 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false): LengthAwarePaginator
     {
+        $batas = now()->addDays(30)->toDateString();
+
         return DB::table('perawatan_armada')
             ->join('armada', 'armada.id_armada', '=', 'perawatan_armada.id_armada')
             ->where('armada.id_perusahaan', $idPerusahaan)
@@ -39,6 +41,15 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->whereNull('armada.dihapus_pada')
             ->when($idArmada, fn ($q, $v) => $q->where('perawatan_armada.id_armada', $v))
             ->when($status, fn ($q, $v) => $q->where('perawatan_armada.status', $v))
+            ->when($jatuhTempo, fn ($q) => $q
+                ->whereNotNull('perawatan_armada.jadwal_servis_berikutnya')
+                ->where('perawatan_armada.jadwal_servis_berikutnya', '<=', $batas)
+                ->whereRaw('perawatan_armada.id_perawatan = (
+                    SELECT p2.id_perawatan FROM perawatan_armada p2
+                    WHERE p2.id_armada = perawatan_armada.id_armada AND p2.dihapus_pada IS NULL
+                    ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
+                    LIMIT 1
+                )'))
             ->orderByDesc('perawatan_armada.tanggal')
             ->select(array_merge(self::COLUMNS, ['armada.nopol as armada_nopol', 'armada.merk as armada_merk']))
             ->paginate($limit, ['*'], 'page', $page);

@@ -108,6 +108,11 @@ class ArmadaService
         $this->repo->delete($record);
     }
 
+    public function servisJatuhTempo(string $idPerusahaan, int $days = 30): array
+    {
+        return $this->repo->findServisJatuhTempo($idPerusahaan, $days);
+    }
+
     /**
      * Import armada dari file Excel (template 14 kolom — kolom detail opsional; template lama 5 kolom tetap valid).
      * Mode "sebagian masuk + laporan gagal" — baris valid tetap di-insert walau

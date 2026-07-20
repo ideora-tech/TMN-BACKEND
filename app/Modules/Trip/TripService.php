@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace App\Modules\Trip;
 
+use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
+use App\Modules\Rute\Contracts\RuteRepositoryInterface;
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
+use Illuminate\Support\Facades\DB;
 
 class TripService
 {
-    public function __construct(private readonly TripRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly TripRepositoryInterface $repo,
+        private readonly JadwalKeberangkatanRepositoryInterface $jadwalRepo,
+        private readonly RuteRepositoryInterface $ruteRepo
+    ) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null): array
     {
-        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal);
+        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal, $idPenugasan, $idSupir);
 
         return [
             'data' => $result->items(),
@@ -44,6 +51,49 @@ class TripService
         }
 
         return $this->repo->create($data);
+    }
+
+    public function mulaiDariPenugasan(array $data, string $idPerusahaan): TripModel
+    {
+        return DB::transaction(function () use ($data, $idPerusahaan) {
+            $penugasan = $this->repo->findPenugasanMilikPerusahaan($data['id_penugasan'], $idPerusahaan);
+            if ($penugasan === null) {
+                abort(404, 'Penugasan tidak ditemukan');
+            }
+
+            if ($this->repo->adaTripAktifUntukAktor(
+                $penugasan->id_armada,
+                $penugasan->id_supir,
+                $penugasan->id_armada_vendor,
+                $penugasan->id_supir_vendor
+            )) {
+                abort(422, 'Supir/armada masih memiliki trip aktif');
+            }
+
+            $idRute = $data['id_rute'] ?? null;
+            $namaRute = null;
+            if ($idRute !== null) {
+                $rute = $this->ruteRepo->findById($idRute);
+                if ($rute === null || $rute->id_perusahaan !== $idPerusahaan) {
+                    abort(404, 'Rute tidak ditemukan');
+                }
+                $namaRute = $rute->nama_rute;
+            }
+
+            $jadwal = $this->jadwalRepo->create([
+                'id_penugasan'    => $penugasan->id_penugasan,
+                'id_rute'         => $idRute,
+                'rute'            => $namaRute,
+                'waktu_berangkat' => now(),
+            ]);
+
+            $trip = $this->repo->create([
+                'id_jadwal' => $jadwal->id_jadwal,
+                'catatan'   => $data['catatan'] ?? null,
+            ]);
+
+            return $this->checkin($trip->id_trip);
+        });
     }
 
     public function checkin(string $id): TripModel

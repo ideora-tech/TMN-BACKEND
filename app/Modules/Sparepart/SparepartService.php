@@ -12,9 +12,9 @@ class SparepartService
 {
     public function __construct(private readonly SparepartRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $idKategoriSparepart = null): array
     {
-        return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search));
+        return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $idKategoriSparepart));
     }
 
     public function listMutasi(string $idSparepart, int $page = 1, int $limit = 10): array

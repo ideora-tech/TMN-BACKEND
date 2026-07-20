@@ -16,11 +16,12 @@ class UpdateSparepartRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode'          => ['sometimes', 'string', 'max:50'],
-            'nama'          => ['sometimes', 'string', 'max:150'],
-            'satuan'        => ['sometimes', 'string', 'max:30'],
-            'harga_standar' => ['sometimes', 'numeric', 'min:0'],
-            'aktif'         => ['sometimes', 'boolean'],
+            'kode'                   => ['sometimes', 'string', 'max:50'],
+            'nama'                   => ['sometimes', 'string', 'max:150'],
+            'id_kategori_sparepart'  => ['sometimes', 'nullable', 'string', 'exists:kategori_sparepart,id_kategori_sparepart,dihapus_pada,NULL'],
+            'satuan'                 => ['sometimes', 'string', 'max:30'],
+            'harga_standar'          => ['sometimes', 'numeric', 'min:0'],
+            'aktif'                  => ['sometimes', 'boolean'],
         ];
     }
 }

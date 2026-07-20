@@ -26,7 +26,8 @@ class SparepartController extends Controller
             $idPerusahaan,
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
-            $request->get('search')
+            $request->get('search'),
+            $request->get('id_kategori_sparepart')
         );
 
         return ApiResponse::paginated(

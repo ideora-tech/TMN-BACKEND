@@ -79,4 +79,12 @@ class ArmadaController extends Controller
         $this->service->delete($id);
         return ApiResponse::success(null, 'Armada berhasil dihapus');
     }
+
+    public function servisJatuhTempo(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $days = (int) $request->get('days', 30);
+
+        return ApiResponse::success($this->service->servisJatuhTempo($idPerusahaan, $days));
+    }
 }

@@ -25,4 +25,10 @@ interface DashboardRepositoryInterface
      * Setiap baris: {id_trip, nama_proyek, waktu_checkin}.
      */
     public function tripTerlambat(string $idPerusahaan, int $jamBatas = 24): Collection;
+
+    /**
+     * Servis terbaru per armada yang jadwal_servis_berikutnya jatuh dalam $days hari ke depan.
+     * Setiap baris: {id_armada, nopol, jenis_perawatan, jadwal_servis_berikutnya}.
+     */
+    public function servisJatuhTempo(string $idPerusahaan, int $days = 30): Collection;
 }

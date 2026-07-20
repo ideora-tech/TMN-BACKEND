@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\DB;
 
 class SparepartRepository implements SparepartRepositoryInterface
 {
-    private const COLUMNS = [
-        'id_sparepart', 'id_perusahaan', 'kode', 'nama', 'satuan', 'harga_standar', 'stok', 'aktif',
-        'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
+    private const DETAIL_SELECT = [
+        'sparepart.id_sparepart', 'sparepart.id_perusahaan', 'sparepart.kode', 'sparepart.nama',
+        'sparepart.id_kategori_sparepart', 'sparepart.satuan', 'sparepart.harga_standar', 'sparepart.stok',
+        'sparepart.aktif', 'sparepart.dibuat_pada', 'sparepart.dibuat_oleh',
+        'sparepart.diubah_pada', 'sparepart.diubah_oleh', 'sparepart.dihapus_pada', 'sparepart.dihapus_oleh',
+        'kategori_sparepart.nama as nama_kategori_sparepart',
     ];
 
     private const MUTASI_COLUMNS = [
@@ -21,32 +24,39 @@ class SparepartRepository implements SparepartRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search): LengthAwarePaginator
+    private function detailQuery()
     {
         return DB::table('sparepart')
-            ->whereNull('dihapus_pada')
-            ->where('id_perusahaan', $idPerusahaan)
+            ->leftJoin('kategori_sparepart', function ($join) {
+                $join->on('kategori_sparepart.id_kategori_sparepart', '=', 'sparepart.id_kategori_sparepart')
+                     ->whereNull('kategori_sparepart.dihapus_pada');
+            })
+            ->whereNull('sparepart.dihapus_pada')
+            ->select(self::DETAIL_SELECT);
+    }
+
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search, ?string $idKategoriSparepart = null): LengthAwarePaginator
+    {
+        return $this->detailQuery()
+            ->where('sparepart.id_perusahaan', $idPerusahaan)
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
-                $q2->where('nama', 'like', "%{$search}%")
-                   ->orWhere('kode', 'like', "%{$search}%");
+                $q2->where('sparepart.nama', 'like', "%{$search}%")
+                   ->orWhere('sparepart.kode', 'like', "%{$search}%");
             }))
-            ->orderBy('nama')
-            ->paginate($limit, self::COLUMNS, 'page', $page);
+            ->when($idKategoriSparepart, fn ($q, $v) => $q->where('sparepart.id_kategori_sparepart', $v))
+            ->orderBy('sparepart.nama')
+            ->paginate($limit, self::DETAIL_SELECT, 'page', $page);
     }
 
     public function findById(string $id): ?object
     {
-        return DB::table('sparepart')
-            ->select(self::COLUMNS)
-            ->whereNull('dihapus_pada')
-            ->where('id_sparepart', $id)
-            ->first();
+        return $this->detailQuery()->where('sparepart.id_sparepart', $id)->first();
     }
 
     public function findByIdForUpdate(string $id): ?object
     {
         return DB::table('sparepart')
-            ->select(self::COLUMNS)
+            ->select(['id_sparepart', 'nama', 'stok'])
             ->whereNull('dihapus_pada')
             ->where('id_sparepart', $id)
             ->lockForUpdate()
@@ -56,7 +66,6 @@ class SparepartRepository implements SparepartRepositoryInterface
     public function findByKode(string $idPerusahaan, string $kode, ?string $excludeId = null): ?object
     {
         return DB::table('sparepart')
-            ->select(self::COLUMNS)
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
             ->where('kode', $kode)

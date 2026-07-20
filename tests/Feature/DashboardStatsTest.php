@@ -177,4 +177,44 @@ class DashboardStatsTest extends TestCase
         $res->assertStatus(200)
             ->assertJsonPath('data.alerts.tripTerlambat.total', 0);
     }
+
+    private function makePerawatan(string $idArmada, string $tanggal, ?string $jadwal, string $jenis = 'Ganti Oli'): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('perawatan_armada')->insert([
+            'id_perawatan' => $id, 'id_armada' => $idArmada, 'tanggal' => $tanggal,
+            'jenis_perawatan' => $jenis, 'biaya' => 100000, 'status' => 'selesai',
+            'jadwal_servis_berikutnya' => $jadwal, 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
+    public function test_alerts_servis_jatuh_tempo_hanya_servis_terbaru_per_armada(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $armada = $this->makeArmada();
+        // servis lama dalam window -> harus diabaikan
+        $this->makePerawatan($armada->id_armada, '2026-01-01', now()->addDays(5)->toDateString());
+        // servis terbaru dalam window -> ini yang harus muncul
+        $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(15)->toDateString(), 'Servis Besar');
+
+        $res = $this->getJson('/api/v1/dashboard/stats');
+
+        $res->assertStatus(200)->assertJsonPath('data.alerts.servisJatuhTempo.total', 1);
+        $items = $res->json('data.alerts.servisJatuhTempo.items');
+        $this->assertCount(1, $items);
+        $this->assertSame($armada->nopol, $items[0]['nopol']);
+        $this->assertSame('Servis Besar', $items[0]['jenis_perawatan']);
+    }
+
+    public function test_alerts_servis_jatuh_tempo_di_luar_30_hari_tidak_ikut(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $armada = $this->makeArmada();
+        $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(45)->toDateString());
+
+        $res = $this->getJson('/api/v1/dashboard/stats');
+
+        $res->assertStatus(200)->assertJsonPath('data.alerts.servisJatuhTempo.total', 0);
+    }
 }

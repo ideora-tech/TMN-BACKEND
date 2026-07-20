@@ -17,9 +17,9 @@ class PerawatanArmadaService
         return $this->toPagedArray($this->repo->paginateByArmada($idArmada, $page, $limit));
     }
 
-    public function listByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status): array
+    public function listByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false): array
     {
-        return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $status));
+        return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $status, $jatuhTempo));
     }
 
     private function toPagedArray(LengthAwarePaginator $paginator): array

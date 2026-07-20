@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface TripRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null): LengthAwarePaginator;
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null): LengthAwarePaginator;
     public function exists(string $idTrip): bool;
     public function findById(string $id): ?TripModel;
     public function findByJadwal(string $idJadwal): ?TripModel;
@@ -18,4 +18,6 @@ interface TripRepositoryInterface
     public function delete(TripModel $model): void;
     public function rekapBiaya(string $idTrip): array;
     public function milikPerusahaan(string $idTrip, string $idPerusahaan): bool;
+    public function findPenugasanMilikPerusahaan(string $idPenugasan, string $idPerusahaan): ?object;
+    public function adaTripAktifUntukAktor(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor): bool;
 }

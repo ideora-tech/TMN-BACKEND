@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class TripRepository implements TripRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null): LengthAwarePaginator
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null): LengthAwarePaginator
     {
         $paginator = TripModel::active()
             ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
@@ -22,6 +22,8 @@ class TripRepository implements TripRepositoryInterface
             ->whereNull('p.dihapus_pada')
             ->whereNull('jk.dihapus_pada')
             ->when($idJadwal, fn ($q, $v) => $q->where('trip.id_jadwal', $v))
+            ->when($idPenugasan, fn ($q, $v) => $q->where('jk.id_penugasan', $v))
+            ->when($idSupir, fn ($q, $v) => $q->where('p.id_supir', $v))
             ->select('trip.*')
             ->orderBy('trip.dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
@@ -117,6 +119,49 @@ class TripRepository implements TripRepositoryInterface
     public function findByJadwal(string $idJadwal): ?TripModel
     {
         return TripModel::active()->where('id_jadwal', $idJadwal)->first();
+    }
+
+    public function findPenugasanMilikPerusahaan(string $idPenugasan, string $idPerusahaan): ?object
+    {
+        return DB::table('penugasan as p')
+            ->join('proyek as pr', 'pr.id_proyek', '=', 'p.id_proyek')
+            ->where('p.id_penugasan', $idPenugasan)
+            ->where('pr.id_perusahaan', $idPerusahaan)
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('pr.dihapus_pada')
+            ->select('p.*')
+            ->first();
+    }
+
+    public function adaTripAktifUntukAktor(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor): bool
+    {
+        if (!$idArmada && !$idSupir && !$idArmadaVendor && !$idSupirVendor) {
+            return false;
+        }
+
+        return DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereNull('p.dihapus_pada')
+            ->whereNotIn('t.status', ['selesai', 'dibatalkan'])
+            ->where(function ($q) use ($idArmada, $idSupir, $idArmadaVendor, $idSupirVendor) {
+                if ($idArmada) {
+                    $q->orWhere('p.id_armada', $idArmada);
+                }
+                if ($idSupir) {
+                    $q->orWhere('p.id_supir', $idSupir);
+                }
+                if ($idArmadaVendor) {
+                    $q->orWhere('p.id_armada_vendor', $idArmadaVendor);
+                }
+                if ($idSupirVendor) {
+                    $q->orWhere('p.id_supir_vendor', $idSupirVendor);
+                }
+            })
+            ->lockForUpdate()
+            ->exists();
     }
 
     public function create(array $data): TripModel

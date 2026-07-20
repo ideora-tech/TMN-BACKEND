@@ -134,4 +134,48 @@ class PerawatanArmadaTest extends TestCase
         $res->assertStatus(200);
         $this->assertSame('2026-03-01', $res->json('data.0.tanggal'));
     }
+
+    public function test_filter_jatuh_tempo_hanya_servis_terbaru_per_armada(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $armadaA = $this->makeArmada('B 1111 AA');
+        $armadaB = $this->makeArmada('B 2222 BB');
+
+        // Armada A: servis lama dalam window (harus diabaikan), servis terbaru di luar window
+        $this->makePerawatanDenganJadwal($armadaA->id_armada, '2026-01-01', now()->addDays(5)->toDateString());
+        $this->makePerawatanDenganJadwal($armadaA->id_armada, '2026-06-01', now()->addDays(90)->toDateString());
+
+        // Armada B: servis terbaru dalam window -> harus muncul
+        $this->makePerawatanDenganJadwal($armadaB->id_armada, '2026-06-01', now()->addDays(15)->toDateString());
+
+        $res = $this->getJson('/api/v1/perawatan-armada?jatuh_tempo=1');
+
+        $res->assertStatus(200);
+        $data = $res->json('data');
+        $this->assertCount(1, $data);
+        $this->assertSame($armadaB->id_armada, $data[0]['id_armada']);
+    }
+
+    public function test_filter_jatuh_tempo_default_tidak_aktif(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $armada = $this->makeArmada();
+        $this->makePerawatan($armada->id_armada, '2026-06-01');
+
+        $res = $this->getJson('/api/v1/perawatan-armada');
+
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+    }
+
+    private function makePerawatanDenganJadwal(string $idArmada, string $tanggal, ?string $jadwal): object
+    {
+        $id = (string) Str::uuid();
+        DB::table('perawatan_armada')->insert([
+            'id_perawatan' => $id, 'id_armada' => $idArmada, 'tanggal' => $tanggal,
+            'jenis_perawatan' => 'Ganti Oli', 'biaya' => 100000, 'status' => 'selesai',
+            'jadwal_servis_berikutnya' => $jadwal, 'dibuat_pada' => now(),
+        ]);
+        return DB::table('perawatan_armada')->where('id_perawatan', $id)->first();
+    }
 }

@@ -143,4 +143,70 @@ class SparepartTest extends TestCase
         $this->assertCount(1, $resSearch->json('data'));
         $this->assertSame('SP-002', $resSearch->json('data.0.kode'));
     }
+
+    public function test_create_dengan_kategori_dan_filter_list(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $idKategori = (string) Str::uuid();
+        DB::table('kategori_sparepart')->insert([
+            'id_kategori_sparepart' => $idKategori,
+            'id_perusahaan'         => self::PERUSAHAAN_ID,
+            'nama'                  => 'Filter',
+            'aktif'                 => 1,
+            'dibuat_pada'           => now(),
+        ]);
+
+        $res = $this->postJson('/api/v1/sparepart', [
+            'kode' => 'SP-200', 'nama' => 'Filter Oli', 'id_kategori_sparepart' => $idKategori,
+        ]);
+        $res->assertStatus(201)
+            ->assertJsonPath('data.id_kategori_sparepart', $idKategori)
+            ->assertJsonPath('data.nama_kategori_sparepart', 'Filter');
+
+        $this->makeSparepart('SP-201', 'Kampas Rem');
+
+        $resFilter = $this->getJson("/api/v1/sparepart?id_kategori_sparepart={$idKategori}");
+        $resFilter->assertStatus(200);
+        $this->assertCount(1, $resFilter->json('data'));
+        $this->assertSame('SP-200', $resFilter->json('data.0.kode'));
+    }
+
+    public function test_soft_deleted_kategori_tidak_muncul_tapi_sparepart_tetap_ada(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $idKategori = (string) Str::uuid();
+        DB::table('kategori_sparepart')->insert([
+            'id_kategori_sparepart' => $idKategori,
+            'id_perusahaan'         => self::PERUSAHAAN_ID,
+            'nama'                  => 'Filter',
+            'aktif'                 => 1,
+            'dibuat_pada'           => now(),
+        ]);
+
+        $sp = $this->makeSparepart('SP-300', 'Filter Oli');
+        DB::table('sparepart')
+            ->where('id_sparepart', $sp->id_sparepart)
+            ->update(['id_kategori_sparepart' => $idKategori]);
+
+        DB::table('kategori_sparepart')
+            ->where('id_kategori_sparepart', $idKategori)
+            ->update(['dihapus_pada' => now()]);
+
+        $res = $this->getJson("/api/v1/sparepart/{$sp->id_sparepart}");
+        $res->assertStatus(200);
+        $this->assertSame('SP-300', $res->json('data.kode'));
+        $this->assertNull($res->json('data.nama_kategori_sparepart'));
+    }
+
+    public function test_kategori_tidak_ada_ditolak_422(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $idKategoriTidakAda = (string) Str::uuid();
+
+        $res = $this->postJson('/api/v1/sparepart', [
+            'kode' => 'SP-400', 'nama' => 'Spare Part', 'id_kategori_sparepart' => $idKategoriTidakAda,
+        ]);
+
+        $res->assertStatus(422);
+    }
 }

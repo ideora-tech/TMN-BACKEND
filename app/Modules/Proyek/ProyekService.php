@@ -4,13 +4,24 @@ declare(strict_types=1);
 
 namespace App\Modules\Proyek;
 
+use App\Modules\Penawaran\Contracts\PenawaranItemRepositoryInterface;
+use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
+use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Modules\ProyekRute\ProyekRuteService;
+use Illuminate\Support\Facades\DB;
 
 class ProyekService
 {
     private const ALLOWED_STATUSES = ['draft', 'aktif', 'selesai', 'batal'];
 
-    public function __construct(private readonly ProyekRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly ProyekRepositoryInterface $repo,
+        private readonly PenawaranRepositoryInterface $penawaranRepo,
+        private readonly PenawaranItemRepositoryInterface $penawaranItemRepo,
+        private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
+        private readonly ProyekRuteService $proyekRuteService,
+    ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10): array
     {
@@ -59,7 +70,41 @@ class ProyekService
             abort(409, 'Kode proyek sudah digunakan');
         }
 
-        return $this->repo->create($data);
+        $idPenawaran = $data['id_penawaran'] ?? null;
+        $ruteManual  = $data['rute'] ?? [];
+        unset($data['id_penawaran'], $data['rute']);
+
+        return DB::transaction(function () use ($data, $idPenawaran, $ruteManual, $idPerusahaan) {
+            $proyek = $this->repo->create($data);
+
+            if ($idPenawaran !== null) {
+                $penawaran = $this->penawaranRepo->findById($idPenawaran);
+                if ($penawaran !== null && $penawaran->id_perusahaan === $idPerusahaan) {
+                    $this->penawaranRepo->update($penawaran, ['id_proyek' => $proyek->id_proyek]);
+                    $this->salinRuteDariPenawaran($proyek->id_proyek, $idPenawaran, $idPerusahaan);
+                }
+            }
+
+            foreach ($ruteManual as $baris) {
+                $this->proyekRuteService->create($proyek->id_proyek, $baris, $idPerusahaan);
+            }
+
+            return $proyek;
+        });
+    }
+
+    private function salinRuteDariPenawaran(string $idProyek, string $idPenawaran, string $idPerusahaan): void
+    {
+        foreach ($this->penawaranItemRepo->listByPenawaran($idPenawaran) as $item) {
+            $this->proyekRuteRepo->create([
+                'id_perusahaan'      => $idPerusahaan,
+                'id_proyek'          => $idProyek,
+                'id_rute'            => $item->id_rute,
+                'id_jenis_kendaraan' => $item->id_jenis_kendaraan,
+                'id_tarif_rute'      => $item->id_tarif_rute,
+                'harga_penawaran'    => $item->harga_satuan,
+            ]);
+        }
     }
 
     public function update(string $id, array $data, string $idPerusahaan): ProyekModel

@@ -8,7 +8,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface SparepartRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search, ?string $idKategoriSparepart = null): LengthAwarePaginator;
     public function findById(string $id): ?object;
     public function findByIdForUpdate(string $id): ?object;
     public function findByKode(string $idPerusahaan, string $kode, ?string $excludeId = null): ?object;

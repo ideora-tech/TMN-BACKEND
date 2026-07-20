@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Trip;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Trip\Requests\MulaiTripRequest;
 use App\Modules\Trip\Requests\StoreTripRequest;
 use App\Modules\Trip\Resources\TripResource;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +24,9 @@ class TripController extends Controller
             $idPerusahaan,
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
-            $request->get('id_jadwal')
+            $request->get('id_jadwal'),
+            $request->get('id_penugasan'),
+            $request->get('id_supir')
         );
 
         return ApiResponse::paginated(
@@ -41,6 +44,15 @@ class TripController extends Controller
     {
         $record = $this->service->create($request->validated());
         return ApiResponse::success(new TripResource($record), 'Trip berhasil dibuat', 201);
+    }
+
+    public function mulai(MulaiTripRequest $request): JsonResponse
+    {
+        $record = $this->service->mulaiDariPenugasan(
+            $request->validated(),
+            (string) $request->user()->id_perusahaan
+        );
+        return ApiResponse::success(new TripResource($record), 'Trip berhasil dimulai', 201);
     }
 
     public function checkin(string $id): JsonResponse

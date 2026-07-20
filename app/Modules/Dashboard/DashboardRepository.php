@@ -103,4 +103,25 @@ class DashboardRepository implements DashboardRepositoryInterface
             ->select('t.id_trip', 'pr.nama_proyek', 't.waktu_checkin')
             ->get();
     }
+
+    public function servisJatuhTempo(string $idPerusahaan, int $days = 30): Collection
+    {
+        $batas = now()->addDays($days)->toDateString();
+
+        return DB::table('perawatan_armada as p1')
+            ->join('armada as a', 'a.id_armada', '=', 'p1.id_armada')
+            ->where('a.id_perusahaan', $idPerusahaan)
+            ->whereNull('p1.dihapus_pada')
+            ->whereNull('a.dihapus_pada')
+            ->whereNotNull('p1.jadwal_servis_berikutnya')
+            ->where('p1.jadwal_servis_berikutnya', '<=', $batas)
+            ->whereRaw('p1.id_perawatan = (
+                SELECT p2.id_perawatan FROM perawatan_armada p2
+                WHERE p2.id_armada = p1.id_armada AND p2.dihapus_pada IS NULL
+                ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
+                LIMIT 1
+            )')
+            ->select('a.id_armada', 'a.nopol', 'p1.jenis_perawatan', 'p1.jadwal_servis_berikutnya')
+            ->get();
+    }
 }
