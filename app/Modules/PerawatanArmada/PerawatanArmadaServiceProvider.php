@@ -22,6 +22,7 @@ class PerawatanArmadaServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:armada'])
             ->group(function () {
                 Route::get('perawatan-armada', [PerawatanArmadaController::class, 'index']);
+                Route::get('armada/{idArmada}/prediksi-perawatan', [PerawatanArmadaController::class, 'prediksiPerawatan']);
                 Route::get('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'indexByArmada']);
                 Route::get('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'show']);
                 Route::post('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'store']);

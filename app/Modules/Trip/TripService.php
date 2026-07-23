@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Trip;
 
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
+use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Modules\Rute\Contracts\RuteRepositoryInterface;
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,8 @@ class TripService
     public function __construct(
         private readonly TripRepositoryInterface $repo,
         private readonly JadwalKeberangkatanRepositoryInterface $jadwalRepo,
-        private readonly RuteRepositoryInterface $ruteRepo
+        private readonly RuteRepositoryInterface $ruteRepo,
+        private readonly ProyekRuteRepositoryInterface $proyekRuteRepo
     ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null): array
@@ -76,6 +78,9 @@ class TripService
                 $rute = $this->ruteRepo->findById($idRute);
                 if ($rute === null || $rute->id_perusahaan !== $idPerusahaan) {
                     abort(404, 'Rute tidak ditemukan');
+                }
+                if (!$this->proyekRuteRepo->ruteTerdaftarUntukProyek($penugasan->id_proyek, $idRute)) {
+                    abort(422, 'Rute tidak terdaftar untuk proyek penugasan ini');
                 }
                 $namaRute = $rute->nama_rute;
             }

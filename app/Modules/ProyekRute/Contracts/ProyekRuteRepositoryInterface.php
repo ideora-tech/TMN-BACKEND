@@ -12,6 +12,9 @@ interface ProyekRuteRepositoryInterface
     /** Baris aktif milik satu proyek + kolom nama rute/jenis + komponen tarif (untuk Resource). */
     public function listByProyek(string $idProyek): Collection;
 
+    /** True jika id_rute sudah terdaftar sebagai rute proyek tsb (baris aktif). */
+    public function ruteTerdaftarUntukProyek(string $idProyek, string $idRute): bool;
+
     public function findById(string $id): ?ProyekRuteModel;
 
     /** Sama seperti findById tapi memuat kolom join (untuk Resource setelah create/update). */

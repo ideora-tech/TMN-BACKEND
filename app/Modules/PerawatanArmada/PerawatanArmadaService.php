@@ -4,13 +4,22 @@ declare(strict_types=1);
 
 namespace App\Modules\PerawatanArmada;
 
+use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
+use App\Modules\IntervalPerawatan\Contracts\IntervalPerawatanRepositoryInterface;
+use App\Modules\PaketPerawatanSparepart\Contracts\PaketPerawatanSparepartRepositoryInterface;
 use App\Modules\PerawatanArmada\Contracts\PerawatanArmadaRepositoryInterface;
+use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class PerawatanArmadaService
 {
-    public function __construct(private readonly PerawatanArmadaRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly PerawatanArmadaRepositoryInterface $repo,
+        private readonly ArmadaRepositoryInterface $armadaRepo,
+        private readonly IntervalPerawatanRepositoryInterface $intervalRepo,
+        private readonly PaketPerawatanSparepartRepositoryInterface $paketRepo,
+    ) {}
 
     public function listByArmada(string $idArmada, int $page = 1, int $limit = 10): array
     {
@@ -20,6 +29,69 @@ class PerawatanArmadaService
     public function listByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false): array
     {
         return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $status, $jatuhTempo));
+    }
+
+    /**
+     * Gabungkan interval_perawatan (aturan) + riwayat servis terakhir + paket sparepart standar
+     * jadi daftar prediksi jenis perawatan apa saja yang akan datang untuk 1 armada.
+     */
+    public function prediksiPerawatan(string $idArmada, string $idPerusahaan, int $days = 30): array
+    {
+        $armada = $this->armadaRepo->findById($idArmada);
+        if ($armada === null || $armada->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Armada tidak ditemukan');
+        }
+
+        if ($armada->id_jenis_kendaraan === null) {
+            return [];
+        }
+
+        $rules  = $this->intervalRepo->findAllByJenisKendaraan($idPerusahaan, $armada->id_jenis_kendaraan);
+        $latest = collect($this->repo->getLatestPerJenisByArmada($idArmada))->keyBy('id_jenis_perawatan');
+
+        $items = [];
+        foreach ($rules as $rule) {
+            $riwayat = $latest->get($rule->id_jenis_perawatan);
+            $tanggalTerakhir = $riwayat->tanggal ?? null;
+
+            $jadwalBerikutnya = $riwayat->jadwal_servis_berikutnya ?? null;
+            if ($jadwalBerikutnya === null && $tanggalTerakhir !== null) {
+                $jadwalBerikutnya = Carbon::parse($tanggalTerakhir)->addDays((int) $rule->interval_hari)->toDateString();
+            }
+
+            $sisaHari = null;
+            $status = 'belum_pernah';
+            if ($jadwalBerikutnya !== null) {
+                $sisaHari = (int) Carbon::today()->diffInDays(Carbon::parse($jadwalBerikutnya)->startOfDay(), false);
+                $status = match (true) {
+                    $sisaHari < 0      => 'lewat_jatuh_tempo',
+                    $sisaHari <= $days => 'segera',
+                    default            => 'aman',
+                };
+            }
+
+            $items[] = [
+                'id_jenis_perawatan'       => $rule->id_jenis_perawatan,
+                'nama_jenis_perawatan'     => $rule->nama_jenis_perawatan,
+                'interval_hari'            => (int) $rule->interval_hari,
+                'tanggal_servis_terakhir'  => $tanggalTerakhir,
+                'jadwal_servis_berikutnya' => $jadwalBerikutnya,
+                'status'                   => $status,
+                'sisa_hari'                => $sisaHari,
+                'sparepart_standar'        => $this->paketRepo->resolusiList($idPerusahaan, $rule->id_jenis_perawatan, $armada->id_jenis_kendaraan),
+            ];
+        }
+
+        $rank = ['lewat_jatuh_tempo' => 0, 'belum_pernah' => 1, 'segera' => 2, 'aman' => 3];
+        usort($items, function (array $a, array $b) use ($rank) {
+            $cmp = $rank[$a['status']] <=> $rank[$b['status']];
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            return ($a['jadwal_servis_berikutnya'] ?? '9999-99-99') <=> ($b['jadwal_servis_berikutnya'] ?? '9999-99-99');
+        });
+
+        return $items;
     }
 
     private function toPagedArray(LengthAwarePaginator $paginator): array

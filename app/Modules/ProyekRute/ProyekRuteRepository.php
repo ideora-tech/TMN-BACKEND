@@ -42,6 +42,14 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
             ->get();
     }
 
+    public function ruteTerdaftarUntukProyek(string $idProyek, string $idRute): bool
+    {
+        return ProyekRuteModel::active()
+            ->where('id_proyek', $idProyek)
+            ->where('id_rute', $idRute)
+            ->exists();
+    }
+
     public function findById(string $id): ?ProyekRuteModel
     {
         return ProyekRuteModel::active()->find($id);

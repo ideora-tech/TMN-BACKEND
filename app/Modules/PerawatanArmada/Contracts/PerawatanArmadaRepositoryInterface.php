@@ -22,4 +22,7 @@ interface PerawatanArmadaRepositoryInterface
     public function setSparepartStok(string $idSparepart, int $stokBaru): void;
     public function insertSparepartMutasi(array $data): void;
     public function getJenisPerawatanNama(string $idJenisPerawatan): ?string;
+
+    /** Riwayat servis "selesai" terakhir per jenis perawatan untuk 1 armada (dipakai fitur prediksi perawatan). */
+    public function getLatestPerJenisByArmada(string $idArmada): array;
 }

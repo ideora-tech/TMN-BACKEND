@@ -145,4 +145,24 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
 
         return $nama !== null ? (string) $nama : null;
     }
+
+    public function getLatestPerJenisByArmada(string $idArmada): array
+    {
+        return DB::table('perawatan_armada')
+            ->whereNull('dihapus_pada')
+            ->where('id_armada', $idArmada)
+            ->where('status', 'selesai')
+            ->whereNotNull('id_jenis_perawatan')
+            ->whereRaw('id_perawatan = (
+                SELECT p2.id_perawatan FROM perawatan_armada p2
+                WHERE p2.id_armada = perawatan_armada.id_armada
+                  AND p2.id_jenis_perawatan = perawatan_armada.id_jenis_perawatan
+                  AND p2.status = \'selesai\'
+                  AND p2.dihapus_pada IS NULL
+                ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
+                LIMIT 1
+            )')
+            ->get(['id_jenis_perawatan', 'tanggal', 'jadwal_servis_berikutnya', 'km_odometer'])
+            ->all();
+    }
 }

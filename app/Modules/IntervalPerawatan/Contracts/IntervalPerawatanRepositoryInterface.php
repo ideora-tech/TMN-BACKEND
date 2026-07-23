@@ -32,6 +32,9 @@ interface IntervalPerawatanRepositoryInterface
 
     public function jenisKendaraanMilik(string $id, string $idPerusahaan): ?object;
 
+    /** Semua aturan interval aktif untuk 1 jenis kendaraan (dipakai fitur prediksi perawatan). */
+    public function findAllByJenisKendaraan(string $idPerusahaan, string $idJenisKendaraan): array;
+
     public function create(array $data): object;
 
     public function update(object $record, array $data): object;

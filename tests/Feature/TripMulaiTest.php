@@ -55,6 +55,31 @@ class TripMulaiTest extends TestCase
         return $id;
     }
 
+    private function makeJenisKendaraan(?string $idPerusahaan = null): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $id,
+            'id_perusahaan'      => $idPerusahaan ?? self::PERUSAHAAN_ID,
+            'kode_jenis'         => 'CDD-' . Str::random(4),
+            'nama_jenis'         => 'CDD',
+            'dibuat_pada'        => now(),
+        ]);
+        return $id;
+    }
+
+    private function daftarkanRuteKeProyek(string $idProyek, string $idRute, ?string $idPerusahaan = null): void
+    {
+        DB::table('proyek_rute')->insert([
+            'id_proyek_rute'     => (string) Str::uuid(),
+            'id_perusahaan'      => $idPerusahaan ?? self::PERUSAHAAN_ID,
+            'id_proyek'          => $idProyek,
+            'id_rute'            => $idRute,
+            'id_jenis_kendaraan' => $this->makeJenisKendaraan($idPerusahaan),
+            'dibuat_pada'        => now(),
+        ]);
+    }
+
     private function makePenugasan(?string $idPerusahaan = null): PenugasanModel
     {
         $proyek = ProyekModel::create([
@@ -82,6 +107,7 @@ class TripMulaiTest extends TestCase
         $this->actingAsRole('ADMIN');
         $penugasan = $this->makePenugasan();
         $idRute    = $this->makeRute('Jakarta - Bandung');
+        $this->daftarkanRuteKeProyek($penugasan->id_proyek, $idRute);
 
         $res = $this->postJson('/api/v1/trip/mulai', [
             'id_penugasan' => $penugasan->id_penugasan,
@@ -161,6 +187,25 @@ class TripMulaiTest extends TestCase
             'id_penugasan' => $penugasan->id_penugasan,
         ]);
         $this->assertSame(0, DB::table('trip')->count());
+    }
+
+    public function test_mulai_trip_id_rute_tidak_terdaftar_di_proyek_422(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $penugasan = $this->makePenugasan();
+        $idRute    = $this->makeRute('Jakarta - Bandung');
+        // sengaja tidak didaftarkan ke proyek_rute
+
+        $res = $this->postJson('/api/v1/trip/mulai', [
+            'id_penugasan' => $penugasan->id_penugasan,
+            'id_rute'      => $idRute,
+        ]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('tidak terdaftar untuk proyek', $res->json('message'));
+        $this->assertDatabaseMissing('jadwal_keberangkatan', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ]);
     }
 
     public function test_list_trip_filter_id_penugasan_dan_id_supir(): void

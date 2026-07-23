@@ -88,6 +88,25 @@ class IntervalPerawatanRepository implements IntervalPerawatanRepositoryInterfac
             ->first();
     }
 
+    public function findAllByJenisKendaraan(string $idPerusahaan, string $idJenisKendaraan): array
+    {
+        return DB::table('interval_perawatan')
+            ->join('jenis_perawatan', 'jenis_perawatan.id_jenis_perawatan', '=', 'interval_perawatan.id_jenis_perawatan')
+            ->whereNull('interval_perawatan.dihapus_pada')
+            ->whereNull('jenis_perawatan.dihapus_pada')
+            ->where('interval_perawatan.id_perusahaan', $idPerusahaan)
+            ->where('interval_perawatan.id_jenis_kendaraan', $idJenisKendaraan)
+            ->where('interval_perawatan.aktif', 1)
+            ->where('jenis_perawatan.aktif', 1)
+            ->orderBy('jenis_perawatan.nama')
+            ->get([
+                'interval_perawatan.id_jenis_perawatan',
+                'jenis_perawatan.nama as nama_jenis_perawatan',
+                'interval_perawatan.interval_hari',
+            ])
+            ->all();
+    }
+
     public function create(array $data): object
     {
         $data = RecordHelper::stampCreate($data, 'id_interval_perawatan');
