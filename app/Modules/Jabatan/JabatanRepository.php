@@ -16,19 +16,19 @@ class JabatanRepository implements JabatanRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idDepartemen = null): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idDepartemen = null, ?string $search = null): LengthAwarePaginator
     {
-        $query = DB::table('jabatan')
+        return DB::table('jabatan')
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('nama_jabatan', 'like', "%{$search}%")
+                   ->orWhere('kode_jabatan', 'like', "%{$search}%");
+            }))
+            ->when($idDepartemen, fn ($q, $v) => $q->where('id_departemen', $v))
             ->orderBy('level')
-            ->orderBy('nama_jabatan');
-
-        if ($idDepartemen !== null) {
-            $query->where('id_departemen', $idDepartemen);
-        }
-
-        return $query->paginate($limit, self::COLUMNS, 'page', $page);
+            ->orderBy('nama_jabatan')
+            ->paginate($limit, self::COLUMNS, 'page', $page);
     }
 
     public function findById(string $id): ?object

@@ -16,9 +16,9 @@ class FakturService
         private readonly FakturItemRepositoryInterface $itemRepo,
     ) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
 
         return [
             'data' => $result->items(),

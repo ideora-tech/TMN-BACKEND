@@ -21,10 +21,13 @@ class StoreLaporanPerjalananRequest extends FormRequest
             'jumlah_liter'            => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'jarak_tempuh_km'         => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'uang_jalan'              => ['sometimes', 'numeric', 'min:0'],
+            'uang_tol'                => ['sometimes', 'numeric', 'min:0'],
             'catatan_insiden'         => ['sometimes', 'nullable', 'string'],
             'biaya_lain'              => ['sometimes', 'array'],
             'biaya_lain.*.nama_biaya' => ['required_with:biaya_lain', 'string', 'max:100'],
             'biaya_lain.*.nominal'    => ['required_with:biaya_lain', 'numeric', 'min:0'],
+            'foto'                    => ['sometimes', 'array'],
+            'foto.*'                  => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
         ];
     }
 }

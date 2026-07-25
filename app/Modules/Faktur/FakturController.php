@@ -26,14 +26,16 @@ class FakturController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $page  = (int) $request->get('page', 1);
-        $limit = (int) $request->get('limit', 10);
+        $page   = (int) $request->get('page', 1);
+        $limit  = (int) $request->get('limit', 10);
+        $search = $request->filled('search') ? (string) $request->get('search') : null;
+        $status = $request->filled('status') ? (string) $request->get('status') : null;
 
         if ($request->filled('id_klien')) {
             $result = $this->service->listByKlien((string) $request->get('id_klien'), $page, $limit);
         } else {
             $idPerusahaan = (string) $request->user()->id_perusahaan;
-            $result = $this->service->list($idPerusahaan, $page, $limit);
+            $result = $this->service->list($idPerusahaan, $page, $limit, $search, $status);
         }
 
         return ApiResponse::paginated(

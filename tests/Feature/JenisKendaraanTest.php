@@ -124,6 +124,72 @@ class JenisKendaraanTest extends TestCase
         ]);
     }
 
+    public function test_list_dengan_search_menyaring_berdasarkan_kode_atau_nama(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01', 'Truk Engkel');
+        $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'PIK-01', 'Pick Up');
+
+        $resByNama = $this->getJson('/api/v1/jenis-kendaraan?search=Engkel');
+        $resByNama->assertStatus(200);
+        $dataByNama = $resByNama->json('data');
+        $this->assertCount(1, $dataByNama);
+        $this->assertSame('Truk Engkel', $dataByNama[0]['nama_jenis']);
+
+        $resByKode = $this->getJson('/api/v1/jenis-kendaraan?search=PIK-01');
+        $resByKode->assertStatus(200);
+        $dataByKode = $resByKode->json('data');
+        $this->assertCount(1, $dataByKode);
+        $this->assertSame('Pick Up', $dataByKode[0]['nama_jenis']);
+    }
+
+    public function test_list_dengan_filter_aktif(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $aktifItem = $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01', 'Truk Aktif');
+        $nonaktifId = (string) Str::uuid();
+        DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $nonaktifId,
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'kode_jenis'         => 'TRK-99',
+            'nama_jenis'         => 'Truk Nonaktif',
+            'aktif'              => 0,
+            'dibuat_pada'        => now(),
+        ]);
+
+        $resAktif = $this->getJson('/api/v1/jenis-kendaraan?aktif=1');
+        $resAktif->assertStatus(200);
+        $dataAktif = $resAktif->json('data');
+        $this->assertCount(1, $dataAktif);
+        $this->assertSame($aktifItem->id_jenis_kendaraan, $dataAktif[0]['id_jenis_kendaraan']);
+
+        $resNonaktif = $this->getJson('/api/v1/jenis-kendaraan?aktif=0');
+        $resNonaktif->assertStatus(200);
+        $dataNonaktif = $resNonaktif->json('data');
+        $this->assertCount(1, $dataNonaktif);
+        $this->assertSame($nonaktifId, $dataNonaktif[0]['id_jenis_kendaraan']);
+    }
+
+    public function test_list_dengan_kombinasi_search_dan_aktif(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01', 'Truk Engkel');
+        DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => (string) Str::uuid(),
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'kode_jenis'         => 'TRK-02',
+            'nama_jenis'         => 'Truk Engkel Nonaktif',
+            'aktif'              => 0,
+            'dibuat_pada'        => now(),
+        ]);
+
+        $res = $this->getJson('/api/v1/jenis-kendaraan?search=Engkel&aktif=1');
+        $res->assertStatus(200);
+        $data = $res->json('data');
+        $this->assertCount(1, $data);
+        $this->assertSame('Truk Engkel', $data[0]['nama_jenis']);
+    }
+
     public function test_hapus_jenis_kendaraan_soft_delete(): void
     {
         $this->actingAsRole('ADMIN');

@@ -10,9 +10,9 @@ class JabatanService
 {
     public function __construct(private readonly JabatanRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idDepartemen = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idDepartemen = null, ?string $search = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idDepartemen);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idDepartemen, $search);
 
         return [
             'data' => $result->items(),

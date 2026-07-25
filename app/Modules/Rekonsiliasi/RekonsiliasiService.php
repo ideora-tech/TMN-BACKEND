@@ -10,9 +10,9 @@ class RekonsiliasiService
 {
     public function __construct(private readonly RekonsiliasiRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
 
         return [
             'data' => $result->items(),

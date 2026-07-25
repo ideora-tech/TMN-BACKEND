@@ -18,11 +18,16 @@ class KlienRepository implements KlienRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $aktif = null): LengthAwarePaginator
     {
         return DB::table('klien')
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('nama_klien', 'like', "%{$search}%")
+                   ->orWhere('kode_klien', 'like', "%{$search}%");
+            }))
+            ->when($aktif !== null && $aktif !== '', fn ($q) => $q->where('aktif', (int) $aktif))
             ->orderBy('nama_klien')
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }

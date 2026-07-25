@@ -18,9 +18,9 @@ class DokumenArmadaService
         return $this->toPagedArray($this->repo->paginateByArmada($idArmada, $page, $limit));
     }
 
-    public function listByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen): array
+    public function listByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen, ?string $search = null): array
     {
-        return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $jenisDokumen));
+        return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $jenisDokumen, $search));
     }
 
     private function toPagedArray(LengthAwarePaginator $paginator): array

@@ -11,7 +11,7 @@ interface MenuRepositoryInterface
 {
     public function allAktif(): array;
     public function tree(?string $kodePeran = null): array;
-    public function paginate(int $page, int $limit): LengthAwarePaginator;
+    public function paginate(int $page, int $limit, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?MenuModel;
     public function create(array $data): MenuModel;
     public function update(MenuModel $model, array $data): MenuModel;

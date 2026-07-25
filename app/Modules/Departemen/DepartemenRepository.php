@@ -17,11 +17,24 @@ class DepartemenRepository implements DepartemenRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?bool $aktif = null): LengthAwarePaginator
     {
-        return DB::table('departemen')
+        $query = DB::table('departemen')
             ->whereNull('dihapus_pada')
-            ->where('id_perusahaan', $idPerusahaan)
+            ->where('id_perusahaan', $idPerusahaan);
+
+        if ($aktif !== null) {
+            $query->where('aktif', $aktif ? 1 : 0);
+        }
+
+        if ($search !== null && $search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_departemen', 'like', "%{$search}%")
+                  ->orWhere('kode_departemen', 'like', "%{$search}%");
+            });
+        }
+
+        return $query
             ->orderBy('nama_departemen')
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }

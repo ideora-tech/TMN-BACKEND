@@ -8,7 +8,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface KaryawanRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status = null, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?object;
     public function findByNik(string $nik): ?object;
     public function create(array $data): object;

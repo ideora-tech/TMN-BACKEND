@@ -19,11 +19,24 @@ class KaryawanRepository implements KaryawanRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status = null, ?string $search = null): LengthAwarePaginator
     {
-        $paginator = DB::table('karyawan')
+        $query = DB::table('karyawan')
             ->whereNull('dihapus_pada')
-            ->where('id_perusahaan', $idPerusahaan)
+            ->where('id_perusahaan', $idPerusahaan);
+
+        if ($status !== null && $status !== '') {
+            $query->where('status_kepegawaian', $status);
+        }
+
+        if ($search !== null && $search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_karyawan', 'like', "%{$search}%")
+                  ->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+
+        $paginator = $query
             ->orderBy('nama_karyawan')
             ->paginate($limit, self::COLUMNS, 'page', $page);
 

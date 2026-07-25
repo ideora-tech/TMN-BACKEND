@@ -16,8 +16,9 @@ class PaketPerawatanSparepartService
         int $limit = 10,
         ?string $idJenisPerawatan = null,
         ?string $idJenisKendaraan = null,
+        ?string $search = null,
     ): array {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idJenisPerawatan, $idJenisKendaraan);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idJenisPerawatan, $idJenisKendaraan, $search);
 
         return [
             'data' => $result->items(),

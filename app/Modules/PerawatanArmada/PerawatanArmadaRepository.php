@@ -27,10 +27,11 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->whereNull('dihapus_pada')
             ->where('id_armada', $idArmada)
             ->orderByDesc('tanggal')
+            ->orderByDesc('dibuat_pada')
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false, ?string $search = null): LengthAwarePaginator
     {
         $batas = now()->addDays(30)->toDateString();
 
@@ -41,6 +42,11 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->whereNull('armada.dihapus_pada')
             ->when($idArmada, fn ($q, $v) => $q->where('perawatan_armada.id_armada', $v))
             ->when($status, fn ($q, $v) => $q->where('perawatan_armada.status', $v))
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('perawatan_armada.jenis_perawatan', 'like', "%{$search}%")
+                   ->orWhere('perawatan_armada.keterangan', 'like', "%{$search}%")
+                   ->orWhere('armada.nopol', 'like', "%{$search}%");
+            }))
             ->when($jatuhTempo, fn ($q) => $q
                 ->whereNotNull('perawatan_armada.jadwal_servis_berikutnya')
                 ->where('perawatan_armada.jadwal_servis_berikutnya', '<=', $batas)
@@ -51,6 +57,7 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
                     LIMIT 1
                 )'))
             ->orderByDesc('perawatan_armada.tanggal')
+            ->orderByDesc('perawatan_armada.dibuat_pada')
             ->select(array_merge(self::COLUMNS, ['armada.nopol as armada_nopol', 'armada.merk as armada_merk']))
             ->paginate($limit, ['*'], 'page', $page);
     }

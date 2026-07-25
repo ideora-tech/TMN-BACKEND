@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface VendorRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?VendorModel;
     public function findByKode(string $idPerusahaan, string $kode): ?VendorModel;
     public function create(array $data): VendorModel;

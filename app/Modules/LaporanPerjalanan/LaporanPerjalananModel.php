@@ -21,6 +21,7 @@ class LaporanPerjalananModel extends BaseModel
         'jumlah_liter',
         'jarak_tempuh_km',
         'uang_jalan',
+        'uang_tol',
         'catatan_insiden',
     ];
 
@@ -29,6 +30,7 @@ class LaporanPerjalananModel extends BaseModel
         'jumlah_liter'    => 'float',
         'jarak_tempuh_km' => 'float',
         'uang_jalan'      => 'float',
+        'uang_tol'        => 'float',
     ];
 
     public function biayaLain(): HasMany

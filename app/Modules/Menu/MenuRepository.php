@@ -34,9 +34,13 @@ class MenuRepository implements MenuRepositoryInterface
         return $this->buildTree($all, null);
     }
 
-    public function paginate(int $page, int $limit): LengthAwarePaginator
+    public function paginate(int $page, int $limit, ?string $search = null): LengthAwarePaginator
     {
         return MenuModel::active()
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('nama_menu', 'like', "%{$search}%")
+                   ->orWhere('path', 'like', "%{$search}%");
+            }))
             ->orderBy('urutan')
             ->paginate($limit, ['*'], 'page', $page);
     }

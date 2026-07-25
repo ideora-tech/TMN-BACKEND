@@ -27,22 +27,22 @@ class LaporanPerjalananController extends Controller
     public function store(StoreLaporanPerjalananRequest $request, string $idTrip): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $record = $this->service->createForTrip($idTrip, $request->validated(), $idPerusahaan);
+        $record = $this->service->createForTrip($idTrip, $request->validated(), $idPerusahaan, $request->file('foto', []));
         return ApiResponse::success(new LaporanPerjalananResource($record), 'Laporan perjalanan berhasil dibuat', 201);
     }
 
     public function update(StoreLaporanPerjalananRequest $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $record = $this->service->update($id, $request->validated(), $idPerusahaan);
+        $record = $this->service->update($id, $request->validated(), $idPerusahaan, $request->file('foto', []));
         return ApiResponse::success(new LaporanPerjalananResource($record), 'Laporan perjalanan berhasil diperbarui');
     }
 
     public function storeFoto(StoreFotoLaporanRequest $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $record = $this->service->addFoto($id, $request->validated(), $request->file('file'), $idPerusahaan);
-        return ApiResponse::success(new FotoLaporanResource($record), 'Foto laporan berhasil diunggah', 201);
+        $records = $this->service->addFoto($id, $request->file('foto'), $idPerusahaan, $request->validated('keterangan'));
+        return ApiResponse::success(FotoLaporanResource::collection($records), 'Foto laporan berhasil diunggah', 201);
     }
 
     public function destroyFoto(Request $request, string $id, string $idFoto): JsonResponse

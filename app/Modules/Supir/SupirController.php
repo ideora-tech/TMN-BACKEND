@@ -34,7 +34,16 @@ class SupirController extends Controller
     public function index(Request $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $result = $this->service->list($idPerusahaan, (int) $request->get('page', 1), (int) $request->get('limit', 10));
+        $status = $request->get('status') !== null ? (string) $request->get('status') : null;
+
+        $result = $this->service->list(
+            $idPerusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            $status,
+            $request->get('search')
+        );
+
         return ApiResponse::paginated(SupirResource::collection($result['data']), $result['meta']);
     }
 

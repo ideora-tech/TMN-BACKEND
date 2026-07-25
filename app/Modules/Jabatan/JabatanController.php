@@ -20,12 +20,14 @@ class JabatanController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $idDepartemen = $request->get('id_departemen');
+        $search = $request->get('search');
 
         $result = $this->service->list(
             $idPerusahaan,
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
-            $idDepartemen !== null ? (string) $idDepartemen : null
+            $idDepartemen !== null ? (string) $idDepartemen : null,
+            $search !== null ? (string) $search : null
         );
 
         return ApiResponse::paginated(

@@ -20,11 +20,15 @@ class PenggunaController extends Controller
     public function index(Request $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $search = $request->get('search') !== null && $request->get('search') !== '' ? (string) $request->get('search') : null;
+        $aktif  = $request->get('aktif') !== null && $request->get('aktif') !== '' ? (string) $request->get('aktif') : null;
 
         $result = $this->service->list(
             $idPerusahaan,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            $search,
+            $aktif
         );
 
         return ApiResponse::paginated(

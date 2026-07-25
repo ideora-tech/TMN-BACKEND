@@ -10,10 +10,15 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class PenggunaRepository implements PenggunaRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $aktif = null): LengthAwarePaginator
     {
         return Pengguna::active()
             ->where('id_perusahaan', $idPerusahaan)
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('username', 'like', "%{$search}%")
+                   ->orWhere('email', 'like', "%{$search}%");
+            }))
+            ->when($aktif !== null, fn ($q) => $q->where('aktif', (int) $aktif))
             ->paginate($limit, ['*'], 'page', $page);
     }
 

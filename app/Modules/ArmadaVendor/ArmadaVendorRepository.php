@@ -10,13 +10,17 @@ use Illuminate\Support\Facades\DB;
 
 class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null, ?string $search = null): LengthAwarePaginator
     {
         return ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->whereNull('vendor.dihapus_pada')
             ->when($idVendor, fn ($q) => $q->where('armada_vendor.id_vendor', $idVendor))
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('armada_vendor.nopol', 'like', "%{$search}%")
+                   ->orWhere('armada_vendor.merk', 'like', "%{$search}%");
+            }))
             ->select('armada_vendor.*', 'vendor.nama_vendor')
             ->orderBy('armada_vendor.nopol')
             ->paginate($limit, ['*'], 'page', $page);

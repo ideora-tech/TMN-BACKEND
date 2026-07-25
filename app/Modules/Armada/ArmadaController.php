@@ -42,7 +42,8 @@ class ArmadaController extends Controller
             $idPerusahaan,
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
-            $status
+            $status,
+            $request->get('search')
         );
 
         return ApiResponse::paginated(

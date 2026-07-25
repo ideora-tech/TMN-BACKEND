@@ -23,9 +23,9 @@ class ProyekService
         private readonly ProyekRuteService $proyekRuteService,
     ) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
 
         return [
             'data' => $result->items(),
@@ -38,9 +38,9 @@ class ProyekService
         ];
     }
 
-    public function listByKlien(string $idKlien, int $page = 1, int $limit = 20): array
+    public function listByKlien(string $idKlien, int $page = 1, int $limit = 20, ?string $search = null, ?string $status = null): array
     {
-        $result = $this->repo->paginateByKlien($idKlien, $page, $limit);
+        $result = $this->repo->paginateByKlien($idKlien, $page, $limit, $search, $status);
 
         return [
             'data' => $result->items(),

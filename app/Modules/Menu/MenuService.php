@@ -20,9 +20,9 @@ class MenuService
         return $this->repo->tree($kodePeran);
     }
 
-    public function list(int $page = 1, int $limit = 10): array
+    public function list(int $page = 1, int $limit = 10, ?string $search = null): array
     {
-        $result = $this->repo->paginate($page, $limit);
+        $result = $this->repo->paginate($page, $limit, $search);
 
         return [
             'data' => $result->items(),

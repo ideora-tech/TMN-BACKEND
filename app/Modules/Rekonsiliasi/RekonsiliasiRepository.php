@@ -9,12 +9,18 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class RekonsiliasiRepository implements RekonsiliasiRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator
     {
         return RekonsiliasiModel::active()
             ->join('faktur', 'rekonsiliasi.id_faktur', '=', 'faktur.id_faktur')
             ->where('faktur.id_perusahaan', $idPerusahaan)
             ->whereNull('faktur.dihapus_pada')
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('faktur.nomor_faktur', 'like', "%{$search}%")
+                   ->orWhere('rekonsiliasi.catatan_klien', 'like', "%{$search}%")
+                   ->orWhere('rekonsiliasi.catatan_keuangan', 'like', "%{$search}%");
+            }))
+            ->when($status, fn ($q, $v) => $q->where('rekonsiliasi.status', $v))
             ->select('rekonsiliasi.*')
             ->orderBy('rekonsiliasi.dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);

@@ -14,6 +14,7 @@ class ArmadaResource extends JsonResource
             'id_armada'           => $this->id_armada,
             'id_perusahaan'       => $this->id_perusahaan,
             'id_jenis_kendaraan'  => $this->id_jenis_kendaraan,
+            'nama_jenis'          => $this->whenNotNull($this->nama_jenis ?? null),
             'id_vendor'           => $this->id_vendor,
             'nopol'               => $this->nopol,
             'merk'                => $this->merk,

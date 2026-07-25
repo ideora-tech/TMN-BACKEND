@@ -18,7 +18,8 @@ class LaporanPerjalananService
         private readonly JenisBbmRepositoryInterface $jenisBbmRepo,
     ) {}
 
-    public function createForTrip(string $idTrip, array $data, string $idPerusahaan): LaporanPerjalananModel
+    /** @param UploadedFile[] $fotoFiles */
+    public function createForTrip(string $idTrip, array $data, string $idPerusahaan, array $fotoFiles = []): LaporanPerjalananModel
     {
         $trip = $this->tripRepo->findById($idTrip);
         if (!$trip || !$this->repo->tripMilikPerusahaan($idTrip, $idPerusahaan)) {
@@ -34,13 +35,14 @@ class LaporanPerjalananService
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
 
         $biayaLain = $data['biaya_lain'] ?? [];
-        unset($data['biaya_lain']);
+        unset($data['biaya_lain'], $data['foto']);
 
         $laporan = $this->repo->create(array_merge($data, [
             'id_trip'       => $idTrip,
             'id_perusahaan' => $idPerusahaan,
         ]));
         $this->repo->syncBiayaLain($laporan, $biayaLain);
+        $this->simpanFotoFiles($laporan, $fotoFiles);
 
         return $this->repo->reload($laporan);
     }
@@ -75,7 +77,8 @@ class LaporanPerjalananService
         return $record;
     }
 
-    public function update(string $id, array $data, string $idPerusahaan): LaporanPerjalananModel
+    /** @param UploadedFile[] $fotoFiles */
+    public function update(string $id, array $data, string $idPerusahaan, array $fotoFiles = []): LaporanPerjalananModel
     {
         $record = $this->findOrFailMilik($id, $idPerusahaan);
 
@@ -83,13 +86,14 @@ class LaporanPerjalananService
 
         $hasBiayaLain = array_key_exists('biaya_lain', $data);
         $biayaLain = $data['biaya_lain'] ?? [];
-        unset($data['biaya_lain']);
+        unset($data['biaya_lain'], $data['foto']);
 
         $record = $this->repo->update($record, $data);
 
         if ($hasBiayaLain) {
             $this->repo->syncBiayaLain($record, $biayaLain);
         }
+        $this->simpanFotoFiles($record, $fotoFiles);
 
         return $this->repo->reload($record);
     }
@@ -105,15 +109,32 @@ class LaporanPerjalananService
         }
     }
 
-    public function addFoto(string $idLaporan, array $data, UploadedFile $file, string $idPerusahaan): FotoLaporanPerjalananModel
+    /**
+     * @param UploadedFile[] $files
+     * @return FotoLaporanPerjalananModel[]
+     */
+    public function addFoto(string $idLaporan, array $files, string $idPerusahaan, ?string $keterangan = null): array
     {
         $laporan = $this->findOrFailMilik($idLaporan, $idPerusahaan);
 
-        $path = $file->store('laporan-perjalanan', 'public');
-        $data['url_file'] = Storage::disk('public')->url($path);
-        unset($data['file']);
+        return $this->simpanFotoFiles($laporan, $files, $keterangan);
+    }
 
-        return $this->repo->addFoto($laporan->id_laporan, $data);
+    /**
+     * @param UploadedFile[] $files
+     * @return FotoLaporanPerjalananModel[]
+     */
+    private function simpanFotoFiles(LaporanPerjalananModel $laporan, array $files, ?string $keterangan = null): array
+    {
+        $hasil = [];
+        foreach ($files as $file) {
+            $path = $file->store('laporan-perjalanan', 'public');
+            $hasil[] = $this->repo->addFoto($laporan->id_laporan, [
+                'url_file'   => Storage::disk('public')->url($path),
+                'keterangan' => $keterangan,
+            ]);
+        }
+        return $hasil;
     }
 
     public function deleteFoto(string $idLaporan, string $idFoto, string $idPerusahaan): void

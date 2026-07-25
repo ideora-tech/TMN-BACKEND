@@ -19,6 +19,7 @@ class NotifikasiResource extends JsonResource
             'tipe'           => $this->tipe,
             'referensi_id'   => $this->referensi_id,
             'referensi_tipe' => $this->referensi_tipe,
+            'link'           => $this->link ?? null,
             'dibaca'         => (bool) $this->dibaca,
             'dibaca_pada'    => $this->dibaca_pada,
             'dibuat_pada'    => $this->dibuat_pada,

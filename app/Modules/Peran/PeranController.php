@@ -23,7 +23,9 @@ class PeranController extends Controller
         $result = $this->service->list(
             $idPerusahaan,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            $request->get('search'),
+            $request->get('aktif')
         );
 
         return ApiResponse::paginated(

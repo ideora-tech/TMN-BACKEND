@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface RekonsiliasiRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator;
     public function paginateByFaktur(string $idFaktur, int $page, int $limit): LengthAwarePaginator;
     public function findById(string $id): ?RekonsiliasiModel;
     public function create(array $data): RekonsiliasiModel;

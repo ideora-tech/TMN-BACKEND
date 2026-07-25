@@ -19,11 +19,15 @@ class JenisKendaraanController extends Controller
     public function index(Request $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $aktifRaw = $request->get('aktif');
+        $aktif = ($aktifRaw === null || $aktifRaw === '') ? null : (bool) ((int) $aktifRaw);
 
         $result = $this->service->list(
             $idPerusahaan,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            $request->get('search'),
+            $aktif
         );
 
         return ApiResponse::paginated(

@@ -11,11 +11,20 @@ use Illuminate\Support\Facades\DB;
 
 class KontrakVendorRepository implements KontrakVendorRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null, ?string $search = null): LengthAwarePaginator
     {
         $paginator = KontrakVendorModel::active()
             ->where('id_perusahaan', $idPerusahaan)
             ->when($idVendor, fn ($q) => $q->where('id_vendor', $idVendor))
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('mekanisme', 'like', "%{$search}%")
+                   ->orWhereIn('id_vendor', function ($sub) use ($search) {
+                       $sub->select('id_vendor')
+                           ->from('vendor')
+                           ->whereNull('dihapus_pada')
+                           ->where('nama_vendor', 'like', "%{$search}%");
+                   });
+            }))
             ->orderBy('dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
 

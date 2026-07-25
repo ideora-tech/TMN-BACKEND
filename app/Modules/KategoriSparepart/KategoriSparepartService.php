@@ -10,9 +10,9 @@ class KategoriSparepartService
 {
     public function __construct(private readonly KategoriSparepartRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search);
 
         return [
             'data' => $result->items(),

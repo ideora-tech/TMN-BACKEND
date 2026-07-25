@@ -10,9 +10,9 @@ class PeranService
 {
     public function __construct(private readonly PeranRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $aktif = null): array
     {
-        $result = $this->repo->paginate($idPerusahaan, $page, $limit);
+        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $search, $aktif);
 
         return [
             'data' => $result->items(),

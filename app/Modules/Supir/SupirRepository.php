@@ -15,13 +15,25 @@ class SupirRepository implements SupirRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status = null, ?string $search = null): LengthAwarePaginator
     {
-        return DB::table('supir')
+        $query = DB::table('supir')
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
-            ->orderBy('nama', 'asc')
-            ->paginate($limit, self::COLUMNS, 'page', $page);
+            ->orderBy('nama', 'asc');
+
+        if ($status !== null) {
+            $query->where('status', $status);
+        }
+
+        if ($search !== null && $search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'like', "%{$search}%")
+                  ->orWhere('no_sim', 'like', "%{$search}%");
+            });
+        }
+
+        return $query->paginate($limit, self::COLUMNS, 'page', $page);
     }
 
     public function findById(string $id): ?object

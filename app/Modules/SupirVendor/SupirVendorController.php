@@ -24,7 +24,8 @@ class SupirVendorController extends Controller
             $idPerusahaan,
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
-            $request->get('id_vendor')
+            $request->get('id_vendor'),
+            $request->get('search')
         );
 
         return ApiResponse::paginated(

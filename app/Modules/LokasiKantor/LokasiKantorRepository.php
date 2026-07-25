@@ -17,11 +17,16 @@ class LokasiKantorRepository implements LokasiKantorRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $aktif = null): LengthAwarePaginator
     {
         return DB::table('lokasi_kantor')
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('nama_lokasi', 'like', "%{$search}%")
+                   ->orWhere('kota', 'like', "%{$search}%");
+            }))
+            ->when($aktif !== null, fn ($q) => $q->where('aktif', (int) $aktif))
             ->orderBy('nama_lokasi')
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }

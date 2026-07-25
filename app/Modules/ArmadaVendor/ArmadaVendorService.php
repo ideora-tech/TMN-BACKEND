@@ -10,9 +10,9 @@ class ArmadaVendorService
 {
     public function __construct(private readonly ArmadaVendorRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idVendor = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idVendor = null, ?string $search = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idVendor);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idVendor, $search);
 
         return [
             'data' => $result->items(),

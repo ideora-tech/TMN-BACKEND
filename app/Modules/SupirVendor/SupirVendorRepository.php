@@ -10,13 +10,17 @@ use Illuminate\Support\Facades\DB;
 
 class SupirVendorRepository implements SupirVendorRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null, ?string $search = null): LengthAwarePaginator
     {
         return SupirVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'supir_vendor.id_vendor')
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->whereNull('vendor.dihapus_pada')
             ->when($idVendor, fn ($q) => $q->where('supir_vendor.id_vendor', $idVendor))
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('supir_vendor.nama', 'like', "%{$search}%")
+                   ->orWhere('supir_vendor.no_sim', 'like', "%{$search}%");
+            }))
             ->select('supir_vendor.*', 'vendor.nama_vendor')
             ->orderBy('supir_vendor.nama')
             ->paginate($limit, ['*'], 'page', $page);

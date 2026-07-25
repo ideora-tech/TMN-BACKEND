@@ -23,7 +23,9 @@ class RekonsiliasiController extends Controller
         $result = $this->service->list(
             $idPerusahaan,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            $request->get('search'),
+            $request->get('status')
         );
 
         return ApiResponse::paginated(

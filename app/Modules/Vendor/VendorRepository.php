@@ -9,10 +9,14 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class VendorRepository implements VendorRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null): LengthAwarePaginator
     {
         return VendorModel::active()
             ->where('id_perusahaan', $idPerusahaan)
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('nama_vendor', 'like', "%{$search}%")
+                   ->orWhere('telepon', 'like', "%{$search}%");
+            }))
             ->orderBy('nama_vendor')
             ->paginate($limit, ['*'], 'page', $page);
     }

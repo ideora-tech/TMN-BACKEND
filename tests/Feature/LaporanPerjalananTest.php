@@ -275,19 +275,70 @@ class LaporanPerjalananTest extends TestCase
         $idLaporan = $createRes->json('data.id_laporan');
 
         $res = $this->postJson("/api/v1/laporan-perjalanan/{$idLaporan}/foto", [
-            'file'       => UploadedFile::fake()->image('muatan.jpg'),
+            'foto'       => [UploadedFile::fake()->image('muatan.jpg')],
             'keterangan' => 'Muatan depan',
         ]);
 
         $res->assertStatus(201)
             ->assertJsonPath('success', true);
 
-        $this->assertIsString($res->json('data.url_file'));
-        $this->assertNotEmpty($res->json('data.url_file'));
+        $this->assertIsString($res->json('data.0.url_file'));
+        $this->assertNotEmpty($res->json('data.0.url_file'));
 
         $this->assertDatabaseHas('foto_laporan_perjalanan', [
             'id_laporan' => $idLaporan,
             'keterangan' => 'Muatan depan',
         ]);
+    }
+
+    public function test_upload_foto_multi_file(): void
+    {
+        Storage::fake('public');
+        $this->actingAsRole('ADMIN');
+        $trip = $this->makeTrip('selesai');
+
+        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_bbm'       => 500000,
+            'jarak_tempuh_km' => 120,
+            'uang_jalan'      => 200000,
+        ]);
+        $idLaporan = $createRes->json('data.id_laporan');
+
+        $res = $this->postJson("/api/v1/laporan-perjalanan/{$idLaporan}/foto", [
+            'foto' => [
+                UploadedFile::fake()->image('muatan-1.jpg'),
+                UploadedFile::fake()->image('muatan-2.jpg'),
+            ],
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertCount(2, $res->json('data'));
+        $this->assertSame(2, DB::table('foto_laporan_perjalanan')
+            ->where('id_laporan', $idLaporan)->whereNull('dihapus_pada')->count());
+    }
+
+    public function test_create_laporan_dengan_foto_dan_uang_tol(): void
+    {
+        Storage::fake('public');
+        $this->actingAsRole('ADMIN');
+        $trip = $this->makeTrip('selesai');
+
+        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_bbm'       => 500000,
+            'jarak_tempuh_km' => 120,
+            'uang_jalan'      => 200000,
+            'uang_tol'        => 25000,
+            'foto'            => [
+                UploadedFile::fake()->image('muatan-1.jpg'),
+                UploadedFile::fake()->image('muatan-2.jpg'),
+            ],
+        ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.uang_tol', 25000)
+            ->assertJsonCount(2, 'data.foto');
+
+        $this->assertSame(2, DB::table('foto_laporan_perjalanan')
+            ->where('id_laporan', $res->json('data.id_laporan'))->whereNull('dihapus_pada')->count());
     }
 }

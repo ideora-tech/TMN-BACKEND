@@ -26,6 +26,7 @@ class IntervalPerawatanController extends Controller
             (int) $request->query('limit', 10),
             $request->query('id_jenis_perawatan'),
             $request->query('id_jenis_kendaraan'),
+            $request->query('search'),
         );
 
         return ApiResponse::paginated(IntervalPerawatanResource::collection($result['data']), $result['meta']);

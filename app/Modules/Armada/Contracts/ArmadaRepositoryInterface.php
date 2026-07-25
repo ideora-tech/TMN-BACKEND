@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface ArmadaRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?ArmadaModel;
     public function findByNopol(string $nopol): ?ArmadaModel;
     public function findByNopolMilikPerusahaan(string $nopol, string $idPerusahaan): ?ArmadaModel;

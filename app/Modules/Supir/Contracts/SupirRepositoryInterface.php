@@ -6,7 +6,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface SupirRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status = null, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?object;
     public function findByPengguna(string $idPengguna): ?object;
     public function findByNoSim(string $idPerusahaan, string $noSim): ?object;

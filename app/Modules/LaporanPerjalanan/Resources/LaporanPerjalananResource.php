@@ -19,6 +19,7 @@ class LaporanPerjalananResource extends JsonResource
             'jumlah_liter'    => $this->jumlah_liter,
             'jarak_tempuh_km' => $this->jarak_tempuh_km,
             'uang_jalan'      => $this->uang_jalan,
+            'uang_tol'        => $this->uang_tol,
             'catatan_insiden' => $this->catatan_insiden,
             'dibuat_pada'     => $this->dibuat_pada,
             'diubah_pada'     => $this->diubah_pada,

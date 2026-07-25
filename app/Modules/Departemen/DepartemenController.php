@@ -19,11 +19,15 @@ class DepartemenController extends Controller
     public function index(Request $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $aktifParam = $request->get('aktif');
+        $aktif = ($aktifParam !== null && $aktifParam !== '') ? (bool) ((int) $aktifParam) : null;
 
         $result = $this->service->list(
             $idPerusahaan,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            $request->get('search'),
+            $aktif
         );
 
         return ApiResponse::paginated(

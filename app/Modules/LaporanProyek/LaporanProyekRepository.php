@@ -9,12 +9,13 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class LaporanProyekRepository implements LaporanProyekRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $search = null): LengthAwarePaginator
     {
         return LaporanProyekModel::active()
             ->join('proyek as pr', 'laporan_proyek.id_proyek', '=', 'pr.id_proyek')
             ->where('pr.id_perusahaan', $idPerusahaan)
             ->whereNull('pr.dihapus_pada')
+            ->when($search, fn ($q) => $q->where('laporan_proyek.id_proyek', 'like', "%{$search}%"))
             ->select('laporan_proyek.*')
             ->orderBy('laporan_proyek.dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);

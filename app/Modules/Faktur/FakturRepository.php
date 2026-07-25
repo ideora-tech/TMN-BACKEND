@@ -9,12 +9,29 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class FakturRepository implements FakturRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator
     {
-        return FakturModel::active()
-            ->where('id_perusahaan', $idPerusahaan)
-            ->orderBy('dibuat_pada', 'desc')
-            ->paginate($limit, ['*'], 'page', $page);
+        $query = FakturModel::active()
+            ->leftJoin('klien', function ($join) {
+                $join->on('klien.id_klien', '=', 'faktur.id_klien')
+                    ->whereNull('klien.dihapus_pada');
+            })
+            ->where('faktur.id_perusahaan', $idPerusahaan)
+            ->select('faktur.*')
+            ->orderBy('faktur.dibuat_pada', 'desc');
+
+        if ($status !== null && $status !== '') {
+            $query->where('faktur.status', $status);
+        }
+
+        if ($search !== null && $search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('faktur.nomor_faktur', 'like', "%{$search}%")
+                  ->orWhere('klien.nama_klien', 'like', "%{$search}%");
+            });
+        }
+
+        return $query->paginate($limit, ['*'], 'page', $page);
     }
 
     public function paginateByKlien(string $idKlien, int $page, int $limit): LengthAwarePaginator

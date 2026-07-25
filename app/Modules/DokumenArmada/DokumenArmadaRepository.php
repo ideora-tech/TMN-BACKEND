@@ -28,7 +28,7 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen, ?string $search = null): LengthAwarePaginator
     {
         return DB::table('dokumen_armada')
             ->join('armada', 'armada.id_armada', '=', 'dokumen_armada.id_armada')
@@ -37,6 +37,11 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
             ->whereNull('armada.dihapus_pada')
             ->when($idArmada, fn ($q, $v) => $q->where('dokumen_armada.id_armada', $v))
             ->when($jenisDokumen, fn ($q, $v) => $q->where('dokumen_armada.jenis_dokumen', $v))
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('dokumen_armada.jenis_dokumen', 'like', "%{$search}%")
+                   ->orWhere('dokumen_armada.nomor', 'like', "%{$search}%")
+                   ->orWhere('armada.nopol', 'like', "%{$search}%");
+            }))
             ->orderBy('dokumen_armada.berlaku_sampai')
             ->select(array_merge(self::COLUMNS, ['armada.nopol as armada_nopol', 'armada.merk as armada_merk']))
             ->paginate($limit, ['*'], 'page', $page);

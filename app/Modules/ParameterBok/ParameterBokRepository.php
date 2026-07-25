@@ -28,7 +28,10 @@ class ParameterBokRepository implements ParameterBokRepositoryInterface
     {
         return $this->detailQuery()
             ->where('parameter_bok.id_perusahaan', $idPerusahaan)
-            ->when($search, fn ($q) => $q->where('jenis_kendaraan.nama_jenis', 'like', "%{$search}%"))
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('jenis_kendaraan.nama_jenis', 'like', "%{$search}%")
+                   ->orWhere('jenis_bbm.nama_bbm', 'like', "%{$search}%");
+            }))
             ->orderBy('jenis_kendaraan.nama_jenis')
             ->paginate($limit, self::DETAIL_SELECT, 'page', $page);
     }

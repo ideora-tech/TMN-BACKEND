@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface PeranRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $aktif = null): LengthAwarePaginator;
     public function findById(string $id): ?PeranModel;
     public function findByKode(string $kodePeran): ?PeranModel;
     public function create(array $data): PeranModel;

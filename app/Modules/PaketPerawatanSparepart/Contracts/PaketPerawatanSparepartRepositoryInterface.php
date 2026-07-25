@@ -14,6 +14,7 @@ interface PaketPerawatanSparepartRepositoryInterface
         int $limit,
         ?string $idJenisPerawatan,
         ?string $idJenisKendaraan,
+        ?string $search = null,
     ): LengthAwarePaginator;
 
     public function findById(string $id): ?object;

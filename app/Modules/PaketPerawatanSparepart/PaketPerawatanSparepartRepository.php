@@ -38,11 +38,17 @@ class PaketPerawatanSparepartRepository implements PaketPerawatanSparepartReposi
         int $limit,
         ?string $idJenisPerawatan,
         ?string $idJenisKendaraan,
+        ?string $search = null,
     ): LengthAwarePaginator {
         return $this->detailQuery()
             ->where('paket_perawatan_sparepart.id_perusahaan', $idPerusahaan)
             ->when($idJenisPerawatan, fn ($q, $v) => $q->where('paket_perawatan_sparepart.id_jenis_perawatan', $v))
             ->when($idJenisKendaraan, fn ($q, $v) => $q->where('paket_perawatan_sparepart.id_jenis_kendaraan', $v))
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('jenis_perawatan.nama', 'like', "%{$search}%")
+                   ->orWhere('jenis_kendaraan.nama_jenis', 'like', "%{$search}%")
+                   ->orWhere('sparepart.nama', 'like', "%{$search}%");
+            }))
             ->orderBy('jenis_perawatan.nama')
             ->orderBy('jenis_kendaraan.nama_jenis')
             ->orderBy('sparepart.nama')

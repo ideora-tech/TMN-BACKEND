@@ -16,7 +16,8 @@ class StoreFotoLaporanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file'       => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'foto'       => ['required', 'array', 'min:1'],
+            'foto.*'     => ['file', 'mimes:jpg,jpeg,png', 'max:10240'],
             'keterangan' => ['sometimes', 'nullable', 'string', 'max:200'],
         ];
     }

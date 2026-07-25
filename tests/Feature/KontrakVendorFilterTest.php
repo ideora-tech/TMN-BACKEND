@@ -54,4 +54,41 @@ class KontrakVendorFilterTest extends TestCase
         $this->assertSame(1, $resFiltered->json('meta.total'));
         $this->assertSame($vendorA->id_vendor, $dataFiltered[0]['id_vendor']);
     }
+
+    public function test_index_kontrak_vendor_memfilter_berdasarkan_search_teks_bebas(): void
+    {
+        $this->actingAsRole('ADMIN');
+
+        $vendorA = VendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor'   => 'VDR-' . Str::random(8),
+            'nama_vendor'   => 'Vendor Cahaya Abadi',
+        ]);
+        $vendorB = VendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor'   => 'VDR-' . Str::random(8),
+            'nama_vendor'   => 'Vendor Mitra Jaya',
+        ]);
+        $this->makeKontrakVendor($vendorA->id_vendor, 'unit_only');
+        $this->makeKontrakVendor($vendorB->id_vendor, 'full');
+
+        // Search berdasarkan nama vendor (join), meski data ada di "halaman lain".
+        $resNama = $this->getJson('/api/v1/kontrak-vendor?search=Cahaya&limit=1');
+        $resNama->assertStatus(200);
+        $dataNama = $resNama->json('data');
+        $this->assertSame(1, $resNama->json('meta.total'));
+        $this->assertSame($vendorA->id_vendor, $dataNama[0]['id_vendor']);
+
+        // Search berdasarkan mekanisme.
+        $resMekanisme = $this->getJson('/api/v1/kontrak-vendor?search=full');
+        $resMekanisme->assertStatus(200);
+        $dataMekanisme = $resMekanisme->json('data');
+        $this->assertSame(1, $resMekanisme->json('meta.total'));
+        $this->assertSame($vendorB->id_vendor, $dataMekanisme[0]['id_vendor']);
+
+        // Search tanpa hasil.
+        $resKosong = $this->getJson('/api/v1/kontrak-vendor?search=tidak-ada-begini');
+        $resKosong->assertStatus(200);
+        $this->assertSame(0, $resKosong->json('meta.total'));
+    }
 }

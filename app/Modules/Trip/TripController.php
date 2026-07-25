@@ -26,7 +26,9 @@ class TripController extends Controller
             (int) $request->get('limit', 10),
             $request->get('id_jadwal'),
             $request->get('id_penugasan'),
-            $request->get('id_supir')
+            $request->get('id_supir'),
+            $request->get('search'),
+            $request->get('status')
         );
 
         return ApiResponse::paginated(

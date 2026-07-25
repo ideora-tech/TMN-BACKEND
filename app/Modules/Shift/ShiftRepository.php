@@ -16,11 +16,12 @@ class ShiftRepository implements ShiftRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null): LengthAwarePaginator
     {
         return DB::table('shift')
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
+            ->when($search, fn ($q) => $q->where('nama', 'like', "%{$search}%"))
             ->orderBy('jam_mulai')
             ->orderBy('nama')
             ->paginate($limit, self::COLUMNS, 'page', $page);

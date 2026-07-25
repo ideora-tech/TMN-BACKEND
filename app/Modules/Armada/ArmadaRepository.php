@@ -10,14 +10,26 @@ use Illuminate\Support\Facades\DB;
 
 class ArmadaRepository implements ArmadaRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status, ?string $search = null): LengthAwarePaginator
     {
         $query = ArmadaModel::active()
-            ->where('id_perusahaan', $idPerusahaan)
-            ->orderBy('nopol');
+            ->leftJoin('jenis_kendaraan', function ($join) {
+                $join->on('jenis_kendaraan.id_jenis_kendaraan', '=', 'armada.id_jenis_kendaraan')
+                    ->whereNull('jenis_kendaraan.dihapus_pada');
+            })
+            ->where('armada.id_perusahaan', $idPerusahaan)
+            ->select('armada.*', 'jenis_kendaraan.nama_jenis')
+            ->orderBy('armada.nopol');
 
         if ($status !== null) {
-            $query->where('status', $status);
+            $query->where('armada.status', $status);
+        }
+
+        if ($search !== null && $search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('armada.nopol', 'like', "%{$search}%")
+                  ->orWhere('armada.merk', 'like', "%{$search}%");
+            });
         }
 
         return $query->paginate($limit, ['*'], 'page', $page);

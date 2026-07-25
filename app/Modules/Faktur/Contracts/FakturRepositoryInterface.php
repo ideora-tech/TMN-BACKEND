@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface FakturRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator;
     public function paginateByKlien(string $idKlien, int $page, int $limit): LengthAwarePaginator;
     public function findById(string $id): ?FakturModel;
     public function findByNomor(string $nomor, string $idPerusahaan): ?FakturModel;

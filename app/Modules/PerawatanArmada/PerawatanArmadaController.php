@@ -41,6 +41,7 @@ class PerawatanArmadaController extends Controller
             $request->get('id_armada'),
             $request->get('status'),
             $request->boolean('jatuh_tempo'),
+            $request->get('search'),
         );
 
         return ApiResponse::paginated(

@@ -38,7 +38,8 @@ class DokumenArmadaController extends Controller
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
             $request->get('id_armada'),
-            $request->get('jenis_dokumen')
+            $request->get('jenis_dokumen'),
+            $request->get('search')
         );
 
         return ApiResponse::paginated(

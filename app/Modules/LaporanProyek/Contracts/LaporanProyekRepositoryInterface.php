@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface LaporanProyekRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?LaporanProyekModel;
     public function findByProyek(string $idProyek): ?LaporanProyekModel;
     public function existsByProyek(string $idProyek): bool;

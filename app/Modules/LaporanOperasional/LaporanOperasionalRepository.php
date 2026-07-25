@@ -54,14 +54,14 @@ class LaporanOperasionalRepository implements LaporanOperasionalRepositoryInterf
                 DB::raw('coalesce(a.nopol, av.nopol) as nopol'),
                 DB::raw('coalesce(s.nama, sv.nama) as nama_supir'),
                 'p.sumber', 't.status', 'lp.jarak_tempuh_km',
-                DB::raw('coalesce(lp.biaya_bbm,0) + coalesce(lp.uang_jalan,0) + coalesce(bl.total_lain,0) as total_biaya'))
+                DB::raw('coalesce(lp.biaya_bbm,0) + coalesce(lp.uang_jalan,0) + coalesce(lp.uang_tol,0) + coalesce(bl.total_lain,0) as total_biaya'))
             ->orderBy('jk.waktu_berangkat', 'desc');
     }
 
     public function ringkasanTrip(string $idPerusahaan, array $filter): array
     {
         $row = $this->baseTripQuery($idPerusahaan, $filter)
-            ->selectRaw('count(t.id_trip) as jumlah_trip, coalesce(sum(coalesce(lp.biaya_bbm,0) + coalesce(lp.uang_jalan,0) + coalesce(bl.total_lain,0)),0) as total_biaya')
+            ->selectRaw('count(t.id_trip) as jumlah_trip, coalesce(sum(coalesce(lp.biaya_bbm,0) + coalesce(lp.uang_jalan,0) + coalesce(lp.uang_tol,0) + coalesce(bl.total_lain,0)),0) as total_biaya')
             ->first();
 
         return [

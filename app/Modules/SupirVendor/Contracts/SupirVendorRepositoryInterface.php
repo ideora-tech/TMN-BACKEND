@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface SupirVendorRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null, ?string $search = null): LengthAwarePaginator;
     public function findByIdMilikPerusahaan(string $id, string $idPerusahaan): ?SupirVendorModel;
     public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
     public function milikVendor(string $id, string $idVendor): bool;

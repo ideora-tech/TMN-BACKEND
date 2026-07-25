@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class TripRepository implements TripRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null): LengthAwarePaginator
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null): LengthAwarePaginator
     {
         $paginator = TripModel::active()
             ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
@@ -24,6 +24,22 @@ class TripRepository implements TripRepositoryInterface
             ->when($idJadwal, fn ($q, $v) => $q->where('trip.id_jadwal', $v))
             ->when($idPenugasan, fn ($q, $v) => $q->where('jk.id_penugasan', $v))
             ->when($idSupir, fn ($q, $v) => $q->where('p.id_supir', $v))
+            ->when($status, fn ($q, $v) => $q->where('trip.status', $v))
+            ->when($search, function ($q) use ($search) {
+                $q->leftJoin('rute as r', 'jk.id_rute', '=', 'r.id_rute')
+                    ->leftJoin('armada as a', 'p.id_armada', '=', 'a.id_armada')
+                    ->leftJoin('armada_vendor as av', 'p.id_armada_vendor', '=', 'av.id_armada_vendor')
+                    ->leftJoin('supir as s', 'p.id_supir', '=', 's.id_supir')
+                    ->leftJoin('supir_vendor as sv', 'p.id_supir_vendor', '=', 'sv.id_supir_vendor')
+                    ->where(function ($q2) use ($search) {
+                        $q2->where('r.nama_rute', 'like', "%{$search}%")
+                            ->orWhere('jk.rute', 'like', "%{$search}%")
+                            ->orWhere('a.nopol', 'like', "%{$search}%")
+                            ->orWhere('av.nopol', 'like', "%{$search}%")
+                            ->orWhere('s.nama', 'like', "%{$search}%")
+                            ->orWhere('sv.nama', 'like', "%{$search}%");
+                    });
+            })
             ->select('trip.*')
             ->orderBy('trip.dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
@@ -76,7 +92,7 @@ class TripRepository implements TripRepositoryInterface
 
         $penugasanRows = $idPenugasanList->isEmpty() ? collect() : DB::table('penugasan')
             ->whereIn('id_penugasan', $idPenugasanList)
-            ->select('id_penugasan', 'id_armada', 'id_supir', 'id_armada_vendor', 'id_supir_vendor')
+            ->select('id_penugasan', 'id_armada', 'id_supir', 'id_armada_vendor', 'id_supir_vendor', 'id_proyek')
             ->get()
             ->keyBy('id_penugasan');
 
@@ -84,6 +100,7 @@ class TripRepository implements TripRepositoryInterface
         $idSupirList        = $penugasanRows->pluck('id_supir')->unique()->filter()->values();
         $idArmadaVendorList = $penugasanRows->pluck('id_armada_vendor')->unique()->filter()->values();
         $idSupirVendorList  = $penugasanRows->pluck('id_supir_vendor')->unique()->filter()->values();
+        $idProyekList       = $penugasanRows->pluck('id_proyek')->unique()->filter()->values();
 
         $armadaMap = $idArmadaList->isEmpty() ? collect()
             : DB::table('armada')->whereIn('id_armada', $idArmadaList)->pluck('nopol', 'id_armada');
@@ -93,6 +110,12 @@ class TripRepository implements TripRepositoryInterface
             : DB::table('armada_vendor')->whereIn('id_armada_vendor', $idArmadaVendorList)->pluck('nopol', 'id_armada_vendor');
         $supirVendorMap = $idSupirVendorList->isEmpty() ? collect()
             : DB::table('supir_vendor')->whereIn('id_supir_vendor', $idSupirVendorList)->pluck('nama', 'id_supir_vendor');
+        $proyekMap = $idProyekList->isEmpty() ? collect() : DB::table('proyek as pr')
+            ->leftJoin('klien as k', 'k.id_klien', '=', 'pr.id_klien')
+            ->whereIn('pr.id_proyek', $idProyekList)
+            ->select('pr.id_proyek', 'pr.kode_proyek', 'pr.nama_proyek', 'k.nama_klien')
+            ->get()
+            ->keyBy('id_proyek');
 
         foreach ($records as $record) {
             $jadwal    = $jadwalRows->get($record->id_jadwal);
@@ -104,6 +127,7 @@ class TripRepository implements TripRepositoryInterface
             $supirNama = $penugasan !== null
                 ? ($supirMap->get($penugasan->id_supir) ?? $supirVendorMap->get($penugasan->id_supir_vendor))
                 : null;
+            $proyek = $penugasan !== null ? $proyekMap->get($penugasan->id_proyek) : null;
 
             $ruteNama = $jadwal !== null
                 ? ($ruteMap->get($jadwal->id_rute) ?? $jadwal->rute)
@@ -113,6 +137,10 @@ class TripRepository implements TripRepositoryInterface
             $record->setRelation('waktu_berangkat', $jadwal->waktu_berangkat ?? null);
             $record->setRelation('armada_nopol', $armadaNopol);
             $record->setRelation('supir_nama', $supirNama);
+            $record->setRelation('id_proyek', $proyek->id_proyek ?? null);
+            $record->setRelation('kode_proyek', $proyek->kode_proyek ?? null);
+            $record->setRelation('nama_proyek', $proyek->nama_proyek ?? null);
+            $record->setRelation('nama_klien', $proyek->nama_klien ?? null);
         }
     }
 
@@ -200,12 +228,14 @@ class TripRepository implements TripRepositoryInterface
 
         $totalBbm  = (float) ($laporan->biaya_bbm ?? 0);
         $totalUj   = (float) ($laporan->uang_jalan ?? 0);
+        $totalTol  = (float) ($laporan->uang_tol ?? 0);
         $totalLain = (float) $items->sum('nominal');
-        $total     = $totalBbm + $totalUj + $totalLain;
+        $total     = $totalBbm + $totalUj + $totalTol + $totalLain;
 
         return [
             'total_bbm'         => $totalBbm,
             'total_uang_jalan'  => $totalUj,
+            'total_uang_tol'    => $totalTol,
             'total_biaya_lain'  => $totalLain,
             'total_keseluruhan' => $total,
             'estimasi_biaya'    => $estimasi !== null ? (float) $estimasi : null,
