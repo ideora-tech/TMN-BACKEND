@@ -122,6 +122,29 @@ class PerawatanArmadaTest extends TestCase
         $this->assertSame('terjadwal', $resByStatus->json('data.0.status'));
     }
 
+    public function test_list_lintas_armada_filter_rentang_tanggal(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $armada = $this->makeArmada();
+        $this->makePerawatan($armada->id_armada, '2026-01-05');
+        $this->makePerawatan($armada->id_armada, '2026-02-15');
+        $this->makePerawatan($armada->id_armada, '2026-03-20');
+
+        $res = $this->getJson('/api/v1/perawatan-armada?tanggal_dari=2026-02-01&tanggal_sampai=2026-02-28');
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame('2026-02-15', $res->json('data.0.tanggal'));
+
+        $resDariSaja = $this->getJson('/api/v1/perawatan-armada?tanggal_dari=2026-02-01');
+        $resDariSaja->assertStatus(200);
+        $this->assertCount(2, $resDariSaja->json('data'));
+
+        $resSampaiSaja = $this->getJson('/api/v1/perawatan-armada?tanggal_sampai=2026-01-31');
+        $resSampaiSaja->assertStatus(200);
+        $this->assertCount(1, $resSampaiSaja->json('data'));
+        $this->assertSame('2026-01-05', $resSampaiSaja->json('data.0.tanggal'));
+    }
+
     public function test_list_lintas_armada_urut_tanggal_terbaru_dulu(): void
     {
         $this->actingAsRole('ADMIN');

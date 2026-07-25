@@ -31,7 +31,7 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false, ?string $search = null): LengthAwarePaginator
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false, ?string $search = null, ?string $tanggalDari = null, ?string $tanggalSampai = null): LengthAwarePaginator
     {
         $batas = now()->addDays(30)->toDateString();
 
@@ -42,6 +42,8 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->whereNull('armada.dihapus_pada')
             ->when($idArmada, fn ($q, $v) => $q->where('perawatan_armada.id_armada', $v))
             ->when($status, fn ($q, $v) => $q->where('perawatan_armada.status', $v))
+            ->when($tanggalDari, fn ($q, $v) => $q->whereDate('perawatan_armada.tanggal', '>=', $v))
+            ->when($tanggalSampai, fn ($q, $v) => $q->whereDate('perawatan_armada.tanggal', '<=', $v))
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
                 $q2->where('perawatan_armada.jenis_perawatan', 'like', "%{$search}%")
                    ->orWhere('perawatan_armada.keterangan', 'like', "%{$search}%")
