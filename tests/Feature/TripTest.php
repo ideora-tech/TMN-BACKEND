@@ -178,4 +178,107 @@ class TripTest extends TestCase
             'status'  => 'selesai',
         ]);
     }
+
+    private function makeTripUntukProyek(string $idProyek, string $rute = 'Jakarta - Bandung', string $status = 'belum_mulai'): TripModel
+    {
+        $penugasan = PenugasanModel::create([
+            'id_proyek' => $idProyek,
+        ]);
+
+        $jadwal = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => now()->addDay(),
+            'rute'            => $rute,
+        ]);
+
+        return TripModel::create([
+            'id_jadwal' => $jadwal->id_jadwal,
+            'status'    => $status,
+        ]);
+    }
+
+    public function test_ringkasan_proyek_mengelompokkan_trip_per_proyek(): void
+    {
+        $this->actingAsRole('ADMIN');
+
+        $proyekA = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-A-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Ringkasan A',
+        ]);
+        $proyekB = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-B-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Ringkasan B',
+        ]);
+
+        $this->makeTripUntukProyek($proyekA->id_proyek, 'Rute A1');
+        $this->makeTripUntukProyek($proyekA->id_proyek, 'Rute A2');
+        $this->makeTripUntukProyek($proyekB->id_proyek, 'Rute B1');
+
+        $res = $this->getJson('/api/v1/trip/ringkasan-proyek');
+        $res->assertStatus(200);
+
+        $data = collect($res->json('data'));
+        $rowA = $data->firstWhere('id_proyek', $proyekA->id_proyek);
+        $rowB = $data->firstWhere('id_proyek', $proyekB->id_proyek);
+
+        $this->assertNotNull($rowA);
+        $this->assertNotNull($rowB);
+        $this->assertSame(2, $rowA['jumlah_trip']);
+        $this->assertSame(1, $rowB['jumlah_trip']);
+        $this->assertSame('Proyek Ringkasan A', $rowA['nama_proyek']);
+    }
+
+    public function test_ringkasan_proyek_bisa_difilter_status_dan_search(): void
+    {
+        $this->actingAsRole('ADMIN');
+
+        $proyek = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-FILTER-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Filter Unik',
+        ]);
+        $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 1', 'berjalan');
+        $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 2', 'selesai');
+
+        $resStatus = $this->getJson('/api/v1/trip/ringkasan-proyek?status=berjalan');
+        $resStatus->assertStatus(200);
+        $rowStatus = collect($resStatus->json('data'))->firstWhere('id_proyek', $proyek->id_proyek);
+        $this->assertSame(1, $rowStatus['jumlah_trip']);
+
+        $resSearch = $this->getJson('/api/v1/trip/ringkasan-proyek?search=Filter Unik');
+        $resSearch->assertStatus(200);
+        $this->assertCount(1, $resSearch->json('data'));
+        $this->assertSame($proyek->id_proyek, $resSearch->json('data.0.id_proyek'));
+    }
+
+    public function test_list_trip_bisa_difilter_id_proyek(): void
+    {
+        $this->actingAsRole('ADMIN');
+
+        $proyekA = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-FA-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Filter A',
+        ]);
+        $proyekB = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-FB-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Filter B',
+        ]);
+        $this->makeTripUntukProyek($proyekA->id_proyek, 'Rute A');
+        $this->makeTripUntukProyek($proyekB->id_proyek, 'Rute B');
+
+        $res = $this->getJson("/api/v1/trip?id_proyek={$proyekA->id_proyek}");
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame('Rute A', $res->json('data.0.rute'));
+        $this->assertSame($proyekA->id_proyek, $res->json('data.0.id_proyek'));
+    }
 }

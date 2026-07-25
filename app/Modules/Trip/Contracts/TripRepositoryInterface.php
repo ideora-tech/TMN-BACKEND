@@ -9,7 +9,8 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface TripRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null): LengthAwarePaginator;
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null): LengthAwarePaginator;
+    public function paginateProyekSummary(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator;
     public function exists(string $idTrip): bool;
     public function findById(string $id): ?TripModel;
     public function findByJadwal(string $idJadwal): ?TripModel;

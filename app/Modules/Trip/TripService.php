@@ -19,12 +19,34 @@ class TripService
         private readonly ProyekRuteRepositoryInterface $proyekRuteRepo
     ) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null): array
     {
-        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal, $idPenugasan, $idSupir, $search, $status);
+        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal, $idPenugasan, $idSupir, $search, $status, $idProyek);
 
         return [
             'data' => $result->items(),
+            'meta' => [
+                'page'       => $result->currentPage(),
+                'limit'      => $result->perPage(),
+                'total'      => $result->total(),
+                'totalPages' => $result->lastPage(),
+            ],
+        ];
+    }
+
+    public function ringkasanProyek(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
+    {
+        $result = $this->repo->paginateProyekSummary($idPerusahaan, $page, $limit, $search, $status);
+
+        return [
+            'data' => collect($result->items())->map(fn ($row) => [
+                'id_proyek'          => $row->id_proyek,
+                'kode_proyek'        => $row->kode_proyek,
+                'nama_proyek'        => $row->nama_proyek,
+                'nama_klien'         => $row->nama_klien,
+                'jumlah_trip'        => (int) $row->jumlah_trip,
+                'aktivitas_terakhir' => $row->aktivitas_terakhir,
+            ])->all(),
             'meta' => [
                 'page'       => $result->currentPage(),
                 'limit'      => $result->perPage(),

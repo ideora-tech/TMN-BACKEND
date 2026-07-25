@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class TripRepository implements TripRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null): LengthAwarePaginator
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null): LengthAwarePaginator
     {
         $paginator = TripModel::active()
             ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
@@ -25,6 +25,7 @@ class TripRepository implements TripRepositoryInterface
             ->when($idPenugasan, fn ($q, $v) => $q->where('jk.id_penugasan', $v))
             ->when($idSupir, fn ($q, $v) => $q->where('p.id_supir', $v))
             ->when($status, fn ($q, $v) => $q->where('trip.status', $v))
+            ->when($idProyek, fn ($q, $v) => $q->where('pr.id_proyek', $v))
             ->when($search, function ($q) use ($search) {
                 $q->leftJoin('rute as r', 'jk.id_rute', '=', 'r.id_rute')
                     ->leftJoin('armada as a', 'p.id_armada', '=', 'a.id_armada')
@@ -47,6 +48,40 @@ class TripRepository implements TripRepositoryInterface
         $this->attachJadwalDetail($paginator->getCollection());
 
         return $paginator;
+    }
+
+    /** Ringkasan trip dikelompokkan per proyek (nama, kode, klien, jumlah trip) — dipaginasi per proyek. */
+    public function paginateProyekSummary(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator
+    {
+        return DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
+            ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
+            ->leftJoin('klien as k', 'k.id_klien', '=', 'pr.id_klien')
+            ->where('pr.id_perusahaan', $idPerusahaan)
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('pr.dihapus_pada')
+            ->when($status, fn ($q, $v) => $q->where('t.status', $v))
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($q2) use ($search) {
+                    $q2->where('pr.nama_proyek', 'like', "%{$search}%")
+                        ->orWhere('pr.kode_proyek', 'like', "%{$search}%")
+                        ->orWhere('k.nama_klien', 'like', "%{$search}%");
+                });
+            })
+            ->groupBy('pr.id_proyek', 'pr.kode_proyek', 'pr.nama_proyek', 'k.nama_klien')
+            ->select(
+                'pr.id_proyek',
+                'pr.kode_proyek',
+                'pr.nama_proyek',
+                'k.nama_klien',
+                DB::raw('count(t.id_trip) as jumlah_trip'),
+                DB::raw('max(t.dibuat_pada) as aktivitas_terakhir'),
+            )
+            ->orderByDesc('aktivitas_terakhir')
+            ->paginate($limit, ['*'], 'page', $page);
     }
 
     public function exists(string $idTrip): bool

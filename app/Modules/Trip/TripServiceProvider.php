@@ -24,6 +24,7 @@ class TripServiceProvider extends ServiceProvider
                 Route::get('trip', [TripController::class, 'index']);
                 Route::post('trip', [TripController::class, 'store']);
                 Route::post('trip/mulai', [TripController::class, 'mulai']);
+                Route::get('trip/ringkasan-proyek', [TripController::class, 'ringkasanProyek']);
                 Route::get('trip/{id}', [TripController::class, 'show']);
                 Route::delete('trip/{id}', [TripController::class, 'destroy']);
 

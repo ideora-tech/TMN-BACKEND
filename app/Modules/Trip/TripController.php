@@ -28,13 +28,29 @@ class TripController extends Controller
             $request->get('id_penugasan'),
             $request->get('id_supir'),
             $request->get('search'),
-            $request->get('status')
+            $request->get('status'),
+            $request->get('id_proyek')
         );
 
         return ApiResponse::paginated(
             TripResource::collection($result['data']),
             $result['meta']
         );
+    }
+
+    public function ringkasanProyek(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) auth()->user()?->id_perusahaan;
+
+        $result = $this->service->ringkasanProyek(
+            $idPerusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            $request->get('search'),
+            $request->get('status')
+        );
+
+        return ApiResponse::paginated($result['data'], $result['meta']);
     }
 
     public function show(string $id): JsonResponse
