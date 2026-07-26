@@ -27,7 +27,7 @@ class StoreLaporanPerjalananRequest extends FormRequest
             'biaya_lain.*.nama_biaya' => ['required_with:biaya_lain', 'string', 'max:100'],
             'biaya_lain.*.nominal'    => ['required_with:biaya_lain', 'numeric', 'min:0'],
             'foto'                    => ['sometimes', 'array'],
-            'foto.*'                  => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'foto.*'                  => ['file', 'mimes:jpg,jpeg,png', 'max:10240'],
         ];
     }
 }

@@ -56,6 +56,58 @@ class KaryawanTest extends TestCase
         $this->assertDatabaseHas('karyawan', ['nik' => 'NIK-001', 'id_perusahaan' => self::PERUSAHAAN_ID]);
     }
 
+    public function test_membuat_karyawan_dengan_field_hr_lengkap(): void
+    {
+        $this->actingAsRole('ADMIN');
+
+        $res = $this->postJson('/api/v1/karyawan', [
+            'nik'                => 'NIK-HR-001',
+            'nik_ktp'            => '3171012345678901',
+            'nama_karyawan'      => 'Budi Santoso',
+            'tempat_lahir'       => 'Jakarta',
+            'tanggal_lahir'      => '1990-05-10',
+            'alamat_ktp'         => 'Jl. Merdeka No. 1, Jakarta',
+            'alamat_domisili'    => 'Jl. Sudirman No. 2, Jakarta',
+            'status_pernikahan'  => 'menikah',
+            'jumlah_tanggungan'  => 2,
+            'status_ptkp'        => 'K/2',
+            'npwp'               => '09.123.456.7-891.000',
+            'nama_bank'          => 'BCA',
+            'nomor_rekening'     => '1234567890',
+            'atas_nama_rekening' => 'Budi Santoso',
+            'ikut_bpjs_kesehatan'       => true,
+            'no_bpjs_kesehatan'         => '0001234567890',
+            'ikut_bpjs_ketenagakerjaan' => true,
+            'no_bpjs_ketenagakerjaan'   => '1101234567890',
+            'kontak_darurat_nama'     => 'Siti Aminah',
+            'kontak_darurat_telepon'  => '081234567890',
+            'kontak_darurat_hubungan' => 'Istri',
+            'pendidikan_terakhir'     => 'S1',
+        ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.nik_ktp', '3171012345678901')
+            ->assertJsonPath('data.status_ptkp', 'K/2')
+            ->assertJsonPath('data.jumlah_tanggungan', 2)
+            ->assertJsonPath('data.npwp', '09.123.456.7-891.000')
+            ->assertJsonPath('data.ikut_bpjs_kesehatan', true)
+            ->assertJsonPath('data.no_bpjs_ketenagakerjaan', '1101234567890')
+            ->assertJsonPath('data.kontak_darurat_nama', 'Siti Aminah');
+    }
+
+    public function test_menolak_status_ptkp_tidak_valid(): void
+    {
+        $this->actingAsRole('ADMIN');
+
+        $res = $this->postJson('/api/v1/karyawan', [
+            'nik'           => 'NIK-HR-002',
+            'nama_karyawan' => 'Coba PTKP',
+            'status_ptkp'   => 'K/9',
+        ]);
+
+        $res->assertStatus(422)->assertJsonValidationErrors(['status_ptkp']);
+    }
+
     public function test_menolak_nik_duplikat(): void
     {
         $this->actingAsRole('ADMIN');

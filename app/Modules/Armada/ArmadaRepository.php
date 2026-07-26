@@ -19,6 +19,16 @@ class ArmadaRepository implements ArmadaRepositoryInterface
             })
             ->where('armada.id_perusahaan', $idPerusahaan)
             ->select('armada.*', 'jenis_kendaraan.nama_jenis')
+            ->selectSub(
+                DB::table('penugasan')
+                    ->join('proyek', 'proyek.id_proyek', '=', 'penugasan.id_proyek')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('penugasan.id_armada', 'armada.id_armada')
+                    ->whereNull('penugasan.dihapus_pada')
+                    ->whereNull('proyek.dihapus_pada')
+                    ->whereIn('penugasan.status', ['pending', 'aktif']),
+                'jumlah_penugasan_aktif'
+            )
             ->orderBy('armada.nopol');
 
         if ($status !== null) {
@@ -38,6 +48,40 @@ class ArmadaRepository implements ArmadaRepositoryInterface
     public function findById(string $id): ?ArmadaModel
     {
         return ArmadaModel::active()->find($id);
+    }
+
+    public function countPenugasanAktif(string $idArmada): int
+    {
+        return (int) DB::table('penugasan')
+            ->join('proyek', 'proyek.id_proyek', '=', 'penugasan.id_proyek')
+            ->where('penugasan.id_armada', $idArmada)
+            ->whereNull('penugasan.dihapus_pada')
+            ->whereNull('proyek.dihapus_pada')
+            ->whereIn('penugasan.status', ['pending', 'aktif'])
+            ->count();
+    }
+
+    /**
+     * Conditional update satu statement (atomic) — anti-TOCTOU: kunci hanya
+     * berhasil bila armada tidak sedang perawatan/tidak_aktif, lepas hanya
+     * bila memang sedang 'digunakan'. Status manual bengkel selalu menang.
+     */
+    public function tandaiDigunakanJikaSiap(string $idArmada): bool
+    {
+        return DB::table('armada')
+            ->where('id_armada', $idArmada)
+            ->whereNull('dihapus_pada')
+            ->whereNotIn('status', ['perawatan', 'tidak_aktif'])
+            ->update(['status' => 'digunakan', 'diubah_pada' => now()]) > 0;
+    }
+
+    public function lepaskanJikaDigunakan(string $idArmada): void
+    {
+        DB::table('armada')
+            ->where('id_armada', $idArmada)
+            ->whereNull('dihapus_pada')
+            ->where('status', 'digunakan')
+            ->update(['status' => 'tersedia', 'diubah_pada' => now()]);
     }
 
     public function findByNopol(string $nopol): ?ArmadaModel

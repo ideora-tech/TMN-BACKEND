@@ -15,10 +15,45 @@ class StatusTripTest extends TestCase
 
     private function makeTrip(): string
     {
+        $idKlien = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien'      => $idKlien,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_klien'    => 'KLN-' . Str::random(8),
+            'nama_klien'    => 'Klien Status Trip',
+            'dibuat_pada'   => now(),
+        ]);
+
+        $idProyek = (string) Str::uuid();
+        DB::table('proyek')->insert([
+            'id_proyek'     => $idProyek,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $idKlien,
+            'kode_proyek'   => 'PRJ-' . Str::random(8),
+            'nama_proyek'   => 'Proyek Status Trip',
+            'dibuat_pada'   => now(),
+        ]);
+
+        $idPenugasan = (string) Str::uuid();
+        DB::table('penugasan')->insert([
+            'id_penugasan' => $idPenugasan,
+            'id_proyek'    => $idProyek,
+            'status'       => 'aktif',
+            'dibuat_pada'  => now(),
+        ]);
+
+        $idJadwal = (string) Str::uuid();
+        DB::table('jadwal_keberangkatan')->insert([
+            'id_jadwal'       => $idJadwal,
+            'id_penugasan'    => $idPenugasan,
+            'waktu_berangkat' => now(),
+            'dibuat_pada'     => now(),
+        ]);
+
         $idTrip = (string) Str::uuid();
         DB::table('trip')->insert([
             'id_trip'     => $idTrip,
-            'id_jadwal'   => (string) Str::uuid(),
+            'id_jadwal'   => $idJadwal,
             'status'      => 'berjalan',
             'dibuat_pada' => now(),
         ]);

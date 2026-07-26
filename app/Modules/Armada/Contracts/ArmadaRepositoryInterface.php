@@ -11,6 +11,9 @@ interface ArmadaRepositoryInterface
 {
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?ArmadaModel;
+    public function countPenugasanAktif(string $idArmada): int;
+    public function tandaiDigunakanJikaSiap(string $idArmada): bool;
+    public function lepaskanJikaDigunakan(string $idArmada): void;
     public function findByNopol(string $nopol): ?ArmadaModel;
     public function findByNopolMilikPerusahaan(string $nopol, string $idPerusahaan): ?ArmadaModel;
     public function findByNomorRangka(string $nomorRangka): ?ArmadaModel;

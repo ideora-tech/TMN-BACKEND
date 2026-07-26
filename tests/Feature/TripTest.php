@@ -179,6 +179,47 @@ class TripTest extends TestCase
         ]);
     }
 
+    public function test_lifecycle_trip_menulis_riwayat_status(): void
+    {
+        $this->actingAsRole('ADMIN');
+
+        $idArmada = ArmadaModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B 2222 RS',
+            'merk'          => 'Hino',
+        ])->id_armada;
+        $idSupir = $this->makeSupir('Joko Riwayat');
+
+        $trip = $this->makeTrip($idArmada, $idSupir, null, null, 'Jakarta - Cirebon');
+
+        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
+        $this->assertDatabaseHas('status_trip', ['id_trip' => $trip->id_trip, 'status' => 'berjalan']);
+
+        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
+        $this->assertDatabaseHas('status_trip', ['id_trip' => $trip->id_trip, 'status' => 'selesai']);
+
+        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/status");
+        $res->assertStatus(200);
+        $this->assertCount(2, $res->json('data'));
+    }
+
+    public function test_batalkan_trip_menulis_riwayat_status(): void
+    {
+        $this->actingAsRole('ADMIN');
+
+        $idArmada = ArmadaModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B 3333 RS',
+            'merk'          => 'Hino',
+        ])->id_armada;
+        $idSupir = $this->makeSupir('Bambang Batal');
+
+        $trip = $this->makeTrip($idArmada, $idSupir, null, null, 'Jakarta - Serang');
+
+        $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan")->assertStatus(200);
+        $this->assertDatabaseHas('status_trip', ['id_trip' => $trip->id_trip, 'status' => 'dibatalkan']);
+    }
+
     private function makeTripUntukProyek(string $idProyek, string $rute = 'Jakarta - Bandung', string $status = 'belum_mulai'): TripModel
     {
         $penugasan = PenugasanModel::create([

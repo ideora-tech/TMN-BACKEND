@@ -54,7 +54,7 @@ class ArmadaController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        return ApiResponse::success(new ArmadaResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new ArmadaResource($this->service->detail($id)));
     }
 
     public function store(StoreArmadaRequest $request): JsonResponse

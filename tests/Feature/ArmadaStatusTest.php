@@ -87,7 +87,7 @@ class ArmadaStatusTest extends TestCase
         $res->assertStatus(422)->assertJsonValidationErrors(['status']);
     }
 
-    public function test_penugasan_internal_dengan_armada_tersedia_berhasil_dan_status_jadi_digunakan(): void
+    public function test_penugasan_internal_tidak_mengubah_status_armada(): void
     {
         $this->actingAsRole('ADMIN');
         $armada = $this->makeArmada('tersedia');
@@ -99,10 +99,10 @@ class ArmadaStatusTest extends TestCase
         ]);
 
         $res->assertStatus(201);
-        $this->assertSame('digunakan', $armada->fresh()->status);
+        $this->assertSame('tersedia', $armada->fresh()->status);
     }
 
-    public function test_penugasan_internal_dengan_armada_digunakan_ditolak(): void
+    public function test_penugasan_internal_dengan_armada_digunakan_tetap_boleh(): void
     {
         $this->actingAsRole('ADMIN');
         $armada = $this->makeArmada('digunakan');
@@ -113,7 +113,7 @@ class ArmadaStatusTest extends TestCase
             'id_armada' => $armada->id_armada,
         ]);
 
-        $res->assertStatus(422);
+        $res->assertStatus(201);
     }
 
     private function makeProyekPenugasan(): \App\Modules\Proyek\ProyekModel

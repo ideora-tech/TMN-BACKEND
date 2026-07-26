@@ -13,9 +13,13 @@ use Illuminate\Support\Facades\DB;
 class KaryawanRepository implements KaryawanRepositoryInterface
 {
     private const COLUMNS = [
-        'id_karyawan', 'id_perusahaan', 'id_jabatan', 'id_lokasi', 'nik', 'nama_karyawan',
-        'email', 'telepon', 'jenis_kelamin', 'tanggal_lahir', 'tanggal_masuk',
-        'status_kepegawaian', 'gaji_pokok', 'aktif',
+        'id_karyawan', 'id_perusahaan', 'id_jabatan', 'id_lokasi', 'nik', 'nik_ktp', 'nama_karyawan',
+        'email', 'telepon', 'jenis_kelamin', 'tempat_lahir', 'tanggal_lahir',
+        'alamat_ktp', 'alamat_domisili', 'status_pernikahan', 'jumlah_tanggungan', 'status_ptkp',
+        'npwp', 'nama_bank', 'nomor_rekening', 'atas_nama_rekening',
+        'ikut_bpjs_kesehatan', 'no_bpjs_kesehatan', 'ikut_bpjs_ketenagakerjaan', 'no_bpjs_ketenagakerjaan',
+        'kontak_darurat_nama', 'kontak_darurat_telepon', 'kontak_darurat_hubungan', 'pendidikan_terakhir',
+        'tanggal_masuk', 'status_kepegawaian', 'gaji_pokok', 'aktif',
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 

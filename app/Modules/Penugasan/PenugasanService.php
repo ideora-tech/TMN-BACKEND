@@ -9,6 +9,7 @@ use App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface;
 use App\Modules\KontrakVendor\Contracts\KontrakVendorRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
 use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
+use App\Modules\Trip\Contracts\TripRepositoryInterface;
 
 class PenugasanService
 {
@@ -17,6 +18,7 @@ class PenugasanService
         private readonly KontrakVendorRepositoryInterface $kontrakVendorRepo,
         private readonly ArmadaVendorRepositoryInterface $armadaVendorRepo,
         private readonly SupirVendorRepositoryInterface $supirVendorRepo,
+        private readonly TripRepositoryInterface $tripRepo,
     ) {}
 
     public function list(string $idProyek, int $page = 1, int $limit = 10, ?string $sumber = null): array
@@ -79,9 +81,8 @@ class PenugasanService
 
         $this->assertVendorRules($data, $idPerusahaan);
 
-        $armada = null;
         if (!empty($data['id_armada'])) {
-            $armada = $this->assertArmadaTersediaOrFail($data['id_armada']);
+            $this->assertArmadaAdaOrFail($data['id_armada']);
         }
 
         if (!empty($data['id_karyawan']) && !empty($data['tanggal_tugas'])) {
@@ -90,13 +91,7 @@ class PenugasanService
             }
         }
 
-        $penugasan = $this->repo->create($data);
-
-        if ($armada !== null) {
-            $armada->update(['status' => 'digunakan']);
-        }
-
-        return $penugasan;
+        return $this->repo->create($data);
     }
 
     public function update(string $id, array $data, string $idPerusahaan): PenugasanModel
@@ -121,77 +116,53 @@ class PenugasanService
             }
         }
 
-        // --- Siklus hidup status armada internal (id_armada_vendor tidak disentuh) ---
-        $idArmadaLama  = $record->id_armada;
-        $armadaBerubah = array_key_exists('id_armada', $data) && $data['id_armada'] !== $idArmadaLama;
-        $idArmadaBaru  = $armadaBerubah ? $data['id_armada'] : $idArmadaLama;
-
-        $armadaBaruUntukDikunci = null;
-        if ($armadaBerubah && !empty($idArmadaBaru)) {
-            // Armada baru wajib 'tersedia' sebelum data disimpan.
-            $armadaBaruUntukDikunci = $this->assertArmadaTersediaOrFail($idArmadaBaru);
-        }
-
-        $statusLama    = $record->status;
-        $statusBaru    = array_key_exists('status', $data) ? $data['status'] : $statusLama;
-        $statusBerubah = array_key_exists('status', $data) && $statusBaru !== $statusLama;
-
-        $statusFinal = ['selesai', 'batal'];
-        $statusAktif = ['pending', 'aktif'];
-
-        $armadaUntukDikunciUlang = null;
-        if (!$armadaBerubah && $statusBerubah && !empty($idArmadaLama)
-            && in_array($statusLama, $statusFinal, true) && in_array($statusBaru, $statusAktif, true)) {
-            // Reaktivasi dari selesai/batal -> armada wajib masih 'tersedia'.
-            $armadaUntukDikunciUlang = $this->assertArmadaTersediaOrFail($idArmadaLama);
-        }
-
-        $updated = $this->repo->update($record, $data);
-
-        if ($armadaBerubah) {
-            if (!empty($idArmadaLama)) {
-                $this->releaseArmadaIfUnused($idArmadaLama, $id);
-            }
-            $armadaBaruUntukDikunci?->update(['status' => 'digunakan']);
-        } elseif ($statusBerubah && !empty($idArmadaLama)) {
-            if (in_array($statusBaru, $statusFinal, true)) {
-                $this->releaseArmadaIfUnused($idArmadaLama, $id);
-            } elseif ($armadaUntukDikunciUlang !== null) {
-                $armadaUntukDikunciUlang->update(['status' => 'digunakan']);
+        $aktorBerubah = false;
+        foreach (['id_armada', 'id_supir', 'id_armada_vendor', 'id_supir_vendor'] as $kolomAktor) {
+            if (array_key_exists($kolomAktor, $data) && $data[$kolomAktor] !== $record->{$kolomAktor}) {
+                $aktorBerubah = true;
+                break;
             }
         }
 
-        return $updated;
+        if ($aktorBerubah) {
+            if ($this->tripRepo->adaTripNonFinalUntukPenugasan($id)) {
+                abort(422, 'Penugasan masih memiliki trip yang belum selesai — armada/supir tidak dapat diganti');
+            }
+            if (array_key_exists('id_armada', $data) && !empty($data['id_armada']) && $data['id_armada'] !== $record->id_armada) {
+                $this->assertArmadaAdaOrFail($data['id_armada']);
+            }
+        }
+
+        return $this->repo->update($record, $data);
     }
 
     /**
-     * Validasi armada internal siap ditugaskan: harus ada & berstatus
-     * 'tersedia'. Sama persis dengan guard create() — dipakai ulang saat
-     * update() mengganti armada atau mereaktivasi penugasan.
+     * Penyelesaian penugasan dari alur checkout trip. Sengaja TIDAK memakai
+     * update(): perubahan status murni tidak boleh gagal karena
+     * assertVendorRules (kontrak/armada vendor bisa saja sudah di-soft-delete
+     * saat rit terakhir ditutup), dan 'batal' adalah status terminal yang
+     * tidak boleh berubah jadi 'selesai'. Status armada tidak diurus di sini —
+     * sejak armada lintas proyek, status armada murni digerakkan lifecycle trip.
      */
-    private function assertArmadaTersediaOrFail(string $idArmada): ArmadaModel
+    public function selesaikanDariTrip(string $idPenugasan): void
     {
-        $armada = ArmadaModel::active()->find($idArmada);
-        if ($armada === null) {
-            abort(422, 'Armada tidak ditemukan');
-        }
-        if ($armada->status !== 'tersedia') {
-            abort(422, 'Armada tidak tersedia untuk ditugaskan (status: ' . $armada->status . ')');
-        }
-        return $armada;
-    }
+        $record = $this->findOrFail($idPenugasan);
 
-    /**
-     * Set armada -> 'tersedia' HANYA bila tidak ada penugasan aktif lain
-     * (pending/aktif, id_penugasan != $excludeId) yang masih memakainya.
-     * Pertahanan ekstra walau guard create() harusnya mencegah dobel pakai.
-     */
-    private function releaseArmadaIfUnused(string $idArmada, string $excludeId): void
-    {
-        if ($this->repo->hasOtherActiveArmadaUsage($idArmada, $excludeId)) {
+        if ($record->status === 'batal') {
+            abort(422, 'Penugasan sudah dibatalkan — tidak dapat diselesaikan dari trip');
+        }
+        if ($record->status === 'selesai') {
             return;
         }
-        ArmadaModel::active()->find($idArmada)?->update(['status' => 'tersedia']);
+
+        $this->repo->update($record, ['status' => 'selesai']);
+    }
+
+    private function assertArmadaAdaOrFail(string $idArmada): void
+    {
+        if (ArmadaModel::active()->find($idArmada) === null) {
+            abort(422, 'Armada tidak ditemukan');
+        }
     }
 
     /**
@@ -259,13 +230,12 @@ class PenugasanService
 
     public function delete(string $id): void
     {
-        $record   = $this->findOrFail($id);
-        $idArmada = $record->id_armada;
+        $record = $this->findOrFail($id);
+
+        if ($this->tripRepo->adaTripNonFinalUntukPenugasan($id)) {
+            abort(422, 'Penugasan masih memiliki trip yang belum selesai — selesaikan atau batalkan trip terlebih dahulu');
+        }
 
         $this->repo->delete($record);
-
-        if (!empty($idArmada)) {
-            $this->releaseArmadaIfUnused($idArmada, $id);
-        }
     }
 }

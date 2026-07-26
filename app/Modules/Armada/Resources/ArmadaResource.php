@@ -33,6 +33,7 @@ class ArmadaResource extends JsonResource
             'kondisi_beli'        => $this->kondisi_beli,
             'url_foto'            => $this->url_foto,
             'keterangan'          => $this->keterangan,
+            'jumlah_penugasan_aktif' => isset($this->jumlah_penugasan_aktif) ? (int) $this->jumlah_penugasan_aktif : null,
             'dibuat_pada'         => $this->dibuat_pada,
             'diubah_pada'         => $this->diubah_pada,
         ];

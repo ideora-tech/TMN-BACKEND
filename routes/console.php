@@ -84,9 +84,142 @@ Artisan::command('notifikasi:dokumen-kadaluarsa', function () {
         $created++;
     }
 
+    $dokumenKaryawan = DB::table('dokumen_karyawan as d')
+        ->join('karyawan as k', 'd.id_karyawan', '=', 'k.id_karyawan')
+        ->whereNull('d.dihapus_pada')
+        ->whereNull('k.dihapus_pada')
+        ->whereBetween('d.berlaku_sampai', [$today, $batas])
+        ->select('d.id_dokumen_karyawan', 'd.jenis_dokumen', 'd.berlaku_sampai', 'k.nama_karyawan', 'k.id_perusahaan')
+        ->get();
+
+    foreach ($dokumenKaryawan as $dok) {
+        $exists = NotifikasiModel::where('referensi_id', $dok->id_dokumen_karyawan)
+            ->where('referensi_tipe', 'dokumen_karyawan')
+            ->whereDate('dibuat_pada', $today)
+            ->exists();
+        if ($exists) continue;
+
+        $exp      = now()->parse($dok->berlaku_sampai);
+        $daysLeft = (int) now()->diffInDays($exp, false);
+        $prefix   = $daysLeft <= 7 ? '[SEGERA] ' : '';
+
+        NotifikasiModel::create([
+            'id_notifikasi'  => Str::uuid()->toString(),
+            'id_perusahaan'  => $dok->id_perusahaan,
+            'id_pengguna'    => null,
+            'judul'          => "{$prefix}Dokumen {$dok->jenis_dokumen} {$dok->nama_karyawan} kadaluarsa dalam {$daysLeft} hari",
+            'isi'            => "Dokumen {$dok->jenis_dokumen} untuk karyawan {$dok->nama_karyawan} akan kadaluarsa pada ".
+                                $exp->format('d M Y')." ({$daysLeft} hari lagi). Segera perbarui.",
+            'tipe'           => 'alert_dokumen',
+            'referensi_id'   => $dok->id_dokumen_karyawan,
+            'referensi_tipe' => 'dokumen_karyawan',
+            'dibaca'         => 0,
+        ]);
+        $created++;
+    }
+
     $this->info("Notifikasi dokumen kadaluarsa: {$created} notifikasi baru dibuat.");
     Log::info("notifikasi:dokumen-kadaluarsa — {$created} notifikasi dibuat.");
-})->purpose('Buat notifikasi untuk dokumen armada yang akan kadaluarsa dalam 30 hari')->dailyAt('07:00');
+})->purpose('Buat notifikasi untuk dokumen armada/vendor/karyawan yang akan kadaluarsa dalam 30 hari')->dailyAt('07:00');
+
+Artisan::command('notifikasi:sim-kadaluarsa', function () {
+    $today = now()->toDateString();
+    $batas = now()->addDays(30)->toDateString();
+
+    $supir = DB::table('supir')
+        ->whereNull('dihapus_pada')
+        ->where('status', 'aktif')
+        ->whereNotNull('tgl_kadaluarsa_sim')
+        ->where('tgl_kadaluarsa_sim', '<=', $batas)
+        ->select('id_supir', 'nama', 'jenis_sim', 'tgl_kadaluarsa_sim', 'id_perusahaan')
+        ->get();
+
+    $created = 0;
+    foreach ($supir as $s) {
+        $exists = NotifikasiModel::where('referensi_id', $s->id_supir)
+            ->where('referensi_tipe', 'supir')
+            ->whereDate('dibuat_pada', $today)
+            ->exists();
+        if ($exists) continue;
+
+        $exp      = now()->parse($s->tgl_kadaluarsa_sim);
+        $daysLeft = (int) now()->diffInDays($exp, false);
+
+        if ($daysLeft < 0) {
+            $judul = "[SEGERA] SIM {$s->jenis_sim} {$s->nama} sudah kadaluarsa";
+            $isi   = "SIM {$s->jenis_sim} milik supir {$s->nama} sudah kadaluarsa sejak ".
+                     $exp->format('d M Y').'. Supir tidak layak jalan sampai SIM diperpanjang.';
+        } else {
+            $prefix = $daysLeft <= 7 ? '[SEGERA] ' : '';
+            $judul  = "{$prefix}SIM {$s->jenis_sim} {$s->nama} kadaluarsa dalam {$daysLeft} hari";
+            $isi    = "SIM {$s->jenis_sim} milik supir {$s->nama} akan kadaluarsa pada ".
+                      $exp->format('d M Y')." ({$daysLeft} hari lagi). Segera urus perpanjangan.";
+        }
+
+        NotifikasiModel::create([
+            'id_notifikasi'  => Str::uuid()->toString(),
+            'id_perusahaan'  => $s->id_perusahaan,
+            'id_pengguna'    => null,
+            'judul'          => $judul,
+            'isi'            => $isi,
+            'tipe'           => 'alert_dokumen',
+            'referensi_id'   => $s->id_supir,
+            'referensi_tipe' => 'supir',
+            'dibaca'         => 0,
+        ]);
+        $created++;
+    }
+
+    $this->info("Notifikasi SIM kadaluarsa: {$created} notifikasi baru dibuat.");
+    Log::info("notifikasi:sim-kadaluarsa — {$created} notifikasi dibuat.");
+})->purpose('Buat notifikasi untuk SIM supir aktif yang kadaluarsa dalam 30 hari atau sudah lewat')->dailyAt('07:30');
+
+Artisan::command('notifikasi:kontrak-berakhir', function () {
+    $today = now()->toDateString();
+    $batas = now()->addDays(30)->toDateString();
+
+    $kontrak = DB::table('kontrak_karyawan as kk')
+        ->join('karyawan as k', 'kk.id_karyawan', '=', 'k.id_karyawan')
+        ->whereNull('kk.dihapus_pada')
+        ->whereNull('k.dihapus_pada')
+        ->where('k.aktif', 1)
+        ->whereBetween('kk.tanggal_selesai', [$today, $batas])
+        ->select('kk.id_kontrak', 'kk.jenis_kontrak', 'kk.nomor_kontrak', 'kk.tanggal_selesai', 'k.nama_karyawan', 'kk.id_perusahaan')
+        ->get();
+
+    $created = 0;
+    foreach ($kontrak as $kk) {
+        $exists = NotifikasiModel::where('referensi_id', $kk->id_kontrak)
+            ->where('referensi_tipe', 'kontrak_karyawan')
+            ->whereDate('dibuat_pada', $today)
+            ->exists();
+        if ($exists) continue;
+
+        $exp      = now()->parse($kk->tanggal_selesai);
+        $daysLeft = (int) now()->diffInDays($exp, false);
+        $prefix   = $daysLeft <= 7 ? '[SEGERA] ' : '';
+        $jenis    = strtoupper($kk->jenis_kontrak);
+
+        NotifikasiModel::create([
+            'id_notifikasi'  => Str::uuid()->toString(),
+            'id_perusahaan'  => $kk->id_perusahaan,
+            'id_pengguna'    => null,
+            'judul'          => "{$prefix}Kontrak {$jenis} {$kk->nama_karyawan} berakhir dalam {$daysLeft} hari",
+            'isi'            => "Kontrak {$jenis} karyawan {$kk->nama_karyawan}".
+                                ($kk->nomor_kontrak ? " ({$kk->nomor_kontrak})" : '').
+                                ' berakhir pada '.$exp->format('d M Y').
+                                " ({$daysLeft} hari lagi). Segera proses perpanjangan atau pengakhiran.",
+            'tipe'           => 'alert_dokumen',
+            'referensi_id'   => $kk->id_kontrak,
+            'referensi_tipe' => 'kontrak_karyawan',
+            'dibaca'         => 0,
+        ]);
+        $created++;
+    }
+
+    $this->info("Notifikasi kontrak berakhir: {$created} notifikasi baru dibuat.");
+    Log::info("notifikasi:kontrak-berakhir — {$created} notifikasi dibuat.");
+})->purpose('Buat notifikasi untuk kontrak karyawan aktif yang berakhir dalam 30 hari')->dailyAt('07:45');
 
 Artisan::command('notifikasi:trip-belum-selesai', function () {
     $cutoff = now()->subHours(24)->toDateTimeString();

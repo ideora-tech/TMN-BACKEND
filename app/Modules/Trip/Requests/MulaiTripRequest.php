@@ -16,9 +16,10 @@ class MulaiTripRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_penugasan' => ['required', 'string', 'exists:penugasan,id_penugasan,dihapus_pada,NULL'],
-            'id_rute'      => ['sometimes', 'nullable', 'string', 'exists:rute,id_rute,dihapus_pada,NULL'],
-            'catatan'      => ['sometimes', 'nullable', 'string'],
+            'id_penugasan'       => ['required', 'string', 'exists:penugasan,id_penugasan,dihapus_pada,NULL'],
+            'id_rute'            => ['sometimes', 'nullable', 'string', 'exists:rute,id_rute,dihapus_pada,NULL'],
+            'catatan'            => ['sometimes', 'nullable', 'string'],
+            'uang_jalan_alokasi' => ['sometimes', 'nullable', 'numeric', 'min:0'],
         ];
     }
 }

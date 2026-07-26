@@ -45,6 +45,13 @@ class ArmadaService
         return $record;
     }
 
+    public function detail(string $id): ArmadaModel
+    {
+        $record = $this->findOrFail($id);
+        $record->setAttribute('jumlah_penugasan_aktif', $this->repo->countPenugasanAktif($id));
+        return $record;
+    }
+
     public function create(array $data, ?UploadedFile $foto = null): ArmadaModel
     {
         $existing = $this->repo->findByNopol($data['nopol']);

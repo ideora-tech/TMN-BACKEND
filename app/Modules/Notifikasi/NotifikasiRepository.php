@@ -46,9 +46,12 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
 
         return match ($n->referensi_tipe) {
             'trip'             => "/trip/{$n->referensi_id}",
+            'supir'            => "/supir/{$n->referensi_id}",
             'perawatan_armada' => $this->linkViaColumn('perawatan_armada', 'id_perawatan', $n->referensi_id, 'id_armada', '/armada'),
             'dokumen_armada'   => $this->linkViaColumn('dokumen_armada', 'id_dokumen_armada', $n->referensi_id, 'id_armada', '/armada'),
             'dokumen_vendor'   => $this->linkViaColumn('dokumen_vendor', 'id_dokumen_vendor', $n->referensi_id, 'id_vendor', '/vendor'),
+            'dokumen_karyawan' => $this->linkViaColumn('dokumen_karyawan', 'id_dokumen_karyawan', $n->referensi_id, 'id_karyawan', '/karyawan'),
+            'kontrak_karyawan' => $this->linkViaColumn('kontrak_karyawan', 'id_kontrak', $n->referensi_id, 'id_karyawan', '/karyawan'),
             default            => null,
         };
     }

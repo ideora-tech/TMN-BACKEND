@@ -25,6 +25,7 @@ class TripServiceProvider extends ServiceProvider
                 Route::post('trip', [TripController::class, 'store']);
                 Route::post('trip/mulai', [TripController::class, 'mulai']);
                 Route::get('trip/ringkasan-proyek', [TripController::class, 'ringkasanProyek']);
+                Route::get('trip/settlement', [TripController::class, 'settlementIndex']);
                 Route::get('trip/{id}', [TripController::class, 'show']);
                 Route::delete('trip/{id}', [TripController::class, 'destroy']);
 
@@ -32,6 +33,9 @@ class TripServiceProvider extends ServiceProvider
                 Route::post('trip/{id}/checkout', [TripController::class, 'checkout']);
                 Route::post('trip/{id}/batalkan', [TripController::class, 'batalkan']);
                 Route::get('trip/{id}/rekap-biaya', [TripController::class, 'rekapBiaya']);
+                Route::post('trip/{id}/settlement/lunas', [TripController::class, 'tandaiLunas']);
+                Route::post('trip/{id}/settlement/batal', [TripController::class, 'batalkanLunas']);
+                Route::put('trip/{id}/uang-jalan', [TripController::class, 'updateUangJalan']);
             });
     }
 }

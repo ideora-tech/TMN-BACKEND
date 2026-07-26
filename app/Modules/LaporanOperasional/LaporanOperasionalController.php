@@ -55,10 +55,11 @@ class LaporanOperasionalController extends Controller
     public function exportTripExcel(Request $request): BinaryFileResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $items = $this->service->exportTrip($idPerusahaan, $this->filters($request));
+        $filters = $this->filters($request);
+        $items = $this->service->exportTrip($idPerusahaan, $filters);
 
         return Excel::download(
-            new LaporanTripExport($items),
+            new LaporanTripExport($items, $filters['dari'], $filters['sampai']),
             'laporan-trip-' . date('Ymd') . '.xlsx'
         );
     }

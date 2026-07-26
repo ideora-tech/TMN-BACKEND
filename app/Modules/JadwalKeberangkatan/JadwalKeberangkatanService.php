@@ -7,6 +7,7 @@ namespace App\Modules\JadwalKeberangkatan;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
 use App\Modules\Rute\Contracts\RuteRepositoryInterface;
+use App\Modules\Trip\Contracts\TripRepositoryInterface;
 use Carbon\Carbon;
 
 class JadwalKeberangkatanService
@@ -14,7 +15,8 @@ class JadwalKeberangkatanService
     public function __construct(
         private readonly JadwalKeberangkatanRepositoryInterface $repo,
         private readonly PenugasanRepositoryInterface $penugasanRepo,
-        private readonly RuteRepositoryInterface $ruteRepo
+        private readonly RuteRepositoryInterface $ruteRepo,
+        private readonly TripRepositoryInterface $tripRepo
     ) {}
 
     public function list(string $idPenugasan, int $page = 1, int $limit = 10): array
@@ -142,6 +144,12 @@ class JadwalKeberangkatanService
     public function delete(string $id): void
     {
         $record = $this->findOrFail($id);
+
+        $trip = $this->tripRepo->findByJadwal($id);
+        if ($trip !== null && !in_array($trip->status, ['selesai', 'dibatalkan'], true)) {
+            abort(422, 'Jadwal masih memiliki trip yang belum selesai — selesaikan atau batalkan trip terlebih dahulu');
+        }
+
         $this->repo->delete($record);
     }
 }

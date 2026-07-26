@@ -53,14 +53,16 @@ class TripController extends Controller
         return ApiResponse::paginated($result['data'], $result['meta']);
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new TripResource($this->service->findOrFail($id)));
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success(new TripResource($this->service->findOrFail($id, $idPerusahaan)));
     }
 
     public function store(StoreTripRequest $request): JsonResponse
     {
-        $record = $this->service->create($request->validated());
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->create($request->validated(), $idPerusahaan);
         return ApiResponse::success(new TripResource($record), 'Trip berhasil dibuat', 201);
     }
 
@@ -73,15 +75,17 @@ class TripController extends Controller
         return ApiResponse::success(new TripResource($record), 'Trip berhasil dimulai', 201);
     }
 
-    public function checkin(string $id): JsonResponse
+    public function checkin(Request $request, string $id): JsonResponse
     {
-        $record = $this->service->checkin($id);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->checkin($id, $idPerusahaan);
         return ApiResponse::success(new TripResource($record), 'Checkin berhasil');
     }
 
-    public function checkout(string $id): JsonResponse
+    public function checkout(Request $request, string $id): JsonResponse
     {
-        $record = $this->service->checkout($id);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->checkout($id, $idPerusahaan, $request->boolean('selesaikan_penugasan'));
         return ApiResponse::success(new TripResource($record), 'Checkout berhasil');
     }
 
@@ -92,9 +96,10 @@ class TripController extends Controller
         return ApiResponse::success(new TripResource($record), 'Trip berhasil dibatalkan');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $this->service->delete($id, $idPerusahaan);
         return ApiResponse::success(null, 'Trip berhasil dihapus');
     }
 
@@ -103,5 +108,47 @@ class TripController extends Controller
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $data = $this->service->rekapBiaya($id, $idPerusahaan);
         return ApiResponse::success($data, 'Rekap biaya berhasil dimuat');
+    }
+
+    public function settlementIndex(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        $result = $this->service->settlementList(
+            $idPerusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            $request->get('id_supir'),
+            $request->get('status_settlement'),
+            $request->get('tanggal_dari'),
+            $request->get('tanggal_sampai'),
+            $request->get('search'),
+        );
+
+        return ApiResponse::paginated($result['data'], $result['meta']);
+    }
+
+    public function tandaiLunas(Request $request, string $id): JsonResponse
+    {
+        $request->validate(['catatan' => ['sometimes', 'nullable', 'string']]);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->tandaiLunas($id, $idPerusahaan, $request->get('catatan'));
+        return ApiResponse::success(new TripResource($record), 'Settlement trip berhasil ditandai lunas');
+    }
+
+    public function batalkanLunas(Request $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->batalkanLunas($id, $idPerusahaan);
+        return ApiResponse::success(new TripResource($record), 'Status lunas settlement dibatalkan');
+    }
+
+    public function updateUangJalan(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate(['uang_jalan_alokasi' => ['present', 'nullable', 'numeric', 'min:0']]);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $alokasi = $validated['uang_jalan_alokasi'] !== null ? (float) $validated['uang_jalan_alokasi'] : null;
+        $record = $this->service->updateUangJalan($id, $idPerusahaan, $alokasi);
+        return ApiResponse::success(new TripResource($record), 'Uang jalan berhasil diperbarui');
     }
 }

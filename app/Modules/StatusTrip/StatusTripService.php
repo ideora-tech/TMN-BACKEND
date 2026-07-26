@@ -15,22 +15,25 @@ class StatusTripService
         private readonly TripRepositoryInterface $tripRepo,
     ) {}
 
-    public function listByTrip(string $idTrip): Collection
+    public function listByTrip(string $idTrip, ?string $idPerusahaan = null): Collection
     {
-        $this->ensureTripExists($idTrip);
+        $this->ensureTripExists($idTrip, $idPerusahaan);
         return $this->repo->listByTrip($idTrip);
     }
 
-    public function create(string $idTrip, array $data): object
+    public function create(string $idTrip, array $data, ?string $idPerusahaan = null): object
     {
-        $this->ensureTripExists($idTrip);
+        $this->ensureTripExists($idTrip, $idPerusahaan);
 
         return $this->repo->create(array_merge($data, ['id_trip' => $idTrip]));
     }
 
-    private function ensureTripExists(string $idTrip): void
+    private function ensureTripExists(string $idTrip, ?string $idPerusahaan = null): void
     {
         if (!$this->tripRepo->exists($idTrip)) {
+            abort(404, 'Trip tidak ditemukan');
+        }
+        if ($idPerusahaan !== null && !$this->tripRepo->milikPerusahaan($idTrip, $idPerusahaan)) {
             abort(404, 'Trip tidak ditemukan');
         }
     }
