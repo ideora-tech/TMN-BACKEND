@@ -88,9 +88,11 @@ class IzinPeranSeeder extends Seeder
         foreach (self::IZIN_EKSPLISIT as [$kodePeran, $path, $aksiList]) {
             $idMenu = DB::table('menu')->where('path', $path)->value('id_menu');
             if ($idMenu === null) {
-                // Fail-loud: path salah/menu belum ada = baseline izin diam-diam
-                // tidak terpasang dan modul ber-guard path itu deny-all.
-                throw new \RuntimeException("IzinPeranSeeder: menu dengan path '{$path}' tidak ditemukan — entri IZIN_EKSPLISIT [{$kodePeran}, {$path}] tidak bisa dipasang");
+                // Menu bisa saja belum ada di lingkungan ini (mis. dibuat via UI di
+                // instance lain) — jangan hard-fail, tapi jangan pula skip diam-diam:
+                // tanpa baris izin, modul ber-guard path ini deny-all utk role tsb.
+                $this->command?->warn("IzinPeranSeeder: menu path '{$path}' tidak ditemukan — izin [{$kodePeran}, {$path}] TIDAK terpasang");
+                continue;
             }
 
             foreach ($aksiList as $aksi) {

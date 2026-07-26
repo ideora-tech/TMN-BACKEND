@@ -2,6 +2,7 @@
 
 return [
     App\Providers\AppServiceProvider::class,
+    App\Modules\Absensi\AbsensiServiceProvider::class,
     App\Modules\Armada\ArmadaServiceProvider::class,
     App\Modules\Auth\AuthServiceProvider::class,
     App\Modules\BriefingSupir\BriefingSupirServiceProvider::class,

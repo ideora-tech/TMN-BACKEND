@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Absensi;
+
+use App\Modules\Absensi\Contracts\AbsensiRepositoryInterface;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
+
+class AbsensiServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->bind(AbsensiRepositoryInterface::class, AbsensiRepository::class);
+        $this->app->bind(AbsensiService::class);
+    }
+
+    public function boot(): void
+    {
+        Route::prefix('api/v1')
+            ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
+            ->group(function () {
+                Route::get('absensi/harian', [AbsensiController::class, 'harian']);
+                Route::post('absensi/harian', [AbsensiController::class, 'simpanHarian']);
+                Route::get('absensi/rekap', [AbsensiController::class, 'rekap']);
+            });
+    }
+}
