@@ -67,7 +67,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_create_penugasan_tidak_mengubah_status_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
@@ -81,7 +81,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_satu_armada_boleh_ditugaskan_ke_banyak_proyek(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada  = $this->makeArmada('tersedia');
         $proyekA = $this->makeProyek();
         $proyekB = $this->makeProyek();
@@ -104,7 +104,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_create_penugasan_dengan_armada_sedang_digunakan_tetap_boleh(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('digunakan');
         $proyek = $this->makeProyek();
 
@@ -116,7 +116,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_create_penugasan_dengan_armada_tidak_ada_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
         $this->postJson('/api/v1/penugasan', [
@@ -127,7 +127,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_ubah_status_dan_hapus_penugasan_tidak_menyentuh_status_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
@@ -146,7 +146,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_checkin_mengunci_armada_dan_checkout_melepasnya(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
@@ -166,7 +166,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_mulai_trip_via_endpoint_mulai_juga_mengunci_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
@@ -182,7 +182,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_batalkan_trip_berjalan_melepas_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
@@ -202,7 +202,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_checkin_ditolak_saat_armada_perawatan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('perawatan');
         $proyek = $this->makeProyek();
 
@@ -222,7 +222,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_mulai_trip_ditolak_saat_armada_perawatan_dan_tidak_meninggalkan_sisa(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tidak_aktif');
         $proyek = $this->makeProyek();
 
@@ -240,7 +240,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_checkout_tidak_menimpa_status_perawatan_yang_diset_di_tengah_trip(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
@@ -273,7 +273,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_checkin_kedua_untuk_armada_sama_ditolak_meski_beda_proyek(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
 
         $tripA = $this->makeTrip($this->buatPenugasanAktif($armada));
@@ -291,7 +291,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_checkout_tidak_melepas_armada_bila_masih_ada_trip_berjalan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('digunakan');
 
         $tripA = $this->makeTrip($this->buatPenugasanAktif($armada), 'berjalan');
@@ -304,7 +304,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_hapus_trip_berjalan_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $trip = $this->makeTrip($this->buatPenugasanAktif($armada), 'berjalan');
 
@@ -317,7 +317,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_ganti_armada_penugasan_dengan_trip_berjalan_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armadaLama = $this->makeArmada('tersedia');
         $armadaBaru = $this->makeArmada('tersedia');
         $idPenugasan = $this->buatPenugasanAktif($armadaLama);
@@ -331,7 +331,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_ganti_armada_penugasan_ke_armada_tidak_ada_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $idPenugasan = $this->buatPenugasanAktif($armada);
 
@@ -341,7 +341,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_jumlah_penugasan_aktif_muncul_di_list_dan_detail_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $this->buatPenugasanAktif($armada);
         $this->buatPenugasanAktif($armada);
@@ -356,7 +356,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
 
     public function test_jumlah_penugasan_aktif_tidak_menghitung_penugasan_proyek_terhapus(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $this->buatPenugasanAktif($armada);
 

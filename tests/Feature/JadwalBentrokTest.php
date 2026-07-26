@@ -85,7 +85,7 @@ class JadwalBentrokTest extends TestCase
 
     public function test_create_jadwal_bentrok_armada_sama_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = (string) Str::uuid();
         $penugasanA = $this->makePenugasan($idArmada, (string) Str::uuid());
@@ -105,7 +105,7 @@ class JadwalBentrokTest extends TestCase
 
     public function test_create_jadwal_non_overlap_armada_sama_diterima_201(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = (string) Str::uuid();
         $penugasanA = $this->makePenugasan($idArmada, (string) Str::uuid());
@@ -124,7 +124,7 @@ class JadwalBentrokTest extends TestCase
 
     public function test_create_jadwal_armada_dan_supir_beda_diterima_201(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $penugasanA = $this->makePenugasan((string) Str::uuid(), (string) Str::uuid());
         $this->makeJadwal($penugasanA->id_penugasan, '2026-08-01 08:00:00', '2026-08-01 12:00:00');
@@ -142,7 +142,7 @@ class JadwalBentrokTest extends TestCase
 
     public function test_jadwal_existing_tanpa_estimasi_tiba_fallback_8_jam_tetap_terdeteksi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = (string) Str::uuid();
         $penugasanA = $this->makePenugasan($idArmada, (string) Str::uuid());
@@ -163,7 +163,7 @@ class JadwalBentrokTest extends TestCase
 
     public function test_update_jadwal_ke_waktu_bentrok_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = (string) Str::uuid();
         $penugasanA = $this->makePenugasan($idArmada, (string) Str::uuid());
@@ -183,7 +183,7 @@ class JadwalBentrokTest extends TestCase
 
     public function test_update_jadwal_ke_waktunya_sendiri_diterima_200(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = (string) Str::uuid();
         $penugasanA = $this->makePenugasan($idArmada, (string) Str::uuid());
@@ -201,7 +201,7 @@ class JadwalBentrokTest extends TestCase
 
     public function test_create_jadwal_bentrok_armada_vendor_sama_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor);
@@ -224,7 +224,7 @@ class JadwalBentrokTest extends TestCase
 
     public function test_create_jadwal_armada_vendor_beda_diterima_201(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor);

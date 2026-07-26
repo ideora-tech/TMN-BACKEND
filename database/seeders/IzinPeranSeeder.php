@@ -19,11 +19,40 @@ class IzinPeranSeeder extends Seeder
      * Format: [kode_peran, menu path, [aksi, ...]]
      */
     private const IZIN_EKSPLISIT = [
+        ['ADMIN', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['ADMIN', '/jadwal', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['ADMIN', '/tarif-rute', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['DISPATCHER', '/jadwal', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['MANAGER', '/jadwal', ['lihat']],
         ['SUPIR', '/trip', ['lihat', 'tambah', 'ubah']],
         ['SUPIR', '/jadwal', ['lihat']],
         ['SUPIR', '/supir', ['lihat']],
+        ['SUPIR', '/penugasan', ['lihat']],
         ['DISPATCHER', '/project', ['lihat']],
-        ['DISPATCHER', '/tarif-rute', ['lihat']],
+        ['DISPATCHER', '/tarif-rute', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['DISPATCHER', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['DISPATCHER', '/karyawan', ['lihat']],
+        ['DISPATCHER', '/jenis-kendaraan', ['lihat']],
+        ['DISPATCHER', '/klien', ['lihat']],
+        ['MANAGER', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['SALES', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['SALES', '/rute', ['lihat']],
+        ['SALES', '/jenis-kendaraan', ['lihat']],
+        ['SALES', '/tarif-rute', ['lihat', 'tambah']],
+        ['SALES', '/parameter-bok', ['lihat']],
+        ['SALES', '/armada', ['lihat']],
+        ['SALES', '/supir', ['lihat']],
+        ['SALES', '/karyawan', ['lihat']],
+        ['SALES', '/trip', ['lihat']],
+        ['SALES', '/shift', ['lihat']],
+        ['SALES', '/faktur', ['lihat']],
+        ['KEUANGAN', '/klien', ['lihat']],
+        ['KEUANGAN', '/project', ['lihat']],
+        ['KEUANGAN', '/supir', ['lihat']],
+        ['KEUANGAN', '/armada', ['lihat']],
+        ['KEUANGAN', '/trip', ['lihat', 'tambah', 'ubah']],
+        ['KEUANGAN', '/penugasan', ['lihat']],
+        ['KEUANGAN', '/shift', ['lihat']],
     ];
 
     public function run(): void
@@ -59,17 +88,26 @@ class IzinPeranSeeder extends Seeder
         foreach (self::IZIN_EKSPLISIT as [$kodePeran, $path, $aksiList]) {
             $idMenu = DB::table('menu')->where('path', $path)->value('id_menu');
             if ($idMenu === null) {
-                continue;
+                // Fail-loud: path salah/menu belum ada = baseline izin diam-diam
+                // tidak terpasang dan modul ber-guard path itu deny-all.
+                throw new \RuntimeException("IzinPeranSeeder: menu dengan path '{$path}' tidak ditemukan — entri IZIN_EKSPLISIT [{$kodePeran}, {$path}] tidak bisa dipasang");
             }
 
             foreach ($aksiList as $aksi) {
-                $exists = DB::table('izin_peran')
+                $existing = DB::table('izin_peran')
                     ->where('id_menu', $idMenu)
                     ->where('kode_peran', $kodePeran)
                     ->where('aksi', $aksi)
-                    ->exists();
+                    ->whereNull('id_perusahaan')
+                    ->first(['id_izin', 'diizinkan']);
 
-                if ($exists) {
+                if ($existing !== null) {
+                    // Izin eksplisit = baseline fungsional aplikasi (mis. mobile supir) —
+                    // baris yang keburu ter-set 0 dipaksa kembali 1 saat re-seed.
+                    if ((int) $existing->diizinkan !== 1) {
+                        DB::table('izin_peran')->where('id_izin', $existing->id_izin)
+                            ->update(['diizinkan' => 1, 'diubah_pada' => $now]);
+                    }
                     continue;
                 }
 

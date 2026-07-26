@@ -62,7 +62,7 @@ class LaporanBbmTest extends TestCase
 
     public function test_membuat_laporan_dengan_jenis_bbm_dan_jumlah_liter_tersimpan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
@@ -88,7 +88,7 @@ class LaporanBbmTest extends TestCase
 
     public function test_menolak_laporan_dengan_id_jenis_bbm_milik_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
@@ -107,7 +107,7 @@ class LaporanBbmTest extends TestCase
 
     public function test_laporan_lama_tanpa_field_bbm_tetap_berhasil_dibuat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -129,7 +129,7 @@ class LaporanBbmTest extends TestCase
 
     public function test_update_laporan_menambahkan_jenis_bbm_dan_jumlah_liter(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
@@ -153,7 +153,7 @@ class LaporanBbmTest extends TestCase
 
     public function test_menolak_update_laporan_dengan_id_jenis_bbm_tidak_valid(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
 
         $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [

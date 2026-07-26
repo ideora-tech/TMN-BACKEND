@@ -50,7 +50,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_store_dengan_semua_field_baru_berhasil_dan_muncul_di_response(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/armada', [
             'nopol'               => 'B 5678 DTL',
@@ -82,7 +82,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_store_nomor_rangka_duplikat_ditolak_409(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -100,7 +100,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_update_nomor_rangka_sendiri_tidak_dianggap_duplikat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $armada = ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -118,7 +118,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_update_tanpa_field_baru_tidak_mengubah_nilai_lama(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $armada = ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -138,7 +138,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_jenis_bahan_bakar_tidak_valid_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/armada', [
             'nopol'             => 'B 5555 BBM',
@@ -150,7 +150,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_kondisi_beli_tidak_valid_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/armada', [
             'nopol'        => 'B 6666 KND',
@@ -162,7 +162,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_store_dengan_foto_mengisi_url_foto(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         Storage::fake('public');
 
         $res = $this->post('/api/v1/armada', [
@@ -179,7 +179,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_update_dengan_foto_multipart_method_put_mengganti_url_foto(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         Storage::fake('public');
 
         $armada = ArmadaModel::create([
@@ -199,7 +199,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_store_foto_bukan_gambar_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->post('/api/v1/armada', [
             'nopol' => 'B 9990 FTO',
@@ -211,7 +211,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_store_id_jenis_kendaraan_tidak_terdaftar_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/armada', [
             'nopol'              => 'B 1212 JNS',
@@ -223,7 +223,7 @@ class ArmadaKolomLengkapTest extends TestCase
 
     public function test_store_id_jenis_kendaraan_valid_diterima(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idJenis = (string) \Illuminate\Support\Str::uuid();
         \Illuminate\Support\Facades\DB::table('jenis_kendaraan')->insert([

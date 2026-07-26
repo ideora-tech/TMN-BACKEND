@@ -41,7 +41,7 @@ class LokasiKantorTest extends TestCase
 
     public function test_membuat_lokasi_kantor_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/lokasi-kantor', [
             'kode_lokasi' => 'LOK-01',
@@ -64,7 +64,7 @@ class LokasiKantorTest extends TestCase
 
     public function test_list_lokasi_kantor_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $this->makeLokasiKantor(self::PERUSAHAAN_ID, 'Milik Sendiri');
         $idPerusahaanLain = $this->makePerusahaanLain();
@@ -80,7 +80,7 @@ class LokasiKantorTest extends TestCase
 
     public function test_show_lokasi_kantor_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeLokasiKantor(self::PERUSAHAAN_ID);
 
         $res = $this->getJson("/api/v1/lokasi-kantor/{$item->id_lokasi}");
@@ -90,7 +90,7 @@ class LokasiKantorTest extends TestCase
 
     public function test_show_lokasi_kantor_tidak_ditemukan_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/lokasi-kantor/' . Str::uuid()->toString());
 
@@ -99,7 +99,7 @@ class LokasiKantorTest extends TestCase
 
     public function test_update_lokasi_kantor_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeLokasiKantor(self::PERUSAHAAN_ID);
 
         $res = $this->putJson("/api/v1/lokasi-kantor/{$item->id_lokasi}", [
@@ -115,7 +115,7 @@ class LokasiKantorTest extends TestCase
 
     public function test_hapus_lokasi_kantor_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeLokasiKantor(self::PERUSAHAAN_ID);
 
         $res = $this->deleteJson("/api/v1/lokasi-kantor/{$item->id_lokasi}");

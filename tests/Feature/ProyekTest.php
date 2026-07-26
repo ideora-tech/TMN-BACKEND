@@ -39,7 +39,7 @@ class ProyekTest extends TestCase
 
     public function test_menolak_kode_proyek_duplikat_saat_membuat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
         $this->makeProyek($klien->id_klien, '123');
 
@@ -55,7 +55,7 @@ class ProyekTest extends TestCase
 
     public function test_membuat_proyek_dengan_kode_unik_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
         $res = $this->postJson('/api/v1/proyek', [
@@ -70,7 +70,7 @@ class ProyekTest extends TestCase
 
     public function test_menolak_kode_proyek_duplikat_saat_update(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
         $this->makeProyek($klien->id_klien, 'KODE-A');
         $proyekB = $this->makeProyek($klien->id_klien, 'KODE-B');
@@ -85,7 +85,7 @@ class ProyekTest extends TestCase
 
     public function test_update_proyek_dengan_kode_sendiri_tidak_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
         $proyek = $this->makeProyek($klien->id_klien, 'KODE-SENDIRI');
 
@@ -121,7 +121,7 @@ class ProyekTest extends TestCase
      */
     public function test_store_proyek_dengan_id_penawaran_menautkan_balik_ke_penawaran(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
         $idPenawaran = $this->makePenawaranDisetujui($klien->id_klien);
 
@@ -143,7 +143,7 @@ class ProyekTest extends TestCase
 
     public function test_store_proyek_tanpa_id_penawaran_tetap_berhasil_seperti_biasa(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
         $res = $this->postJson('/api/v1/proyek', [
@@ -158,7 +158,7 @@ class ProyekTest extends TestCase
 
     public function test_store_proyek_dengan_id_penawaran_tidak_ada_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
         $res = $this->postJson('/api/v1/proyek', [
@@ -203,7 +203,7 @@ class ProyekTest extends TestCase
 
     public function test_store_proyek_dari_penawaran_menyalin_item_ke_proyek_rute(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
         $idRute  = $this->makeRuteUntukProyekTest();
@@ -256,7 +256,7 @@ class ProyekTest extends TestCase
 
     public function test_store_proyek_tanpa_id_penawaran_tidak_membuat_proyek_rute(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
         $res = $this->postJson('/api/v1/proyek', [
@@ -273,7 +273,7 @@ class ProyekTest extends TestCase
 
     public function test_store_proyek_dengan_id_penawaran_milik_perusahaan_lain_tidak_menautkan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
         $idPerusahaanLain = (string) Str::uuid();
@@ -309,7 +309,7 @@ class ProyekTest extends TestCase
 
     public function test_store_proyek_dengan_rute_manual_membuat_baris_proyek_rute(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien   = $this->makeKlien();
         $idRute  = $this->makeRuteUntukProyekTest();
         $idJenis = $this->makeJenisKendaraanUntukProyekTest();
@@ -336,7 +336,7 @@ class ProyekTest extends TestCase
 
     public function test_store_proyek_dengan_rute_invalid_gagal_total_tidak_ada_yang_tersimpan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
         $res = $this->postJson('/api/v1/proyek', [
@@ -356,7 +356,7 @@ class ProyekTest extends TestCase
 
     public function test_store_proyek_dari_penawaran_menyalin_harga_penawaran_dari_harga_satuan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
         $idRute  = $this->makeRuteUntukProyekTest();

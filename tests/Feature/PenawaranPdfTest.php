@@ -44,7 +44,7 @@ class PenawaranPdfTest extends TestCase
 
     public function test_export_pdf_penawaran_mengembalikan_file_pdf(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien     = $this->makeKlien();
         $penawaran = $this->makePenawaran($klien->id_klien);
 
@@ -56,7 +56,7 @@ class PenawaranPdfTest extends TestCase
 
     public function test_export_pdf_penawaran_id_tidak_ditemukan_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->get('/api/v1/penawaran/' . (string) Str::uuid() . '/pdf');
 
@@ -65,7 +65,7 @@ class PenawaranPdfTest extends TestCase
 
     public function test_export_pdf_penawaran_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert([

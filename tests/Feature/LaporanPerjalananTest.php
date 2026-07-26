@@ -75,7 +75,7 @@ class LaporanPerjalananTest extends TestCase
 
     public function test_membuat_laporan_untuk_trip_selesai(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -99,7 +99,7 @@ class LaporanPerjalananTest extends TestCase
 
     public function test_menolak_laporan_duplikat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $payload = [
@@ -118,7 +118,7 @@ class LaporanPerjalananTest extends TestCase
 
     public function test_menolak_laporan_untuk_trip_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripUntukPerusahaanLain('selesai');
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -133,7 +133,7 @@ class LaporanPerjalananTest extends TestCase
 
     public function test_menolak_get_laporan_untuk_trip_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripUntukPerusahaanLain('selesai');
 
         $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan");
@@ -143,7 +143,7 @@ class LaporanPerjalananTest extends TestCase
 
     public function test_menolak_trip_belum_mulai(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('belum_mulai');
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -157,7 +157,7 @@ class LaporanPerjalananTest extends TestCase
 
     public function test_get_laporan_dengan_relasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -182,7 +182,7 @@ class LaporanPerjalananTest extends TestCase
 
     public function test_update_mengganti_biaya_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -227,7 +227,7 @@ class LaporanPerjalananTest extends TestCase
 
     public function test_menolak_update_laporan_milik_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $idPerusahaanLain = (string) Str::uuid();
@@ -263,7 +263,7 @@ class LaporanPerjalananTest extends TestCase
     public function test_upload_foto(): void
     {
         Storage::fake('public');
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -294,7 +294,7 @@ class LaporanPerjalananTest extends TestCase
     public function test_upload_foto_multi_file(): void
     {
         Storage::fake('public');
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -320,7 +320,7 @@ class LaporanPerjalananTest extends TestCase
     public function test_create_laporan_dengan_foto_dan_uang_tol(): void
     {
         Storage::fake('public');
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [

@@ -19,7 +19,7 @@ class JabatanServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:jabatan'])
             ->group(function () {
                 Route::apiResource('jabatan', JabatanController::class)
                     ->parameters(['jabatan' => 'id']);

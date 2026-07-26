@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Trip;
 
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
+use App\Modules\Cuti\Contracts\CutiRepositoryInterface;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
 use App\Modules\Penugasan\PenugasanService;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
@@ -22,7 +23,8 @@ class TripService
         private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
         private readonly PenugasanService $penugasanService,
         private readonly ArmadaRepositoryInterface $armadaRepo,
-        private readonly StatusTripRepositoryInterface $statusTripRepo
+        private readonly StatusTripRepositoryInterface $statusTripRepo,
+        private readonly CutiRepositoryInterface $cutiRepo
     ) {}
 
     private function catatRiwayatStatus(string $idTrip, string $status, string $keterangan): void
@@ -165,6 +167,11 @@ class TripService
         $penugasan = $this->repo->findPenugasanDariTrip($id);
         if ($penugasan !== null && in_array($penugasan->status, ['selesai', 'batal'], true)) {
             abort(422, 'Penugasan sudah berstatus ' . $penugasan->status . ' — trip tidak dapat di-checkin');
+        }
+
+        if ($penugasan !== null && !empty($penugasan->id_supir)
+            && $this->cutiRepo->supirSedangCuti($penugasan->id_supir, now()->toDateString())) {
+            abort(422, 'Supir sedang cuti hari ini — trip tidak dapat dimulai');
         }
 
         return DB::transaction(function () use ($trip, $penugasan) {

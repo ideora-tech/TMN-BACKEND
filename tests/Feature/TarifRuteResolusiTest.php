@@ -78,7 +78,7 @@ class TarifRuteResolusiTest extends TestCase
 
     public function test_resolusi_tarif_kontrak_klien_menang_atas_umum(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         $idKlien = $this->makeKlien();
@@ -94,7 +94,7 @@ class TarifRuteResolusiTest extends TestCase
 
     public function test_resolusi_fallback_ke_harga_umum(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         $idKlien = $this->makeKlien();
@@ -109,7 +109,7 @@ class TarifRuteResolusiTest extends TestCase
 
     public function test_resolusi_tanpa_tarif_mengembalikan_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/tarif-rute/resolusi?id_rute=' . $this->makeRute()
             . '&id_jenis_kendaraan=' . $this->makeJenisKendaraan());
@@ -119,7 +119,7 @@ class TarifRuteResolusiTest extends TestCase
 
     public function test_resolusi_menghormati_tanggal(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         // tarif lama: berlaku 60..31 hari lalu
@@ -143,7 +143,7 @@ class TarifRuteResolusiTest extends TestCase
 
     public function test_resolusi_tidak_bocor_antar_tenant(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert([
             'id_perusahaan' => $idPerusahaanLain,

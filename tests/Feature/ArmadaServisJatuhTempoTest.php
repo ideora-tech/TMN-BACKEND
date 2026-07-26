@@ -36,7 +36,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
 
     public function test_endpoint_mengembalikan_armada_dengan_servis_jatuh_tempo(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(10)->toDateString(), 'Servis Besar');
 
@@ -51,7 +51,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
 
     public function test_hanya_servis_terbaru_per_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-01-01', now()->addDays(5)->toDateString());
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(90)->toDateString());
@@ -64,7 +64,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
 
     public function test_param_days_custom(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(45)->toDateString());
 
@@ -79,7 +79,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
 
     public function test_isolasi_tenant(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $lain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
         $armadaLain = ArmadaModel::create(['id_perusahaan' => $lain, 'nopol' => 'D 9999 ZZ', 'status' => 'tersedia']);
@@ -93,7 +93,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
 
     public function test_route_terdaftar_sebelum_apiresource_show(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         // Memastikan 'servis-jatuh-tempo' tidak tertangkap sebagai {id} pada GET armada/{id}
         $res = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
         $res->assertStatus(200); // bukan 404 "Armada tidak ditemukan"

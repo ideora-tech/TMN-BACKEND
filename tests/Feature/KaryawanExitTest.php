@@ -31,7 +31,7 @@ class KaryawanExitTest extends TestCase
 
     public function test_membuat_karyawan_exit_berhasil_dan_menonaktifkan_karyawan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan();
 
         $res = $this->postJson('/api/v1/karyawan-exit', [
@@ -56,7 +56,7 @@ class KaryawanExitTest extends TestCase
 
     public function test_menolak_karyawan_exit_tanpa_jenis_exit(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan();
 
         $res = $this->postJson('/api/v1/karyawan-exit', [
@@ -69,7 +69,7 @@ class KaryawanExitTest extends TestCase
 
     public function test_karyawan_exit_muncul_di_exit_history_karyawan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan();
 
         $this->postJson('/api/v1/karyawan-exit', [

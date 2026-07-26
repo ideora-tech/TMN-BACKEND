@@ -49,7 +49,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_membuat_interval_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
@@ -71,7 +71,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_menolak_tanpa_field_wajib(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/interval-perawatan', []);
 
@@ -80,7 +80,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_menolak_duplikat_kombinasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
         $this->postJson('/api/v1/interval-perawatan', [
@@ -96,7 +96,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_kombinasi_jenis_kendaraan_berbeda_tidak_dianggap_duplikat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
         $this->postJson('/api/v1/interval-perawatan', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $this->makeJenisKendaraan('CDD'), 'interval_hari' => 180,
@@ -111,7 +111,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_menolak_jenis_perawatan_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
 
         $res = $this->postJson('/api/v1/interval-perawatan', [
@@ -125,7 +125,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_list_memuat_nama_relasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->postJson('/api/v1/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -142,7 +142,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_update_interval_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $id = $this->postJson('/api/v1/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -156,7 +156,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_update_menolak_duplikat_kombinasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJenisA = $this->makeJenisPerawatan('Ganti Oli');
         $idJenisB = $this->makeJenisPerawatan('Servis Besar');
         $idKendaraan = $this->makeJenisKendaraan();
@@ -174,7 +174,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_hapus_interval_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $id = $this->postJson('/api/v1/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -189,7 +189,7 @@ class IntervalPerawatanTest extends TestCase
 
     public function test_isolasi_tenant(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
         $id = (string) Str::uuid();
         DB::table('interval_perawatan')->insert([

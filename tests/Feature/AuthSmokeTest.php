@@ -11,7 +11,7 @@ class AuthSmokeTest extends TestCase
 
     public function test_me_endpoint_returns_authenticated_user(): void
     {
-        $pengguna = $this->actingAsRole('ADMIN');
+        $pengguna = $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/auth/me');
 

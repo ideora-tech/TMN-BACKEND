@@ -30,7 +30,7 @@ class ShiftTest extends TestCase
 
     public function test_create_shift_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/shift', [
             'nama'         => 'Shift Pagi',
@@ -56,7 +56,7 @@ class ShiftTest extends TestCase
 
     public function test_list_scoped_ke_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeShift('Milik Sendiri');
 
         $idLain = (string) Str::uuid();
@@ -72,7 +72,7 @@ class ShiftTest extends TestCase
 
     public function test_update_dan_show_shift(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $shift = $this->makeShift();
 
         $resUpdate = $this->putJson("/api/v1/shift/{$shift->id_shift}", [
@@ -89,7 +89,7 @@ class ShiftTest extends TestCase
 
     public function test_delete_shift_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $shift = $this->makeShift();
 
         $res = $this->deleteJson("/api/v1/shift/{$shift->id_shift}");

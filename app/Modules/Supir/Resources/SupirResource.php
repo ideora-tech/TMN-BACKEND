@@ -12,6 +12,7 @@ class SupirResource extends JsonResource
         return [
             'id_supir'            => $this->id_supir,
             'id_pengguna'         => $this->id_pengguna,
+            'id_karyawan'         => $this->id_karyawan ?? null,
             'id_perusahaan'       => $this->id_perusahaan,
             'nama'                => $this->nama,
             'no_sim'              => $this->no_sim,

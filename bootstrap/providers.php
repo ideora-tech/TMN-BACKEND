@@ -6,6 +6,7 @@ return [
     App\Modules\Auth\AuthServiceProvider::class,
     App\Modules\BriefingSupir\BriefingSupirServiceProvider::class,
     App\Modules\Dashboard\DashboardServiceProvider::class,
+    App\Modules\Cuti\CutiServiceProvider::class,
     App\Modules\Departemen\DepartemenServiceProvider::class,
     App\Modules\DokumenArmada\DokumenArmadaServiceProvider::class,
     App\Modules\DokumenKaryawan\DokumenKaryawanServiceProvider::class,

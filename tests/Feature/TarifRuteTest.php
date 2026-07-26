@@ -89,7 +89,7 @@ class TarifRuteTest extends TestCase
 
     public function test_membuat_tarif_umum_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/tarif-rute', [
             'id_rute'            => $this->makeRute(),
@@ -113,7 +113,7 @@ class TarifRuteTest extends TestCase
 
     public function test_menolak_tarif_tanpa_field_wajib(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/tarif-rute', []);
 
@@ -123,7 +123,7 @@ class TarifRuteTest extends TestCase
 
     public function test_menolak_rute_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
 
         $res = $this->postJson('/api/v1/tarif-rute', [
@@ -138,7 +138,7 @@ class TarifRuteTest extends TestCase
 
     public function test_menolak_periode_tumpang_tindih(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         $this->makeTarif([
@@ -160,7 +160,7 @@ class TarifRuteTest extends TestCase
 
     public function test_tarif_berjalan_otomatis_ditutup_saat_tarif_baru_masuk(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         $idLama  = $this->makeTarif([
@@ -186,7 +186,7 @@ class TarifRuteTest extends TestCase
 
     public function test_menolak_tarif_baru_dengan_tanggal_mulai_sama(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         $this->makeTarif([
@@ -208,7 +208,7 @@ class TarifRuteTest extends TestCase
 
     public function test_kombinasi_klien_berbeda_tidak_dianggap_overlap(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         $this->makeTarif([
@@ -230,7 +230,7 @@ class TarifRuteTest extends TestCase
 
     public function test_list_dengan_filter_berlaku(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         // berlaku hari ini
         $this->makeTarif();
         // sudah kedaluwarsa
@@ -249,7 +249,7 @@ class TarifRuteTest extends TestCase
 
     public function test_list_memuat_nama_relasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeTarif();
 
         $res = $this->getJson('/api/v1/tarif-rute');
@@ -263,7 +263,7 @@ class TarifRuteTest extends TestCase
 
     public function test_update_tarif_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $id = $this->makeTarif();
 
         $res = $this->putJson("/api/v1/tarif-rute/{$id}", ['harga' => 1600000]);
@@ -273,7 +273,7 @@ class TarifRuteTest extends TestCase
 
     public function test_update_menolak_periode_overlap(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         $this->makeTarif([
@@ -299,7 +299,7 @@ class TarifRuteTest extends TestCase
 
     public function test_hapus_tarif_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $id = $this->makeTarif();
 
         $this->deleteJson("/api/v1/tarif-rute/{$id}")->assertStatus(200);
@@ -311,7 +311,7 @@ class TarifRuteTest extends TestCase
 
     public function test_isolasi_tenant(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
         $idLain = $this->makeTarif([
             'id_perusahaan'      => $lain,

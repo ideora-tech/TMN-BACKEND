@@ -82,7 +82,7 @@ class DashboardStatsTest extends TestCase
 
     public function test_armada_dihitung_tersedia_dan_beroperasi_terpisah(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeArmada('tersedia');
         $this->makeArmada('tersedia');
         $this->makeArmada('digunakan');
@@ -98,7 +98,7 @@ class DashboardStatsTest extends TestCase
 
     public function test_alerts_dokumen_expiring_menggabungkan_armada_dan_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $vendor = $this->makeVendor();
 
@@ -148,7 +148,7 @@ class DashboardStatsTest extends TestCase
 
     public function test_alerts_trip_terlambat_dihitung_dari_checkin_lebih_24_jam(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripBerjalan(now()->subHours(30)->toDateTimeString());
 
         $res = $this->getJson('/api/v1/dashboard/stats');
@@ -166,7 +166,7 @@ class DashboardStatsTest extends TestCase
 
     public function test_alerts_trip_terlambat_tidak_termasuk_checkin_baru_atau_sudah_checkout(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         // Checkin baru 2 jam lalu -> belum melewati batas 24 jam
         $this->makeTripBerjalan(now()->subHours(2)->toDateTimeString());
         // Checkin 30 jam lalu tapi sudah checkout -> tidak lagi dianggap terlambat
@@ -191,7 +191,7 @@ class DashboardStatsTest extends TestCase
 
     public function test_alerts_servis_jatuh_tempo_hanya_servis_terbaru_per_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         // servis lama dalam window -> harus diabaikan
         $this->makePerawatan($armada->id_armada, '2026-01-01', now()->addDays(5)->toDateString());
@@ -209,7 +209,7 @@ class DashboardStatsTest extends TestCase
 
     public function test_alerts_servis_jatuh_tempo_di_luar_30_hari_tidak_ikut(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(45)->toDateString());
 

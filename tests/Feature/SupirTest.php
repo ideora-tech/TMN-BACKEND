@@ -37,7 +37,7 @@ class SupirTest extends TestCase
 
     public function test_membuat_supir_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/supir', [
             'nama'   => 'Budi Santoso',
@@ -52,9 +52,64 @@ class SupirTest extends TestCase
         $this->assertDatabaseHas('supir', ['nama' => 'Budi Santoso', 'id_perusahaan' => self::PERUSAHAAN_ID]);
     }
 
+    private function makeKaryawanTaut(string $nik = 'NIK-TAUT-01', string $nama = 'Karyawan Tautan'): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('karyawan')->insert([
+            'id_karyawan' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nik' => $nik, 'nama_karyawan' => $nama, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
+    public function test_membuat_supir_tertaut_karyawan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKaryawan = $this->makeKaryawanTaut();
+
+        $res = $this->postJson('/api/v1/supir', [
+            'nama'        => 'Supir Tertaut',
+            'no_sim'      => 'SIM-TAUT-1',
+            'id_karyawan' => $idKaryawan,
+        ]);
+
+        $res->assertStatus(201)->assertJsonPath('data.id_karyawan', $idKaryawan);
+    }
+
+    public function test_satu_karyawan_tidak_bisa_ditautkan_ke_dua_supir(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKaryawan = $this->makeKaryawanTaut('NIK-TAUT-02');
+
+        $this->postJson('/api/v1/supir', [
+            'nama' => 'Supir Pertama', 'no_sim' => 'SIM-TAUT-2', 'id_karyawan' => $idKaryawan,
+        ])->assertStatus(201);
+
+        $res = $this->postJson('/api/v1/supir', [
+            'nama' => 'Supir Kedua', 'no_sim' => 'SIM-TAUT-3', 'id_karyawan' => $idKaryawan,
+        ]);
+
+        $res->assertStatus(422);
+    }
+
+    public function test_karyawan_perusahaan_lain_tidak_bisa_ditautkan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idLain = $this->makePerusahaanLain();
+        $idKaryawanLain = (string) Str::uuid();
+        DB::table('karyawan')->insert([
+            'id_karyawan' => $idKaryawanLain, 'id_perusahaan' => $idLain,
+            'nik' => 'NIK-LAIN-TAUT', 'nama_karyawan' => 'Orang Lain', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        $this->postJson('/api/v1/supir', [
+            'nama' => 'Supir Nakal', 'no_sim' => 'SIM-TAUT-4', 'id_karyawan' => $idKaryawanLain,
+        ])->assertStatus(404);
+    }
+
     public function test_list_supir_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeSupir(self::PERUSAHAAN_ID, 'Milik Sendiri');
         $idLain = $this->makePerusahaanLain();
         $this->makeSupir($idLain, 'Milik Lain');
@@ -69,7 +124,7 @@ class SupirTest extends TestCase
 
     public function test_show_supir_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeSupir(self::PERUSAHAAN_ID);
 
         $res = $this->getJson("/api/v1/supir/{$item->id_supir}");
@@ -79,7 +134,7 @@ class SupirTest extends TestCase
 
     public function test_update_supir_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeSupir(self::PERUSAHAAN_ID);
 
         $res = $this->putJson("/api/v1/supir/{$item->id_supir}", [
@@ -91,7 +146,7 @@ class SupirTest extends TestCase
 
     public function test_hapus_supir_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeSupir(self::PERUSAHAAN_ID);
 
         $res = $this->deleteJson("/api/v1/supir/{$item->id_supir}");

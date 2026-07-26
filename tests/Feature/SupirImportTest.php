@@ -67,7 +67,7 @@ class SupirImportTest extends TestCase
 
     public function test_download_template_mengembalikan_200_dan_content_type_xlsx(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->get('/api/v1/supir/import/template');
 
@@ -77,7 +77,7 @@ class SupirImportTest extends TestCase
 
     public function test_import_dua_baris_valid_berhasil_dan_nopol_match_mengisi_id_armada_default(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('B 1234 XYZ');
 
         $file = $this->makeXlsxUploadedFile([
@@ -106,7 +106,7 @@ class SupirImportTest extends TestCase
 
     public function test_import_campuran_hitungan_dan_alasan_akurat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         DB::table('supir')->insert([
             'id_supir'      => (string) Str::uuid(),
@@ -145,7 +145,7 @@ class SupirImportTest extends TestCase
 
     public function test_import_no_sim_duplikat_di_dalam_file_menandai_kedua_baris(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = $this->makeXlsxUploadedFile([
             ['Satu', 'SIM-DUP', '', '', '', 'aktif', ''],
@@ -163,7 +163,7 @@ class SupirImportTest extends TestCase
 
     public function test_import_baris_kosong_total_dilewati_tanpa_dihitung(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = $this->makeXlsxUploadedFile([
             ['Oke Saja', 'SIM-OKE', '', '', '', 'aktif', ''],
@@ -179,7 +179,7 @@ class SupirImportTest extends TestCase
 
     public function test_import_file_bukan_excel_mengembalikan_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = UploadedFile::fake()->create('data.txt', 10, 'text/plain');
 
@@ -190,7 +190,7 @@ class SupirImportTest extends TestCase
 
     public function test_import_nopol_yang_sudah_dipegang_supir_lain_ditolak_dengan_nama_pemegang(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('B 5555 QQQ');
 
         DB::table('supir')->insert([
@@ -219,7 +219,7 @@ class SupirImportTest extends TestCase
 
     public function test_import_dua_baris_nopol_sama_di_dalam_file_menandai_kedua_baris(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeArmada('B 7777 RRR');
 
         $file = $this->makeXlsxUploadedFile([

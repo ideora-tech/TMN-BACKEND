@@ -10,10 +10,20 @@ use Illuminate\Support\Facades\DB;
 class SupirRepository implements SupirRepositoryInterface
 {
     private const COLUMNS = [
-        'id_supir', 'id_pengguna', 'id_perusahaan', 'id_armada_default', 'nama', 'no_sim',
+        'id_supir', 'id_pengguna', 'id_karyawan', 'id_perusahaan', 'id_armada_default', 'nama', 'no_sim',
         'jenis_sim', 'tgl_kadaluarsa_sim', 'telepon', 'status', 'foto',
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
+
+    public function findByKaryawan(string $idKaryawan, ?string $excludeIdSupir = null): ?object
+    {
+        return DB::table('supir')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_karyawan', $idKaryawan)
+            ->when($excludeIdSupir, fn ($q, $v) => $q->where('id_supir', '!=', $v))
+            ->first();
+    }
 
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status = null, ?string $search = null): LengthAwarePaginator
     {

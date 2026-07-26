@@ -197,7 +197,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_filter_dari_sampai_mempersempit_hasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->seedTrips();
 
         $res = $this->getJson('/api/v1/laporan/trip?dari=2026-01-01&sampai=2026-01-31');
@@ -215,7 +215,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_filter_id_klien_mempersempit_hasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips();
 
         $res = $this->getJson('/api/v1/laporan/trip?id_klien=' . $seed['klien2']->id_klien);
@@ -231,7 +231,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_trip_row_membawa_total_biaya_gabungan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips();
 
         $res = $this->getJson('/api/v1/laporan/trip?id_klien=' . $seed['klien1']->id_klien);
@@ -247,7 +247,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_ringkasan_menghitung_jumlah_trip_dan_total_biaya(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips();
 
         $res = $this->getJson('/api/v1/laporan/trip/ringkasan?dari=2026-01-01&sampai=2026-01-31');
@@ -260,7 +260,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_ringkasan_dengan_filter_klien(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips();
 
         $res = $this->getJson('/api/v1/laporan/trip/ringkasan?id_klien=' . $seed['klien2']->id_klien);
@@ -272,7 +272,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_export_trip_excel_mengembalikan_200_dan_xlsx(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->seedTrips();
 
         $res = $this->get('/api/v1/laporan/trip/export/excel');
@@ -284,7 +284,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_export_trip_pdf_mengembalikan_200_dan_pdf(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->seedTrips();
 
         $res = $this->get('/api/v1/laporan/trip/export/pdf');
@@ -295,7 +295,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_export_karyawan_excel_dan_pdf_200(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         DB::table('karyawan')->insert([
             'id_karyawan'         => (string) Str::uuid(),
             'id_perusahaan'       => self::PERUSAHAAN_ID,
@@ -317,7 +317,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_export_armada_excel_dan_pdf_200(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeArmada();
 
         $resExcel = $this->get('/api/v1/laporan/armada/export/excel');
@@ -331,7 +331,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_laporan_trip_tidak_bentrok_dengan_laporan_id_route(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->seedTrips();
 
         // Memastikan laporan/trip tidak ditangkap oleh laporan/{id} milik modul LaporanProyek.
@@ -343,7 +343,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_trip_dari_penugasan_vendor_muncul_dengan_nopol_dan_supir_vendor_serta_sumber_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien('PT Klien Vendor');
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrakVendor($vendor->id_vendor);
@@ -372,7 +372,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_filter_sumber_vendor_hanya_mengembalikan_trip_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips(); // trip internal
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrakVendor($vendor->id_vendor);
@@ -398,7 +398,7 @@ class LaporanOperasionalTest extends TestCase
 
     public function test_filter_sumber_internal_mengecualikan_trip_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips(); // 3 trip internal
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrakVendor($vendor->id_vendor);

@@ -18,7 +18,7 @@ class BulkSetIzinPeranRequest extends FormRequest
         return [
             'kode_peran'              => ['required', 'string', 'max:50'],
             'permissions'             => ['required', 'array', 'min:1'],
-            'permissions.*.id_menu'   => ['required', 'string', 'uuid'],
+            'permissions.*.id_menu'   => ['required', 'string', 'max:36', 'exists:menu,id_menu,dihapus_pada,NULL'],
             'permissions.*.aksi'      => ['required', 'string', 'max:50'],
             'permissions.*.diizinkan' => ['required', 'boolean'],
         ];

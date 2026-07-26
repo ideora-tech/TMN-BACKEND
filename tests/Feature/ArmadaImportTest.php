@@ -57,7 +57,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_download_template_mengembalikan_200_dan_content_type_xlsx(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->get('/api/v1/armada/import/template');
 
@@ -67,7 +67,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_tiga_baris_valid_berhasil_semua_dan_masuk_db(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = $this->makeXlsxUploadedFile([
             ['B 1111 AAA', 'Toyota', 'Avanza', 2020, 'tersedia'],
@@ -98,7 +98,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_campuran_hitungan_dan_alasan_akurat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -138,7 +138,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_tahun_tidak_valid_masuk_gagal(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = $this->makeXlsxUploadedFile([
             ['B 8888 THN', 'Toyota', 'Avanza', 1800, 'tersedia'],
@@ -155,7 +155,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_baris_kosong_total_dilewati_tanpa_dihitung(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = $this->makeXlsxUploadedFile([
             ['B 4444 OKE', 'Toyota', 'Avanza', 2020, 'tersedia'],
@@ -171,7 +171,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_file_bukan_excel_mengembalikan_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = UploadedFile::fake()->create('data.txt', 10, 'text/plain');
 
@@ -182,7 +182,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_template_baru_dengan_kolom_detail_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = $this->makeXlsxUploadedFile(
             [[
@@ -216,7 +216,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_template_lama_lima_kolom_tetap_valid(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = $this->makeXlsxUploadedFile([
             ['B 2020 LMA', 'Toyota', 'Avanza', 2020, 'tersedia'],
@@ -231,7 +231,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_jenis_bahan_bakar_salah_gagal_dengan_alasan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $file = $this->makeXlsxUploadedFile(
             [['B 3030 BBM', 'Hino', null, null, null, null, null, null, 'nuklir', null, null, null, null, null]],
@@ -251,7 +251,7 @@ class ArmadaImportTest extends TestCase
 
     public function test_import_nomor_rangka_duplikat_db_gagal_dengan_alasan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,

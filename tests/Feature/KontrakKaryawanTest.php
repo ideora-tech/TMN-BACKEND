@@ -45,7 +45,7 @@ class KontrakKaryawanTest extends TestCase
 
     public function test_membuat_kontrak_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
         $res = $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak", [
@@ -70,7 +70,7 @@ class KontrakKaryawanTest extends TestCase
 
     public function test_list_kontrak_urut_terbaru_dan_flag_aktif(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
         $this->makeKontrak($karyawan->id_karyawan, '2024-01-01', '2024-12-31');
         $this->makeKontrak($karyawan->id_karyawan, '2025-01-01', null);
@@ -87,7 +87,7 @@ class KontrakKaryawanTest extends TestCase
 
     public function test_menolak_tanggal_selesai_sebelum_mulai(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
         $res = $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak", [
@@ -101,7 +101,7 @@ class KontrakKaryawanTest extends TestCase
 
     public function test_update_dan_delete_kontrak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
         $kontrak  = $this->makeKontrak($karyawan->id_karyawan);
 
@@ -121,7 +121,7 @@ class KontrakKaryawanTest extends TestCase
 
     public function test_kontrak_perusahaan_lain_tidak_bisa_diakses(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);

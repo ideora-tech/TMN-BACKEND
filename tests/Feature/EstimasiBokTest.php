@@ -81,7 +81,7 @@ class EstimasiBokTest extends TestCase
 
     public function test_estimasi_bok_menghitung_benar(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute(100.0);
         $idJenis = $this->makeJenisKendaraan();
         $this->makeParameterBok($idJenis, $this->makeJenisBbmDenganHarga(10000));
@@ -102,7 +102,7 @@ class EstimasiBokTest extends TestCase
 
     public function test_estimasi_tanpa_tol(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute(100.0);
         $idJenis = $this->makeJenisKendaraan();
         $this->makeParameterBok($idJenis, $this->makeJenisBbmDenganHarga(10000));
@@ -114,7 +114,7 @@ class EstimasiBokTest extends TestCase
 
     public function test_estimasi_tanpa_parameter_mengembalikan_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/tarif-rute/estimasi-bok?id_rute=' . $this->makeRute()
             . '&id_jenis_kendaraan=' . $this->makeJenisKendaraan());
@@ -124,7 +124,7 @@ class EstimasiBokTest extends TestCase
 
     public function test_estimasi_rute_tanpa_jarak_mengembalikan_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute(null);
         $idJenis = $this->makeJenisKendaraan();
         $this->makeParameterBok($idJenis, $this->makeJenisBbmDenganHarga());
@@ -136,7 +136,7 @@ class EstimasiBokTest extends TestCase
 
     public function test_estimasi_tanpa_harga_bbm_mengembalikan_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
         // jenis bbm TANPA baris harga_bbm
@@ -156,7 +156,7 @@ class EstimasiBokTest extends TestCase
 
     public function test_estimasi_rute_perusahaan_lain_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $lain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
 

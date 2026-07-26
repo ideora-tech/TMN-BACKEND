@@ -41,7 +41,7 @@ class DokumenArmadaTest extends TestCase
     public function test_create_dokumen_via_endpoint_nested_dengan_upload_file_masih_berfungsi(): void
     {
         Storage::fake('public');
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
         $res = $this->post("/api/v1/armada/{$armada->id_armada}/dokumen", [
@@ -67,7 +67,7 @@ class DokumenArmadaTest extends TestCase
 
     public function test_update_dan_delete_dokumen_via_endpoint_nested_masih_berfungsi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $dokumen = $this->makeDokumen($armada->id_armada);
 
@@ -84,7 +84,7 @@ class DokumenArmadaTest extends TestCase
 
     public function test_list_lintas_armada_scoped_ke_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armadaSendiri = $this->makeArmada('B 1111 AA');
         $this->makeDokumen($armadaSendiri->id_armada);
 
@@ -108,7 +108,7 @@ class DokumenArmadaTest extends TestCase
 
     public function test_list_lintas_armada_filter_id_armada_dan_jenis_dokumen(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armadaA = $this->makeArmada('B 1111 AA');
         $armadaB = $this->makeArmada('B 2222 BB');
         $this->makeDokumen($armadaA->id_armada, 'STNK');
@@ -126,7 +126,7 @@ class DokumenArmadaTest extends TestCase
 
     public function test_endpoint_expiring_yang_sudah_ada_tidak_berubah_bentuk(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $this->makeDokumen($armada->id_armada, 'STNK', now()->addDays(10)->toDateString());
 

@@ -62,7 +62,7 @@ class StatusTripTest extends TestCase
 
     public function test_menambah_status_trip_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idTrip = $this->makeTrip();
 
         $res = $this->postJson("/api/v1/trip/{$idTrip}/status", [
@@ -86,7 +86,7 @@ class StatusTripTest extends TestCase
 
     public function test_menambah_status_trip_ke_trip_tidak_ada_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/trip/' . Str::uuid()->toString() . '/status', [
             'status' => 'berangkat',
@@ -97,7 +97,7 @@ class StatusTripTest extends TestCase
 
     public function test_list_status_trip_urut_terbaru_dulu(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idTrip = $this->makeTrip();
 
         $this->postJson("/api/v1/trip/{$idTrip}/status", ['status' => 'berangkat']);

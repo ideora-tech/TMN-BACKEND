@@ -42,7 +42,7 @@ class LaporanKaryawanExportTest extends TestCase
 
     public function test_export_karyawan_excel_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeKaryawan('Karyawan Excel Test');
 
         $res = $this->get('/api/v1/laporan/karyawan/export/excel');
@@ -56,7 +56,7 @@ class LaporanKaryawanExportTest extends TestCase
 
     public function test_export_karyawan_pdf_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeKaryawan('Karyawan PDF Test');
 
         $res = $this->get('/api/v1/laporan/karyawan/export/pdf');
@@ -67,7 +67,7 @@ class LaporanKaryawanExportTest extends TestCase
 
     public function test_export_karyawan_excel_tanpa_data_tetap_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->get('/api/v1/laporan/karyawan/export/excel');
 

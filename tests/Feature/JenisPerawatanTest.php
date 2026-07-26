@@ -28,7 +28,7 @@ class JenisPerawatanTest extends TestCase
 
     public function test_create_jenis_perawatan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/jenis-perawatan', [
             'nama'       => 'Tune Up Mesin',
@@ -47,7 +47,7 @@ class JenisPerawatanTest extends TestCase
 
     public function test_list_scoped_ke_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeJenis('Milik Sendiri');
 
         $idLain = (string) Str::uuid();
@@ -63,7 +63,7 @@ class JenisPerawatanTest extends TestCase
 
     public function test_update_dan_show_jenis_perawatan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenis();
 
         $resUpdate = $this->putJson("/api/v1/jenis-perawatan/{$jenis->id_jenis_perawatan}", [
@@ -80,7 +80,7 @@ class JenisPerawatanTest extends TestCase
 
     public function test_delete_jenis_perawatan_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenis();
 
         $res = $this->deleteJson("/api/v1/jenis-perawatan/{$jenis->id_jenis_perawatan}");

@@ -49,7 +49,7 @@ class SupirArmadaDefaultTest extends TestCase
 
     public function test_membuat_supir_dengan_id_armada_default_valid_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
         $res = $this->postJson('/api/v1/supir', [
@@ -70,7 +70,7 @@ class SupirArmadaDefaultTest extends TestCase
 
     public function test_update_supir_set_id_armada_default_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $supir  = $this->makeSupir();
         $armada = $this->makeArmada();
 
@@ -90,7 +90,7 @@ class SupirArmadaDefaultTest extends TestCase
 
     public function test_membuat_supir_dengan_id_armada_default_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $armadaLain       = $this->makeArmada($idPerusahaanLain);
 
@@ -109,7 +109,7 @@ class SupirArmadaDefaultTest extends TestCase
 
     public function test_membuat_supir_dengan_id_armada_default_tidak_ada_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/supir', [
             'nama'              => 'Coba Ghost',
@@ -126,7 +126,7 @@ class SupirArmadaDefaultTest extends TestCase
 
     public function test_membuat_supir_tanpa_id_armada_default_tetap_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/supir', [
             'nama'   => 'Tanpa Default',
@@ -145,7 +145,7 @@ class SupirArmadaDefaultTest extends TestCase
 
     public function test_membuat_supir_dengan_armada_yang_sudah_dipegang_supir_lain_mengembalikan_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada    = $this->makeArmada();
         $pemegang  = $this->makeSupir('Pemegang Armada');
 
@@ -169,7 +169,7 @@ class SupirArmadaDefaultTest extends TestCase
 
     public function test_update_supir_ke_armada_milik_supir_lain_mengembalikan_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $supirA = $this->makeSupir('Supir A');
         $supirB = $this->makeSupir('Supir B');
@@ -193,7 +193,7 @@ class SupirArmadaDefaultTest extends TestCase
 
     public function test_update_supir_mempertahankan_armada_default_sendiri_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $supir  = $this->makeSupir('Supir Sendiri');
 

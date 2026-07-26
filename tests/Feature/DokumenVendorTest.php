@@ -42,7 +42,7 @@ class DokumenVendorTest extends TestCase
     public function test_membuat_dokumen_vendor_dengan_upload_file(): void
     {
         Storage::fake('public');
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         $res = $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
@@ -69,7 +69,7 @@ class DokumenVendorTest extends TestCase
 
     public function test_list_dokumen_vendor_by_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
@@ -87,7 +87,7 @@ class DokumenVendorTest extends TestCase
 
     public function test_update_dokumen_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         $createRes = $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
@@ -113,7 +113,7 @@ class DokumenVendorTest extends TestCase
 
     public function test_menolak_update_dokumen_vendor_milik_vendor_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendorLain = $this->makeVendorPerusahaanLain();
 
         $idDokumen = (string) Str::uuid();
@@ -140,7 +140,7 @@ class DokumenVendorTest extends TestCase
 
     public function test_soft_delete_dokumen_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         $createRes = $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
@@ -163,7 +163,7 @@ class DokumenVendorTest extends TestCase
 
     public function test_expiring_hanya_mengembalikan_dokumen_dalam_30_hari_milik_perusahaan_user(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         // Dalam rentang 30 hari -> muncul
@@ -199,7 +199,7 @@ class DokumenVendorTest extends TestCase
 
     public function test_command_notifikasi_dokumen_kadaluarsa_membuat_notifikasi_dokumen_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         DB::table('dokumen_vendor')->insert([
@@ -222,7 +222,7 @@ class DokumenVendorTest extends TestCase
 
     public function test_command_notifikasi_dokumen_kadaluarsa_idempoten(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         DB::table('dokumen_vendor')->insert([

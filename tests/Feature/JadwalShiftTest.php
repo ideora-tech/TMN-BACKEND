@@ -56,7 +56,7 @@ class JadwalShiftTest extends TestCase
 
     public function test_batch_create_sukses_dan_list_join_shift(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supirA = $this->makeSupir('Budi');
         $supirB = $this->makeSupir('Andi');
@@ -84,7 +84,7 @@ class JadwalShiftTest extends TestCase
 
     public function test_dobel_tanggal_ditolak_per_item_lintas_proyek(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyekA = $this->makeProyek();
         $proyekB = $this->makeProyek();
         $supir = $this->makeSupir('Budi');
@@ -112,7 +112,7 @@ class JadwalShiftTest extends TestCase
 
     public function test_supir_tanpa_penugasan_di_proyek_ditolak_per_item(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supirLuar = $this->makeSupir('Orang Luar'); // tidak di-assign
         $shift = $this->makeShift();
@@ -128,7 +128,7 @@ class JadwalShiftTest extends TestCase
 
     public function test_update_ganti_shift_dan_delete_membuka_tanggal_lagi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
         $this->makePenugasan($proyek->id_proyek, $supir);
@@ -158,7 +158,7 @@ class JadwalShiftTest extends TestCase
 
     public function test_batch_create_rentang_tanggal_mengisi_semua_hari(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
         $this->makePenugasan($proyek->id_proyek, $supir);
@@ -181,7 +181,7 @@ class JadwalShiftTest extends TestCase
 
     public function test_rentang_dengan_hari_bentrok_dilewati_dan_dilaporkan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
         $this->makePenugasan($proyek->id_proyek, $supir);
@@ -211,7 +211,7 @@ class JadwalShiftTest extends TestCase
 
     public function test_rentang_lebih_dari_62_hari_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
         $this->makePenugasan($proyek->id_proyek, $supir);
@@ -228,7 +228,7 @@ class JadwalShiftTest extends TestCase
 
     public function test_list_scoped_ke_perusahaan_dan_wajib_id_proyek(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->getJson('/api/v1/jadwal-shift')->assertStatus(422);
 
         $idPerusahaanLain = (string) Str::uuid();

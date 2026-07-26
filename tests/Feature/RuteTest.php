@@ -36,7 +36,7 @@ class RuteTest extends TestCase
 
     public function test_membuat_rute_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/rute', [
             'kode_rute' => 'RUT-BARU',
@@ -53,7 +53,7 @@ class RuteTest extends TestCase
 
     public function test_menolak_kode_rute_duplikat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeRute(self::PERUSAHAAN_ID, 'RUT-DUP');
 
         $res = $this->postJson('/api/v1/rute', [
@@ -66,7 +66,7 @@ class RuteTest extends TestCase
 
     public function test_list_rute_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeRute(self::PERUSAHAAN_ID, 'RUT-01', 'Milik Sendiri');
         $idLain = $this->makePerusahaanLain();
         $this->makeRute($idLain, 'RUT-01', 'Milik Lain');
@@ -81,7 +81,7 @@ class RuteTest extends TestCase
 
     public function test_search_rute_by_nama(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeRute(self::PERUSAHAAN_ID, 'RUT-S1', 'Jakarta Surabaya');
         $this->makeRute(self::PERUSAHAAN_ID, 'RUT-S2', 'Bandung Semarang');
 
@@ -95,7 +95,7 @@ class RuteTest extends TestCase
 
     public function test_update_rute_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeRute(self::PERUSAHAAN_ID);
 
         $res = $this->putJson("/api/v1/rute/{$item->id_rute}", [
@@ -107,7 +107,7 @@ class RuteTest extends TestCase
 
     public function test_hapus_rute_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeRute(self::PERUSAHAAN_ID);
 
         $res = $this->deleteJson("/api/v1/rute/{$item->id_rute}");

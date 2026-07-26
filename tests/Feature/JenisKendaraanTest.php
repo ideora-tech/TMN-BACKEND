@@ -40,7 +40,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_membuat_jenis_kendaraan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/jenis-kendaraan', [
             'kode_jenis'       => 'TRK-02',
@@ -62,7 +62,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_menolak_kode_jenis_duplikat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01');
 
         $res = $this->postJson('/api/v1/jenis-kendaraan', [
@@ -75,7 +75,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_list_jenis_kendaraan_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01', 'Milik Sendiri');
         $idPerusahaanLain = $this->makePerusahaanLain();
@@ -91,7 +91,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_show_jenis_kendaraan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJenisKendaraan(self::PERUSAHAAN_ID);
 
         $res = $this->getJson("/api/v1/jenis-kendaraan/{$item->id_jenis_kendaraan}");
@@ -101,7 +101,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_show_jenis_kendaraan_tidak_ditemukan_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/jenis-kendaraan/' . Str::uuid()->toString());
 
@@ -110,7 +110,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_update_jenis_kendaraan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJenisKendaraan(self::PERUSAHAAN_ID);
 
         $res = $this->putJson("/api/v1/jenis-kendaraan/{$item->id_jenis_kendaraan}", [
@@ -126,7 +126,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_list_dengan_search_menyaring_berdasarkan_kode_atau_nama(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01', 'Truk Engkel');
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'PIK-01', 'Pick Up');
 
@@ -145,7 +145,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_list_dengan_filter_aktif(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $aktifItem = $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01', 'Truk Aktif');
         $nonaktifId = (string) Str::uuid();
         DB::table('jenis_kendaraan')->insert([
@@ -172,7 +172,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_list_dengan_kombinasi_search_dan_aktif(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01', 'Truk Engkel');
         DB::table('jenis_kendaraan')->insert([
             'id_jenis_kendaraan' => (string) Str::uuid(),
@@ -192,7 +192,7 @@ class JenisKendaraanTest extends TestCase
 
     public function test_hapus_jenis_kendaraan_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJenisKendaraan(self::PERUSAHAAN_ID);
 
         $res = $this->deleteJson("/api/v1/jenis-kendaraan/{$item->id_jenis_kendaraan}");

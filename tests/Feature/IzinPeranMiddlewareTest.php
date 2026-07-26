@@ -78,14 +78,31 @@ class IzinPeranMiddlewareTest extends TestCase
         $post->assertStatus(403);
     }
 
-    public function test_admin_bypass_tanpa_baris_izin(): void
+    public function test_superadmin_bypass_tanpa_baris_izin(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->seedMenuTrip();
 
         $res = $this->getJson('/api/v1/trip');
 
         $res->assertStatus(200);
+    }
+
+    public function test_admin_tanpa_baris_izin_ditolak(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $this->seedMenuTrip();
+
+        $this->getJson('/api/v1/trip')->assertStatus(403);
+    }
+
+    public function test_admin_dengan_baris_izin_diizinkan(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $idMenu = $this->seedMenuTrip();
+        $this->seedIzin($idMenu, 'ADMIN', 'lihat', 1);
+
+        $this->getJson('/api/v1/trip')->assertStatus(200);
     }
 
     public function test_dispatcher_dengan_semua_aksi_diizinkan_boleh_post(): void

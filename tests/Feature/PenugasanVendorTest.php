@@ -76,7 +76,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_vendor_unit_only_lengkap_berhasil_201(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
@@ -104,7 +104,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_unit_only_tanpa_supir_internal_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
@@ -123,7 +123,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_unit_driver_dengan_supir_internal_terisi_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
@@ -145,7 +145,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_unit_driver_lengkap_berhasil_201(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
@@ -171,7 +171,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_armada_vendor_milik_vendor_lain_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendorA = $this->makeVendor();
         $vendorB = $this->makeVendor();
@@ -192,7 +192,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_internal_dengan_id_armada_vendor_terisi_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
@@ -208,7 +208,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_kontrak_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
         $idPerusahaanLain = $this->makePerusahaanLain();
@@ -229,7 +229,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_update_unit_only_menjadi_tanpa_supir_internal_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
@@ -253,7 +253,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_filter_sumber_vendor_hanya_mengembalikan_baris_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
@@ -282,7 +282,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_penugasan_lama_tanpa_sumber_terbaca_internal_dan_create_tanpa_sumber_tetap_lolos(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
         $lama = PenugasanModel::create([
@@ -300,7 +300,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_dengan_sumber_null_eksplisit_dianggap_internal(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
         $res = $this->postJson('/api/v1/penugasan', [
@@ -319,7 +319,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_update_dengan_sumber_null_eksplisit_dianggap_internal(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
         $penugasan = PenugasanModel::create([
@@ -341,7 +341,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_update_parsial_penugasan_vendor_tetap_valid(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
@@ -378,7 +378,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_update_sumber_vendor_ke_internal_wajib_kosongkan_field_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
@@ -424,7 +424,7 @@ class PenugasanVendorTest extends TestCase
 
     public function test_create_penugasan_vendor_mekanisme_full(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'full');

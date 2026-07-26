@@ -84,7 +84,7 @@ class TripTest extends TestCase
 
     public function test_list_trip_menampilkan_rute_supir_dan_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -107,7 +107,7 @@ class TripTest extends TestCase
 
     public function test_detail_trip_menampilkan_info_jadwal(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -128,7 +128,7 @@ class TripTest extends TestCase
 
     public function test_trip_dengan_armada_dan_supir_vendor_menampilkan_nama_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idVendor = VendorModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -156,7 +156,7 @@ class TripTest extends TestCase
 
     public function test_checkin_dan_checkout_trip_tidak_error_setelah_attach_jadwal_detail(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -181,7 +181,7 @@ class TripTest extends TestCase
 
     public function test_lifecycle_trip_menulis_riwayat_status(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -205,7 +205,7 @@ class TripTest extends TestCase
 
     public function test_batalkan_trip_menulis_riwayat_status(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idArmada = ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -240,7 +240,7 @@ class TripTest extends TestCase
 
     public function test_ringkasan_proyek_mengelompokkan_trip_per_proyek(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $proyekA = ProyekModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -275,7 +275,7 @@ class TripTest extends TestCase
 
     public function test_ringkasan_proyek_bisa_difilter_status_dan_search(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $proyek = ProyekModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -299,7 +299,7 @@ class TripTest extends TestCase
 
     public function test_list_trip_bisa_difilter_id_proyek(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $proyekA = ProyekModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,

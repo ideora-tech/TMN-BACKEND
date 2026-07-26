@@ -39,7 +39,7 @@ class KlienProyekTest extends TestCase
 
     public function test_riwayat_proyek_hanya_menampilkan_proyek_klien_tersebut(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien1 = $this->makeKlien('Klien Satu');
         $klien2 = $this->makeKlien('Klien Dua');
 
@@ -66,7 +66,7 @@ class KlienProyekTest extends TestCase
 
     public function test_riwayat_proyek_route_tidak_mengganggu_show_klien(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
         $this->makeProyek($klien->id_klien, 'Proyek A');
 
@@ -76,7 +76,7 @@ class KlienProyekTest extends TestCase
 
     public function test_riwayat_proyek_klien_tanpa_proyek_mengembalikan_kosong(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien('Klien Tanpa Proyek');
 
         $res = $this->getJson("/api/v1/klien/{$klien->id_klien}/proyek");
@@ -88,7 +88,7 @@ class KlienProyekTest extends TestCase
 
     public function test_menolak_riwayat_proyek_klien_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert([

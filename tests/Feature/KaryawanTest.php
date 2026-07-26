@@ -38,7 +38,7 @@ class KaryawanTest extends TestCase
 
     public function test_membuat_karyawan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/karyawan', [
             'nik'                => 'NIK-001',
@@ -58,7 +58,7 @@ class KaryawanTest extends TestCase
 
     public function test_membuat_karyawan_dengan_field_hr_lengkap(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/karyawan', [
             'nik'                => 'NIK-HR-001',
@@ -97,7 +97,7 @@ class KaryawanTest extends TestCase
 
     public function test_menolak_status_ptkp_tidak_valid(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/karyawan', [
             'nik'           => 'NIK-HR-002',
@@ -110,7 +110,7 @@ class KaryawanTest extends TestCase
 
     public function test_menolak_nik_duplikat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-DUP');
 
         $res = $this->postJson('/api/v1/karyawan', [
@@ -124,7 +124,7 @@ class KaryawanTest extends TestCase
 
     public function test_list_karyawan_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-A', 'Milik Sendiri');
         $idLain = $this->makePerusahaanLain();
         $this->makeKaryawan($idLain, 'NIK-B', 'Milik Lain');
@@ -139,7 +139,7 @@ class KaryawanTest extends TestCase
 
     public function test_show_karyawan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-SHOW');
 
         $res = $this->getJson("/api/v1/karyawan/{$item->id_karyawan}");
@@ -149,7 +149,7 @@ class KaryawanTest extends TestCase
 
     public function test_show_karyawan_tidak_ditemukan_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/karyawan/' . Str::uuid()->toString());
 
@@ -158,7 +158,7 @@ class KaryawanTest extends TestCase
 
     public function test_update_karyawan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-UPD');
 
         $res = $this->putJson("/api/v1/karyawan/{$item->id_karyawan}", [
@@ -171,7 +171,7 @@ class KaryawanTest extends TestCase
 
     public function test_hapus_karyawan_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-DEL');
 
         $res = $this->deleteJson("/api/v1/karyawan/{$item->id_karyawan}");

@@ -18,13 +18,14 @@ class CheckIzinPeran
     {
         $user = $request->user();
         $kodePeran = $user?->kode_peran;
-        if (in_array($kodePeran, ['SUPERADMIN', 'ADMIN'], true)) return $next($request);
+        if ($kodePeran === 'SUPERADMIN') return $next($request);
 
         $aksi = self::AKSI[$request->method()] ?? 'lihat';
         $idPerusahaanUser = $user?->id_perusahaan;
 
         $rows = DB::table('izin_peran as ip')
             ->join('menu as m', 'm.id_menu', '=', 'ip.id_menu')
+            ->whereNull('m.dihapus_pada')
             ->where('m.path', '/' . $menuKey)
             ->where('ip.kode_peran', $kodePeran)
             ->where('ip.aksi', $aksi)

@@ -59,7 +59,7 @@ class PenawaranFilterProyekTest extends TestCase
 
     public function test_filter_id_proyek_hanya_mengembalikan_penawaran_proyek_itu(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idProyek = $this->makeProyek();
         $milik    = $this->makePenawaran($idProyek);
@@ -76,7 +76,7 @@ class PenawaranFilterProyekTest extends TestCase
 
     public function test_filter_id_proyek_bisa_digabung_dengan_status(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idProyek = $this->makeProyek();
         $this->makePenawaran($idProyek, 'draft');
@@ -92,7 +92,7 @@ class PenawaranFilterProyekTest extends TestCase
 
     public function test_tanpa_filter_id_proyek_mengembalikan_semua(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $this->makePenawaran($this->makeProyek());
         $this->makePenawaran(null);

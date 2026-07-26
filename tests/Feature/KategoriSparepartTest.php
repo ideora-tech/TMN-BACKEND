@@ -35,7 +35,7 @@ class KategoriSparepartTest extends TestCase
 
     public function test_create_kategori_sparepart_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/kategori-sparepart', ['nama' => 'Filter']);
 
@@ -50,7 +50,7 @@ class KategoriSparepartTest extends TestCase
 
     public function test_list_scoped_ke_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeKategori('Milik Sendiri');
         $this->makeKategori('Milik Orang', $this->makePerusahaanLain());
 
@@ -63,7 +63,7 @@ class KategoriSparepartTest extends TestCase
 
     public function test_update_dan_show_kategori_sparepart(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $kategori = $this->makeKategori();
 
         $resUpdate = $this->putJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}", [
@@ -79,7 +79,7 @@ class KategoriSparepartTest extends TestCase
 
     public function test_delete_kategori_sparepart_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $kategori = $this->makeKategori();
 
         $res = $this->deleteJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}");
@@ -91,7 +91,7 @@ class KategoriSparepartTest extends TestCase
 
     public function test_delete_ditolak_jika_masih_dipakai_sparepart(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $kategori = $this->makeKategori();
         DB::table('sparepart')->insert([
             'id_sparepart'          => (string) Str::uuid(),
@@ -113,7 +113,7 @@ class KategoriSparepartTest extends TestCase
 
     public function test_isolasi_tenant(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
         $kategori = $this->makeKategori('Milik Orang', $lain);
 

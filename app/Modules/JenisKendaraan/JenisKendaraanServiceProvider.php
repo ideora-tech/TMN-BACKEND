@@ -19,7 +19,7 @@ class JenisKendaraanServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:jenis-kendaraan'])
             ->group(function () {
                 Route::apiResource('jenis-kendaraan', JenisKendaraanController::class)
                     ->parameters(['jenis-kendaraan' => 'id']);

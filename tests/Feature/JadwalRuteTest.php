@@ -49,7 +49,7 @@ class JadwalRuteTest extends TestCase
 
     public function test_create_jadwal_dengan_id_rute_auto_snapshot_nama_rute(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $rute = $this->makeRute('Jakarta - Surabaya');
         $penugasan = $this->makePenugasan();
 
@@ -66,7 +66,7 @@ class JadwalRuteTest extends TestCase
 
     public function test_create_jadwal_dengan_id_rute_tidak_ada_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
 
         $res = $this->postJson('/api/v1/jadwal', [
@@ -80,7 +80,7 @@ class JadwalRuteTest extends TestCase
 
     public function test_update_id_rute_menyinkronkan_ulang_snapshot_rute(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $ruteLama = $this->makeRute('Rute Lama');
         $ruteBaru = $this->makeRute('Rute Baru');
         $penugasan = $this->makePenugasan();
@@ -103,7 +103,7 @@ class JadwalRuteTest extends TestCase
 
     public function test_update_id_rute_dikosongkan_mengosongkan_snapshot_rute(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $rute = $this->makeRute('Rute Akan Dihapus');
         $penugasan = $this->makePenugasan();
 
@@ -125,7 +125,7 @@ class JadwalRuteTest extends TestCase
 
     public function test_update_tanpa_mengirim_id_rute_tidak_mengubah_rute_existing(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $rute = $this->makeRute('Rute Tetap');
         $penugasan = $this->makePenugasan();
 
@@ -147,7 +147,7 @@ class JadwalRuteTest extends TestCase
 
     public function test_trip_list_menampilkan_nama_rute_terbaru_walau_snapshot_lama_berbeda(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $rute = $this->makeRute('Nama Rute Lama');
         $penugasan = $this->makePenugasan();
 

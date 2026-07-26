@@ -36,7 +36,7 @@ class KlienTest extends TestCase
 
     public function test_membuat_klien_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/klien', [
             'kode_klien' => 'KLN-BARU',
@@ -53,7 +53,7 @@ class KlienTest extends TestCase
 
     public function test_menolak_kode_klien_duplikat(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-DUP');
 
         $res = $this->postJson('/api/v1/klien', [
@@ -66,7 +66,7 @@ class KlienTest extends TestCase
 
     public function test_list_klien_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-01', 'Milik Sendiri');
         $idLain = $this->makePerusahaanLain();
         $this->makeKlien($idLain, 'KLN-02', 'Milik Lain');
@@ -81,7 +81,7 @@ class KlienTest extends TestCase
 
     public function test_show_klien_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKlien(self::PERUSAHAAN_ID);
 
         $res = $this->getJson("/api/v1/klien/{$item->id_klien}");
@@ -91,7 +91,7 @@ class KlienTest extends TestCase
 
     public function test_update_klien_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKlien(self::PERUSAHAAN_ID);
 
         $res = $this->putJson("/api/v1/klien/{$item->id_klien}", [
@@ -103,7 +103,7 @@ class KlienTest extends TestCase
 
     public function test_hapus_klien_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKlien(self::PERUSAHAAN_ID);
 
         $res = $this->deleteJson("/api/v1/klien/{$item->id_klien}");

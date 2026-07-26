@@ -40,7 +40,7 @@ class PerawatanArmadaTest extends TestCase
 
     public function test_create_perawatan_via_endpoint_nested_masih_berfungsi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
         $res = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
@@ -64,7 +64,7 @@ class PerawatanArmadaTest extends TestCase
 
     public function test_update_dan_delete_perawatan_via_endpoint_nested_masih_berfungsi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada);
 
@@ -81,7 +81,7 @@ class PerawatanArmadaTest extends TestCase
 
     public function test_list_lintas_armada_scoped_ke_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armadaSendiri = $this->makeArmada('B 1111 AA');
         $this->makePerawatan($armadaSendiri->id_armada);
 
@@ -105,7 +105,7 @@ class PerawatanArmadaTest extends TestCase
 
     public function test_list_lintas_armada_filter_id_armada_dan_status(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armadaA = $this->makeArmada('B 1111 AA');
         $armadaB = $this->makeArmada('B 2222 BB');
         $this->makePerawatan($armadaA->id_armada, '2026-01-01', 'selesai');
@@ -124,7 +124,7 @@ class PerawatanArmadaTest extends TestCase
 
     public function test_list_lintas_armada_filter_rentang_tanggal(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-01-05');
         $this->makePerawatan($armada->id_armada, '2026-02-15');
@@ -147,7 +147,7 @@ class PerawatanArmadaTest extends TestCase
 
     public function test_list_lintas_armada_urut_tanggal_terbaru_dulu(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-01-01');
         $this->makePerawatan($armada->id_armada, '2026-03-01');
@@ -160,7 +160,7 @@ class PerawatanArmadaTest extends TestCase
 
     public function test_filter_jatuh_tempo_hanya_servis_terbaru_per_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armadaA = $this->makeArmada('B 1111 AA');
         $armadaB = $this->makeArmada('B 2222 BB');
 
@@ -181,7 +181,7 @@ class PerawatanArmadaTest extends TestCase
 
     public function test_filter_jatuh_tempo_default_tidak_aktif(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-06-01');
 

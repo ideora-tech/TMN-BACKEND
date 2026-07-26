@@ -94,7 +94,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_index_mengembalikan_rute_milik_proyek_dengan_estimasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
@@ -117,7 +117,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_store_berhasil_menambah_rute(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
@@ -141,7 +141,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_store_menyimpan_harga_penawaran(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
@@ -163,7 +163,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_store_tanpa_harga_penawaran_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
         $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
@@ -176,7 +176,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_update_mengubah_harga_penawaran(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
@@ -194,7 +194,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_store_dengan_id_rute_tidak_ada_ditolak_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
         $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
@@ -207,7 +207,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_store_dengan_id_jenis_kendaraan_tidak_ada_ditolak_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
         $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
@@ -220,7 +220,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_estimasi_biaya_null_saat_tarif_terhapus(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
@@ -240,7 +240,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_estimasi_biaya_null_saat_komponen_kosong_semua(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
@@ -262,7 +262,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_estimasi_biaya_terhitung_saat_sebagian_komponen_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
@@ -285,7 +285,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_update_berhasil_mengubah_keterangan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
@@ -301,7 +301,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_update_id_rute_ke_yang_tidak_ada_ditolak_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
@@ -317,7 +317,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_destroy_berhasil_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
         $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
@@ -334,7 +334,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_update_rute_milik_proyek_lain_ditolak_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyekA = $this->makeProyek();
         $idProyekB = $this->makeProyek();
         $id = $this->postJson("/api/v1/proyek/{$idProyekA}/rute", [
@@ -351,7 +351,7 @@ class ProyekRuteTest extends TestCase
 
     public function test_destroy_rute_milik_proyek_lain_ditolak_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idProyekA = $this->makeProyek();
         $idProyekB = $this->makeProyek();
         $id = $this->postJson("/api/v1/proyek/{$idProyekA}/rute", [

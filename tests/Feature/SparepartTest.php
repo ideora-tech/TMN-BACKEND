@@ -32,7 +32,7 @@ class SparepartTest extends TestCase
 
     public function test_create_sparepart_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/sparepart', [
             'kode'          => 'SP-100',
@@ -49,7 +49,7 @@ class SparepartTest extends TestCase
 
     public function test_kode_duplikat_per_perusahaan_ditolak_409_tapi_beda_perusahaan_boleh(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeSparepart('SP-001');
 
         $resDup = $this->postJson('/api/v1/sparepart', ['kode' => 'SP-001', 'nama' => 'Duplikat']);
@@ -64,7 +64,7 @@ class SparepartTest extends TestCase
 
     public function test_tambah_stok_masuk_menambah_dan_mencatat_mutasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart('SP-001', 'Filter Oli', 10);
 
         $res = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
@@ -85,7 +85,7 @@ class SparepartTest extends TestCase
 
     public function test_penyesuaian_negatif_boleh_tapi_stok_minus_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart('SP-001', 'Filter Oli', 10);
 
         $resOk = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
@@ -102,7 +102,7 @@ class SparepartTest extends TestCase
 
     public function test_masuk_qty_nol_atau_negatif_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart();
 
         $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'masuk', 'qty' => 0])->assertStatus(422);
@@ -111,7 +111,7 @@ class SparepartTest extends TestCase
 
     public function test_riwayat_mutasi_terbaru_dulu(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart();
 
         $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'masuk', 'qty' => 5]);
@@ -127,7 +127,7 @@ class SparepartTest extends TestCase
 
     public function test_list_scoped_dan_search(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeSparepart('SP-001', 'Filter Oli');
         $this->makeSparepart('SP-002', 'Kampas Rem');
 
@@ -146,7 +146,7 @@ class SparepartTest extends TestCase
 
     public function test_create_dengan_kategori_dan_filter_list(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idKategori = (string) Str::uuid();
         DB::table('kategori_sparepart')->insert([
             'id_kategori_sparepart' => $idKategori,
@@ -173,7 +173,7 @@ class SparepartTest extends TestCase
 
     public function test_soft_deleted_kategori_tidak_muncul_tapi_sparepart_tetap_ada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idKategori = (string) Str::uuid();
         DB::table('kategori_sparepart')->insert([
             'id_kategori_sparepart' => $idKategori,
@@ -200,7 +200,7 @@ class SparepartTest extends TestCase
 
     public function test_kategori_tidak_ada_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idKategoriTidakAda = (string) Str::uuid();
 
         $res = $this->postJson('/api/v1/sparepart', [

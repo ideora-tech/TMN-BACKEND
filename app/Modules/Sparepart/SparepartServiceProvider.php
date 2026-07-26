@@ -19,7 +19,7 @@ class SparepartServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:sparepart'])
             ->group(function () {
                 Route::post('sparepart/{id}/stok', [SparepartController::class, 'mutasiStok']);
                 Route::get('sparepart/{id}/mutasi', [SparepartController::class, 'listMutasi']);

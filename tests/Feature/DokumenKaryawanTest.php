@@ -45,7 +45,7 @@ class DokumenKaryawanTest extends TestCase
     public function test_create_dokumen_dengan_upload_file(): void
     {
         Storage::fake('public');
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
         $res = $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
@@ -66,7 +66,7 @@ class DokumenKaryawanTest extends TestCase
 
     public function test_list_dokumen_per_karyawan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
         $this->makeDokumen($karyawan->id_karyawan, 'KTP');
         $this->makeDokumen($karyawan->id_karyawan, 'NPWP');
@@ -79,7 +79,7 @@ class DokumenKaryawanTest extends TestCase
 
     public function test_list_global_scoped_perusahaan_dan_filter(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
         $this->makeDokumen($karyawan->id_karyawan, 'KTP');
         $this->makeDokumen($karyawan->id_karyawan, 'NPWP');
@@ -101,7 +101,7 @@ class DokumenKaryawanTest extends TestCase
 
     public function test_update_dan_delete_dokumen(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
         $dokumen  = $this->makeDokumen($karyawan->id_karyawan, 'Sertifikat', '2026-12-31');
 
@@ -118,7 +118,7 @@ class DokumenKaryawanTest extends TestCase
 
     public function test_dokumen_karyawan_perusahaan_lain_tidak_bisa_diakses(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
@@ -132,7 +132,7 @@ class DokumenKaryawanTest extends TestCase
     public function test_menolak_file_selain_pdf_dan_gambar(): void
     {
         Storage::fake('public');
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
         $res = $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [

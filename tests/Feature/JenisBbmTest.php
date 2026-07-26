@@ -35,7 +35,7 @@ class JenisBbmTest extends TestCase
 
     public function test_membuat_jenis_bbm_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/jenis-bbm', [
             'nama_bbm' => 'Solar',
@@ -55,7 +55,7 @@ class JenisBbmTest extends TestCase
 
     public function test_menolak_membuat_jenis_bbm_tanpa_nama(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/jenis-bbm', []);
 
@@ -64,7 +64,7 @@ class JenisBbmTest extends TestCase
 
     public function test_list_jenis_bbm_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $this->makeJenisBbm(self::PERUSAHAAN_ID, 'Solar');
         $idPerusahaanLain = $this->makePerusahaanLain();
@@ -81,7 +81,7 @@ class JenisBbmTest extends TestCase
 
     public function test_show_jenis_bbm_milik_sendiri_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
         $res = $this->getJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}");
@@ -91,7 +91,7 @@ class JenisBbmTest extends TestCase
 
     public function test_show_jenis_bbm_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
@@ -102,7 +102,7 @@ class JenisBbmTest extends TestCase
 
     public function test_update_jenis_bbm_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
         $res = $this->putJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}", [
@@ -118,7 +118,7 @@ class JenisBbmTest extends TestCase
 
     public function test_update_jenis_bbm_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
@@ -131,7 +131,7 @@ class JenisBbmTest extends TestCase
 
     public function test_hapus_jenis_bbm_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
         $res = $this->deleteJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}");
@@ -145,7 +145,7 @@ class JenisBbmTest extends TestCase
 
     public function test_hapus_jenis_bbm_tidak_ditemukan_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->deleteJson('/api/v1/jenis-bbm/' . Str::uuid()->toString());
 
@@ -154,7 +154,7 @@ class JenisBbmTest extends TestCase
 
     public function test_tambah_harga_baru_mengubah_harga_efektif(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
         // Belum ada harga -> null
@@ -185,7 +185,7 @@ class JenisBbmTest extends TestCase
 
     public function test_harga_berlaku_mulai_besok_belum_jadi_efektif_hari_ini(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
         $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
@@ -204,7 +204,7 @@ class JenisBbmTest extends TestCase
 
     public function test_riwayat_harga_urut_desc_berlaku_mulai(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
         $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
@@ -228,7 +228,7 @@ class JenisBbmTest extends TestCase
 
     public function test_tambah_harga_untuk_jenis_bbm_tenant_lain_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
@@ -242,7 +242,7 @@ class JenisBbmTest extends TestCase
 
     public function test_riwayat_harga_untuk_jenis_bbm_tenant_lain_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
@@ -253,7 +253,7 @@ class JenisBbmTest extends TestCase
 
     public function test_menolak_tambah_harga_tanpa_field_wajib(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
         $res = $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", []);

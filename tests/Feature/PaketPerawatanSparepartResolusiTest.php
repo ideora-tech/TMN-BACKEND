@@ -44,7 +44,7 @@ class PaketPerawatanSparepartResolusiTest extends TestCase
 
     public function test_resolusi_mengembalikan_daftar_part_untuk_kombinasi_cocok(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
         $idOli = $this->makeSparepart('Oli Mesin Diesel 15W-40');
@@ -67,7 +67,7 @@ class PaketPerawatanSparepartResolusiTest extends TestCase
 
     public function test_resolusi_tanpa_kombinasi_cocok_mengembalikan_array_kosong(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/paket-perawatan-sparepart/resolusi?id_jenis_perawatan=' . $this->makeJenisPerawatan()
             . '&id_jenis_kendaraan=' . $this->makeJenisKendaraan());
@@ -77,7 +77,7 @@ class PaketPerawatanSparepartResolusiTest extends TestCase
 
     public function test_resolusi_mengecualikan_sparepart_yang_nonaktif(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
         $idNonaktif = $this->makeSparepart('Sparepart Nonaktif', self::PERUSAHAAN_ID, 0);
@@ -93,7 +93,7 @@ class PaketPerawatanSparepartResolusiTest extends TestCase
 
     public function test_resolusi_menolak_tanpa_query_wajib(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/paket-perawatan-sparepart/resolusi');
 

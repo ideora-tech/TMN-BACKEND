@@ -49,7 +49,7 @@ class IntervalPerawatanResolusiTest extends TestCase
 
     public function test_resolusi_mengembalikan_interval_hari_saat_kombinasi_cocok(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
         $this->postJson('/api/v1/interval-perawatan', [
@@ -63,7 +63,7 @@ class IntervalPerawatanResolusiTest extends TestCase
 
     public function test_resolusi_tanpa_kombinasi_cocok_mengembalikan_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/interval-perawatan/resolusi?id_jenis_perawatan=' . $this->makeJenisPerawatan()
             . '&id_jenis_kendaraan=' . $this->makeJenisKendaraan());
@@ -73,7 +73,7 @@ class IntervalPerawatanResolusiTest extends TestCase
 
     public function test_resolusi_tidak_bocor_antar_tenant(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
         $idJenis = $this->makeJenisPerawatan('Ganti Oli', $lain);
         $idKendaraan = $this->makeJenisKendaraan('CDD', $lain);
@@ -94,7 +94,7 @@ class IntervalPerawatanResolusiTest extends TestCase
 
     public function test_resolusi_menolak_tanpa_query_wajib(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->getJson('/api/v1/interval-perawatan/resolusi');
 

@@ -95,7 +95,7 @@ class TripSettlementTest extends TestCase
 
     public function test_mulai_trip_menyimpan_alokasi_uang_jalan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $proyek = ProyekModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -120,7 +120,7 @@ class TripSettlementTest extends TestCase
 
     public function test_settlement_list_menghitung_realisasi_dan_selisih(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $trip = $this->makeTripSelesai(500000);
         $idLaporan = $this->makeLaporan($trip->id_trip, 200000, 100000);
@@ -146,7 +146,7 @@ class TripSettlementTest extends TestCase
 
     public function test_settlement_list_hanya_trip_selesai_dan_bisa_filter_status(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $tripSelesai = $this->makeTripSelesai(300000, 'Supir Selesai');
         $this->makeLaporan($tripSelesai->id_trip);
@@ -180,7 +180,7 @@ class TripSettlementTest extends TestCase
 
     public function test_tandai_lunas_dan_batalkan_lunas(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $trip = $this->makeTripSelesai(400000);
 
@@ -200,7 +200,7 @@ class TripSettlementTest extends TestCase
 
     public function test_trip_belum_selesai_tidak_bisa_dilunas(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $proyek = ProyekModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -224,7 +224,7 @@ class TripSettlementTest extends TestCase
 
     public function test_update_uang_jalan_ditolak_setelah_lunas(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $trip = $this->makeTripSelesai(200000);
 

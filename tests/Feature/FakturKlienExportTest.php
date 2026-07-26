@@ -42,7 +42,7 @@ class FakturKlienExportTest extends TestCase
 
     public function test_export_faktur_excel_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idKlien = $this->makeKlien('PT Klien Excel');
         $this->makeFaktur($idKlien);
 
@@ -54,7 +54,7 @@ class FakturKlienExportTest extends TestCase
 
     public function test_export_faktur_pdf_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idKlien = $this->makeKlien('PT Klien PDF');
         $this->makeFaktur($idKlien);
 

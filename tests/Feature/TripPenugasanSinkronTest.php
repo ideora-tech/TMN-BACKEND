@@ -84,7 +84,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_mulai_trip_dari_penugasan_selesai_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('tersedia', 'selesai');
 
         $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
@@ -96,7 +96,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_mulai_trip_dari_penugasan_batal_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('tersedia', 'batal');
 
         $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
@@ -107,7 +107,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_mulai_trip_dari_penugasan_pending_dan_aktif_tetap_boleh(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $pending = $this->makePenugasan('digunakan', 'pending');
         $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $pending->id_penugasan])->assertStatus(201);
@@ -118,7 +118,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_checkout_dengan_selesaikan_penugasan_menyelesaikan_penugasan_dan_melepas_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
 
@@ -137,7 +137,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_checkout_tanpa_flag_tidak_menyentuh_penugasan_tapi_melepas_armada_fisik(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
 
@@ -155,7 +155,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_checkout_melepas_armada_fisik_meski_ada_penugasan_aktif_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         PenugasanModel::create([
             'id_proyek' => $penugasan->id_proyek,
@@ -179,7 +179,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_endpoint_trip_lintas_perusahaan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
 
@@ -201,7 +201,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_endpoint_trip_perusahaan_sendiri_tetap_jalan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'belum_mulai');
 
@@ -212,7 +212,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_checkout_selesaikan_ditolak_bila_masih_ada_trip_lain_non_final(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $tripA = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
         $this->makeTripUntukPenugasan($penugasan, 'belum_mulai');
@@ -227,7 +227,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_checkout_selesaikan_pada_penugasan_batal_ditolak_dan_checkout_rollback(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'batal');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
 
@@ -240,7 +240,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_checkout_selesaikan_penugasan_vendor_dengan_kontrak_terhapus_tetap_sukses(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idVendor = (string) Str::uuid();
         DB::table('vendor')->insert([
@@ -301,7 +301,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_store_trip_jadwal_perusahaan_lain_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
         $penugasanLain = $this->makePenugasan('digunakan', 'aktif', $idPerusahaanLain);
@@ -316,7 +316,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_store_trip_pada_penugasan_final_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('tersedia', 'selesai');
         $jadwal = JadwalKeberangkatanModel::create([
             'id_penugasan'    => $penugasan->id_penugasan,
@@ -331,7 +331,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_checkin_ditolak_bila_penugasan_sudah_final(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('tersedia', 'batal');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'belum_mulai');
 
@@ -343,7 +343,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_hapus_penugasan_dengan_trip_non_final_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $this->makeTripUntukPenugasan($penugasan, 'berjalan');
 
@@ -355,7 +355,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_hapus_penugasan_dengan_semua_trip_final_tetap_boleh(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'selesai');
         $this->makeTripUntukPenugasan($penugasan, 'selesai');
 
@@ -364,7 +364,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_hapus_jadwal_dengan_trip_non_final_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
 
@@ -376,7 +376,7 @@ class TripPenugasanSinkronTest extends TestCase
 
     public function test_status_trip_lintas_perusahaan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
         $penugasanLain = $this->makePenugasan('digunakan', 'aktif', $idPerusahaanLain);

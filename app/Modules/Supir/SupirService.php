@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Modules\Supir;
 
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
+use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Modules\Supir\Imports\SupirImport;
 use Illuminate\Http\UploadedFile;
@@ -17,7 +18,29 @@ class SupirService
     public function __construct(
         private readonly SupirRepositoryInterface $repo,
         private readonly ArmadaRepositoryInterface $armadaRepo,
+        private readonly KaryawanRepositoryInterface $karyawanRepo,
     ) {}
+
+    /**
+     * Bila id_karyawan dikirim & tidak null: karyawan harus ada, satu
+     * perusahaan, dan belum ditautkan ke supir lain (1 karyawan = 1 supir).
+     */
+    private function assertKaryawanRules(array $data, string $idPerusahaan, ?string $excludeIdSupir = null): void
+    {
+        if (!array_key_exists('id_karyawan', $data) || $data['id_karyawan'] === null) {
+            return;
+        }
+
+        $karyawan = $this->karyawanRepo->findById($data['id_karyawan']);
+        if ($karyawan === null || $karyawan->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Karyawan tidak ditemukan');
+        }
+
+        $tertaut = $this->repo->findByKaryawan($data['id_karyawan'], $excludeIdSupir);
+        if ($tertaut !== null) {
+            abort(422, "Karyawan sudah ditautkan ke supir {$tertaut->nama}");
+        }
+    }
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $status = null, ?string $search = null): array
     {
@@ -50,6 +73,7 @@ class SupirService
     public function create(array $data): object
     {
         $this->assertArmadaDefaultRules($data, (string) $data['id_perusahaan']);
+        $this->assertKaryawanRules($data, (string) $data['id_perusahaan']);
         return $this->repo->create($data);
     }
 
@@ -57,6 +81,7 @@ class SupirService
     {
         $record = $this->findOrFail($id);
         $this->assertArmadaDefaultRules($data, $idPerusahaan, $record->id_supir);
+        $this->assertKaryawanRules($data, $idPerusahaan, $record->id_supir);
         return $this->repo->update($record, $data);
     }
 

@@ -19,7 +19,7 @@ class LogErrorServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:log-error'])
             ->group(function () {
                 Route::get('log-error', [LogErrorController::class, 'index']);
                 Route::get('log-error/{id}', [LogErrorController::class, 'show']);

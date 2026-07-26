@@ -8,11 +8,22 @@ use App\Modules\IzinPeran\Contracts\IzinPeranRepositoryInterface;
 
 class IzinPeranRepository implements IzinPeranRepositoryInterface
 {
+    /**
+     * Izin EFEKTIF sebuah role: baseline global (id_perusahaan NULL) digabung
+     * baris per-perusahaan — per-perusahaan menang, selaras CheckIzinPeran.
+     * Tanpa merge ini, matriks di UI tidak menampilkan baseline global dan
+     * admin bisa tanpa sadar me-revoke blanket saat menyimpan.
+     */
     public function findByPeran(string $idPerusahaan, string $kodePeran): array
     {
-        return IzinPeranModel::where('id_perusahaan', $idPerusahaan)
-            ->where('kode_peran', $kodePeran)
+        return IzinPeranModel::where('kode_peran', $kodePeran)
+            ->where(function ($q) use ($idPerusahaan) {
+                $q->where('id_perusahaan', $idPerusahaan)->orWhereNull('id_perusahaan');
+            })
             ->get()
+            ->sortBy(fn ($r) => $r->id_perusahaan === null ? 0 : 1)
+            ->keyBy(fn ($r) => $r->id_menu . '|' . $r->aksi)
+            ->values()
             ->all();
     }
 

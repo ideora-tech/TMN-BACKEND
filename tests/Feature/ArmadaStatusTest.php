@@ -29,7 +29,7 @@ class ArmadaStatusTest extends TestCase
 
     public function test_create_armada_status_tersedia_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/armada', [
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
@@ -41,7 +41,7 @@ class ArmadaStatusTest extends TestCase
 
     public function test_create_armada_status_perawatan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/armada', [
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
@@ -53,7 +53,7 @@ class ArmadaStatusTest extends TestCase
 
     public function test_create_armada_status_nilai_lama_aktif_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/armada', [
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
@@ -65,7 +65,7 @@ class ArmadaStatusTest extends TestCase
 
     public function test_update_armada_status_digunakan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
 
         $res = $this->putJson("/api/v1/armada/{$armada->id_armada}", [
@@ -77,7 +77,7 @@ class ArmadaStatusTest extends TestCase
 
     public function test_update_armada_status_nilai_lama_servis_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
 
         $res = $this->putJson("/api/v1/armada/{$armada->id_armada}", [
@@ -89,7 +89,7 @@ class ArmadaStatusTest extends TestCase
 
     public function test_penugasan_internal_tidak_mengubah_status_armada(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyekPenugasan();
 
@@ -104,7 +104,7 @@ class ArmadaStatusTest extends TestCase
 
     public function test_penugasan_internal_dengan_armada_digunakan_tetap_boleh(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('digunakan');
         $proyek = $this->makeProyekPenugasan();
 

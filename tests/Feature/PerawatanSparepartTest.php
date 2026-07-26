@@ -55,7 +55,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_create_servis_dengan_sparepart_mengurangi_stok_dan_mencatat_mutasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $jenis  = $this->makeJenis('Servis 10.000 km');
         $spA    = $this->makeSparepart('Filter Oli', 10);
@@ -91,7 +91,7 @@ class PerawatanSparepartTest extends TestCase
     public function test_create_stok_tidak_cukup_tetap_tersimpan_stok_boleh_minus(): void
     {
         // Pencatatan saja — perusahaan tidak punya bengkel sendiri, servis dikerjakan pihak luar.
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $sp     = $this->makeSparepart('Filter Oli', 1);
 
@@ -111,7 +111,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_update_item_menghitung_delta_stok_dua_arah(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $spA = $this->makeSparepart('Filter Oli', 10);
         $spB = $this->makeSparepart('Busi', 20, 25000);
@@ -145,7 +145,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_delete_servis_mengembalikan_stok(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $sp = $this->makeSparepart('Filter Oli', 10);
 
@@ -165,7 +165,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_update_id_jenis_perawatan_menyinkronkan_snapshot_teks(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $jenisBaru = $this->makeJenis('Overhaul Mesin');
 
@@ -185,7 +185,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_create_tanpa_sparepart_dan_teks_manual_tetap_jalan_regresi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
         $res = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
@@ -202,7 +202,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_tanpa_jenis_sama_sekali_ditolak_validasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
         $res = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
@@ -214,7 +214,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_hapus_master_sparepart_yang_dipakai_servis_aktif_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $sp = $this->makeSparepart('Filter Oli', 10);
 
@@ -236,7 +236,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_hapus_master_jenis_perawatan_yang_dipakai_ditolak_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $jenis = $this->makeJenis('Servis Berkala');
 
@@ -255,7 +255,7 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_payload_dengan_master_soft_deleted_ditolak_validasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $sp = $this->makeSparepart('Part Mati', 10);
         $jenis = $this->makeJenis('Jenis Mati');

@@ -36,7 +36,7 @@ class LokasiTest extends TestCase
 
     public function test_membuat_lokasi_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/lokasi', [
             'nama_lokasi' => 'Pelabuhan Tanjung Priok',
@@ -58,7 +58,7 @@ class LokasiTest extends TestCase
 
     public function test_menolak_membuat_lokasi_tanpa_nama(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/lokasi', [
             'kota' => 'Jakarta',
@@ -69,7 +69,7 @@ class LokasiTest extends TestCase
 
     public function test_list_lokasi_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $this->makeLokasi(self::PERUSAHAAN_ID, 'Lokasi Sendiri');
         $idPerusahaanLain = $this->makePerusahaanLain();
@@ -86,7 +86,7 @@ class LokasiTest extends TestCase
 
     public function test_show_lokasi_milik_sendiri_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lokasi = $this->makeLokasi(self::PERUSAHAAN_ID);
 
         $res = $this->getJson("/api/v1/lokasi/{$lokasi->id_lokasi}");
@@ -96,7 +96,7 @@ class LokasiTest extends TestCase
 
     public function test_show_lokasi_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
@@ -107,7 +107,7 @@ class LokasiTest extends TestCase
 
     public function test_update_lokasi_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lokasi = $this->makeLokasi(self::PERUSAHAAN_ID);
 
         $res = $this->putJson("/api/v1/lokasi/{$lokasi->id_lokasi}", [
@@ -123,7 +123,7 @@ class LokasiTest extends TestCase
 
     public function test_update_lokasi_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
@@ -136,7 +136,7 @@ class LokasiTest extends TestCase
 
     public function test_hapus_lokasi_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lokasi = $this->makeLokasi(self::PERUSAHAAN_ID);
 
         $res = $this->deleteJson("/api/v1/lokasi/{$lokasi->id_lokasi}");
@@ -150,7 +150,7 @@ class LokasiTest extends TestCase
 
     public function test_hapus_lokasi_tidak_ditemukan_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->deleteJson('/api/v1/lokasi/' . Str::uuid()->toString());
 

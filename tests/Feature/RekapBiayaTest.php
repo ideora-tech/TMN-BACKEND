@@ -74,7 +74,7 @@ class RekapBiayaTest extends TestCase
 
     public function test_rekap_biaya_menghitung_total_dari_laporan_dan_selisih_estimasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai', 1000000);
 
         $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
@@ -104,7 +104,7 @@ class RekapBiayaTest extends TestCase
 
     public function test_rekap_biaya_trip_tanpa_laporan_semua_nol_tapi_estimasi_tetap_terisi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('berjalan', 500000);
 
         $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
@@ -124,7 +124,7 @@ class RekapBiayaTest extends TestCase
 
     public function test_rekap_biaya_selisih_null_bila_estimasi_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('berjalan', null);
 
         $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
@@ -140,7 +140,7 @@ class RekapBiayaTest extends TestCase
 
     public function test_batalkan_trip_mengubah_status_menjadi_dibatalkan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('belum_mulai');
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan");
@@ -157,7 +157,7 @@ class RekapBiayaTest extends TestCase
 
     public function test_batalkan_trip_yang_sudah_selesai_ditolak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan");
@@ -172,7 +172,7 @@ class RekapBiayaTest extends TestCase
 
     public function test_batalkan_trip_milik_perusahaan_lain_ditolak_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripUntukPerusahaanLain('belum_mulai');
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan");
@@ -187,7 +187,7 @@ class RekapBiayaTest extends TestCase
 
     public function test_rekap_biaya_trip_milik_perusahaan_lain_ditolak_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripUntukPerusahaanLain('selesai');
 
         $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
@@ -197,7 +197,7 @@ class RekapBiayaTest extends TestCase
 
     public function test_get_trip_bisa_difilter_dengan_id_jadwal(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $tripA = $this->makeTrip('belum_mulai');
         $this->makeTrip('belum_mulai');
 

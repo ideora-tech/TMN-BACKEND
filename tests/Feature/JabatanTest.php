@@ -45,7 +45,7 @@ class JabatanTest extends TestCase
 
     public function test_membuat_jabatan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/jabatan', [
             'kode_jabatan' => 'JBT-01',
@@ -66,7 +66,7 @@ class JabatanTest extends TestCase
 
     public function test_list_jabatan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeJabatan(self::PERUSAHAAN_ID);
 
         $res = $this->getJson('/api/v1/jabatan');
@@ -77,7 +77,7 @@ class JabatanTest extends TestCase
 
     public function test_filter_jabatan_by_departemen(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idDepA = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Operasional');
         $idDepB = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Keuangan');
         $this->makeJabatan(self::PERUSAHAAN_ID, $idDepA, 'Supir');
@@ -93,7 +93,7 @@ class JabatanTest extends TestCase
 
     public function test_show_jabatan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJabatan(self::PERUSAHAAN_ID);
 
         $res = $this->getJson("/api/v1/jabatan/{$item->id_jabatan}");
@@ -103,7 +103,7 @@ class JabatanTest extends TestCase
 
     public function test_update_jabatan_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJabatan(self::PERUSAHAAN_ID, null, 'Lama');
 
         $res = $this->putJson("/api/v1/jabatan/{$item->id_jabatan}", [
@@ -115,7 +115,7 @@ class JabatanTest extends TestCase
 
     public function test_hapus_jabatan_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJabatan(self::PERUSAHAAN_ID);
 
         $res = $this->deleteJson("/api/v1/jabatan/{$item->id_jabatan}");

@@ -104,7 +104,7 @@ class TripMulaiTest extends TestCase
 
     public function test_mulai_trip_membuat_jadwal_otomatis_dan_trip_berjalan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
         $idRute    = $this->makeRute('Jakarta - Bandung');
         $this->daftarkanRuteKeProyek($penugasan->id_proyek, $idRute);
@@ -126,7 +126,7 @@ class TripMulaiTest extends TestCase
 
     public function test_mulai_trip_tanpa_rute_boleh(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
 
         $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
@@ -136,7 +136,7 @@ class TripMulaiTest extends TestCase
 
     public function test_mulai_trip_ditolak_jika_masih_ada_trip_aktif(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
 
         $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])->assertStatus(201);
@@ -148,7 +148,7 @@ class TripMulaiTest extends TestCase
 
     public function test_setelah_checkout_bisa_mulai_trip_lagi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
 
         $idTrip = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
@@ -160,7 +160,7 @@ class TripMulaiTest extends TestCase
 
     public function test_mulai_trip_penugasan_perusahaan_lain_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
         $penugasanLain = $this->makePenugasan($idPerusahaanLain);
@@ -171,7 +171,7 @@ class TripMulaiTest extends TestCase
 
     public function test_mulai_trip_id_rute_perusahaan_lain_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
         $ruteLain  = $this->makeRute('Rute Rahasia Perusahaan Lain', $idPerusahaanLain);
@@ -191,7 +191,7 @@ class TripMulaiTest extends TestCase
 
     public function test_mulai_trip_id_rute_tidak_terdaftar_di_proyek_422(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
         $idRute    = $this->makeRute('Jakarta - Bandung');
         // sengaja tidak didaftarkan ke proyek_rute
@@ -210,7 +210,7 @@ class TripMulaiTest extends TestCase
 
     public function test_list_trip_filter_id_penugasan_dan_id_supir(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $penugasanA = $this->makePenugasan();
         $penugasanB = $this->makePenugasan();
 

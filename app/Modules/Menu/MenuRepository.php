@@ -25,8 +25,9 @@ class MenuRepository implements MenuRepositoryInterface
             $query->where(function ($q) use ($role) {
                 // Menu tanpa role di menu_peran = tampil untuk semua (misal Dashboard)
                 $q->whereDoesntHave('perans')
-                  // Menu yang punya role ini di menu_peran
-                  ->orWhereHas('perans', fn ($p) => $p->where('kode_peran', $role));
+                  // Menu yang punya role ini di menu_peran — LOWER() dua sisi agar
+                  // kebal collation case-sensitive (kode_peran tersimpan huruf besar)
+                  ->orWhereHas('perans', fn ($p) => $p->whereRaw('LOWER(kode_peran) = ?', [$role]));
             });
         }
 

@@ -54,7 +54,7 @@ class PenawaranItemTest extends TestCase
 
     public function test_store_dengan_items_menghitung_nilai_otomatis(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
             [
@@ -81,7 +81,7 @@ class PenawaranItemTest extends TestCase
 
     public function test_show_memuat_items(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $id = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
             [
                 'id_rute'            => $this->makeRute(),
@@ -99,7 +99,7 @@ class PenawaranItemTest extends TestCase
 
     public function test_update_mengganti_semua_items(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $id = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
             [
                 'id_rute'            => $this->makeRute(),
@@ -128,7 +128,7 @@ class PenawaranItemTest extends TestCase
 
     public function test_store_tanpa_items_perilaku_lama_tetap(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/penawaran', [
             'nomor_penawaran' => 'PNW-MANUAL',
@@ -142,7 +142,7 @@ class PenawaranItemTest extends TestCase
 
     public function test_item_dengan_rute_perusahaan_lain_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $lain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
 
@@ -159,7 +159,7 @@ class PenawaranItemTest extends TestCase
 
     public function test_item_tanpa_harga_ditolak_validasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
             [

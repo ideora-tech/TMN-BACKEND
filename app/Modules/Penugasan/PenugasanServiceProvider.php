@@ -19,7 +19,7 @@ class PenugasanServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum'])
+            ->middleware(['api', 'auth:sanctum', 'izin:penugasan'])
             ->group(function () {
                 Route::apiResource('penugasan', PenugasanController::class)
                     ->parameters(['penugasan' => 'id']);

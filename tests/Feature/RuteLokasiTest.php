@@ -35,7 +35,7 @@ class RuteLokasiTest extends TestCase
 
     public function test_membuat_rute_dengan_id_lokasi_mengisi_asal_tujuan_otomatis(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $asal = $this->makeLokasi(self::PERUSAHAAN_ID, 'Pelabuhan Tanjung Priok');
         $tujuan = $this->makeLokasi(self::PERUSAHAAN_ID, 'Gudang Cikarang');
 
@@ -63,7 +63,7 @@ class RuteLokasiTest extends TestCase
 
     public function test_membuat_rute_dengan_id_lokasi_asal_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
@@ -79,7 +79,7 @@ class RuteLokasiTest extends TestCase
 
     public function test_membuat_rute_dengan_id_lokasi_tujuan_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
@@ -95,7 +95,7 @@ class RuteLokasiTest extends TestCase
 
     public function test_membuat_rute_tanpa_id_lokasi_tetap_berhasil_seperti_lama(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/rute', [
             'kode_rute' => 'RUT-LAMA-1',
@@ -113,7 +113,7 @@ class RuteLokasiTest extends TestCase
 
     public function test_update_rute_dengan_id_lokasi_mengisi_asal_tujuan_otomatis(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $rute = $this->postJson('/api/v1/rute', [
             'kode_rute' => 'RUT-UPD-1',
             'nama_rute' => 'Rute Update',
@@ -135,7 +135,7 @@ class RuteLokasiTest extends TestCase
 
     public function test_update_rute_dengan_id_lokasi_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $rute = $this->postJson('/api/v1/rute', [
             'kode_rute' => 'RUT-UPD-2',
             'nama_rute' => 'Rute Update Gagal',
@@ -159,7 +159,7 @@ class RuteLokasiTest extends TestCase
 
     public function test_update_rute_dengan_id_lokasi_null_tidak_menimpa_teks_asal(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $asal = $this->makeLokasi(self::PERUSAHAAN_ID, 'Terminal Utama');
 
         $rute = $this->postJson('/api/v1/rute', [

@@ -51,7 +51,7 @@ class PaketPerawatanSparepartTest extends TestCase
 
     public function test_membuat_paket_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
@@ -70,7 +70,7 @@ class PaketPerawatanSparepartTest extends TestCase
 
     public function test_menolak_tanpa_field_wajib(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/paket-perawatan-sparepart', []);
 
@@ -79,7 +79,7 @@ class PaketPerawatanSparepartTest extends TestCase
 
     public function test_menolak_duplikat_kombinasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
         $idSparepart = $this->makeSparepart();
@@ -97,7 +97,7 @@ class PaketPerawatanSparepartTest extends TestCase
 
     public function test_menolak_referensi_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
 
         $res = $this->postJson('/api/v1/paket-perawatan-sparepart', [
@@ -112,7 +112,7 @@ class PaketPerawatanSparepartTest extends TestCase
 
     public function test_update_dan_hapus_paket(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $id = $this->postJson('/api/v1/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -129,7 +129,7 @@ class PaketPerawatanSparepartTest extends TestCase
 
     public function test_isolasi_tenant(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
         $id = (string) Str::uuid();
         DB::table('paket_perawatan_sparepart')->insert([
@@ -151,7 +151,7 @@ class PaketPerawatanSparepartTest extends TestCase
 
     public function test_paket_difilter_saat_sparepart_soft_deleted(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idSparepart = $this->makeSparepart('Oli Mesin');
         $idJenis = $this->makeJenisPerawatan();
@@ -180,7 +180,7 @@ class PaketPerawatanSparepartTest extends TestCase
 
     public function test_paket_difilter_saat_jenis_perawatan_soft_deleted(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $idJenis = $this->makeJenisPerawatan('Ganti Oli Mesin');
         $idKendaraan = $this->makeJenisKendaraan();

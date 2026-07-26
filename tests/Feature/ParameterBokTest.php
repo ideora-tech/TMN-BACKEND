@@ -55,7 +55,7 @@ class ParameterBokTest extends TestCase
 
     public function test_membuat_parameter_bok_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/parameter-bok', $this->payloadValid());
 
@@ -68,7 +68,7 @@ class ParameterBokTest extends TestCase
 
     public function test_menolak_tanpa_field_wajib(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/parameter-bok', []);
 
@@ -79,7 +79,7 @@ class ParameterBokTest extends TestCase
 
     public function test_menolak_duplikat_jenis_kendaraan(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisKendaraan();
         $this->postJson('/api/v1/parameter-bok', $this->payloadValid(['id_jenis_kendaraan' => $idJenis]))
             ->assertStatus(201);
@@ -91,7 +91,7 @@ class ParameterBokTest extends TestCase
 
     public function test_menolak_jenis_bbm_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $lain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
 
@@ -104,7 +104,7 @@ class ParameterBokTest extends TestCase
 
     public function test_update_dan_hapus(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $created = $this->postJson('/api/v1/parameter-bok', $this->payloadValid())->json('data');
         $id = $created['id_parameter_bok'];
 
@@ -118,7 +118,7 @@ class ParameterBokTest extends TestCase
 
     public function test_isolasi_tenant(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $lain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $lain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
         $idParam = (string) Str::uuid();

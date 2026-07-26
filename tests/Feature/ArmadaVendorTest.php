@@ -48,7 +48,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_membuat_armada_vendor_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         $res = $this->postJson('/api/v1/armada-vendor', [
@@ -73,7 +73,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_menolak_membuat_armada_vendor_dengan_id_vendor_milik_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
 
@@ -91,7 +91,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_list_armada_vendor_hanya_milik_perusahaan_user_dan_filter_id_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendorA = $this->makeVendor();
         $vendorB = $this->makeVendor();
         $this->makeArmadaVendor($vendorA->id_vendor, 'B 1111 AA');
@@ -116,7 +116,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_show_armada_vendor_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $armadaLain = $this->makeArmadaVendor($vendorLain->id_vendor);
@@ -128,7 +128,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_update_armada_vendor_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $armada = $this->makeArmadaVendor($vendor->id_vendor);
 
@@ -148,7 +148,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_update_armada_vendor_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $armadaLain = $this->makeArmadaVendor($vendorLain->id_vendor);
@@ -162,7 +162,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_update_menolak_pindah_ke_vendor_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $armada = $this->makeArmadaVendor($vendor->id_vendor);
 
@@ -183,7 +183,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_hapus_armada_vendor_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $armada = $this->makeArmadaVendor($vendor->id_vendor);
 
@@ -198,7 +198,7 @@ class ArmadaVendorTest extends TestCase
 
     public function test_hapus_armada_vendor_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $armadaLain = $this->makeArmadaVendor($vendorLain->id_vendor);

@@ -30,7 +30,7 @@ class DepartemenTest extends TestCase
 
     public function test_membuat_departemen_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/departemen', [
             'kode_departemen' => 'DEP-01',
@@ -49,7 +49,7 @@ class DepartemenTest extends TestCase
 
     public function test_list_departemen_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $this->makeDepartemen(self::PERUSAHAAN_ID, 'HR');
 
         $res = $this->getJson('/api/v1/departemen');
@@ -60,7 +60,7 @@ class DepartemenTest extends TestCase
 
     public function test_show_departemen_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Keuangan');
 
         $res = $this->getJson("/api/v1/departemen/{$item->id_departemen}");
@@ -70,7 +70,7 @@ class DepartemenTest extends TestCase
 
     public function test_update_departemen_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Lama');
 
         $res = $this->putJson("/api/v1/departemen/{$item->id_departemen}", [
@@ -82,7 +82,7 @@ class DepartemenTest extends TestCase
 
     public function test_hapus_departemen_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $item = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Dihapus');
 
         $res = $this->deleteJson("/api/v1/departemen/{$item->id_departemen}");
@@ -94,7 +94,7 @@ class DepartemenTest extends TestCase
 
     public function test_tree_departemen_menyusun_struktur_induk_anak(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $induk = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Operasional');
         $anak = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Armada', $induk->id_departemen);
 

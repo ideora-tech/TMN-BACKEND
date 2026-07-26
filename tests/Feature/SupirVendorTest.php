@@ -47,7 +47,7 @@ class SupirVendorTest extends TestCase
 
     public function test_membuat_supir_vendor_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
         $res = $this->postJson('/api/v1/supir-vendor', [
@@ -71,7 +71,7 @@ class SupirVendorTest extends TestCase
 
     public function test_menolak_membuat_supir_vendor_dengan_id_vendor_milik_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
 
@@ -89,7 +89,7 @@ class SupirVendorTest extends TestCase
 
     public function test_list_supir_vendor_hanya_milik_perusahaan_user_dan_filter_id_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendorA = $this->makeVendor();
         $vendorB = $this->makeVendor();
         $this->makeSupirVendor($vendorA->id_vendor, 'Supir A');
@@ -114,7 +114,7 @@ class SupirVendorTest extends TestCase
 
     public function test_show_supir_vendor_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $supirLain = $this->makeSupirVendor($vendorLain->id_vendor);
@@ -126,7 +126,7 @@ class SupirVendorTest extends TestCase
 
     public function test_update_supir_vendor_berhasil(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $supir = $this->makeSupirVendor($vendor->id_vendor);
 
@@ -146,7 +146,7 @@ class SupirVendorTest extends TestCase
 
     public function test_update_supir_vendor_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $supirLain = $this->makeSupirVendor($vendorLain->id_vendor);
@@ -160,7 +160,7 @@ class SupirVendorTest extends TestCase
 
     public function test_update_menolak_pindah_ke_vendor_perusahaan_lain(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $supir = $this->makeSupirVendor($vendor->id_vendor);
 
@@ -181,7 +181,7 @@ class SupirVendorTest extends TestCase
 
     public function test_hapus_supir_vendor_soft_delete(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $supir = $this->makeSupirVendor($vendor->id_vendor);
 
@@ -196,7 +196,7 @@ class SupirVendorTest extends TestCase
 
     public function test_hapus_supir_vendor_milik_perusahaan_lain_mengembalikan_404(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $supirLain = $this->makeSupirVendor($vendorLain->id_vendor);

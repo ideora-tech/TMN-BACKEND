@@ -62,7 +62,7 @@ class KaryawanJabatanLokasiTest extends TestCase
 
     public function test_list_karyawan_menyertakan_nama_jabatan_dan_lokasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJabatan = $this->makeJabatan('Manager Operasional');
         $idLokasi = $this->makeLokasi('Gudang Cikarang');
         $this->makeKaryawan($idJabatan, $idLokasi);
@@ -77,7 +77,7 @@ class KaryawanJabatanLokasiTest extends TestCase
 
     public function test_show_karyawan_menyertakan_nama_jabatan_dan_lokasi(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $idJabatan = $this->makeJabatan('Staff Admin');
         $idLokasi = $this->makeLokasi('Kantor Cabang');
         $idKaryawan = $this->makeKaryawan($idJabatan, $idLokasi);
@@ -91,7 +91,7 @@ class KaryawanJabatanLokasiTest extends TestCase
 
     public function test_karyawan_tanpa_jabatan_lokasi_mengembalikan_null(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $id = (string) Str::uuid();
         DB::table('karyawan')->insert([
             'id_karyawan'        => $id,

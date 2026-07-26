@@ -34,7 +34,7 @@ class KontrakVendorFilterTest extends TestCase
 
     public function test_index_kontrak_vendor_memfilter_berdasarkan_id_vendor(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $vendorA = $this->makeVendor();
         $vendorB = $this->makeVendor();
@@ -57,7 +57,7 @@ class KontrakVendorFilterTest extends TestCase
 
     public function test_index_kontrak_vendor_memfilter_berdasarkan_search_teks_bebas(): void
     {
-        $this->actingAsRole('ADMIN');
+        $this->actingAsRole('SUPERADMIN');
 
         $vendorA = VendorModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,

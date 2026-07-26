@@ -11,6 +11,17 @@ class DashboardController extends Controller {
     public function stats(Request $request): JsonResponse {
         $id = $request->user()->id_perusahaan;
 
-        return ApiResponse::success($this->service->getStats($id));
+        $stats = $this->service->getStats($id);
+
+        // Angka finansial hanya untuk role keuangan/manajemen — role operasional
+        // (supir, dispatcher, sales) tidak boleh membaca ringkasan pendapatan/piutang.
+        $kodePeran = (string) $request->user()->kode_peran;
+        if (!in_array($kodePeran, ['SUPERADMIN', 'ADMIN', 'MANAGER', 'KEUANGAN'], true)) {
+            $stats['fakturDraft'] = null;
+            $stats['pendapatanBulanIni'] = null;
+            $stats['piutangBeredar'] = null;
+        }
+
+        return ApiResponse::success($stats);
     }
 }
