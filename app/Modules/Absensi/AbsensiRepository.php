@@ -63,6 +63,44 @@ class AbsensiRepository implements AbsensiRepositoryInterface
             ->all();
     }
 
+    public function jamPulangDalamRentang(string $idPerusahaan, string $awal, string $akhir): array
+    {
+        return DB::table('absensi')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereBetween('tanggal', [$awal, $akhir])
+            ->whereNotNull('jam_pulang')
+            ->select('id_karyawan', 'jam_pulang')
+            ->get()
+            ->all();
+    }
+
+    public function getPengaturan(string $idPerusahaan): ?object
+    {
+        return DB::table('pengaturan_absensi')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->first();
+    }
+
+    public function upsertPengaturan(string $idPerusahaan, array $data): object
+    {
+        $existing = $this->getPengaturan($idPerusahaan);
+
+        if ($existing !== null) {
+            DB::table('pengaturan_absensi')
+                ->where('id_pengaturan', $existing->id_pengaturan)
+                ->update(RecordHelper::stampUpdate($data));
+        } else {
+            DB::table('pengaturan_absensi')->insert(RecordHelper::stampCreate(
+                array_merge($data, ['id_perusahaan' => $idPerusahaan]),
+                'id_pengaturan'
+            ));
+        }
+
+        return $this->getPengaturan($idPerusahaan);
+    }
+
     public function cutiDisetujuiDalamRentang(string $idPerusahaan, string $awal, string $akhir): array
     {
         return DB::table('pengajuan_cuti')

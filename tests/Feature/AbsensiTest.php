@@ -13,12 +13,13 @@ class AbsensiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeKaryawan(string $nama = 'Karyawan Absen', string $nik = 'NIK-ABS-01', int $aktif = 1): string
+    private function makeKaryawan(string $nama = 'Karyawan Absen', string $nik = 'NIK-ABS-01', int $aktif = 1, float $gaji = 0): string
     {
         $id = (string) Str::uuid();
         DB::table('karyawan')->insert([
             'id_karyawan' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'nik' => $nik, 'nama_karyawan' => $nama, 'aktif' => $aktif, 'dibuat_pada' => now(),
+            'nik' => $nik, 'nama_karyawan' => $nama, 'aktif' => $aktif,
+            'gaji_pokok' => $gaji, 'dibuat_pada' => now(),
         ]);
         return $id;
     }
@@ -119,6 +120,74 @@ class AbsensiTest extends TestCase
         ]);
 
         $res->assertStatus(422);
+    }
+
+    public function test_pengaturan_default_dan_simpan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $resDefault = $this->getJson('/api/v1/absensi/pengaturan');
+        $resDefault->assertStatus(200)
+            ->assertJsonPath('data.jam_masuk', '08:00')
+            ->assertJsonPath('data.jam_pulang', '17:00')
+            ->assertJsonPath('data.toleransi_terlambat_menit', 15);
+
+        $resSimpan = $this->putJson('/api/v1/absensi/pengaturan', [
+            'jam_masuk'  => '08:30',
+            'jam_pulang' => '16:30',
+            'toleransi_terlambat_menit' => 10,
+        ]);
+        $resSimpan->assertStatus(200)->assertJsonPath('data.jam_masuk', '08:30');
+
+        $this->getJson('/api/v1/absensi/pengaturan')
+            ->assertJsonPath('data.jam_pulang', '16:30')
+            ->assertJsonPath('data.toleransi_terlambat_menit', 10);
+    }
+
+    public function test_pengaturan_jam_pulang_harus_setelah_jam_masuk(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $this->putJson('/api/v1/absensi/pengaturan', [
+            'jam_masuk'  => '17:00',
+            'jam_pulang' => '08:00',
+            'toleransi_terlambat_menit' => 0,
+        ])->assertStatus(422);
+    }
+
+    public function test_rekap_menghitung_menit_dan_upah_lembur(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        // gaji 1.730.000 -> upah sejam formula 1/173 = Rp 10.000
+        $idKaryawan = $this->makeKaryawan('Andi Lembur', 'NIK-ABS-L', 1, 1730000);
+        $bulan = now()->format('Y-m');
+
+        // jam pulang standar default 17:00 — dua hari lembur: 90 menit + 30 menit
+        DB::table('absensi')->insert([
+            [
+                'id_absensi' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+                'id_karyawan' => $idKaryawan, 'tanggal' => $bulan . '-05', 'status' => 'hadir',
+                'jam_masuk' => '08:00', 'jam_pulang' => '18:30', 'dibuat_pada' => now(),
+            ],
+            [
+                'id_absensi' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+                'id_karyawan' => $idKaryawan, 'tanggal' => $bulan . '-06', 'status' => 'hadir',
+                'jam_masuk' => '08:00', 'jam_pulang' => '17:30', 'dibuat_pada' => now(),
+            ],
+            [
+                'id_absensi' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+                'id_karyawan' => $idKaryawan, 'tanggal' => $bulan . '-07', 'status' => 'hadir',
+                'jam_masuk' => '08:00', 'jam_pulang' => '16:00', 'dibuat_pada' => now(),
+            ],
+        ]);
+
+        $res = $this->getJson('/api/v1/absensi/rekap?bulan=' . $bulan);
+
+        $res->assertStatus(200);
+        $row = collect($res->json('data'))->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertSame(120, $row['lembur_menit']);
+        // hari 1 (90m): 1,5×10rb×1jam + 2×10rb×0,5jam = 25.000; hari 2 (30m): 1,5×10rb×0,5jam = 7.500
+        $this->assertSame(32500, $row['lembur_rupiah']);
     }
 
     public function test_rekap_bulanan_menghitung_status_dan_cuti(): void

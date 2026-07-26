@@ -95,12 +95,64 @@ class AbsensiService
         return ['tersimpan' => $tersimpan, 'dilewati' => $dilewati];
     }
 
+    public function pengaturan(string $idPerusahaan): array
+    {
+        $row = $this->repo->getPengaturan($idPerusahaan);
+
+        return [
+            'jam_masuk'  => $row ? substr($row->jam_masuk, 0, 5) : '08:00',
+            'jam_pulang' => $row ? substr($row->jam_pulang, 0, 5) : '17:00',
+            'toleransi_terlambat_menit' => $row ? (int) $row->toleransi_terlambat_menit : 15,
+        ];
+    }
+
+    public function simpanPengaturan(string $idPerusahaan, array $data): array
+    {
+        $this->repo->upsertPengaturan($idPerusahaan, $data);
+        return $this->pengaturan($idPerusahaan);
+    }
+
+    /** Menit lembur per karyawan per HARI (selisih jam_pulang aktual vs standar) — per hari karena pengali 1,5×/2× berlaku per blok lembur harian. */
+    private function hitungLemburHarian(string $idPerusahaan, string $awal, string $akhir): array
+    {
+        $pengaturan = $this->pengaturan($idPerusahaan);
+        $batas = Carbon::parse('2000-01-01 ' . $pengaturan['jam_pulang']);
+
+        $lembur = [];
+        foreach ($this->repo->jamPulangDalamRentang($idPerusahaan, $awal, $akhir) as $row) {
+            $pulang = Carbon::parse('2000-01-01 ' . $row->jam_pulang);
+            if ($pulang->greaterThan($batas)) {
+                $lembur[$row->id_karyawan][] = (int) $batas->diffInMinutes($pulang);
+            }
+        }
+
+        return $lembur;
+    }
+
+    /** Upah lembur formula pemerintah: upah sejam = gaji/173; per hari jam pertama ×1,5, jam berikutnya ×2. */
+    private function hitungUpahLembur(float $gajiPokok, array $menitHarian): int
+    {
+        $upahSejam = $gajiPokok / 173;
+        $total = 0.0;
+
+        foreach ($menitHarian as $menit) {
+            $jam = $menit / 60;
+            $jamPertama  = min(1, $jam);
+            $jamBerikut  = max(0, $jam - 1);
+            $total += $upahSejam * (1.5 * $jamPertama + 2 * $jamBerikut);
+        }
+
+        return (int) round($total);
+    }
+
     public function rekapBulanan(string $idPerusahaan, string $bulan, int $page = 1, int $limit = 10, ?string $search = null): array
     {
         $awal  = Carbon::parse($bulan . '-01')->startOfMonth();
         $akhir = $awal->copy()->endOfMonth();
         $awalStr  = $awal->toDateString();
         $akhirStr = $akhir->toDateString();
+
+        $lemburHarian = $this->hitungLemburHarian($idPerusahaan, $awalStr, $akhirStr);
 
         $counts = collect($this->repo->rekapBulanan($idPerusahaan, $awalStr, $akhirStr))
             ->groupBy('id_karyawan');
@@ -118,11 +170,14 @@ class AbsensiService
             if (!(bool) $k->aktif) continue;
 
             $c = $counts->get($k->id_karyawan, collect())->keyBy('status');
+            $harian = $lemburHarian[$k->id_karyawan] ?? [];
             $baris = [
-                'id_karyawan' => $k->id_karyawan,
-                'nik'         => $k->nik,
-                'nama'        => $k->nama_karyawan,
-                'cuti'        => $cutiHari[$k->id_karyawan] ?? 0,
+                'id_karyawan'   => $k->id_karyawan,
+                'nik'           => $k->nik,
+                'nama'          => $k->nama_karyawan,
+                'cuti'          => $cutiHari[$k->id_karyawan] ?? 0,
+                'lembur_menit'  => array_sum($harian),
+                'lembur_rupiah' => $this->hitungUpahLembur((float) $k->gaji_pokok, $harian),
             ];
             foreach (self::STATUS_VALID as $status) {
                 $baris[$status] = (int) ($c->get($status)->jumlah ?? 0);
