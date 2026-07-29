@@ -297,6 +297,54 @@ class TripTest extends TestCase
         $this->assertSame($proyek->id_proyek, $resSearch->json('data.0.id_proyek'));
     }
 
+    public function test_filter_status_multi_nilai_dipisah_koma(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $proyek = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-MULTI-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Multi Status',
+        ]);
+        $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 1', 'belum_mulai');
+        $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 2', 'berjalan');
+        $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 3', 'selesai');
+        $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 4', 'dibatalkan');
+
+        $resList = $this->getJson("/api/v1/trip?id_proyek={$proyek->id_proyek}&status=belum_mulai,berjalan");
+        $resList->assertStatus(200);
+        $this->assertCount(2, $resList->json('data'));
+
+        $resRingkasan = $this->getJson('/api/v1/trip/ringkasan-proyek?status=selesai,dibatalkan');
+        $resRingkasan->assertStatus(200);
+        $row = collect($resRingkasan->json('data'))->firstWhere('id_proyek', $proyek->id_proyek);
+        $this->assertSame(2, $row['jumlah_trip']);
+    }
+
+    public function test_list_trip_bisa_difilter_periode(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $proyek = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-PERIODE-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Periode',
+        ]);
+        $tripLama = $this->makeTripUntukProyek($proyek->id_proyek, 'Rute Lama', 'selesai');
+        $tripBaru = $this->makeTripUntukProyek($proyek->id_proyek, 'Rute Baru', 'selesai');
+        DB::table('jadwal_keberangkatan')->where('id_jadwal', $tripLama->id_jadwal)->update(['waktu_berangkat' => now()->subDays(60)]);
+        DB::table('jadwal_keberangkatan')->where('id_jadwal', $tripBaru->id_jadwal)->update(['waktu_berangkat' => now()->subDay()]);
+
+        $dari = now()->subDays(30)->toDateString();
+        $res = $this->getJson("/api/v1/trip?id_proyek={$proyek->id_proyek}&tanggal_dari={$dari}");
+
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame('Rute Baru', $res->json('data.0.rute'));
+    }
+
     public function test_list_trip_bisa_difilter_id_proyek(): void
     {
         $this->actingAsRole('SUPERADMIN');

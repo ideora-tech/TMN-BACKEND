@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class TripRepository implements TripRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null): LengthAwarePaginator
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null): LengthAwarePaginator
     {
         $paginator = TripModel::active()
             ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
@@ -24,8 +24,10 @@ class TripRepository implements TripRepositoryInterface
             ->when($idJadwal, fn ($q, $v) => $q->where('trip.id_jadwal', $v))
             ->when($idPenugasan, fn ($q, $v) => $q->where('jk.id_penugasan', $v))
             ->when($idSupir, fn ($q, $v) => $q->where('p.id_supir', $v))
-            ->when($status, fn ($q, $v) => $q->where('trip.status', $v))
+            ->when($status, fn ($q, $v) => $q->whereIn('trip.status', $this->pecahStatus($v)))
             ->when($idProyek, fn ($q, $v) => $q->where('pr.id_proyek', $v))
+            ->when($tanggalDari, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, trip.dibuat_pada)) >= ?', [$v]))
+            ->when($tanggalSampai, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, trip.dibuat_pada)) <= ?', [$v]))
             ->when($search, function ($q) use ($search) {
                 $q->leftJoin('rute as r', 'jk.id_rute', '=', 'r.id_rute')
                     ->leftJoin('armada as a', 'p.id_armada', '=', 'a.id_armada')
@@ -38,7 +40,9 @@ class TripRepository implements TripRepositoryInterface
                             ->orWhere('a.nopol', 'like', "%{$search}%")
                             ->orWhere('av.nopol', 'like', "%{$search}%")
                             ->orWhere('s.nama', 'like', "%{$search}%")
-                            ->orWhere('sv.nama', 'like', "%{$search}%");
+                            ->orWhere('sv.nama', 'like', "%{$search}%")
+                            ->orWhere('pr.nama_proyek', 'like', "%{$search}%")
+                            ->orWhere('pr.kode_proyek', 'like', "%{$search}%");
                     });
             })
             ->select('trip.*')
@@ -63,7 +67,7 @@ class TripRepository implements TripRepositoryInterface
             ->whereNull('jk.dihapus_pada')
             ->whereNull('p.dihapus_pada')
             ->whereNull('pr.dihapus_pada')
-            ->when($status, fn ($q, $v) => $q->where('t.status', $v))
+            ->when($status, fn ($q, $v) => $q->whereIn('t.status', $this->pecahStatus($v)))
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($q2) use ($search) {
                     $q2->where('pr.nama_proyek', 'like', "%{$search}%")
@@ -82,6 +86,12 @@ class TripRepository implements TripRepositoryInterface
             )
             ->orderByDesc('aktivitas_terakhir')
             ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    /** Status bisa berisi beberapa nilai dipisah koma (mis. "belum_mulai,berjalan"). */
+    private function pecahStatus(string $status): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', $status))));
     }
 
     public function exists(string $idTrip): bool

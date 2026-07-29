@@ -26,6 +26,11 @@ class AkunTesMobileSeeder extends Seeder
         $this->buatAkunStaff();
     }
 
+    private function normalisasiTelepon(string $telepon): string
+    {
+        return preg_replace('/\D+/', '', $telepon);
+    }
+
     private function buatAkunDriver(): void
     {
         if (Pengguna::where('email', 'like', 'test.driver.%@tmn.test')->exists()) {
@@ -46,15 +51,17 @@ class AkunTesMobileSeeder extends Seeder
             return;
         }
 
-        if (Pengguna::where('username', $supir->telepon)->exists()) {
-            $this->command->warn("Nomor telepon supir ({$supir->telepon}) sudah dipakai username lain, akun tes driver dilewati.");
+        $username = $this->normalisasiTelepon($supir->telepon);
+
+        if (Pengguna::where('username', $username)->exists()) {
+            $this->command->warn("Nomor telepon supir ({$username}) sudah dipakai username lain, akun tes driver dilewati.");
             return;
         }
 
         $pengguna = Pengguna::create([
             'id_perusahaan' => $supir->id_perusahaan,
             'kode_peran'    => 'SUPIR',
-            'username'      => $supir->telepon,
+            'username'      => $username,
             'email'         => 'test.driver.' . Str::random(6) . '@tmn.test',
             'kata_sandi'    => Hash::make(self::PASSWORD),
             'aktif'         => 1,
@@ -62,7 +69,7 @@ class AkunTesMobileSeeder extends Seeder
 
         DB::table('supir')->where('id_supir', $supir->id_supir)->update(['id_pengguna' => $pengguna->id_pengguna]);
 
-        $this->command->info("Akun tes driver dibuat: {$supir->telepon} / " . self::PASSWORD);
+        $this->command->info("Akun tes driver dibuat: {$username} / " . self::PASSWORD);
     }
 
     private function buatAkunStaff(): void
@@ -87,8 +94,10 @@ class AkunTesMobileSeeder extends Seeder
             return;
         }
 
-        if (Pengguna::where('username', $karyawan->telepon)->exists()) {
-            $this->command->warn("Nomor telepon karyawan ({$karyawan->telepon}) sudah dipakai username lain, akun tes staff dilewati.");
+        $username = $this->normalisasiTelepon($karyawan->telepon);
+
+        if (Pengguna::where('username', $username)->exists()) {
+            $this->command->warn("Nomor telepon karyawan ({$username}) sudah dipakai username lain, akun tes staff dilewati.");
             return;
         }
 
@@ -96,12 +105,12 @@ class AkunTesMobileSeeder extends Seeder
             'id_perusahaan' => $karyawan->id_perusahaan,
             'id_karyawan'   => $karyawan->id_karyawan,
             'kode_peran'    => 'MANAGER',
-            'username'      => $karyawan->telepon,
+            'username'      => $username,
             'email'         => 'test.staff.' . Str::random(6) . '@tmn.test',
             'kata_sandi'    => Hash::make(self::PASSWORD),
             'aktif'         => 1,
         ]);
 
-        $this->command->info("Akun tes staff dibuat: {$karyawan->telepon} / " . self::PASSWORD);
+        $this->command->info("Akun tes staff dibuat: {$username} / " . self::PASSWORD);
     }
 }
