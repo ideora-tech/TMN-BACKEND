@@ -57,6 +57,18 @@ class SupirKaryawanMigrasiTest extends TestCase
         $this->assertSame(0, (int) $karyawanB->aktif);
     }
 
+    public function test_command_karyawan_dari_supir_menautkan_semua_dan_idempoten(): void
+    {
+        $this->makeSupir('Supir Command A');
+        $this->makeSupir('Supir Command B', null, 'nonaktif');
+
+        $this->artisan('karyawan:dari-supir')->assertSuccessful();
+        $this->artisan('karyawan:dari-supir')->assertSuccessful();
+
+        $this->assertSame(0, DB::table('supir')->whereNull('id_karyawan')->count());
+        $this->assertSame(2, DB::table('karyawan')->count());
+    }
+
     public function test_supir_yang_sudah_tertaut_dilewati_dan_migrasi_idempoten(): void
     {
         $idKaryawanLama = (string) Str::uuid();

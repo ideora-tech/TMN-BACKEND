@@ -369,3 +369,37 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
     $this->info("Notifikasi servis jatuh tempo: {$created} notifikasi baru dibuat.");
     Log::info("notifikasi:servis-jatuh-tempo — {$created} notifikasi dibuat.");
 })->purpose('Buat notifikasi untuk servis armada yang jatuh tempo dalam 30 hari (berdasarkan servis terbaru per armada)')->dailyAt('07:15');
+
+Artisan::command('karyawan:dari-supir', function () {
+    $supirs = DB::table('supir')
+        ->whereNull('dihapus_pada')
+        ->whereNull('id_karyawan')
+        ->get();
+
+    $tertaut = 0;
+    foreach ($supirs as $supir) {
+        $nik = 'SPR-' . strtoupper(substr($supir->id_supir, 0, 8));
+        $idKaryawan = DB::table('karyawan')->where('nik', $nik)->value('id_karyawan');
+
+        if ($idKaryawan === null) {
+            $idKaryawan = (string) Str::uuid();
+            DB::table('karyawan')->insert([
+                'id_karyawan'   => $idKaryawan,
+                'id_perusahaan' => $supir->id_perusahaan,
+                'nik'           => $nik,
+                'nama_karyawan' => $supir->nama,
+                'telepon'       => $supir->telepon,
+                'aktif'         => $supir->status === 'aktif' ? 1 : 0,
+                'dibuat_pada'   => now(),
+            ]);
+        }
+
+        DB::table('supir')->where('id_supir', $supir->id_supir)->update([
+            'id_karyawan' => $idKaryawan,
+            'diubah_pada' => now(),
+        ]);
+        $tertaut++;
+    }
+
+    $this->info("{$tertaut} supir dibuatkan/ditautkan ke karyawan.");
+})->purpose('Buatkan & tautkan record karyawan untuk semua supir yang belum tertaut');
