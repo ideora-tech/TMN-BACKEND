@@ -371,9 +371,16 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
 })->purpose('Buat notifikasi untuk servis armada yang jatuh tempo dalam 30 hari (berdasarkan servis terbaru per armada)')->dailyAt('07:15');
 
 Artisan::command('karyawan:dari-supir', function () {
+    $idKaryawanValid = DB::table('karyawan')->whereNull('dihapus_pada')->pluck('id_karyawan');
+
+    // id_karyawan yang menunjuk karyawan tak ada/terhapus (orphan — mis. sisa
+    // import dump) diperlakukan sama dengan belum tertaut.
     $supirs = DB::table('supir')
         ->whereNull('dihapus_pada')
-        ->whereNull('id_karyawan')
+        ->where(function ($q) use ($idKaryawanValid) {
+            $q->whereNull('id_karyawan')
+              ->orWhereNotIn('id_karyawan', $idKaryawanValid);
+        })
         ->get();
 
     $tertaut = 0;

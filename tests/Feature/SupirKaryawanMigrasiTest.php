@@ -69,6 +69,17 @@ class SupirKaryawanMigrasiTest extends TestCase
         $this->assertSame(2, DB::table('karyawan')->count());
     }
 
+    public function test_command_memperbaiki_tautan_orphan(): void
+    {
+        $idSupirOrphan = $this->makeSupir('Supir Orphan', (string) Str::uuid());
+
+        $this->artisan('karyawan:dari-supir')->assertSuccessful();
+
+        $idKaryawanBaru = DB::table('supir')->where('id_supir', $idSupirOrphan)->value('id_karyawan');
+        $this->assertNotNull($idKaryawanBaru);
+        $this->assertNotNull(DB::table('karyawan')->where('id_karyawan', $idKaryawanBaru)->first());
+    }
+
     public function test_supir_yang_sudah_tertaut_dilewati_dan_migrasi_idempoten(): void
     {
         $idKaryawanLama = (string) Str::uuid();
