@@ -371,6 +371,34 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
 })->purpose('Buat notifikasi untuk servis armada yang jatuh tempo dalam 30 hari (berdasarkan servis terbaru per armada)')->dailyAt('07:15');
 
 Artisan::command('karyawan:dari-supir', function () {
+    // Satu karyawan maksimal tertaut ke satu supir. Bila beberapa supir
+    // menunjuk karyawan yang sama (mis. akibat import massal), pertahankan
+    // pemilik sah (NIK cocok pola SPR-<id supir>, atau yang tertua) dan
+    // lepaskan sisanya agar dibuatkan karyawan sendiri di loop utama.
+    $duplikat = DB::table('supir')
+        ->whereNull('dihapus_pada')
+        ->whereNotNull('id_karyawan')
+        ->select('id_karyawan', DB::raw('count(*) as jumlah'))
+        ->groupBy('id_karyawan')
+        ->having('jumlah', '>', 1)
+        ->pluck('id_karyawan');
+
+    foreach ($duplikat as $idKaryawanGanda) {
+        $nik = DB::table('karyawan')->where('id_karyawan', $idKaryawanGanda)->value('nik');
+        $kandidat = DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_karyawan', $idKaryawanGanda)
+            ->orderBy('dibuat_pada')
+            ->get();
+        $pemilik = $kandidat->first(fn ($s) => $nik === 'SPR-' . strtoupper(substr($s->id_supir, 0, 8)))
+            ?? $kandidat->first();
+
+        DB::table('supir')
+            ->where('id_karyawan', $idKaryawanGanda)
+            ->where('id_supir', '!=', $pemilik->id_supir)
+            ->update(['id_karyawan' => null, 'diubah_pada' => now()]);
+    }
+
     $idKaryawanValid = DB::table('karyawan')->whereNull('dihapus_pada')->pluck('id_karyawan');
 
     // id_karyawan yang menunjuk karyawan tak ada/terhapus (orphan — mis. sisa
