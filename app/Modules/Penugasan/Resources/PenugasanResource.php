@@ -25,6 +25,8 @@ class PenugasanResource extends JsonResource
             'id_supir_vendor'   => $this->id_supir_vendor,
             'dibuat_pada'    => $this->dibuat_pada,
             'diubah_pada'    => $this->diubah_pada,
+            'proyek' => $this->whenLoaded('proyek', fn () => $this->proyek !== null ? ['nama_proyek' => $this->proyek->nama_proyek] : null),
+            'armada' => $this->whenLoaded('armada', fn () => $this->armada !== null ? ['nopol' => $this->armada->nopol] : null),
         ];
     }
 }

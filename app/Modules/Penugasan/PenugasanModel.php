@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Penugasan;
 
 use App\Models\BaseModel;
+use App\Modules\Armada\ArmadaModel;
+use App\Modules\Proyek\ProyekModel;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PenugasanModel extends BaseModel
 {
@@ -29,4 +32,14 @@ class PenugasanModel extends BaseModel
     protected $attributes = [
         'sumber' => 'internal',
     ];
+
+    public function proyek(): BelongsTo
+    {
+        return $this->belongsTo(ProyekModel::class, 'id_proyek', 'id_proyek');
+    }
+
+    public function armada(): BelongsTo
+    {
+        return $this->belongsTo(ArmadaModel::class, 'id_armada', 'id_armada');
+    }
 }

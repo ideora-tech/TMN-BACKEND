@@ -54,6 +54,11 @@ class KontrakVendorService
         if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $data['id_perusahaan'])) {
             abort(404, 'Vendor tidak ditemukan');
         }
+
+        // Kolom nilai_kontrak NOT NULL DEFAULT 0 — input kosong dari klien
+        // (null) dinormalisasi supaya tidak meledak di constraint DB.
+        $data['nilai_kontrak'] = (float) ($data['nilai_kontrak'] ?? 0);
+
         return $this->repo->create($data);
     }
 
@@ -65,6 +70,10 @@ class KontrakVendorService
             if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $idPerusahaan)) {
                 abort(404, 'Vendor tidak ditemukan');
             }
+        }
+
+        if (array_key_exists('nilai_kontrak', $data) && $data['nilai_kontrak'] === null) {
+            $data['nilai_kontrak'] = 0;
         }
 
         return $this->repo->update($record, $data);

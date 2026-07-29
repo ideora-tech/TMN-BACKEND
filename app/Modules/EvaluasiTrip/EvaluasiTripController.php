@@ -9,6 +9,7 @@ use App\Modules\EvaluasiTrip\Requests\StoreEvaluasiTripRequest;
 use App\Modules\EvaluasiTrip\Requests\UpdateEvaluasiTripRequest;
 use App\Modules\EvaluasiTrip\Resources\EvaluasiTripResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class EvaluasiTripController extends Controller
@@ -30,5 +31,17 @@ class EvaluasiTripController extends Controller
     {
         $record = $this->service->update($id, $request->validated());
         return ApiResponse::success(new EvaluasiTripResource($record), 'Evaluasi trip berhasil diperbarui');
+    }
+
+    public function rekapVendor(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success($this->service->rekapVendor($idPerusahaan));
+    }
+
+    public function listByVendor(Request $request, string $idVendor): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success($this->service->listEvaluasiVendor($idVendor, $idPerusahaan));
     }
 }

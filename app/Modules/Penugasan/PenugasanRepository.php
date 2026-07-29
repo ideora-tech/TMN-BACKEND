@@ -30,6 +30,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
     public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null): LengthAwarePaginator
     {
         return PenugasanModel::active()
+            ->with(['proyek', 'armada'])
             ->where('id_supir', $idSupir)
             ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
             ->orderBy('tanggal_tugas', 'desc')

@@ -69,6 +69,38 @@ class SupirKaryawanMigrasiTest extends TestCase
         $this->assertSame(2, DB::table('karyawan')->count());
     }
 
+    public function test_command_memperbaiki_banyak_supir_menunjuk_satu_karyawan(): void
+    {
+        $idSupirPemilik = $this->makeSupir('Supir Pemilik Sah');
+        $nikPemilik = 'SPR-' . strtoupper(substr($idSupirPemilik, 0, 8));
+
+        $idKaryawan = (string) Str::uuid();
+        DB::table('karyawan')->insert([
+            'id_karyawan'   => $idKaryawan,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nik'           => $nikPemilik,
+            'nama_karyawan' => 'Supir Pemilik Sah',
+            'dibuat_pada'   => now(),
+        ]);
+
+        DB::table('supir')->where('id_supir', $idSupirPemilik)->update(['id_karyawan' => $idKaryawan]);
+        $idSupirNebeng1 = $this->makeSupir('Supir Nebeng Satu', $idKaryawan);
+        $idSupirNebeng2 = $this->makeSupir('Supir Nebeng Dua', $idKaryawan);
+
+        $this->artisan('karyawan:dari-supir')->assertSuccessful();
+
+        $this->assertSame($idKaryawan, DB::table('supir')->where('id_supir', $idSupirPemilik)->value('id_karyawan'));
+
+        $karyawanNebeng1 = DB::table('supir')->where('id_supir', $idSupirNebeng1)->value('id_karyawan');
+        $karyawanNebeng2 = DB::table('supir')->where('id_supir', $idSupirNebeng2)->value('id_karyawan');
+        $this->assertNotNull($karyawanNebeng1);
+        $this->assertNotNull($karyawanNebeng2);
+        $this->assertNotSame($idKaryawan, $karyawanNebeng1);
+        $this->assertNotSame($idKaryawan, $karyawanNebeng2);
+        $this->assertNotSame($karyawanNebeng1, $karyawanNebeng2);
+        $this->assertSame(3, DB::table('karyawan')->count());
+    }
+
     public function test_command_memperbaiki_tautan_orphan(): void
     {
         $idSupirOrphan = $this->makeSupir('Supir Orphan', (string) Str::uuid());

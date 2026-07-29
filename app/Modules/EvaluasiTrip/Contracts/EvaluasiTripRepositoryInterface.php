@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\EvaluasiTrip\Contracts;
 
 use App\Modules\EvaluasiTrip\EvaluasiTripModel;
+use Illuminate\Support\Collection;
 
 interface EvaluasiTripRepositoryInterface
 {
@@ -13,4 +14,7 @@ interface EvaluasiTripRepositoryInterface
     public function findById(string $id): ?EvaluasiTripModel;
     public function create(array $data): EvaluasiTripModel;
     public function update(EvaluasiTripModel $model, array $data): EvaluasiTripModel;
+    public function rekapPerVendor(string $idPerusahaan): Collection;
+    public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
+    public function listByVendor(string $idVendor): Collection;
 }

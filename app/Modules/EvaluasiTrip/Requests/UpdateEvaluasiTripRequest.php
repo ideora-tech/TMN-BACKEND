@@ -16,9 +16,13 @@ class UpdateEvaluasiTripRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nilai_armada' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:5'],
-            'nilai_supir'  => ['sometimes', 'nullable', 'integer', 'min:1', 'max:5'],
-            'catatan'      => ['sometimes', 'nullable', 'string'],
+            'nilai_armada'          => ['sometimes', 'nullable', 'integer', 'min:1', 'max:5'],
+            'nilai_supir'           => ['sometimes', 'nullable', 'integer', 'min:1', 'max:5'],
+            'nilai_ketepatan_waktu' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:5'],
+            'nilai_kualitas'        => ['sometimes', 'nullable', 'integer', 'min:1', 'max:5'],
+            'nilai_harga'           => ['sometimes', 'nullable', 'integer', 'min:1', 'max:5'],
+            'nilai_responsif'       => ['sometimes', 'nullable', 'integer', 'min:1', 'max:5'],
+            'catatan'               => ['sometimes', 'nullable', 'string'],
         ];
     }
 }

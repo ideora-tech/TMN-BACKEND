@@ -25,5 +25,12 @@ class EvaluasiTripServiceProvider extends ServiceProvider
                 Route::post('penugasan/{idPenugasan}/evaluasi', [EvaluasiTripController::class, 'storeByPenugasan']);
                 Route::put('evaluasi/{id}', [EvaluasiTripController::class, 'update']);
             });
+
+        Route::prefix('api/v1')
+            ->middleware(['api', 'auth:sanctum', 'izin:vendor'])
+            ->group(function () {
+                Route::get('evaluasi-vendor/rekap', [EvaluasiTripController::class, 'rekapVendor']);
+                Route::get('vendor/{idVendor}/evaluasi', [EvaluasiTripController::class, 'listByVendor']);
+            });
     }
 }

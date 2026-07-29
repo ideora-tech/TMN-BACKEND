@@ -134,6 +134,46 @@ class KontrakVendorCrudTest extends TestCase
         ]);
     }
 
+    public function test_membuat_kontrak_dengan_nilai_kontrak_null_tersimpan_nol(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+
+        $res = $this->postJson('/api/v1/kontrak-vendor', [
+            'id_vendor'     => $vendor->id_vendor,
+            'nomor_kontrak' => 'KV-NULL-001',
+            'mekanisme'     => 'unit_driver',
+            'jenis_layanan' => 'Angkutan kontainer',
+            'nilai_kontrak' => null,
+            'rate'          => null,
+            'satuan'        => 'per trip',
+            'pajak_persen'  => null,
+            'termin_pembayaran_hari' => null,
+            'tanggal_mulai' => null,
+            'tanggal_selesai' => null,
+        ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.nilai_kontrak', 0);
+
+        $this->assertDatabaseHas('kontrak_vendor', [
+            'nomor_kontrak' => 'KV-NULL-001',
+            'nilai_kontrak' => 0,
+        ]);
+    }
+
+    public function test_update_kontrak_dengan_nilai_kontrak_null_tersimpan_nol(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor);
+
+        $this->putJson("/api/v1/kontrak-vendor/{$kontrak->id_kontrak_vendor}", [
+            'nilai_kontrak' => null,
+        ])->assertStatus(200)
+            ->assertJsonPath('data.nilai_kontrak', 0);
+    }
+
     public function test_show_dan_hapus_vendor_perusahaan_lain_mengembalikan_404(): void
     {
         $this->actingAsRole('SUPERADMIN');
