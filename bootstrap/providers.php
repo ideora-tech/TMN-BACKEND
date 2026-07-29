@@ -36,6 +36,7 @@ return [
     App\Modules\Notifikasi\NotifikasiServiceProvider::class,
     App\Modules\PaketPerawatanSparepart\PaketPerawatanSparepartServiceProvider::class,
     App\Modules\ParameterBok\ParameterBokServiceProvider::class,
+    App\Modules\Payroll\PayrollServiceProvider::class,
     App\Modules\Pengguna\PenggunaServiceProvider::class,
     App\Modules\Penugasan\PenugasanServiceProvider::class,
     App\Modules\Peran\PeranServiceProvider::class,

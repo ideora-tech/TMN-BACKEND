@@ -69,4 +69,9 @@ class KaryawanController extends Controller
         $history = $this->service->exitHistory($id);
         return ApiResponse::success(KaryawanExitResource::collection($history));
     }
+
+    public function riwayatJabatan(string $id): JsonResponse
+    {
+        return ApiResponse::success($this->service->riwayatJabatan($id));
+    }
 }

@@ -22,6 +22,7 @@ class KaryawanServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
             ->group(function () {
                 Route::get('karyawan/{id}/exit-history', [KaryawanController::class, 'exitHistory']);
+                Route::get('karyawan/{id}/riwayat-jabatan', [KaryawanController::class, 'riwayatJabatan']);
                 Route::apiResource('karyawan', KaryawanController::class)
                     ->parameters(['karyawan' => 'id']);
             });

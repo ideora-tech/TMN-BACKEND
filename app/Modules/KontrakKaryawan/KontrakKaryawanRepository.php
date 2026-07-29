@@ -12,7 +12,7 @@ class KontrakKaryawanRepository implements KontrakKaryawanRepositoryInterface
 {
     private const COLUMNS = [
         'id_kontrak', 'id_perusahaan', 'id_karyawan', 'jenis_kontrak', 'nomor_kontrak',
-        'tanggal_mulai', 'tanggal_selesai', 'keterangan',
+        'tanggal_mulai', 'tanggal_selesai', 'keterangan', 'url_file',
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 

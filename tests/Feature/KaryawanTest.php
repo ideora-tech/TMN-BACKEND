@@ -56,6 +56,31 @@ class KaryawanTest extends TestCase
         $this->assertDatabaseHas('karyawan', ['nik' => 'NIK-001', 'id_perusahaan' => self::PERUSAHAAN_ID]);
     }
 
+    public function test_karyawan_override_bpjs_opsional(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $resTanpaOverride = $this->postJson('/api/v1/karyawan', [
+            'nik' => 'NIK-OVR-01', 'nama_karyawan' => 'Tanpa Override',
+        ]);
+        $resTanpaOverride->assertStatus(201)
+            ->assertJsonPath('data.override_persen_bpjs_kesehatan', null)
+            ->assertJsonPath('data.override_persen_bpjs_jht', null);
+
+        $resDenganOverride = $this->postJson('/api/v1/karyawan', [
+            'nik' => 'NIK-OVR-02', 'nama_karyawan' => 'Dengan Override',
+            'override_persen_bpjs_kesehatan' => 2,
+            'override_persen_bpjs_jht'       => 3,
+            'override_persen_bpjs_jp'        => 1.5,
+            'override_plafon_bpjs_kesehatan' => 10000000,
+        ]);
+        $resDenganOverride->assertStatus(201)
+            ->assertJsonPath('data.override_persen_bpjs_kesehatan', 2)
+            ->assertJsonPath('data.override_persen_bpjs_jht', 3)
+            ->assertJsonPath('data.override_persen_bpjs_jp', 1.5)
+            ->assertJsonPath('data.override_plafon_bpjs_kesehatan', 10000000);
+    }
+
     public function test_membuat_karyawan_dengan_field_hr_lengkap(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -106,6 +131,36 @@ class KaryawanTest extends TestCase
         ]);
 
         $res->assertStatus(422)->assertJsonValidationErrors(['status_ptkp']);
+    }
+
+    public function test_ubah_jabatan_tercatat_di_riwayat(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-MUT-01', 'Andi Mutasi');
+
+        $idJabatanA = (string) Str::uuid();
+        $idJabatanB = (string) Str::uuid();
+        DB::table('jabatan')->insert([
+            ['id_jabatan' => $idJabatanA, 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_jabatan' => 'JB-A', 'nama_jabatan' => 'Staff Operasional', 'dibuat_pada' => now()],
+            ['id_jabatan' => $idJabatanB, 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_jabatan' => 'JB-B', 'nama_jabatan' => 'Supervisor Operasional', 'dibuat_pada' => now()],
+        ]);
+
+        // set jabatan pertama (null -> A), lalu promosi (A -> B)
+        $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}", ['id_jabatan' => $idJabatanA])->assertStatus(200);
+        $this->travel(2)->seconds();
+        $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}", ['id_jabatan' => $idJabatanB])->assertStatus(200);
+        // update tanpa ganti jabatan tidak menambah riwayat
+        $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}", ['telepon' => '0811111111', 'id_jabatan' => $idJabatanB])->assertStatus(200);
+
+        $res = $this->getJson("/api/v1/karyawan/{$karyawan->id_karyawan}/riwayat-jabatan");
+
+        $res->assertStatus(200);
+        $data = $res->json('data');
+        $this->assertCount(2, $data);
+        $this->assertSame('Supervisor Operasional', $data[0]['jabatan_baru']);
+        $this->assertSame('Staff Operasional', $data[0]['jabatan_lama']);
+        $this->assertNull($data[1]['jabatan_lama']);
+        $this->assertSame('Staff Operasional', $data[1]['jabatan_baru']);
     }
 
     public function test_menolak_nik_duplikat(): void

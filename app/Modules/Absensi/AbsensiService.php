@@ -149,8 +149,14 @@ class AbsensiService
     {
         $awal  = Carbon::parse($bulan . '-01')->startOfMonth();
         $akhir = $awal->copy()->endOfMonth();
-        $awalStr  = $awal->toDateString();
-        $akhirStr = $akhir->toDateString();
+
+        return $this->rekapRentang($idPerusahaan, $awal->toDateString(), $akhir->toDateString(), $page, $limit, $search);
+    }
+
+    public function rekapRentang(string $idPerusahaan, string $awalStr, string $akhirStr, int $page = 1, int $limit = 10, ?string $search = null): array
+    {
+        $awal  = Carbon::parse($awalStr);
+        $akhir = Carbon::parse($akhirStr);
 
         $lemburHarian = $this->hitungLemburHarian($idPerusahaan, $awalStr, $akhirStr);
 
@@ -175,6 +181,14 @@ class AbsensiService
                 'id_karyawan'   => $k->id_karyawan,
                 'nik'           => $k->nik,
                 'nama'          => $k->nama_karyawan,
+                'gaji_pokok'    => (float) $k->gaji_pokok,
+                'status_ptkp'   => $k->status_ptkp ?? null,
+                'ikut_bpjs_kesehatan'       => (bool) ($k->ikut_bpjs_kesehatan ?? false),
+                'ikut_bpjs_ketenagakerjaan' => (bool) ($k->ikut_bpjs_ketenagakerjaan ?? false),
+                'override_persen_bpjs_kesehatan' => $k->override_persen_bpjs_kesehatan !== null ? (float) $k->override_persen_bpjs_kesehatan : null,
+                'override_persen_bpjs_jht'       => $k->override_persen_bpjs_jht !== null ? (float) $k->override_persen_bpjs_jht : null,
+                'override_persen_bpjs_jp'        => $k->override_persen_bpjs_jp !== null ? (float) $k->override_persen_bpjs_jp : null,
+                'override_plafon_bpjs_kesehatan' => $k->override_plafon_bpjs_kesehatan !== null ? (float) $k->override_plafon_bpjs_kesehatan : null,
                 'cuti'          => $cutiHari[$k->id_karyawan] ?? 0,
                 'lembur_menit'  => array_sum($harian),
                 'lembur_rupiah' => $this->hitungUpahLembur((float) $k->gaji_pokok, $harian),

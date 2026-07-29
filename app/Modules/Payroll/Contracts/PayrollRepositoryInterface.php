@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Payroll\Contracts;
+
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+
+interface PayrollRepositoryInterface
+{
+    public function getPengaturan(string $idPerusahaan): ?object;
+    public function upsertPengaturan(string $idPerusahaan, array $data): object;
+
+    public function paginatePeriode(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator;
+    public function findPeriodeById(string $id): ?object;
+    public function adaPeriodeTumpangTindih(string $idPerusahaan, string $mulai, string $selesai, ?string $excludeId = null): bool;
+    public function createPeriode(array $data): object;
+    public function updatePeriode(object $record, array $data): object;
+    public function deletePeriode(object $record): void;
+
+    public function slipByPeriode(string $idPeriode): array;
+    public function findSlipById(string $id): ?object;
+    public function getPerusahaan(string $idPerusahaan): ?object;
+    public function createSlip(array $data): object;
+    public function updateSlip(object $record, array $data): object;
+    public function hapusSlipByPeriode(string $idPeriode): void;
+    public function ringkasanPeriode(string $idPeriode): object;
+}

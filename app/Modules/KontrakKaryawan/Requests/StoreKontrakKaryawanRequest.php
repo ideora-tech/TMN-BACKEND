@@ -21,6 +21,8 @@ class StoreKontrakKaryawanRequest extends FormRequest
             'tanggal_mulai'   => ['required', 'date'],
             'tanggal_selesai' => ['sometimes', 'nullable', 'date', 'after_or_equal:tanggal_mulai'],
             'keterangan'      => ['sometimes', 'nullable', 'string'],
+            'url_file'        => ['sometimes', 'nullable', 'string', 'max:500'],
+            'file'            => ['sometimes', 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ];
     }
 }

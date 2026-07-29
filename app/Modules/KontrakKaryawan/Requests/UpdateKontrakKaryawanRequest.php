@@ -21,6 +21,8 @@ class UpdateKontrakKaryawanRequest extends FormRequest
             'tanggal_mulai'   => ['sometimes', 'date'],
             'tanggal_selesai' => ['sometimes', 'nullable', 'date'],
             'keterangan'      => ['sometimes', 'nullable', 'string'],
+            'url_file'        => ['sometimes', 'nullable', 'string', 'max:500'],
+            'file'            => ['sometimes', 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ];
     }
 }

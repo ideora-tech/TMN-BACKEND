@@ -18,6 +18,7 @@ class KaryawanRepository implements KaryawanRepositoryInterface
         'alamat_ktp', 'alamat_domisili', 'status_pernikahan', 'jumlah_tanggungan', 'status_ptkp',
         'npwp', 'nama_bank', 'nomor_rekening', 'atas_nama_rekening',
         'ikut_bpjs_kesehatan', 'no_bpjs_kesehatan', 'ikut_bpjs_ketenagakerjaan', 'no_bpjs_ketenagakerjaan',
+        'override_persen_bpjs_kesehatan', 'override_persen_bpjs_jht', 'override_persen_bpjs_jp', 'override_plafon_bpjs_kesehatan',
         'kontak_darurat_nama', 'kontak_darurat_telepon', 'kontak_darurat_hubungan', 'pendidikan_terakhir',
         'tanggal_masuk', 'status_kepegawaian', 'gaji_pokok', 'aktif',
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
@@ -100,6 +101,33 @@ class KaryawanRepository implements KaryawanRepositoryInterface
         return DB::table('karyawan_exit')
             ->where('id_karyawan', $idKaryawan)
             ->orderBy('tanggal_efektif', 'desc')
+            ->get()
+            ->all();
+    }
+
+    public function insertRiwayatJabatan(string $idPerusahaan, string $idKaryawan, ?string $idJabatanLama, ?string $idJabatanBaru): void
+    {
+        DB::table('riwayat_jabatan')->insert(RecordHelper::stampCreate([
+            'id_perusahaan'   => $idPerusahaan,
+            'id_karyawan'     => $idKaryawan,
+            'id_jabatan_lama' => $idJabatanLama,
+            'id_jabatan_baru' => $idJabatanBaru,
+        ], 'id_riwayat'));
+    }
+
+    public function riwayatJabatan(string $idKaryawan): array
+    {
+        return DB::table('riwayat_jabatan as r')
+            ->leftJoin('jabatan as jl', 'r.id_jabatan_lama', '=', 'jl.id_jabatan')
+            ->leftJoin('jabatan as jb', 'r.id_jabatan_baru', '=', 'jb.id_jabatan')
+            ->whereNull('r.dihapus_pada')
+            ->where('r.id_karyawan', $idKaryawan)
+            ->orderByDesc('r.dibuat_pada')
+            ->select(
+                'r.id_riwayat', 'r.id_jabatan_lama', 'r.id_jabatan_baru', 'r.dibuat_pada',
+                'jl.nama_jabatan as jabatan_lama',
+                'jb.nama_jabatan as jabatan_baru',
+            )
             ->get()
             ->all();
     }

@@ -18,6 +18,7 @@ class KontrakKaryawanResource extends JsonResource
             'tanggal_mulai'   => $this->tanggal_mulai,
             'tanggal_selesai' => $this->tanggal_selesai,
             'keterangan'      => $this->keterangan,
+            'url_file'        => $this->url_file,
             'aktif'           => $this->tanggal_selesai === null || $this->tanggal_selesai >= now()->toDateString(),
             'dibuat_pada'     => $this->dibuat_pada,
             'diubah_pada'     => $this->diubah_pada,

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -117,6 +119,43 @@ class KontrakKaryawanTest extends TestCase
         $resDelete->assertStatus(200);
 
         $this->assertSoftDeleted('kontrak_karyawan', ['id_kontrak' => $kontrak->id_kontrak]);
+    }
+
+    public function test_membuat_kontrak_dengan_upload_file(): void
+    {
+        Storage::fake('public');
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan();
+
+        $res = $this->post("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak", [
+            'jenis_kontrak'   => 'pkwt',
+            'tanggal_mulai'   => '2026-01-01',
+            'tanggal_selesai' => '2026-12-31',
+            'file'            => UploadedFile::fake()->create('kontrak.pdf', 100, 'application/pdf'),
+        ], ['Accept' => 'application/json']);
+
+        $res->assertStatus(201);
+        $urlFile = $res->json('data.url_file');
+        $this->assertNotNull($urlFile);
+
+        $this->assertCount(1, Storage::disk('public')->allFiles('dokumen'));
+    }
+
+    public function test_update_kontrak_dengan_upload_file(): void
+    {
+        Storage::fake('public');
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan();
+        $kontrak  = $this->makeKontrak($karyawan->id_karyawan);
+
+        $res = $this->post("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak/{$kontrak->id_kontrak}", [
+            '_method' => 'PUT',
+            'file'    => UploadedFile::fake()->create('kontrak-baru.pdf', 100, 'application/pdf'),
+        ], ['Accept' => 'application/json']);
+
+        $res->assertStatus(200);
+        $this->assertNotNull($res->json('data.url_file'));
+        $this->assertCount(1, Storage::disk('public')->allFiles('dokumen'));
     }
 
     public function test_kontrak_perusahaan_lain_tidak_bisa_diakses(): void

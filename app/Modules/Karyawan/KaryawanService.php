@@ -47,7 +47,28 @@ class KaryawanService
     public function update(string $id, array $data): object
     {
         $record = $this->findOrFail($id);
-        return $this->repo->update($record, $data);
+
+        $jabatanBerubah = array_key_exists('id_jabatan', $data)
+            && ($data['id_jabatan'] ?? null) !== $record->id_jabatan;
+
+        $updated = $this->repo->update($record, $data);
+
+        if ($jabatanBerubah) {
+            $this->repo->insertRiwayatJabatan(
+                (string) $record->id_perusahaan,
+                $record->id_karyawan,
+                $record->id_jabatan,
+                $data['id_jabatan'] ?? null,
+            );
+        }
+
+        return $updated;
+    }
+
+    public function riwayatJabatan(string $id): array
+    {
+        $this->findOrFail($id);
+        return $this->repo->riwayatJabatan($id);
     }
 
     public function delete(string $id): void

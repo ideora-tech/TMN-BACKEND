@@ -27,7 +27,7 @@ class KontrakKaryawanController extends Controller
     public function store(StoreKontrakKaryawanRequest $request, string $idKaryawan): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $record = $this->service->create($idKaryawan, $idPerusahaan, $request->validated());
+        $record = $this->service->create($idKaryawan, $idPerusahaan, $request->validated(), $request->file('file'));
 
         return ApiResponse::success(new KontrakKaryawanResource($record), 'Kontrak karyawan berhasil dibuat', 201);
     }
@@ -35,7 +35,7 @@ class KontrakKaryawanController extends Controller
     public function update(UpdateKontrakKaryawanRequest $request, string $idKaryawan, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $record = $this->service->update($id, $idPerusahaan, $request->validated());
+        $record = $this->service->update($id, $idPerusahaan, $request->validated(), $request->file('file'));
 
         return ApiResponse::success(new KontrakKaryawanResource($record), 'Kontrak karyawan berhasil diperbarui');
     }
