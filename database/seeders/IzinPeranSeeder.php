@@ -55,10 +55,55 @@ class IzinPeranSeeder extends Seeder
         ['KEUANGAN', '/shift', ['lihat']],
     ];
 
+    /**
+     * Role yang punya baris menu_peran (menu tampil di sidebar) tapi sengaja
+     * DIBATASI hanya sebagian aksi. Baris deny (diizinkan=0) dibuat SEBELUM loop
+     * menu_peran di bawah, sehingga loop tersebut meng-skip aksi ini dan tidak
+     * memberi izin penuh otomatis. Baris yang sudah ada tidak diubah (beda dengan
+     * IZIN_EKSPLISIT) supaya grant manual admin via UI tidak ikut tercabut saat re-seed.
+     * Format: [kode_peran, menu path, [aksi yang ditolak, ...]]
+     */
+    private const IZIN_TOLAK = [
+        ['MANAGER', '/invoice-vendor', ['tambah', 'ubah', 'hapus']],
+        ['ADMIN', '/invoice-vendor', ['tambah', 'ubah', 'hapus']],
+    ];
+
     public function run(): void
     {
-        $menuPeran = DB::table('menu_peran')->get(['id_menu', 'kode_peran']);
         $now = now();
+
+        foreach (self::IZIN_TOLAK as [$kodePeran, $path, $aksiList]) {
+            $idMenu = DB::table('menu')->where('path', $path)->value('id_menu');
+            if ($idMenu === null) {
+                $this->command?->warn("IzinPeranSeeder: menu path '{$path}' tidak ditemukan — deny [{$kodePeran}, {$path}] TIDAK terpasang");
+                continue;
+            }
+
+            foreach ($aksiList as $aksi) {
+                $exists = DB::table('izin_peran')
+                    ->where('id_menu', $idMenu)
+                    ->where('kode_peran', $kodePeran)
+                    ->where('aksi', $aksi)
+                    ->whereNull('id_perusahaan')
+                    ->exists();
+
+                if ($exists) {
+                    continue;
+                }
+
+                DB::table('izin_peran')->insertOrIgnore([
+                    'id_izin'       => (string) Str::uuid(),
+                    'id_perusahaan' => null,
+                    'kode_peran'    => $kodePeran,
+                    'id_menu'       => $idMenu,
+                    'aksi'          => $aksi,
+                    'diizinkan'     => 0,
+                    'dibuat_pada'   => $now,
+                ]);
+            }
+        }
+
+        $menuPeran = DB::table('menu_peran')->get(['id_menu', 'kode_peran']);
 
         foreach ($menuPeran as $row) {
             foreach (self::AKSI as $aksi) {

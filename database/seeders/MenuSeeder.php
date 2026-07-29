@@ -27,6 +27,7 @@ class MenuSeeder extends Seeder
             'keuangan'         => 'm0000001-0000-4000-8000-000000000030',
             'faktur'           => 'm0000001-0000-4000-8000-000000000031',
             'rekonsiliasi'     => 'm0000001-0000-4000-8000-000000000032',
+            'invoice_vendor'   => 'm0000001-0000-4000-8000-000000000034',
             // Pengaturan
             'pengaturan'       => 'm0000001-0000-4000-8000-000000000040',
             'pengguna'         => 'm0000001-0000-4000-8000-000000000041',
@@ -45,11 +46,6 @@ class MenuSeeder extends Seeder
             // HR
             'hr'               => 'm0000001-0000-4000-8000-000000000060',
             'karyawan'         => 'm0000001-0000-4000-8000-000000000061',
-            // Operasional Vendor
-            'operasional_vendor' => 'm0000001-0000-4000-8000-000000000070',
-            'armada_vendor'      => 'm0000001-0000-4000-8000-000000000071',
-            'supir_vendor'       => 'm0000001-0000-4000-8000-000000000072',
-            'penugasan_vendor'   => 'm0000001-0000-4000-8000-000000000073',
         ];
 
         $now = now();
@@ -71,6 +67,7 @@ class MenuSeeder extends Seeder
             ['id_menu' => $ids['keuangan'],     'nama_menu' => 'Keuangan',     'path' => null,             'id_menu_induk' => null,              'icon' => 'receipt',    'urutan' => 6],
             ['id_menu' => $ids['faktur'],       'nama_menu' => 'Faktur',       'path' => '/faktur',        'id_menu_induk' => $ids['keuangan'],   'icon' => 'receipt',    'urutan' => 1],
             ['id_menu' => $ids['rekonsiliasi'],    'nama_menu' => 'Rekonsiliasi',    'path' => '/rekonsiliasi',    'id_menu_induk' => $ids['keuangan'],     'icon' => 'repeat',           'urutan' => 2],
+            ['id_menu' => $ids['invoice_vendor'],  'nama_menu' => 'Invoice Vendor',  'path' => '/invoice-vendor',  'id_menu_induk' => $ids['keuangan'],     'icon' => 'receipt',          'urutan' => 4],
             // Pengaturan
             ['id_menu' => $ids['pengaturan'],      'nama_menu' => 'Pengaturan',      'path' => null,               'id_menu_induk' => null,                  'icon' => 'settings',         'urutan' => 7],
             ['id_menu' => $ids['pengguna'],         'nama_menu' => 'Pengguna',         'path' => '/pengguna',        'id_menu_induk' => $ids['pengaturan'],    'icon' => 'userCheck',        'urutan' => 1],
@@ -89,11 +86,6 @@ class MenuSeeder extends Seeder
             // HR
             ['id_menu' => $ids['hr'],              'nama_menu' => 'HR',              'path' => null,               'id_menu_induk' => null,                  'icon' => 'users',            'urutan' => 9],
             ['id_menu' => $ids['karyawan'],        'nama_menu' => 'Karyawan',        'path' => '/karyawan',        'id_menu_induk' => $ids['hr'],            'icon' => 'userCircle',       'urutan' => 1],
-            // Operasional Vendor
-            ['id_menu' => $ids['operasional_vendor'], 'nama_menu' => 'Operasional Vendor', 'path' => null,                  'id_menu_induk' => null,                          'icon' => 'building',   'urutan' => 4],
-            ['id_menu' => $ids['armada_vendor'],      'nama_menu' => 'Armada Vendor',      'path' => '/armada-vendor',      'id_menu_induk' => $ids['operasional_vendor'],    'icon' => 'truck',      'urutan' => 1],
-            ['id_menu' => $ids['supir_vendor'],       'nama_menu' => 'Supir Vendor',       'path' => '/supir-vendor',       'id_menu_induk' => $ids['operasional_vendor'],    'icon' => 'users',      'urutan' => 2],
-            ['id_menu' => $ids['penugasan_vendor'],   'nama_menu' => 'Penugasan Vendor',   'path' => '/penugasan-vendor',   'id_menu_induk' => $ids['operasional_vendor'],    'icon' => 'clipboard',  'urutan' => 3],
         ];
 
         foreach ($menus as $menu) {
@@ -169,6 +161,10 @@ class MenuSeeder extends Seeder
             [$ids['rekonsiliasi'], 'MANAGER'],
             [$ids['rekonsiliasi'], 'ADMIN'],
             [$ids['rekonsiliasi'], 'SUPERADMIN'],
+            [$ids['invoice_vendor'], 'KEUANGAN'],
+            [$ids['invoice_vendor'], 'MANAGER'],
+            [$ids['invoice_vendor'], 'ADMIN'],
+            [$ids['invoice_vendor'], 'SUPERADMIN'],
 
             // Pengaturan — hanya ADMIN & SUPERADMIN
             [$ids['pengaturan'], 'ADMIN'],
@@ -216,24 +212,6 @@ class MenuSeeder extends Seeder
             [$ids['karyawan'], 'ADMIN'],
             [$ids['karyawan'], 'SUPERADMIN'],
             [$ids['karyawan'], 'MANAGER'],
-
-            // Operasional Vendor — DISPATCHER, MANAGER, ADMIN, SUPERADMIN
-            [$ids['operasional_vendor'], 'DISPATCHER'],
-            [$ids['operasional_vendor'], 'MANAGER'],
-            [$ids['operasional_vendor'], 'ADMIN'],
-            [$ids['operasional_vendor'], 'SUPERADMIN'],
-            [$ids['armada_vendor'],      'DISPATCHER'],
-            [$ids['armada_vendor'],      'MANAGER'],
-            [$ids['armada_vendor'],      'ADMIN'],
-            [$ids['armada_vendor'],      'SUPERADMIN'],
-            [$ids['supir_vendor'],       'DISPATCHER'],
-            [$ids['supir_vendor'],       'MANAGER'],
-            [$ids['supir_vendor'],       'ADMIN'],
-            [$ids['supir_vendor'],       'SUPERADMIN'],
-            [$ids['penugasan_vendor'],   'DISPATCHER'],
-            [$ids['penugasan_vendor'],   'MANAGER'],
-            [$ids['penugasan_vendor'],   'ADMIN'],
-            [$ids['penugasan_vendor'],   'SUPERADMIN'],
         ];
 
         foreach ($menuPeran as [$idMenu, $kodePeran]) {

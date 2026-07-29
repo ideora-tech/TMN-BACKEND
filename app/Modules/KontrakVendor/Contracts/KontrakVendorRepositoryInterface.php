@@ -13,6 +13,7 @@ interface KontrakVendorRepositoryInterface
     public function paginateByProyek(string $idPerusahaan, string $idProyek, int $page, int $limit): LengthAwarePaginator;
     public function findById(string $id): ?KontrakVendorModel;
     public function findAktifMilikPerusahaan(string $id, string $idPerusahaan): ?KontrakVendorModel;
+    public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
     public function create(array $data): KontrakVendorModel;
     public function update(KontrakVendorModel $model, array $data): KontrakVendorModel;
     public function delete(KontrakVendorModel $model): void;

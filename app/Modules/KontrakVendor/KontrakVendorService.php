@@ -40,9 +40,9 @@ class KontrakVendorService
         ];
     }
 
-    public function findOrFail(string $id): KontrakVendorModel
+    public function findOrFail(string $id, string $idPerusahaan): KontrakVendorModel
     {
-        $record = $this->repo->findById($id);
+        $record = $this->repo->findAktifMilikPerusahaan($id, $idPerusahaan);
         if ($record === null) {
             abort(404, 'Kontrak vendor tidak ditemukan');
         }
@@ -51,18 +51,28 @@ class KontrakVendorService
 
     public function create(array $data): KontrakVendorModel
     {
+        if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $data['id_perusahaan'])) {
+            abort(404, 'Vendor tidak ditemukan');
+        }
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): KontrakVendorModel
+    public function update(string $id, array $data, string $idPerusahaan): KontrakVendorModel
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if (isset($data['id_vendor']) && $data['id_vendor'] !== $record->id_vendor) {
+            if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $idPerusahaan)) {
+                abort(404, 'Vendor tidak ditemukan');
+            }
+        }
+
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, string $idPerusahaan): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
         $this->repo->delete($record);
     }
 }

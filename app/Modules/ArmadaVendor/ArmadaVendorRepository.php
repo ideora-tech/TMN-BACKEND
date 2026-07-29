@@ -62,7 +62,14 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
     public function update(ArmadaVendorModel $model, array $data): ArmadaVendorModel
     {
         $model->update($data);
-        return $model->fresh() ?? $model;
+
+        $fresh = ArmadaVendorModel::active()
+            ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->where('armada_vendor.id_armada_vendor', $model->id_armada_vendor)
+            ->select('armada_vendor.*', 'vendor.nama_vendor')
+            ->first();
+
+        return $fresh ?? $model;
     }
 
     public function delete(ArmadaVendorModel $model): void

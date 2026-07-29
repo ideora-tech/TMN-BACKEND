@@ -17,7 +17,12 @@ class SupirVendorModel extends BaseModel
         'nama',
         'telepon',
         'no_sim',
+        'masa_berlaku_sim',
         'aktif',
+    ];
+
+    protected $casts = [
+        'masa_berlaku_sim' => 'date',
     ];
 
     protected $attributes = [

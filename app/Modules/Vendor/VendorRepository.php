@@ -26,6 +26,14 @@ class VendorRepository implements VendorRepositoryInterface
         return VendorModel::active()->find($id);
     }
 
+    public function findByIdMilikPerusahaan(string $id, string $idPerusahaan): ?VendorModel
+    {
+        return VendorModel::active()
+            ->where('id_vendor', $id)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->first();
+    }
+
     public function findByKode(string $idPerusahaan, string $kode): ?VendorModel
     {
         return VendorModel::active()

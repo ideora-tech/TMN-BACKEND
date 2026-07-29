@@ -22,6 +22,7 @@ class SupirResource extends JsonResource
             'status'              => $this->status,
             'foto'                => $this->foto,
             'id_armada_default'   => $this->id_armada_default,
+            'armada_default'      => $this->armada_default ?? null,
             'dibuat_pada'         => $this->dibuat_pada,
             'diubah_pada'         => $this->diubah_pada,
         ];

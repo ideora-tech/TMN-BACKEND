@@ -16,12 +16,15 @@ class UpdateArmadaVendorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_vendor' => ['sometimes', 'string', 'max:36'],
-            'nopol'     => ['sometimes', 'string', 'max:20'],
-            'merk'      => ['sometimes', 'nullable', 'string', 'max:100'],
-            'jenis'     => ['sometimes', 'nullable', 'string', 'max:100'],
-            'tahun'     => ['sometimes', 'nullable', 'integer'],
-            'aktif'     => ['sometimes', 'boolean'],
+            'id_vendor'         => ['sometimes', 'string', 'max:36'],
+            'nopol'             => ['sometimes', 'string', 'max:20'],
+            'merk'              => ['sometimes', 'nullable', 'string', 'max:100'],
+            'jenis'             => ['sometimes', 'nullable', 'string', 'max:100'],
+            'kapasitas'         => ['sometimes', 'nullable', 'string', 'max:50'],
+            'tahun'             => ['sometimes', 'nullable', 'integer'],
+            'masa_berlaku_stnk' => ['sometimes', 'nullable', 'date'],
+            'masa_berlaku_kir'  => ['sometimes', 'nullable', 'date'],
+            'aktif'             => ['sometimes', 'boolean'],
         ];
     }
 }

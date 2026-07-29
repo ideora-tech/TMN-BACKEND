@@ -11,16 +11,20 @@ class VendorResource extends JsonResource
     public function toArray($request): array
     {
         return [
-            'id_vendor'    => $this->id_vendor,
-            'id_perusahaan' => $this->id_perusahaan,
-            'kode_vendor'  => $this->kode_vendor,
-            'nama_vendor'  => $this->nama_vendor,
-            'email'        => $this->email,
-            'telepon'      => $this->telepon,
-            'alamat'       => $this->alamat,
-            'aktif'        => (bool) $this->aktif,
-            'dibuat_pada'  => $this->dibuat_pada,
-            'diubah_pada'  => $this->diubah_pada,
+            'id_vendor'         => $this->id_vendor,
+            'id_perusahaan'     => $this->id_perusahaan,
+            'kode_vendor'       => $this->kode_vendor,
+            'nama_vendor'       => $this->nama_vendor,
+            'jenis_vendor'      => $this->jenis_vendor,
+            'pic_nama'          => $this->pic_nama,
+            'email'             => $this->email,
+            'telepon'           => $this->telepon,
+            'alamat'            => $this->alamat,
+            'npwp'              => $this->npwp,
+            'tanggal_bergabung' => $this->tanggal_bergabung?->toDateString(),
+            'aktif'             => (bool) $this->aktif,
+            'dibuat_pada'       => $this->dibuat_pada,
+            'diubah_pada'       => $this->diubah_pada,
         ];
     }
 }

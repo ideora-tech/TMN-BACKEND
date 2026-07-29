@@ -17,12 +17,16 @@ class UpdateVendorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_vendor' => ['sometimes', 'string', 'max:50', Rule::unique('vendor', 'kode_vendor')->ignore($this->route('id'), 'id_vendor')],
-            'nama_vendor' => ['sometimes', 'string', 'max:200'],
-            'email'       => ['sometimes', 'nullable', 'email', 'max:150'],
-            'telepon'     => ['sometimes', 'nullable', 'string', 'max:30'],
-            'alamat'      => ['sometimes', 'nullable', 'string'],
-            'aktif'       => ['sometimes', 'boolean'],
+            'kode_vendor'       => ['sometimes', 'string', 'max:50', Rule::unique('vendor', 'kode_vendor')->ignore($this->route('id'), 'id_vendor')],
+            'nama_vendor'       => ['sometimes', 'string', 'max:200'],
+            'jenis_vendor'      => ['sometimes', 'nullable', 'string', 'max:50'],
+            'pic_nama'          => ['sometimes', 'nullable', 'string', 'max:150'],
+            'email'             => ['sometimes', 'nullable', 'email', 'max:150'],
+            'telepon'           => ['sometimes', 'nullable', 'string', 'max:30'],
+            'alamat'            => ['sometimes', 'nullable', 'string'],
+            'npwp'              => ['sometimes', 'nullable', 'string', 'max:30'],
+            'tanggal_bergabung' => ['sometimes', 'nullable', 'date'],
+            'aktif'             => ['sometimes', 'boolean'],
         ];
     }
 }

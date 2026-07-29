@@ -25,9 +25,9 @@ class VendorService
         ];
     }
 
-    public function findOrFail(string $id): VendorModel
+    public function findOrFail(string $id, string $idPerusahaan): VendorModel
     {
-        $record = $this->repo->findById($id);
+        $record = $this->repo->findByIdMilikPerusahaan($id, $idPerusahaan);
         if ($record === null) {
             abort(404, 'Vendor tidak ditemukan');
         }
@@ -47,7 +47,7 @@ class VendorService
 
     public function update(string $id, array $data, string $idPerusahaan): VendorModel
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (isset($data['kode_vendor']) && $data['kode_vendor'] !== $record->kode_vendor) {
             if ($this->repo->findByKode($idPerusahaan, $data['kode_vendor'])) {
@@ -58,9 +58,9 @@ class VendorService
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, string $idPerusahaan): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
         $this->repo->delete($record);
     }
 }

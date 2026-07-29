@@ -19,7 +19,7 @@ class ArmadaVendorServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api/v1')
-            ->middleware(['api', 'auth:sanctum', 'izin:armada-vendor'])
+            ->middleware(['api', 'auth:sanctum', 'izin:vendor'])
             ->group(function () {
                 Route::apiResource('armada-vendor', ArmadaVendorController::class)
                     ->parameters(['armada-vendor' => 'id']);

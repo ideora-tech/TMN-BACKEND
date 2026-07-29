@@ -85,6 +85,9 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
 
         foreach ($records as $record) {
             $record->vendor_nama = $namaByIdVendor[$record->id_vendor] ?? null;
+            // Atribut tempelan bukan kolom tabel — sinkronkan ke original supaya
+            // tidak dianggap dirty dan ikut tersimpan saat update()/softDelete().
+            $record->syncOriginalAttribute('vendor_nama');
         }
     }
 
@@ -93,10 +96,21 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
         return KontrakVendorModel::create($data);
     }
 
+    public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool
+    {
+        return DB::table('vendor')
+            ->where('id_vendor', $idVendor)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
     public function update(KontrakVendorModel $model, array $data): KontrakVendorModel
     {
         $model->update($data);
-        return $model->fresh();
+        $fresh = $model->fresh();
+        $this->attachNamaVendor(collect([$fresh]));
+        return $fresh;
     }
 
     public function delete(KontrakVendorModel $model): void

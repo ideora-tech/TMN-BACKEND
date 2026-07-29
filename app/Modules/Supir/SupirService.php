@@ -67,6 +67,19 @@ class SupirService
     {
         $record = $this->repo->findByPengguna($idPengguna);
         if ($record === null) { abort(404, 'Supir tidak ditemukan'); }
+
+        if ($record->id_armada_default !== null) {
+            $armada = $this->armadaRepo->findById($record->id_armada_default);
+            $record->armada_default = $armada !== null ? [
+                'id_armada' => $armada->id_armada,
+                'nopol'     => $armada->nopol,
+                'merk'      => $armada->merk,
+                'model'     => $armada->model,
+            ] : null;
+        } else {
+            $record->armada_default = null;
+        }
+
         return $record;
     }
 

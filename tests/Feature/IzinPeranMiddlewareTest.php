@@ -14,7 +14,7 @@ class IzinPeranMiddlewareTest extends TestCase
     use RefreshDatabase;
 
     private const ID_MENU_TRIP = 'aaaa1111-0000-4000-8000-000000000001';
-    private const ID_MENU_ARMADA_VENDOR = 'aaaa1111-0000-4000-8000-000000000002';
+    private const ID_MENU_VENDOR = 'aaaa1111-0000-4000-8000-000000000002';
 
     private function seedMenuTrip(): string
     {
@@ -29,17 +29,17 @@ class IzinPeranMiddlewareTest extends TestCase
         return self::ID_MENU_TRIP;
     }
 
-    private function seedMenuArmadaVendor(): string
+    private function seedMenuVendor(): string
     {
         DB::table('menu')->insertOrIgnore([
-            'id_menu'     => self::ID_MENU_ARMADA_VENDOR,
-            'nama_menu'   => 'Armada Vendor',
-            'path'        => '/armada-vendor',
+            'id_menu'     => self::ID_MENU_VENDOR,
+            'nama_menu'   => 'Vendor',
+            'path'        => '/vendor',
             'aktif'       => 1,
             'dibuat_pada' => now(),
         ]);
 
-        return self::ID_MENU_ARMADA_VENDOR;
+        return self::ID_MENU_VENDOR;
     }
 
     private function seedIzin(string $idMenu, string $kodePeran, string $aksi, int $diizinkan = 1): void
@@ -182,12 +182,12 @@ class IzinPeranMiddlewareTest extends TestCase
         $res->assertStatus(200);
     }
 
-    // ── Task 6: izin:armada-vendor ──────────────────────────────────────────
+    // ── izin:vendor menaungi endpoint armada-vendor & supir-vendor ──────────
 
-    public function test_dispatcher_dengan_izin_lihat_boleh_akses_armada_vendor(): void
+    public function test_dispatcher_dengan_izin_vendor_boleh_akses_armada_vendor(): void
     {
         $this->actingAsRole('DISPATCHER');
-        $idMenu = $this->seedMenuArmadaVendor();
+        $idMenu = $this->seedMenuVendor();
         $this->seedIzin($idMenu, 'DISPATCHER', 'lihat', 1);
 
         $res = $this->getJson('/api/v1/armada-vendor');
@@ -195,10 +195,21 @@ class IzinPeranMiddlewareTest extends TestCase
         $res->assertStatus(200);
     }
 
-    public function test_dispatcher_tanpa_izin_ditolak_akses_armada_vendor(): void
+    public function test_dispatcher_dengan_izin_vendor_boleh_akses_supir_vendor(): void
     {
         $this->actingAsRole('DISPATCHER');
-        $this->seedMenuArmadaVendor();
+        $idMenu = $this->seedMenuVendor();
+        $this->seedIzin($idMenu, 'DISPATCHER', 'lihat', 1);
+
+        $res = $this->getJson('/api/v1/supir-vendor');
+
+        $res->assertStatus(200);
+    }
+
+    public function test_dispatcher_tanpa_izin_vendor_ditolak_akses_armada_vendor(): void
+    {
+        $this->actingAsRole('DISPATCHER');
+        $this->seedMenuVendor();
 
         $res = $this->getJson('/api/v1/armada-vendor');
 

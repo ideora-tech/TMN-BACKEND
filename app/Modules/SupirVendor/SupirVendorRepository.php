@@ -62,7 +62,14 @@ class SupirVendorRepository implements SupirVendorRepositoryInterface
     public function update(SupirVendorModel $model, array $data): SupirVendorModel
     {
         $model->update($data);
-        return $model->fresh() ?? $model;
+
+        $fresh = SupirVendorModel::active()
+            ->join('vendor', 'vendor.id_vendor', '=', 'supir_vendor.id_vendor')
+            ->where('supir_vendor.id_supir_vendor', $model->id_supir_vendor)
+            ->select('supir_vendor.*', 'vendor.nama_vendor')
+            ->first();
+
+        return $fresh ?? $model;
     }
 
     public function delete(SupirVendorModel $model): void

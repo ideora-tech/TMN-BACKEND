@@ -59,9 +59,10 @@ class KontrakVendorController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new KontrakVendorResource($this->service->findOrFail($id)));
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success(new KontrakVendorResource($this->service->findOrFail($id, $idPerusahaan)));
     }
 
     /**
@@ -99,13 +100,15 @@ class KontrakVendorController extends Controller
 
     public function update(UpdateKontrakVendorRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->update($id, $request->validated(), $idPerusahaan);
         return ApiResponse::success(new KontrakVendorResource($record), 'Kontrak vendor berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $this->service->delete($id, $idPerusahaan);
         return ApiResponse::success(null, 'Kontrak vendor berhasil dihapus');
     }
 }

@@ -16,14 +16,23 @@ class KontrakVendorModel extends BaseModel
         'id_perusahaan',
         'id_vendor',
         'id_proyek',
+        'nomor_kontrak',
         'mekanisme',
+        'jenis_layanan',
         'nilai_kontrak',
+        'rate',
+        'satuan',
+        'pajak_persen',
+        'termin_pembayaran_hari',
         'tanggal_mulai',
         'tanggal_selesai',
         'status',
     ];
 
     protected $casts = [
-        'nilai_kontrak' => 'float',
+        'nilai_kontrak'          => 'float',
+        'rate'                   => 'float',
+        'pajak_persen'           => 'float',
+        'termin_pembayaran_hari' => 'integer',
     ];
 }

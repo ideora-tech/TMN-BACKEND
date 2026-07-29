@@ -17,8 +17,16 @@ class ArmadaVendorModel extends BaseModel
         'nopol',
         'merk',
         'jenis',
+        'kapasitas',
         'tahun',
+        'masa_berlaku_stnk',
+        'masa_berlaku_kir',
         'aktif',
+    ];
+
+    protected $casts = [
+        'masa_berlaku_stnk' => 'date',
+        'masa_berlaku_kir'  => 'date',
     ];
 
     protected $attributes = [

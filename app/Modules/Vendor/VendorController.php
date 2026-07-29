@@ -33,9 +33,10 @@ class VendorController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new VendorResource($this->service->findOrFail($id)));
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success(new VendorResource($this->service->findOrFail($id, $idPerusahaan)));
     }
 
     public function store(StoreVendorRequest $request): JsonResponse
@@ -56,9 +57,10 @@ class VendorController extends Controller
         return ApiResponse::success(new VendorResource($record), 'Vendor berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $this->service->delete($id, $idPerusahaan);
         return ApiResponse::success(null, 'Vendor berhasil dihapus');
     }
 }

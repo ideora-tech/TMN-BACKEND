@@ -16,9 +16,17 @@ class VendorModel extends BaseModel
         'id_perusahaan',
         'kode_vendor',
         'nama_vendor',
+        'jenis_vendor',
+        'pic_nama',
         'email',
         'telepon',
         'alamat',
+        'npwp',
+        'tanggal_bergabung',
         'aktif',
+    ];
+
+    protected $casts = [
+        'tanggal_bergabung' => 'date',
     ];
 }
