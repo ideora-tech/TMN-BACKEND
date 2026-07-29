@@ -18,6 +18,7 @@ class JabatanResource extends JsonResource
             'kode_jabatan'  => $this->kode_jabatan,
             'nama_jabatan'  => $this->nama_jabatan,
             'level'         => (int) $this->level,
+            'tunjangan_jabatan' => (float) $this->tunjangan_jabatan,
             'aktif'         => (bool) $this->aktif,
             'dibuat_pada'   => $this->dibuat_pada,
             'diubah_pada'   => $this->diubah_pada,

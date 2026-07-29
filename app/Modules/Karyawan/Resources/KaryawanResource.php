@@ -38,6 +38,7 @@ class KaryawanResource extends JsonResource
             'override_persen_bpjs_jht'       => $this->override_persen_bpjs_jht !== null ? (float) $this->override_persen_bpjs_jht : null,
             'override_persen_bpjs_jp'        => $this->override_persen_bpjs_jp !== null ? (float) $this->override_persen_bpjs_jp : null,
             'override_plafon_bpjs_kesehatan' => $this->override_plafon_bpjs_kesehatan !== null ? (float) $this->override_plafon_bpjs_kesehatan : null,
+            'override_tunjangan_jabatan'     => $this->override_tunjangan_jabatan !== null ? (float) $this->override_tunjangan_jabatan : null,
             'kontak_darurat_nama'     => $this->kontak_darurat_nama,
             'kontak_darurat_telepon'  => $this->kontak_darurat_telepon,
             'kontak_darurat_hubungan' => $this->kontak_darurat_hubungan,
@@ -47,8 +48,9 @@ class KaryawanResource extends JsonResource
             'gaji_pokok'         => (float) $this->gaji_pokok,
             'aktif'              => (bool) $this->aktif,
             'jabatan'            => $this->jabatan_nama !== null ? [
-                'id_jabatan'   => $this->id_jabatan,
-                'nama_jabatan' => $this->jabatan_nama,
+                'id_jabatan'         => $this->id_jabatan,
+                'nama_jabatan'       => $this->jabatan_nama,
+                'tunjangan_jabatan'  => $this->jabatan_tunjangan,
             ] : null,
             'lokasi'             => $this->lokasi_nama !== null ? [
                 'id_lokasi'   => $this->id_lokasi,

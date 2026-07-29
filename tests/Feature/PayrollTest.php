@@ -32,6 +32,17 @@ class PayrollTest extends TestCase
         return $res->json('data.id_periode');
     }
 
+    private function makeJabatan(float $tunjangan): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('jabatan')->insert([
+            'id_jabatan' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_jabatan' => 'JAB-' . substr($id, 0, 8), 'nama_jabatan' => 'Jabatan Tunjangan',
+            'tunjangan_jabatan' => $tunjangan, 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
     private function pengaturanPayload(array $override = []): array
     {
         return array_merge([
@@ -235,6 +246,51 @@ class PayrollTest extends TestCase
         $res = $this->getJson("/api/v1/payroll/periode/{$idPeriode}");
         $slip = collect($res->json('data.slips'))->first();
         $this->assertEquals(250000, $slip['pph21']);
+    }
+
+    public function test_generate_slip_mengisi_tunjangan_dari_default_jabatan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+
+        $idJabatan = $this->makeJabatan(1000000);
+        // Gaji 5jt + tunjangan jabatan 1jt = bruto 6jt, TK/0
+        // Biaya jabatan 300rb -> neto 5,7jt x12 = 68,4jt; PKP 14,4jt x5% = 720rb/thn = 60.000/bln
+        $this->makeKaryawan('Hari Jabatan', 'NIK-PAY-09', 5000000, [
+            'id_jabatan' => $idJabatan, 'status_ptkp' => 'TK/0',
+        ]);
+
+        $idPeriode = $this->buatPeriode();
+        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+
+        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $this->assertEquals(1000000, $slip['tunjangan_lain']);
+        $this->assertEquals(6000000, $slip['total_bruto']);
+        $this->assertEquals(60000, $slip['pph21']);
+        $this->assertEquals(5940000, $slip['gaji_bersih']);
+    }
+
+    public function test_override_tunjangan_jabatan_per_karyawan_menang_atas_default_jabatan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+
+        $idJabatan = $this->makeJabatan(1000000);
+        // Gaji 5jt + override tunjangan 2,5jt (bukan default jabatan 1jt) = bruto 7,5jt, TK/0
+        // Biaya jabatan 375rb -> neto 7,125jt x12 = 85,5jt; PKP 31,5jt x5% = 1.575.000/thn = 131.250/bln
+        $this->makeKaryawan('Indra Override Tunjangan', 'NIK-PAY-10', 5000000, [
+            'id_jabatan' => $idJabatan, 'status_ptkp' => 'TK/0',
+            'override_tunjangan_jabatan' => 2500000,
+        ]);
+
+        $idPeriode = $this->buatPeriode();
+        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+
+        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $this->assertEquals(2500000, $slip['tunjangan_lain']);
+        $this->assertEquals(7500000, $slip['total_bruto']);
+        $this->assertEquals(131250, $slip['pph21']);
+        $this->assertEquals(7368750, $slip['gaji_bersih']);
     }
 
     public function test_edit_slip_menghitung_ulang_total(): void

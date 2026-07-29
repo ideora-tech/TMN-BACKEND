@@ -43,6 +43,7 @@ class UpdateKaryawanRequest extends FormRequest
             'override_persen_bpjs_jht'       => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
             'override_persen_bpjs_jp'        => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
             'override_plafon_bpjs_kesehatan' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'override_tunjangan_jabatan'     => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'kontak_darurat_nama'     => ['sometimes', 'nullable', 'string', 'max:150'],
             'kontak_darurat_telepon'  => ['sometimes', 'nullable', 'string', 'max:30'],
             'kontak_darurat_hubungan' => ['sometimes', 'nullable', 'string', 'max:50'],

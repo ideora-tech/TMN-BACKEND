@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\DB;
 class JabatanRepository implements JabatanRepositoryInterface
 {
     private const COLUMNS = [
-        'id_jabatan', 'id_perusahaan', 'id_departemen', 'id_peran', 'kode_jabatan', 'nama_jabatan', 'level', 'aktif',
+        'id_jabatan', 'id_perusahaan', 'id_departemen', 'id_peran', 'kode_jabatan', 'nama_jabatan', 'level',
+        'tunjangan_jabatan', 'aktif',
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 

@@ -19,6 +19,7 @@ class KaryawanRepository implements KaryawanRepositoryInterface
         'npwp', 'nama_bank', 'nomor_rekening', 'atas_nama_rekening',
         'ikut_bpjs_kesehatan', 'no_bpjs_kesehatan', 'ikut_bpjs_ketenagakerjaan', 'no_bpjs_ketenagakerjaan',
         'override_persen_bpjs_kesehatan', 'override_persen_bpjs_jht', 'override_persen_bpjs_jp', 'override_plafon_bpjs_kesehatan',
+        'override_tunjangan_jabatan',
         'kontak_darurat_nama', 'kontak_darurat_telepon', 'kontak_darurat_hubungan', 'pendidikan_terakhir',
         'tanggal_masuk', 'status_kepegawaian', 'gaji_pokok', 'aktif',
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
@@ -141,16 +142,20 @@ class KaryawanRepository implements KaryawanRepositoryInterface
         $idJabatanList = $records->pluck('id_jabatan')->filter()->unique()->values()->all();
         $idLokasiList  = $records->pluck('id_lokasi')->filter()->unique()->values()->all();
 
-        $namaJabatanById = empty($idJabatanList)
+        $jabatanById = empty($idJabatanList)
             ? collect()
-            : DB::table('jabatan')->whereIn('id_jabatan', $idJabatanList)->pluck('nama_jabatan', 'id_jabatan');
+            : DB::table('jabatan')->whereIn('id_jabatan', $idJabatanList)
+                ->select('id_jabatan', 'nama_jabatan', 'tunjangan_jabatan')
+                ->get()->keyBy('id_jabatan');
 
         $namaLokasiById = empty($idLokasiList)
             ? collect()
             : DB::table('lokasi_kantor')->whereIn('id_lokasi', $idLokasiList)->pluck('nama_lokasi', 'id_lokasi');
 
         foreach ($records as $record) {
-            $record->jabatan_nama = $namaJabatanById[$record->id_jabatan] ?? null;
+            $jabatan = $jabatanById[$record->id_jabatan] ?? null;
+            $record->jabatan_nama = $jabatan->nama_jabatan ?? null;
+            $record->jabatan_tunjangan = $jabatan !== null ? (float) $jabatan->tunjangan_jabatan : null;
             $record->lokasi_nama  = $namaLokasiById[$record->id_lokasi] ?? null;
         }
     }

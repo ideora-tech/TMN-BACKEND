@@ -21,6 +21,7 @@ class UpdateJabatanRequest extends FormRequest
             'kode_jabatan'  => ['sometimes', 'string', 'max:50'],
             'nama_jabatan'  => ['sometimes', 'string', 'max:150'],
             'level'         => ['sometimes', 'integer', 'min:0'],
+            'tunjangan_jabatan' => ['sometimes', 'numeric', 'min:0'],
             'aktif'         => ['sometimes', 'boolean'],
         ];
     }

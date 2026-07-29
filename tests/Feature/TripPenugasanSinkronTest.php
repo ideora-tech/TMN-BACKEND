@@ -341,6 +341,31 @@ class TripPenugasanSinkronTest extends TestCase
         $this->assertDatabaseHas('trip', ['id_trip' => $trip->id_trip, 'status' => 'belum_mulai']);
     }
 
+    public function test_penugasan_batal_tidak_bisa_diaktifkan_kembali(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $penugasan = $this->makePenugasan('tersedia', 'batal');
+
+        foreach (['aktif', 'pending', 'selesai'] as $statusBaru) {
+            $res = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", ['status' => $statusBaru]);
+            $res->assertStatus(422);
+            $this->assertStringContainsString('dibatalkan', $res->json('message'));
+        }
+
+        $this->assertDatabaseHas('penugasan', ['id_penugasan' => $penugasan->id_penugasan, 'status' => 'batal']);
+    }
+
+    public function test_penugasan_selesai_masih_bisa_dibuka_kembali(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $penugasan = $this->makePenugasan('tersedia', 'selesai');
+
+        $res = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", ['status' => 'aktif']);
+
+        $res->assertStatus(200);
+        $this->assertDatabaseHas('penugasan', ['id_penugasan' => $penugasan->id_penugasan, 'status' => 'aktif']);
+    }
+
     public function test_hapus_penugasan_dengan_trip_non_final_ditolak(): void
     {
         $this->actingAsRole('SUPERADMIN');

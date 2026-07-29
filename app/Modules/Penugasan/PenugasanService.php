@@ -99,6 +99,12 @@ class PenugasanService
         $record = $this->findOrFail($id);
         $data   = $this->normalizeSumber($data);
 
+        if ($record->status === 'batal'
+            && array_key_exists('status', $data)
+            && $data['status'] !== 'batal') {
+            abort(422, 'Penugasan yang sudah dibatalkan tidak dapat diaktifkan kembali — buat penugasan baru');
+        }
+
         $merged = [
             'sumber'            => array_key_exists('sumber', $data) ? $data['sumber'] : $record->sumber,
             'id_kontrak_vendor' => array_key_exists('id_kontrak_vendor', $data) ? $data['id_kontrak_vendor'] : $record->id_kontrak_vendor,

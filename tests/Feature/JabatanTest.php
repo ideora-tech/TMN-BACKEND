@@ -51,12 +51,14 @@ class JabatanTest extends TestCase
             'kode_jabatan' => 'JBT-01',
             'nama_jabatan' => 'Manager',
             'level'        => 3,
+            'tunjangan_jabatan' => 1500000,
         ]);
 
         $res->assertStatus(201)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.nama_jabatan', 'Manager')
             ->assertJsonPath('data.level', 3);
+        $this->assertEquals(1500000, $res->json('data.tunjangan_jabatan'));
 
         $this->assertDatabaseHas('jabatan', [
             'kode_jabatan'  => 'JBT-01',

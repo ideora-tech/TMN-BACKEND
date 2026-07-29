@@ -65,7 +65,8 @@ class KaryawanTest extends TestCase
         ]);
         $resTanpaOverride->assertStatus(201)
             ->assertJsonPath('data.override_persen_bpjs_kesehatan', null)
-            ->assertJsonPath('data.override_persen_bpjs_jht', null);
+            ->assertJsonPath('data.override_persen_bpjs_jht', null)
+            ->assertJsonPath('data.override_tunjangan_jabatan', null);
 
         $resDenganOverride = $this->postJson('/api/v1/karyawan', [
             'nik' => 'NIK-OVR-02', 'nama_karyawan' => 'Dengan Override',
@@ -73,12 +74,14 @@ class KaryawanTest extends TestCase
             'override_persen_bpjs_jht'       => 3,
             'override_persen_bpjs_jp'        => 1.5,
             'override_plafon_bpjs_kesehatan' => 10000000,
+            'override_tunjangan_jabatan'     => 750000,
         ]);
         $resDenganOverride->assertStatus(201)
             ->assertJsonPath('data.override_persen_bpjs_kesehatan', 2)
             ->assertJsonPath('data.override_persen_bpjs_jht', 3)
             ->assertJsonPath('data.override_persen_bpjs_jp', 1.5)
-            ->assertJsonPath('data.override_plafon_bpjs_kesehatan', 10000000);
+            ->assertJsonPath('data.override_plafon_bpjs_kesehatan', 10000000)
+            ->assertJsonPath('data.override_tunjangan_jabatan', 750000);
     }
 
     public function test_membuat_karyawan_dengan_field_hr_lengkap(): void

@@ -155,6 +155,7 @@ class PayrollService
             foreach ($rekap['data'] as $r) {
                 $gajiPokok  = (float) $r['gaji_pokok'];
                 $upahLembur = (float) $r['lembur_rupiah'];
+                $tunjangan  = (float) $r['tunjangan_jabatan'];
                 $alpha      = (int) $r['alpha'];
 
                 $potonganAbsen = round($alpha * ($gajiPokok / max(1, $pengaturan['hari_kerja_per_bulan'])), 2);
@@ -171,7 +172,7 @@ class PayrollService
                     ? round($gajiPokok * (($persenJht + $persenJp) / 100), 2)
                     : 0.0;
 
-                $bruto = $gajiPokok + $upahLembur;
+                $bruto = $gajiPokok + $upahLembur + $tunjangan;
                 $pph21 = $this->hitungPph21Bulanan($bruto, $r['status_ptkp']);
 
                 $totalPotongan = $potonganAbsen + $bpjsKes + $bpjsTk + $pph21;
@@ -182,6 +183,7 @@ class PayrollService
                     'id_karyawan'   => $r['id_karyawan'],
                     'gaji_pokok'    => $gajiPokok,
                     'upah_lembur'   => $upahLembur,
+                    'tunjangan_lain' => $tunjangan,
                     'menit_lembur'  => (int) $r['lembur_menit'],
                     'jumlah_alpha'  => $alpha,
                     'potongan_absen' => $potonganAbsen,

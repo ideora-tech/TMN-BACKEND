@@ -189,6 +189,9 @@ class AbsensiService
                 'override_persen_bpjs_jht'       => $k->override_persen_bpjs_jht !== null ? (float) $k->override_persen_bpjs_jht : null,
                 'override_persen_bpjs_jp'        => $k->override_persen_bpjs_jp !== null ? (float) $k->override_persen_bpjs_jp : null,
                 'override_plafon_bpjs_kesehatan' => $k->override_plafon_bpjs_kesehatan !== null ? (float) $k->override_plafon_bpjs_kesehatan : null,
+                'tunjangan_jabatan' => $k->override_tunjangan_jabatan !== null
+                    ? (float) $k->override_tunjangan_jabatan
+                    : (float) ($k->jabatan_tunjangan ?? 0),
                 'cuti'          => $cutiHari[$k->id_karyawan] ?? 0,
                 'lembur_menit'  => array_sum($harian),
                 'lembur_rupiah' => $this->hitungUpahLembur((float) $k->gaji_pokok, $harian),
