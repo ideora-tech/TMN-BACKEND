@@ -36,9 +36,9 @@ class TripService
         ]);
     }
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null, ?string $sumber = null): array
     {
-        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal, $idPenugasan, $idSupir, $search, $status, $idProyek, $tanggalDari, $tanggalSampai);
+        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal, $idPenugasan, $idSupir, $search, $status, $idProyek, $tanggalDari, $tanggalSampai, $sumber);
 
         return [
             'data' => $result->items(),
@@ -83,6 +83,61 @@ class TripService
             abort(404, 'Trip tidak ditemukan');
         }
         return $record;
+    }
+
+    public function findPenugasanUntukTrip(string $idTrip): ?object
+    {
+        return $this->repo->findPenugasanDariTrip($idTrip);
+    }
+
+    public function detailPenugasanUntukSupir(string $idPenugasan, string $idSupir, string $idPerusahaan): array
+    {
+        $penugasan = $this->penugasanService->findOrFail($idPenugasan);
+        if ((string) $penugasan->id_supir !== $idSupir) {
+            abort(403, 'Penugasan ini bukan milik Anda');
+        }
+
+        $penugasan->load(['proyek', 'armada']);
+
+        $tripResult = $this->list($idPerusahaan, 1, 1, null, $idPenugasan, null, null, 'belum_mulai,berjalan');
+        $tripAktif = $tripResult['data'][0] ?? null;
+
+        $ruteTersedia = $this->proyekRuteRepo->listByProyek((string) $penugasan->id_proyek);
+
+        return [
+            'penugasan' => $penugasan,
+            'trip' => $tripAktif,
+            'rute_tersedia' => $ruteTersedia,
+        ];
+    }
+
+    public function mulaiDariPenugasanUntukSupir(array $data, string $idSupir, string $idPerusahaan): TripModel
+    {
+        $penugasan = $this->penugasanService->findOrFail((string) $data['id_penugasan']);
+        if ((string) $penugasan->id_supir !== $idSupir) {
+            abort(403, 'Penugasan ini bukan milik Anda');
+        }
+
+        unset($data['uang_jalan_alokasi']);
+
+        $tripBelumMulai = $this->list($idPerusahaan, 1, 1, null, (string) $data['id_penugasan'], null, null, 'belum_mulai')['data'][0] ?? null;
+        if ($tripBelumMulai !== null) {
+            return $this->checkin($tripBelumMulai->id_trip, $idPerusahaan);
+        }
+
+        return $this->mulaiDariPenugasan($data, $idPerusahaan);
+    }
+
+    public function checkoutUntukSupir(string $idTrip, string $idSupir, string $idPerusahaan): TripModel
+    {
+        $this->findOrFail($idTrip, $idPerusahaan);
+
+        $penugasan = $this->findPenugasanUntukTrip($idTrip);
+        if ($penugasan === null || (string) $penugasan->id_supir !== $idSupir) {
+            abort(403, 'Trip ini bukan milik Anda');
+        }
+
+        return $this->checkout($idTrip, $idPerusahaan, true);
     }
 
     public function create(array $data, string $idPerusahaan): TripModel

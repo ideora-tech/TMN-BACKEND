@@ -21,9 +21,9 @@ class PenugasanService
         private readonly TripRepositoryInterface $tripRepo,
     ) {}
 
-    public function list(string $idProyek, int $page = 1, int $limit = 10, ?string $sumber = null): array
+    public function list(string $idProyek, int $page = 1, int $limit = 10, ?string $sumber = null, ?string $status = null): array
     {
-        $result = $this->repo->paginateByProyek($idProyek, $page, $limit, $sumber);
+        $result = $this->repo->paginateByProyek($idProyek, $page, $limit, $sumber, $status);
 
         return [
             'data' => $result->items(),
@@ -36,9 +36,9 @@ class PenugasanService
         ];
     }
 
-    public function listByArmada(string $idArmada, int $page = 1, int $limit = 20, ?string $sumber = null): array
+    public function listByArmada(string $idArmada, int $page = 1, int $limit = 20, ?string $sumber = null, ?string $status = null): array
     {
-        $result = $this->repo->paginateByArmada($idArmada, $page, $limit, $sumber);
+        $result = $this->repo->paginateByArmada($idArmada, $page, $limit, $sumber, $status);
 
         return [
             'data' => $result->items(),
@@ -51,9 +51,9 @@ class PenugasanService
         ];
     }
 
-    public function listBySupir(string $idSupir, int $page = 1, int $limit = 20, ?string $sumber = null): array
+    public function listBySupir(string $idSupir, int $page = 1, int $limit = 20, ?string $sumber = null, ?string $status = null): array
     {
-        $result = $this->repo->paginateBySupir($idSupir, $page, $limit, $sumber);
+        $result = $this->repo->paginateBySupir($idSupir, $page, $limit, $sumber, $status);
 
         return [
             'data' => $result->items(),

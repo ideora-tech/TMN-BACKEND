@@ -20,6 +20,29 @@ class MenuService
         return $this->repo->tree($kodePeran);
     }
 
+    public function aksesPeran(): array
+    {
+        return array_map(fn ($m) => [
+            'id_menu'       => $m->id_menu,
+            'nama_menu'     => $m->nama_menu,
+            'path'          => $m->path,
+            'id_menu_induk' => $m->id_menu_induk,
+            'urutan'        => (int) $m->urutan,
+            'aktif'         => (bool) $m->aktif,
+            'kode_peran'    => $m->perans->pluck('kode_peran')->map(fn ($k) => strtoupper($k))->values()->all(),
+        ], $this->repo->allWithPerans());
+    }
+
+    public function simpanAksesPeran(string $kodePeran, array $idMenuTampil): void
+    {
+        $semuaKode = $this->repo->semuaKodePeran();
+        if (!in_array(strtoupper($kodePeran), $semuaKode, true)) {
+            abort(404, 'Peran tidak ditemukan');
+        }
+
+        $this->repo->sinkronAksesPeran($kodePeran, $idMenuTampil, $semuaKode);
+    }
+
     public function list(int $page = 1, int $limit = 10, ?string $search = null): array
     {
         $result = $this->repo->paginate($page, $limit, $search);

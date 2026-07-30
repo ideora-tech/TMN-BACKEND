@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class TripRepository implements TripRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null): LengthAwarePaginator
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null, ?string $sumber = null): LengthAwarePaginator
     {
         $paginator = TripModel::active()
             ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
@@ -26,6 +26,7 @@ class TripRepository implements TripRepositoryInterface
             ->when($idSupir, fn ($q, $v) => $q->where('p.id_supir', $v))
             ->when($status, fn ($q, $v) => $q->whereIn('trip.status', $this->pecahStatus($v)))
             ->when($idProyek, fn ($q, $v) => $q->where('pr.id_proyek', $v))
+            ->when($sumber, fn ($q, $v) => $q->where('p.sumber', $v))
             ->when($tanggalDari, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, trip.dibuat_pada)) >= ?', [$v]))
             ->when($tanggalSampai, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, trip.dibuat_pada)) <= ?', [$v]))
             ->when($search, function ($q) use ($search) {
@@ -137,15 +138,16 @@ class TripRepository implements TripRepositoryInterface
 
         $penugasanRows = $idPenugasanList->isEmpty() ? collect() : DB::table('penugasan')
             ->whereIn('id_penugasan', $idPenugasanList)
-            ->select('id_penugasan', 'id_armada', 'id_supir', 'id_armada_vendor', 'id_supir_vendor', 'id_proyek')
+            ->select('id_penugasan', 'id_armada', 'id_supir', 'id_armada_vendor', 'id_supir_vendor', 'id_proyek', 'sumber', 'id_kontrak_vendor')
             ->get()
             ->keyBy('id_penugasan');
 
-        $idArmadaList       = $penugasanRows->pluck('id_armada')->unique()->filter()->values();
-        $idSupirList        = $penugasanRows->pluck('id_supir')->unique()->filter()->values();
-        $idArmadaVendorList = $penugasanRows->pluck('id_armada_vendor')->unique()->filter()->values();
-        $idSupirVendorList  = $penugasanRows->pluck('id_supir_vendor')->unique()->filter()->values();
-        $idProyekList       = $penugasanRows->pluck('id_proyek')->unique()->filter()->values();
+        $idArmadaList        = $penugasanRows->pluck('id_armada')->unique()->filter()->values();
+        $idSupirList         = $penugasanRows->pluck('id_supir')->unique()->filter()->values();
+        $idArmadaVendorList  = $penugasanRows->pluck('id_armada_vendor')->unique()->filter()->values();
+        $idSupirVendorList   = $penugasanRows->pluck('id_supir_vendor')->unique()->filter()->values();
+        $idProyekList        = $penugasanRows->pluck('id_proyek')->unique()->filter()->values();
+        $idKontrakVendorList = $penugasanRows->pluck('id_kontrak_vendor')->unique()->filter()->values();
 
         $armadaMap = $idArmadaList->isEmpty() ? collect()
             : DB::table('armada')->whereIn('id_armada', $idArmadaList)->pluck('nopol', 'id_armada');
@@ -161,6 +163,11 @@ class TripRepository implements TripRepositoryInterface
             ->select('pr.id_proyek', 'pr.kode_proyek', 'pr.nama_proyek', 'k.nama_klien')
             ->get()
             ->keyBy('id_proyek');
+        $kontrakVendorMap = $idKontrakVendorList->isEmpty() ? collect()
+            : DB::table('kontrak_vendor')->whereIn('id_kontrak_vendor', $idKontrakVendorList)->pluck('id_vendor', 'id_kontrak_vendor');
+        $idVendorList = $kontrakVendorMap->values()->unique()->filter()->values();
+        $vendorMap = $idVendorList->isEmpty() ? collect()
+            : DB::table('vendor')->whereIn('id_vendor', $idVendorList)->pluck('nama_vendor', 'id_vendor');
 
         foreach ($records as $record) {
             $jadwal    = $jadwalRows->get($record->id_jadwal);
@@ -178,6 +185,11 @@ class TripRepository implements TripRepositoryInterface
                 ? ($ruteMap->get($jadwal->id_rute) ?? $jadwal->rute)
                 : null;
 
+            $idVendor = $penugasan !== null && $penugasan->id_kontrak_vendor !== null
+                ? $kontrakVendorMap->get($penugasan->id_kontrak_vendor)
+                : null;
+            $vendorNama = $idVendor !== null ? $vendorMap->get($idVendor) : null;
+
             $record->setRelation('rute', $ruteNama);
             $record->setRelation('waktu_berangkat', $jadwal->waktu_berangkat ?? null);
             $record->setRelation('armada_nopol', $armadaNopol);
@@ -186,6 +198,8 @@ class TripRepository implements TripRepositoryInterface
             $record->setRelation('kode_proyek', $proyek->kode_proyek ?? null);
             $record->setRelation('nama_proyek', $proyek->nama_proyek ?? null);
             $record->setRelation('nama_klien', $proyek->nama_klien ?? null);
+            $record->setRelation('sumber', $penugasan->sumber ?? 'internal');
+            $record->setRelation('vendor_nama', $vendorNama);
         }
     }
 

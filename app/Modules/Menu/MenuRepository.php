@@ -16,6 +16,77 @@ class MenuRepository implements MenuRepositoryInterface
         return MenuModel::active()->where('aktif', 1)->orderBy('urutan')->get()->all();
     }
 
+    public function allWithPerans(): array
+    {
+        return MenuModel::active()->with('perans')->orderBy('urutan')->get()->all();
+    }
+
+    public function semuaKodePeran(): array
+    {
+        return DB::table('peran')
+            ->whereNull('dihapus_pada')
+            ->pluck('kode_peran')
+            ->map(fn ($k) => strtoupper($k))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Simpan hak akses menu untuk satu peran tanpa mengubah akses peran lain.
+     * Menu tanpa baris menu_peran = terbuka untuk semua; bila peran ini
+     * dicabut dari menu terbuka, akses peran lain dimaterialisasi dulu.
+     * Baris terakhir sebuah menu tidak boleh hilang begitu saja (akan
+     * membuat menu terbuka untuk semua) — fallback ke SUPERADMIN.
+     */
+    public function sinkronAksesPeran(string $kodePeran, array $idMenuTampil, array $semuaKodePeran): void
+    {
+        $kodePeran = strtoupper($kodePeran);
+
+        DB::transaction(function () use ($kodePeran, $idMenuTampil, $semuaKodePeran) {
+            foreach (MenuModel::active()->with('perans')->get() as $menu) {
+                $bolehLihat = in_array($menu->id_menu, $idMenuTampil, true);
+                $rows       = $menu->perans->pluck('kode_peran')->map(fn ($k) => strtoupper($k))->values()->all();
+                $terbuka    = count($rows) === 0;
+
+                if ($bolehLihat) {
+                    if (!$terbuka && !in_array($kodePeran, $rows, true)) {
+                        DB::table('menu_peran')->insertOrIgnore([
+                            ['id_menu' => $menu->id_menu, 'kode_peran' => $kodePeran],
+                        ]);
+                    }
+                    continue;
+                }
+
+                if ($terbuka) {
+                    $lain = array_values(array_diff($semuaKodePeran, [$kodePeran]));
+                    if (!empty($lain)) {
+                        DB::table('menu_peran')->insertOrIgnore(array_map(
+                            fn ($k) => ['id_menu' => $menu->id_menu, 'kode_peran' => $k],
+                            $lain,
+                        ));
+                    }
+                    continue;
+                }
+
+                if (in_array($kodePeran, $rows, true)) {
+                    if (count($rows) === 1) {
+                        if ($kodePeran === 'SUPERADMIN') {
+                            continue;
+                        }
+                        DB::table('menu_peran')->insertOrIgnore([
+                            ['id_menu' => $menu->id_menu, 'kode_peran' => 'SUPERADMIN'],
+                        ]);
+                    }
+                    DB::table('menu_peran')
+                        ->where('id_menu', $menu->id_menu)
+                        ->whereRaw('UPPER(kode_peran) = ?', [$kodePeran])
+                        ->delete();
+                }
+            }
+        });
+    }
+
     public function tree(?string $kodePeran = null): array
     {
         $query = MenuModel::active()->where('aktif', 1)->orderBy('urutan');

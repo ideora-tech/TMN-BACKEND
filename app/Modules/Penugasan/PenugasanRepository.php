@@ -9,30 +9,33 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class PenugasanRepository implements PenugasanRepositoryInterface
 {
-    public function paginateByProyek(string $idProyek, int $page, int $limit, ?string $sumber = null): LengthAwarePaginator
+    public function paginateByProyek(string $idProyek, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
     {
         return PenugasanModel::active()
             ->where('id_proyek', $idProyek)
             ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
+            ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
             ->orderBy('dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
 
-    public function paginateByArmada(string $idArmada, int $page, int $limit, ?string $sumber = null): LengthAwarePaginator
+    public function paginateByArmada(string $idArmada, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
     {
         return PenugasanModel::active()
             ->where('id_armada', $idArmada)
             ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
+            ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
             ->orderBy('tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
 
-    public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null): LengthAwarePaginator
+    public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
     {
         return PenugasanModel::active()
             ->with(['proyek', 'armada'])
             ->where('id_supir', $idSupir)
             ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
+            ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
             ->orderBy('tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }

@@ -21,13 +21,14 @@ class PenugasanController extends Controller
         $page   = (int) $request->get('page', 1);
         $limit  = (int) $request->get('limit', 10);
         $sumber = $request->filled('sumber') ? (string) $request->get('sumber') : null;
+        $status = $request->filled('status') ? (string) $request->get('status') : null;
 
         if ($request->filled('id_armada')) {
-            $result = $this->service->listByArmada((string) $request->get('id_armada'), $page, $limit, $sumber);
+            $result = $this->service->listByArmada((string) $request->get('id_armada'), $page, $limit, $sumber, $status);
         } elseif ($request->filled('id_supir')) {
-            $result = $this->service->listBySupir((string) $request->get('id_supir'), $page, $limit, $sumber);
+            $result = $this->service->listBySupir((string) $request->get('id_supir'), $page, $limit, $sumber, $status);
         } elseif ($request->filled('id_proyek')) {
-            $result = $this->service->list((string) $request->get('id_proyek'), $page, $limit, $sumber);
+            $result = $this->service->list((string) $request->get('id_proyek'), $page, $limit, $sumber, $status);
         } else {
             abort(422, 'Parameter id_proyek, id_armada, atau id_supir wajib diisi');
         }

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Trip;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Penugasan\Resources\PenugasanResource;
+use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Modules\Trip\Requests\MulaiTripRequest;
 use App\Modules\Trip\Requests\StoreTripRequest;
 use App\Modules\Trip\Resources\TripResource;
@@ -14,7 +16,10 @@ use Illuminate\Routing\Controller;
 
 class TripController extends Controller
 {
-    public function __construct(private readonly TripService $service) {}
+    public function __construct(
+        private readonly TripService $service,
+        private readonly SupirRepositoryInterface $supirRepo,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -31,13 +36,60 @@ class TripController extends Controller
             $request->get('status'),
             $request->get('id_proyek'),
             $request->get('tanggal_dari'),
-            $request->get('tanggal_sampai')
+            $request->get('tanggal_sampai'),
+            $request->get('sumber')
         );
 
         return ApiResponse::paginated(
             TripResource::collection($result['data']),
             $result['meta']
         );
+    }
+
+    public function penugasanSaya(Request $request, string $idPenugasan): JsonResponse
+    {
+        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
+        if ($supir === null) {
+            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+        }
+
+        $result = $this->service->detailPenugasanUntukSupir(
+            $idPenugasan,
+            (string) $supir->id_supir,
+            (string) $request->user()->id_perusahaan
+        );
+
+        return ApiResponse::success([
+            'penugasan' => new PenugasanResource($result['penugasan']),
+            'trip' => $result['trip'] !== null ? new TripResource($result['trip']) : null,
+            'rute_tersedia' => $result['rute_tersedia']->map(fn ($r) => [
+                'id_rute'   => $r->id_rute,
+                'nama_rute' => $r->nama_rute,
+                'asal'      => $r->asal,
+                'tujuan'    => $r->tujuan,
+            ])->values(),
+        ]);
+    }
+
+    public function riwayatSaya(Request $request): JsonResponse
+    {
+        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
+        if ($supir === null) {
+            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+        }
+
+        $result = $this->service->list(
+            (string) $request->user()->id_perusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            null,
+            null,
+            (string) $supir->id_supir,
+            null,
+            'selesai,dibatalkan'
+        );
+
+        return ApiResponse::paginated(TripResource::collection($result['data']), $result['meta']);
     }
 
     public function ringkasanProyek(Request $request): JsonResponse
@@ -75,6 +127,32 @@ class TripController extends Controller
             (string) $request->user()->id_perusahaan
         );
         return ApiResponse::success(new TripResource($record), 'Trip berhasil dimulai', 201);
+    }
+
+    public function mulaiSaya(MulaiTripRequest $request): JsonResponse
+    {
+        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
+        if ($supir === null) {
+            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+        }
+
+        $record = $this->service->mulaiDariPenugasanUntukSupir(
+            $request->validated(),
+            (string) $supir->id_supir,
+            (string) $request->user()->id_perusahaan
+        );
+        return ApiResponse::success(new TripResource($record), 'Trip berhasil dimulai', 201);
+    }
+
+    public function checkoutSaya(Request $request, string $idTrip): JsonResponse
+    {
+        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
+        if ($supir === null) {
+            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+        }
+
+        $record = $this->service->checkoutUntukSupir($idTrip, (string) $supir->id_supir, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(new TripResource($record), 'Trip berhasil diselesaikan');
     }
 
     public function checkin(Request $request, string $id): JsonResponse

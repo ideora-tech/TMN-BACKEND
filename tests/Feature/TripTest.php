@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Modules\Armada\ArmadaModel;
 use App\Modules\ArmadaVendor\ArmadaVendorModel;
 use App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel;
+use App\Modules\KontrakVendor\KontrakVendorModel;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
 use App\Modules\SupirVendor\SupirVendorModel;
@@ -343,6 +344,117 @@ class TripTest extends TestCase
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertSame('Rute Baru', $res->json('data.0.rute'));
+    }
+
+    private function makeTripVendor(string $namaVendor = 'PT Vendor Ekspedisi', string $rute = 'Rute Vendor'): TripModel
+    {
+        $idVendor = VendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor'   => 'VEN-' . Str::random(8),
+            'nama_vendor'   => $namaVendor,
+        ])->id_vendor;
+
+        $kontrak = KontrakVendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_vendor'     => $idVendor,
+            'mekanisme'     => 'full',
+        ]);
+
+        $idArmadaVendor = ArmadaVendorModel::create([
+            'id_vendor' => $idVendor,
+            'nopol'     => 'B ' . random_int(1000, 9999) . ' VD',
+        ])->id_armada_vendor;
+
+        $idSupirVendor = SupirVendorModel::create([
+            'id_vendor' => $idVendor,
+            'nama'      => 'Supir Vendor ' . Str::random(4),
+        ])->id_supir_vendor;
+
+        $proyek = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-VEN-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Trip Vendor',
+        ]);
+
+        $penugasan = PenugasanModel::create([
+            'id_proyek'         => $proyek->id_proyek,
+            'sumber'            => 'vendor',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'id_armada_vendor'  => $idArmadaVendor,
+            'id_supir_vendor'   => $idSupirVendor,
+        ]);
+
+        $jadwal = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => now()->addDay(),
+            'rute'            => $rute,
+        ]);
+
+        return TripModel::create([
+            'id_jadwal' => $jadwal->id_jadwal,
+            'status'    => 'belum_mulai',
+        ]);
+    }
+
+    public function test_list_dan_detail_trip_vendor_menyertakan_sumber_dan_vendor_nama(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $trip = $this->makeTripVendor('PT Vendor Ekspedisi');
+
+        $res = $this->getJson('/api/v1/trip');
+        $res->assertStatus(200);
+        $item = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
+        $this->assertNotNull($item);
+        $this->assertSame('vendor', $item['sumber']);
+        $this->assertSame('PT Vendor Ekspedisi', $item['vendor_nama']);
+
+        $resDetail = $this->getJson("/api/v1/trip/{$trip->id_trip}");
+        $resDetail->assertStatus(200)
+            ->assertJsonPath('data.sumber', 'vendor')
+            ->assertJsonPath('data.vendor_nama', 'PT Vendor Ekspedisi');
+    }
+
+    public function test_filter_sumber_memisahkan_trip_vendor_dan_internal(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $tripVendor = $this->makeTripVendor('PT Vendor Filter');
+        $idSupir = $this->makeSupir('Supir Internal Filter');
+        $tripInternal = $this->makeTrip(null, $idSupir, null, null, 'Rute Internal Filter');
+
+        $resVendor = $this->getJson('/api/v1/trip?sumber=vendor');
+        $resVendor->assertStatus(200);
+        $idsVendor = collect($resVendor->json('data'))->pluck('id_trip');
+        $this->assertTrue($idsVendor->contains($tripVendor->id_trip));
+        $this->assertFalse($idsVendor->contains($tripInternal->id_trip));
+
+        $resInternal = $this->getJson('/api/v1/trip?sumber=internal');
+        $resInternal->assertStatus(200);
+        $idsInternal = collect($resInternal->json('data'))->pluck('id_trip');
+        $this->assertTrue($idsInternal->contains($tripInternal->id_trip));
+        $this->assertFalse($idsInternal->contains($tripVendor->id_trip));
+    }
+
+    public function test_trip_internal_bersumber_internal_dengan_vendor_nama_null(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $idSupir = $this->makeSupir('Supir Internal Sumber');
+        $trip = $this->makeTrip(null, $idSupir, null, null, 'Rute Internal Sumber');
+
+        $res = $this->getJson('/api/v1/trip');
+        $res->assertStatus(200);
+        $item = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
+        $this->assertNotNull($item);
+        $this->assertSame('internal', $item['sumber']);
+        $this->assertNull($item['vendor_nama']);
+
+        $resDetail = $this->getJson("/api/v1/trip/{$trip->id_trip}");
+        $resDetail->assertStatus(200)
+            ->assertJsonPath('data.sumber', 'internal')
+            ->assertJsonPath('data.vendor_nama', null);
     }
 
     public function test_list_trip_bisa_difilter_id_proyek(): void
