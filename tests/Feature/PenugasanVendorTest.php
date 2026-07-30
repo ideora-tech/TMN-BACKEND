@@ -453,4 +453,100 @@ class PenugasanVendorTest extends TestCase
             'id_supir_vendor'   => $supirVendor->id_supir_vendor,
         ]);
     }
+
+    private function payloadUnitDriver(ProyekModel $proyek, KontrakVendorModel $kontrak, string $idArmadaVendor, string $idSupirVendor, string $tanggal): array
+    {
+        return [
+            'id_proyek'         => $proyek->id_proyek,
+            'sumber'            => 'vendor',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'id_armada_vendor'  => $idArmadaVendor,
+            'id_supir_vendor'   => $idSupirVendor,
+            'tanggal_tugas'     => $tanggal,
+        ];
+    }
+
+    public function test_supir_vendor_dobel_pada_tanggal_sama_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
+        $armadaA = $this->makeArmadaVendor($vendor->id_vendor);
+        $armadaB = $this->makeArmadaVendor($vendor->id_vendor);
+        $supir   = $this->makeSupirVendor($vendor->id_vendor);
+
+        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaA->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
+            ->assertStatus(201);
+
+        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaB->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Supir vendor sudah memiliki penugasan pada tanggal tersebut');
+
+        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaB->id_armada_vendor, $supir->id_supir_vendor, '2026-08-02'))
+            ->assertStatus(201);
+    }
+
+    public function test_armada_vendor_dobel_pada_tanggal_sama_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
+        $armada  = $this->makeArmadaVendor($vendor->id_vendor);
+        $supirA  = $this->makeSupirVendor($vendor->id_vendor);
+        $supirB  = $this->makeSupirVendor($vendor->id_vendor);
+
+        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supirA->id_supir_vendor, '2026-08-01'))
+            ->assertStatus(201);
+
+        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supirB->id_supir_vendor, '2026-08-01'))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Armada vendor sudah memiliki penugasan pada tanggal tersebut');
+    }
+
+    public function test_dobel_diizinkan_bila_penugasan_lama_sudah_final(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
+        $armada  = $this->makeArmadaVendor($vendor->id_vendor);
+        $supir   = $this->makeSupirVendor($vendor->id_vendor);
+
+        $res = $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'));
+        $res->assertStatus(201);
+
+        PenugasanModel::where('id_penugasan', $res->json('data.id_penugasan'))
+            ->update(['status' => 'selesai']);
+
+        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
+            ->assertStatus(201);
+    }
+
+    public function test_supir_internal_dobel_di_penugasan_vendor_unit_only_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
+        $armadaA = $this->makeArmadaVendor($vendor->id_vendor);
+        $armadaB = $this->makeArmadaVendor($vendor->id_vendor);
+        $idSupirInternal = (string) Str::uuid();
+
+        $payload = fn (string $idArmada) => [
+            'id_proyek'         => $proyek->id_proyek,
+            'sumber'            => 'vendor',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'id_armada_vendor'  => $idArmada,
+            'id_supir'          => $idSupirInternal,
+            'tanggal_tugas'     => '2026-08-01',
+        ];
+
+        $this->postJson('/api/v1/penugasan', $payload($armadaA->id_armada_vendor))->assertStatus(201);
+
+        $this->postJson('/api/v1/penugasan', $payload($armadaB->id_armada_vendor))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Supir sudah memiliki penugasan pada tanggal tersebut');
+    }
 }

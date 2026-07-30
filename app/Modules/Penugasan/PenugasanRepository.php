@@ -64,6 +64,24 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return $query->exists();
     }
 
+    public function adaKonflikAktorPadaTanggal(string $kolomAktor, string $idAktor, string $tanggalTugas, ?string $excludeId = null): bool
+    {
+        if (!in_array($kolomAktor, ['id_armada_vendor', 'id_supir_vendor', 'id_supir'], true)) {
+            return false;
+        }
+
+        $query = PenugasanModel::active()
+            ->where($kolomAktor, $idAktor)
+            ->where('tanggal_tugas', $tanggalTugas)
+            ->whereIn('status', ['pending', 'aktif']);
+
+        if ($excludeId !== null) {
+            $query->where('id_penugasan', '!=', $excludeId);
+        }
+
+        return $query->exists();
+    }
+
     public function create(array $data): PenugasanModel
     {
         return PenugasanModel::create($data);

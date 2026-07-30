@@ -91,6 +91,8 @@ class PenugasanService
             }
         }
 
+        $this->assertAktorVendorTidakDobel($data, $data['tanggal_tugas'] ?? null);
+
         return $this->repo->create($data);
     }
 
@@ -113,6 +115,12 @@ class PenugasanService
             'id_supir'          => array_key_exists('id_supir', $data) ? $data['id_supir'] : $record->id_supir,
         ];
         $this->assertVendorRules($merged, $idPerusahaan);
+
+        $tanggalEfektif = $data['tanggal_tugas']
+            ?? ($record->tanggal_tugas instanceof \DateTimeInterface
+                ? $record->tanggal_tugas->format('Y-m-d')
+                : $record->tanggal_tugas);
+        $this->assertAktorVendorTidakDobel($merged, $tanggalEfektif, $id);
 
         if (!empty($data['id_karyawan']) && !empty($data['tanggal_tugas'])) {
             $idKaryawan  = $data['id_karyawan'] ?? $record->id_karyawan;
@@ -186,6 +194,33 @@ class PenugasanService
         }
 
         return $data;
+    }
+
+    /**
+     * Khusus penugasan bersumber vendor: satu armada vendor / supir (vendor
+     * maupun internal) tidak boleh dobel pada tanggal tugas yang sama selama
+     * penugasan lamanya masih pending/aktif. Penugasan internal tetap boleh
+     * paralel lintas proyek (desain armada lintas proyek) — dijaga di level trip.
+     */
+    private function assertAktorVendorTidakDobel(array $data, ?string $tanggalTugas, ?string $excludeId = null): void
+    {
+        if (($data['sumber'] ?? 'internal') !== 'vendor' || empty($tanggalTugas)) {
+            return;
+        }
+
+        $cek = [
+            'id_armada_vendor' => 'Armada vendor sudah memiliki penugasan pada tanggal tersebut',
+            'id_supir_vendor'  => 'Supir vendor sudah memiliki penugasan pada tanggal tersebut',
+            'id_supir'         => 'Supir sudah memiliki penugasan pada tanggal tersebut',
+        ];
+
+        foreach ($cek as $kolom => $pesan) {
+            if (!empty($data[$kolom])
+                && $this->repo->adaKonflikAktorPadaTanggal($kolom, (string) $data[$kolom], $tanggalTugas, $excludeId)
+            ) {
+                abort(422, $pesan);
+            }
+        }
     }
 
     private function assertVendorRules(array $data, string $idPerusahaan): void
