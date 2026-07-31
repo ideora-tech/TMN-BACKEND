@@ -13,6 +13,7 @@ use App\Modules\Trip\Resources\TripResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Carbon;
 
 class TripController extends Controller
 {
@@ -69,6 +70,27 @@ class TripController extends Controller
                 'tujuan'    => $r->tujuan,
             ])->values(),
         ]);
+    }
+
+    public function jadwalSaya(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'dari'   => ['required', 'date_format:Y-m-d'],
+            'sampai' => ['required', 'date_format:Y-m-d', 'after_or_equal:dari'],
+        ]);
+
+        if (Carbon::parse($validated['dari'])->diffInDays(Carbon::parse($validated['sampai'])) > 62) {
+            abort(422, 'Rentang tanggal maksimal 62 hari');
+        }
+
+        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
+        if ($supir === null) {
+            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+        }
+
+        return ApiResponse::success(
+            $this->service->jadwalUntukSupir((string) $supir->id_supir, $validated['dari'], $validated['sampai'])
+        );
     }
 
     public function riwayatSaya(Request $request): JsonResponse

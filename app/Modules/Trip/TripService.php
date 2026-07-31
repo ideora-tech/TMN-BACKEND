@@ -7,6 +7,7 @@ namespace App\Modules\Trip;
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Cuti\Contracts\CutiRepositoryInterface;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
+use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
 use App\Modules\Penugasan\PenugasanService;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Modules\Rute\Contracts\RuteRepositoryInterface;
@@ -24,8 +25,30 @@ class TripService
         private readonly PenugasanService $penugasanService,
         private readonly ArmadaRepositoryInterface $armadaRepo,
         private readonly StatusTripRepositoryInterface $statusTripRepo,
-        private readonly CutiRepositoryInterface $cutiRepo
+        private readonly CutiRepositoryInterface $cutiRepo,
+        private readonly PenugasanRepositoryInterface $penugasanRepo
     ) {}
+
+    public function jadwalUntukSupir(string $idSupir, string $dari, string $sampai): array
+    {
+        $penugasanList = $this->penugasanRepo->listJadwalSupir($idSupir, $dari, $sampai);
+        $tripMap = $this->repo->tripAktifPerPenugasan($penugasanList->pluck('id_penugasan')->all());
+
+        return $penugasanList->map(fn ($p) => [
+            'id_penugasan'  => $p->id_penugasan,
+            'tanggal_tugas' => substr((string) $p->tanggal_tugas, 0, 10),
+            'status'        => $p->status,
+            'proyek'        => $p->proyek === null ? null : [
+                'id_proyek'   => $p->proyek->id_proyek,
+                'nama_proyek' => $p->proyek->nama_proyek,
+            ],
+            'armada'        => $p->armada === null ? null : [
+                'id_armada' => $p->armada->id_armada,
+                'nopol'     => $p->armada->nopol,
+            ],
+            'trip_berjalan' => $tripMap[$p->id_penugasan] ?? null,
+        ])->values()->all();
+    }
 
     private function catatRiwayatStatus(string $idTrip, string $status, string $keterangan): void
     {
@@ -137,7 +160,7 @@ class TripService
             abort(403, 'Trip ini bukan milik Anda');
         }
 
-        return $this->checkout($idTrip, $idPerusahaan, true);
+        return $this->checkout($idTrip, $idPerusahaan, false);
     }
 
     public function create(array $data, string $idPerusahaan): TripModel

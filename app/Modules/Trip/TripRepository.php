@@ -442,4 +442,29 @@ class TripRepository implements TripRepositoryInterface
             ->whereNull('pr.dihapus_pada')
             ->exists();
     }
+
+    public function tripAktifPerPenugasan(array $idPenugasanList): array
+    {
+        if ($idPenugasanList === []) {
+            return [];
+        }
+
+        $rows = DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->whereIn('jk.id_penugasan', $idPenugasanList)
+            ->whereIn('t.status', ['belum_mulai', 'berjalan'])
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->select('jk.id_penugasan', 't.id_trip', 't.status')
+            ->get();
+
+        $map = [];
+        foreach ($rows as $row) {
+            if (!isset($map[$row->id_penugasan]) || $row->status === 'berjalan') {
+                $map[$row->id_penugasan] = ['id_trip' => $row->id_trip, 'status' => $row->status];
+            }
+        }
+
+        return $map;
+    }
 }

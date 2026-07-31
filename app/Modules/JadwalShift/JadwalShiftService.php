@@ -101,4 +101,9 @@ class JadwalShiftService
         $record = $this->findOrFail($id);
         $this->repo->delete($record);
     }
+
+    public function hariIniSaya(string $idSupir): ?object
+    {
+        return $this->repo->findAktifBySupirTanggal($idSupir, now()->toDateString());
+    }
 }

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Penugasan\Contracts;
 
 use App\Modules\Penugasan\PenugasanModel;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 interface PenugasanRepositoryInterface
 {
     public function paginateByProyek(string $idProyek, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
+    public function listJadwalSupir(string $idSupir, string $dari, string $sampai): Collection;
     public function paginateByArmada(string $idArmada, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
     public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
     public function countSelesaiByProyek(string $idProyek): int;

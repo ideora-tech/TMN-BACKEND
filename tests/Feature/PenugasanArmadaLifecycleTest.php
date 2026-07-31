@@ -140,6 +140,10 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $this->putJson("/api/v1/penugasan/{$idPenugasan}", ['status' => 'selesai'])->assertStatus(200);
         $this->assertSame('tersedia', $armada->fresh()->status);
 
+        // Penugasan selesai terkunci dari penghapusan — buka kembali dulu
+        $this->deleteJson("/api/v1/penugasan/{$idPenugasan}")->assertStatus(422);
+        $this->putJson("/api/v1/penugasan/{$idPenugasan}", ['status' => 'aktif'])->assertStatus(200);
+
         $this->deleteJson("/api/v1/penugasan/{$idPenugasan}")->assertStatus(200);
         $this->assertSame('tersedia', $armada->fresh()->status);
     }

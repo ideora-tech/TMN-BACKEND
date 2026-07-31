@@ -309,7 +309,7 @@ class TripSayaTest extends TestCase
         ])->assertStatus(403);
     }
 
-    public function test_supir_bisa_selesaikan_trip_miliknya_sekaligus_penugasan(): void
+    public function test_supir_bisa_selesaikan_trip_tanpa_menutup_penugasan(): void
     {
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
@@ -324,7 +324,29 @@ class TripSayaTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'selesai');
 
-        $this->assertSame('selesai', $penugasan->fresh()->status);
+        $this->assertSame('aktif', $penugasan->fresh()->status);
+    }
+
+    public function test_supir_bisa_mulai_trip_kedua_dari_penugasan_yang_sama(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        $mulaiPertama = $this->postJson('/api/v1/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(201);
+        $idTripPertama = $mulaiPertama->json('data.id_trip');
+
+        $this->postJson("/api/v1/trip/{$idTripPertama}/checkout-saya")->assertStatus(200);
+
+        $mulaiKedua = $this->postJson('/api/v1/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ]);
+
+        $mulaiKedua->assertStatus(201)
+            ->assertJsonPath('data.status', 'berjalan');
+        $this->assertNotSame($idTripPertama, $mulaiKedua->json('data.id_trip'));
     }
 
     public function test_supir_tidak_bisa_selesaikan_trip_milik_supir_lain(): void

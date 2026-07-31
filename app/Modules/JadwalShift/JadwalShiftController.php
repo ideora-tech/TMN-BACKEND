@@ -8,6 +8,7 @@ use App\Helpers\ApiResponse;
 use App\Modules\JadwalShift\Requests\StoreJadwalShiftRequest;
 use App\Modules\JadwalShift\Requests\UpdateJadwalShiftRequest;
 use App\Modules\JadwalShift\Resources\JadwalShiftResource;
+use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -15,7 +16,10 @@ use Illuminate\Support\Facades\Validator;
 
 class JadwalShiftController extends Controller
 {
-    public function __construct(private readonly JadwalShiftService $service) {}
+    public function __construct(
+        private readonly JadwalShiftService $service,
+        private readonly SupirRepositoryInterface $supirRepo,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -54,5 +58,22 @@ class JadwalShiftController extends Controller
     {
         $this->service->delete($id);
         return ApiResponse::success(null, 'Jadwal shift berhasil dihapus');
+    }
+
+    public function hariIniSaya(Request $request): JsonResponse
+    {
+        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
+        if ($supir === null) {
+            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+        }
+
+        $jadwal = $this->service->hariIniSaya((string) $supir->id_supir);
+
+        return ApiResponse::success($jadwal !== null ? [
+            'shift_nama'   => $jadwal->shift_nama,
+            'jam_mulai'    => $jadwal->jam_mulai,
+            'jam_selesai'  => $jadwal->jam_selesai,
+            'nama_proyek'  => $jadwal->nama_proyek,
+        ] : null);
     }
 }

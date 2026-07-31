@@ -5,10 +5,22 @@ declare(strict_types=1);
 namespace App\Modules\Penugasan;
 
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class PenugasanRepository implements PenugasanRepositoryInterface
 {
+    public function listJadwalSupir(string $idSupir, string $dari, string $sampai): Collection
+    {
+        return PenugasanModel::active()
+            ->with(['proyek', 'armada'])
+            ->where('id_supir', $idSupir)
+            ->whereBetween('tanggal_tugas', [$dari, $sampai])
+            ->orderBy('tanggal_tugas')
+            ->orderBy('dibuat_pada')
+            ->get();
+    }
+
     public function paginateByProyek(string $idProyek, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
     {
         return PenugasanModel::active()

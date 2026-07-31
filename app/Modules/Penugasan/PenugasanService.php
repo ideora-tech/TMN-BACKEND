@@ -273,6 +273,10 @@ class PenugasanService
     {
         $record = $this->findOrFail($id);
 
+        if ($record->status === 'selesai') {
+            abort(422, 'Penugasan yang sudah selesai tidak dapat dihapus — buka kembali statusnya bila memang perlu diubah');
+        }
+
         if ($this->tripRepo->adaTripNonFinalUntukPenugasan($id)) {
             abort(422, 'Penugasan masih memiliki trip yang belum selesai — selesaikan atau batalkan trip terlebih dahulu');
         }
