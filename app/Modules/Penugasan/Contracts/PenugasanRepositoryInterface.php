@@ -12,6 +12,7 @@ interface PenugasanRepositoryInterface
 {
     public function paginateByProyek(string $idProyek, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
     public function listJadwalSupir(string $idSupir, string $dari, string $sampai): Collection;
+    public function listBySupirUntukProyek(string $idSupir, array $idProyekList): Collection;
     public function paginateByArmada(string $idArmada, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
     public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
     public function countSelesaiByProyek(string $idProyek): int;

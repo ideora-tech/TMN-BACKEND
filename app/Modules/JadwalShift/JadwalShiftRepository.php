@@ -51,9 +51,23 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             ->whereNull('jadwal_shift.dihapus_pada')
             ->where('jadwal_shift.id_supir', $idSupir)
             ->where('jadwal_shift.tanggal', $tanggal)
-            ->select(array_merge(self::COLUMNS, ['shift.nama as shift_nama', 'proyek.nama_proyek']))
+            ->select(array_merge(self::COLUMNS, self::JOINED, ['proyek.nama_proyek']))
             ->lockForUpdate()
             ->first();
+    }
+
+    public function listShiftSupir(string $idSupir, string $dari, string $sampai): array
+    {
+        return DB::table('jadwal_shift')
+            ->join('shift', 'shift.id_shift', '=', 'jadwal_shift.id_shift')
+            ->whereNull('jadwal_shift.dihapus_pada')
+            ->where('jadwal_shift.id_supir', $idSupir)
+            ->where('jadwal_shift.tanggal', '>=', $dari)
+            ->where('jadwal_shift.tanggal', '<=', $sampai)
+            ->orderBy('jadwal_shift.tanggal')
+            ->select(array_merge(self::COLUMNS, self::JOINED))
+            ->get()
+            ->all();
     }
 
     public function supirPunyaPenugasan(string $idProyek, string $idSupir): bool

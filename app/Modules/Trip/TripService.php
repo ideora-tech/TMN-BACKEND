@@ -7,6 +7,7 @@ namespace App\Modules\Trip;
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Cuti\Contracts\CutiRepositoryInterface;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
+use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
 use App\Modules\Penugasan\PenugasanService;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
@@ -26,28 +27,75 @@ class TripService
         private readonly ArmadaRepositoryInterface $armadaRepo,
         private readonly StatusTripRepositoryInterface $statusTripRepo,
         private readonly CutiRepositoryInterface $cutiRepo,
-        private readonly PenugasanRepositoryInterface $penugasanRepo
+        private readonly PenugasanRepositoryInterface $penugasanRepo,
+        private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo
     ) {}
 
+    /**
+     * Jadwal harian supir dari dua sumber: penugasan (tanggal_tugas) dan papan
+     * jadwal shift (jadwal_shift.tanggal). Entri shift di-map ke penugasan
+     * supir pada proyek yang sama agar trip tetap bisa dimulai via id_penugasan;
+     * entri dengan kunci (id_penugasan, tanggal) yang sama digabung.
+     */
     public function jadwalUntukSupir(string $idSupir, string $dari, string $sampai): array
     {
-        $penugasanList = $this->penugasanRepo->listJadwalSupir($idSupir, $dari, $sampai);
-        $tripMap = $this->repo->tripAktifPerPenugasan($penugasanList->pluck('id_penugasan')->all());
+        $penugasanTanggal = $this->penugasanRepo->listJadwalSupir($idSupir, $dari, $sampai);
+        $shiftRows = $this->jadwalShiftRepo->listShiftSupir($idSupir, $dari, $sampai);
 
-        return $penugasanList->map(fn ($p) => [
-            'id_penugasan'  => $p->id_penugasan,
-            'tanggal_tugas' => substr((string) $p->tanggal_tugas, 0, 10),
-            'status'        => $p->status,
-            'proyek'        => $p->proyek === null ? null : [
-                'id_proyek'   => $p->proyek->id_proyek,
-                'nama_proyek' => $p->proyek->nama_proyek,
+        $idProyekShift = collect($shiftRows)->pluck('id_proyek')->unique()->values()->all();
+        $urutanStatus = ['aktif' => 0, 'pending' => 1, 'selesai' => 2, 'batal' => 3];
+        $penugasanPerProyek = [];
+        foreach ($this->penugasanRepo->listBySupirUntukProyek($idSupir, $idProyekShift) as $p) {
+            $ada = $penugasanPerProyek[$p->id_proyek] ?? null;
+            if ($ada === null || ($urutanStatus[$p->status] ?? 9) < ($urutanStatus[$ada->status] ?? 9)) {
+                $penugasanPerProyek[$p->id_proyek] = $p;
+            }
+        }
+
+        $entri = [];
+        foreach ($penugasanTanggal as $p) {
+            $tanggal = substr((string) $p->tanggal_tugas, 0, 10);
+            $entri[$p->id_penugasan . '|' . $tanggal] = ['penugasan' => $p, 'tanggal' => $tanggal, 'shift' => null];
+        }
+        foreach ($shiftRows as $row) {
+            $p = $penugasanPerProyek[$row->id_proyek] ?? null;
+            if ($p === null) {
+                continue;
+            }
+            $tanggal = substr((string) $row->tanggal, 0, 10);
+            $kunci = $p->id_penugasan . '|' . $tanggal;
+            $entri[$kunci] ??= ['penugasan' => $p, 'tanggal' => $tanggal, 'shift' => null];
+            $entri[$kunci]['shift'] = [
+                'nama'        => $row->shift_nama,
+                'jam_mulai'   => $row->jam_mulai,
+                'jam_selesai' => $row->jam_selesai,
+            ];
+        }
+
+        $tripMap = $this->repo->tripAktifPerPenugasan(
+            array_values(array_unique(array_map(fn ($e) => $e['penugasan']->id_penugasan, $entri)))
+        );
+
+        $hasil = array_values(array_map(fn ($e) => [
+            'id_penugasan'  => $e['penugasan']->id_penugasan,
+            'tanggal_tugas' => $e['tanggal'],
+            'status'        => $e['penugasan']->status,
+            'proyek'        => $e['penugasan']->proyek === null ? null : [
+                'id_proyek'   => $e['penugasan']->proyek->id_proyek,
+                'nama_proyek' => $e['penugasan']->proyek->nama_proyek,
             ],
-            'armada'        => $p->armada === null ? null : [
-                'id_armada' => $p->armada->id_armada,
-                'nopol'     => $p->armada->nopol,
+            'armada'        => $e['penugasan']->armada === null ? null : [
+                'id_armada' => $e['penugasan']->armada->id_armada,
+                'nopol'     => $e['penugasan']->armada->nopol,
             ],
-            'trip_berjalan' => $tripMap[$p->id_penugasan] ?? null,
-        ])->values()->all();
+            'shift'         => $e['shift'],
+            'trip_berjalan' => $tripMap[$e['penugasan']->id_penugasan] ?? null,
+        ], $entri));
+
+        usort($hasil, fn ($a, $b) =>
+            [$a['tanggal_tugas'], $a['shift']['jam_mulai'] ?? ''] <=> [$b['tanggal_tugas'], $b['shift']['jam_mulai'] ?? '']);
+
+        return $hasil;
     }
 
     private function catatRiwayatStatus(string $idTrip, string $status, string $keterangan): void

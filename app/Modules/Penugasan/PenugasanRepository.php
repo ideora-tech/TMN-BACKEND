@@ -10,6 +10,20 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class PenugasanRepository implements PenugasanRepositoryInterface
 {
+    public function listBySupirUntukProyek(string $idSupir, array $idProyekList): Collection
+    {
+        if ($idProyekList === []) {
+            return new Collection();
+        }
+
+        return PenugasanModel::active()
+            ->with(['proyek', 'armada'])
+            ->where('id_supir', $idSupir)
+            ->whereIn('id_proyek', $idProyekList)
+            ->orderBy('dibuat_pada', 'desc')
+            ->get();
+    }
+
     public function listJadwalSupir(string $idSupir, string $dari, string $sampai): Collection
     {
         return PenugasanModel::active()
