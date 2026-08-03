@@ -176,7 +176,25 @@ class TripSayaTest extends TestCase
         $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
             ->assertStatus(200)
             ->assertJsonPath('data.shift_hari_ini', null)
-            ->assertJsonPath('data.armada_hari_ini', null);
+            ->assertJsonPath('data.armada_hari_ini', null)
+            ->assertJsonPath('data.jumlah_trip_selesai_hari_ini', 0);
+    }
+
+    public function test_detail_penugasan_menghitung_trip_selesai_hari_ini(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(201);
+        $this->postJson("/api/v1/trip/{$mulai->json('data.id_trip')}/checkout-saya")->assertStatus(200);
+
+        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.trip', null)
+            ->assertJsonPath('data.jumlah_trip_selesai_hari_ini', 1);
     }
 
     public function test_supir_tidak_bisa_lihat_penugasan_milik_supir_lain(): void

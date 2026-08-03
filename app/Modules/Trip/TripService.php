@@ -250,6 +250,7 @@ class TripService
             'nama_klien' => $this->repo->namaKlienPerProyek([(string) $penugasan->id_proyek])[(string) $penugasan->id_proyek] ?? null,
             'shift_hari_ini' => $shiftHariIni,
             'armada_hari_ini' => $armadaHariIni,
+            'jumlah_trip_selesai_hari_ini' => $this->repo->tripSelesaiPerPenugasanTanggal([$idPenugasan])[$idPenugasan . '|' . $hariIni] ?? 0,
         ];
     }
 
