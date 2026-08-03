@@ -69,6 +69,9 @@ class TripController extends Controller
                 'asal'      => $r->asal,
                 'tujuan'    => $r->tujuan,
             ])->values(),
+            'nama_klien' => $result['nama_klien'],
+            'shift_hari_ini' => $result['shift_hari_ini'],
+            'armada_hari_ini' => $result['armada_hari_ini'],
         ]);
     }
 

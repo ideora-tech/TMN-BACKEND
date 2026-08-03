@@ -226,10 +226,30 @@ class TripService
 
         $ruteTersedia = $this->proyekRuteRepo->listByProyek((string) $penugasan->id_proyek);
 
+        $hariIni = now()->toDateString();
+        $shiftHariIni = null;
+        foreach ($this->jadwalShiftRepo->listShiftSupir($idSupir, $hariIni, $hariIni) as $row) {
+            if ((string) $row->id_proyek === (string) $penugasan->id_proyek) {
+                $shiftHariIni = [
+                    'nama'        => $row->shift_nama,
+                    'jam_mulai'   => $row->jam_mulai,
+                    'jam_selesai' => $row->jam_selesai,
+                ];
+                break;
+            }
+        }
+
+        $armadaHariIni = $penugasan->armada !== null
+            ? ['id_armada' => $penugasan->armada->id_armada, 'nopol' => $penugasan->armada->nopol]
+            : ($this->alokasiRepo->alokasiNopolMap($idSupir, $hariIni, $hariIni)[$hariIni] ?? null);
+
         return [
             'penugasan' => $penugasan,
             'trip' => $tripAktif,
             'rute_tersedia' => $ruteTersedia,
+            'nama_klien' => $this->repo->namaKlienPerProyek([(string) $penugasan->id_proyek])[(string) $penugasan->id_proyek] ?? null,
+            'shift_hari_ini' => $shiftHariIni,
+            'armada_hari_ini' => $armadaHariIni,
         ];
     }
 

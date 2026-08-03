@@ -114,6 +114,71 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.rute_tersedia', []);
     }
 
+    public function test_detail_penugasan_menyertakan_klien_shift_dan_armada_hari_ini(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        $hariIni = now()->toDateString();
+        $idShift = (string) Str::uuid();
+        DB::table('shift')->insert([
+            'id_shift'      => $idShift,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama'          => 'PAGI',
+            'jam_mulai'     => '08:00:00',
+            'jam_selesai'   => '20:00:00',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('jadwal_shift')->insert([
+            'id_jadwal_shift' => (string) Str::uuid(),
+            'id_proyek'       => $proyek->id_proyek,
+            'id_shift'        => $idShift,
+            'id_supir'        => $ctx->id_supir,
+            'tanggal'         => $hariIni,
+            'dibuat_pada'     => now(),
+        ]);
+
+        $idArmada = (string) Str::uuid();
+        DB::table('armada')->insert([
+            'id_armada'     => $idArmada,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B 555 PJM',
+            'merk'          => 'Hino',
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('alokasi_armada')->insert([
+            'id_alokasi'  => (string) Str::uuid(),
+            'tanggal'     => $hariIni,
+            'id_proyek'   => $proyek->id_proyek,
+            'id_supir'    => $ctx->id_supir,
+            'id_armada'   => $idArmada,
+            'sumber'      => 'otomatis',
+            'dibuat_pada' => now(),
+        ]);
+
+        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.nama_klien', 'Klien Trip Saya Test')
+            ->assertJsonPath('data.shift_hari_ini.nama', 'PAGI')
+            ->assertJsonPath('data.shift_hari_ini.jam_mulai', '08:00:00')
+            ->assertJsonPath('data.shift_hari_ini.jam_selesai', '20:00:00')
+            ->assertJsonPath('data.armada_hari_ini.nopol', 'B 555 PJM');
+    }
+
+    public function test_detail_penugasan_tanpa_shift_hari_ini_bernilai_null(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.shift_hari_ini', null)
+            ->assertJsonPath('data.armada_hari_ini', null);
+    }
+
     public function test_supir_tidak_bisa_lihat_penugasan_milik_supir_lain(): void
     {
         $proyek = $this->makeProyek();
