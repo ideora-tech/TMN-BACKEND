@@ -93,30 +93,55 @@ class TripService
             ];
         }
 
-        $tripMap = $this->repo->tripAktifPerPenugasan(
-            array_values(array_unique(array_map(fn ($e) => $e['penugasan']->id_penugasan, $entri)))
-        );
+        $tripMap = $this->repo->tripAktifSupir($idSupir);
+
+        $penugasanById = [];
+        foreach ($entri as $e) {
+            $penugasanById[$e['penugasan']->id_penugasan] = $e['penugasan'];
+        }
+        foreach ($tripMap as $idPenugasan => $trip) {
+            $kunci = $idPenugasan . '|' . $trip['tanggal'];
+            if (isset($entri[$kunci])) {
+                continue;
+            }
+            $p = $penugasanById[$idPenugasan] ?? $this->penugasanRepo->findById($idPenugasan);
+            if ($p === null) {
+                continue;
+            }
+            $penugasanById[$idPenugasan] = $p;
+            $entri[$kunci] = ['penugasan' => $p, 'tanggal' => $trip['tanggal'], 'shift' => null];
+        }
+
+        $selesaiMap = $this->repo->tripSelesaiPerPenugasanTanggal(array_keys($penugasanById));
         $alokasiMap = $this->alokasiRepo->alokasiNopolMap($idSupir, $dari, $sampai);
         $klienMap = $this->repo->namaKlienPerProyek(
             array_values(array_unique(array_map(fn ($e) => (string) $e['penugasan']->id_proyek, $entri)))
         );
 
-        $hasil = array_values(array_map(fn ($e) => [
-            'id_penugasan'  => $e['penugasan']->id_penugasan,
-            'tanggal_tugas' => $e['tanggal'],
-            'status'        => $e['penugasan']->status,
-            'proyek'        => $e['penugasan']->proyek === null ? null : [
-                'id_proyek'   => $e['penugasan']->proyek->id_proyek,
-                'nama_proyek' => $e['penugasan']->proyek->nama_proyek,
-                'nama_klien'  => $klienMap[$e['penugasan']->proyek->id_proyek] ?? null,
-            ],
-            'armada'        => $e['penugasan']->armada !== null ? [
-                'id_armada' => $e['penugasan']->armada->id_armada,
-                'nopol'     => $e['penugasan']->armada->nopol,
-            ] : ($alokasiMap[$e['tanggal']] ?? null),
-            'shift'         => $e['shift'],
-            'trip_berjalan' => $tripMap[$e['penugasan']->id_penugasan] ?? null,
-        ], $entri));
+        $hasil = [];
+        foreach ($entri as $e) {
+            $trip = $tripMap[$e['penugasan']->id_penugasan] ?? null;
+            if ($trip !== null && $trip['tanggal'] !== $e['tanggal']) {
+                $trip = null;
+            }
+            $hasil[] = [
+                'id_penugasan'  => $e['penugasan']->id_penugasan,
+                'tanggal_tugas' => $e['tanggal'],
+                'status'        => $e['penugasan']->status,
+                'proyek'        => $e['penugasan']->proyek === null ? null : [
+                    'id_proyek'   => $e['penugasan']->proyek->id_proyek,
+                    'nama_proyek' => $e['penugasan']->proyek->nama_proyek,
+                    'nama_klien'  => $klienMap[$e['penugasan']->proyek->id_proyek] ?? null,
+                ],
+                'armada'        => $e['penugasan']->armada !== null ? [
+                    'id_armada' => $e['penugasan']->armada->id_armada,
+                    'nopol'     => $e['penugasan']->armada->nopol,
+                ] : ($alokasiMap[$e['tanggal']] ?? null),
+                'shift'         => $e['shift'],
+                'trip_berjalan' => $trip === null ? null : ['id_trip' => $trip['id_trip'], 'status' => $trip['status']],
+                'jumlah_trip_selesai' => $selesaiMap[$e['penugasan']->id_penugasan . '|' . $e['tanggal']] ?? 0,
+            ];
+        }
 
         usort($hasil, fn ($a, $b) =>
             [$a['tanggal_tugas'], $a['shift']['jam_mulai'] ?? ''] <=> [$b['tanggal_tugas'], $b['shift']['jam_mulai'] ?? '']);

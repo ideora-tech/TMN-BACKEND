@@ -456,7 +456,34 @@ class TripRepository implements TripRepositoryInterface
             ->all();
     }
 
-    public function tripAktifPerPenugasan(array $idPenugasanList): array
+    public function tripAktifSupir(string $idSupir): array
+    {
+        $rows = DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->join('penugasan as p', 'p.id_penugasan', '=', 'jk.id_penugasan')
+            ->where('p.id_supir', $idSupir)
+            ->whereIn('t.status', ['belum_mulai', 'berjalan'])
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereNull('p.dihapus_pada')
+            ->select('jk.id_penugasan', 't.id_trip', 't.status', 't.waktu_checkin', 't.dibuat_pada')
+            ->get();
+
+        $map = [];
+        foreach ($rows as $row) {
+            if (!isset($map[$row->id_penugasan]) || $row->status === 'berjalan') {
+                $map[$row->id_penugasan] = [
+                    'id_trip' => $row->id_trip,
+                    'status'  => $row->status,
+                    'tanggal' => substr((string) ($row->waktu_checkin ?? $row->dibuat_pada), 0, 10),
+                ];
+            }
+        }
+
+        return $map;
+    }
+
+    public function tripSelesaiPerPenugasanTanggal(array $idPenugasanList): array
     {
         if ($idPenugasanList === []) {
             return [];
@@ -465,17 +492,17 @@ class TripRepository implements TripRepositoryInterface
         $rows = DB::table('trip as t')
             ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
             ->whereIn('jk.id_penugasan', $idPenugasanList)
-            ->whereIn('t.status', ['belum_mulai', 'berjalan'])
+            ->where('t.status', 'selesai')
             ->whereNull('t.dihapus_pada')
             ->whereNull('jk.dihapus_pada')
-            ->select('jk.id_penugasan', 't.id_trip', 't.status')
+            ->select('jk.id_penugasan', 't.waktu_checkin', 't.waktu_checkout', 't.dibuat_pada')
             ->get();
 
         $map = [];
         foreach ($rows as $row) {
-            if (!isset($map[$row->id_penugasan]) || $row->status === 'berjalan') {
-                $map[$row->id_penugasan] = ['id_trip' => $row->id_trip, 'status' => $row->status];
-            }
+            $tanggal = substr((string) ($row->waktu_checkin ?? $row->waktu_checkout ?? $row->dibuat_pada), 0, 10);
+            $kunci = $row->id_penugasan . '|' . $tanggal;
+            $map[$kunci] = ($map[$kunci] ?? 0) + 1;
         }
 
         return $map;
