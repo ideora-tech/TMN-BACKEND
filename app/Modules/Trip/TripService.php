@@ -97,6 +97,9 @@ class TripService
             array_values(array_unique(array_map(fn ($e) => $e['penugasan']->id_penugasan, $entri)))
         );
         $alokasiMap = $this->alokasiRepo->alokasiNopolMap($idSupir, $dari, $sampai);
+        $klienMap = $this->repo->namaKlienPerProyek(
+            array_values(array_unique(array_map(fn ($e) => (string) $e['penugasan']->id_proyek, $entri)))
+        );
 
         $hasil = array_values(array_map(fn ($e) => [
             'id_penugasan'  => $e['penugasan']->id_penugasan,
@@ -105,6 +108,7 @@ class TripService
             'proyek'        => $e['penugasan']->proyek === null ? null : [
                 'id_proyek'   => $e['penugasan']->proyek->id_proyek,
                 'nama_proyek' => $e['penugasan']->proyek->nama_proyek,
+                'nama_klien'  => $klienMap[$e['penugasan']->proyek->id_proyek] ?? null,
             ],
             'armada'        => $e['penugasan']->armada !== null ? [
                 'id_armada' => $e['penugasan']->armada->id_armada,

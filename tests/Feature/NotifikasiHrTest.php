@@ -46,6 +46,29 @@ class NotifikasiHrTest extends TestCase
         return $id;
     }
 
+    public function test_tandai_dibaca_notifikasi_yang_punya_link_referensi(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $idTrip  = (string) Str::uuid();
+        $idNotif = (string) Str::uuid();
+        DB::table('notifikasi')->insert([
+            'id_notifikasi' => $idNotif, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'judul' => 'Trip belum selesai', 'isi' => 'Trip berjalan lebih dari 24 jam',
+            'tipe' => 'trip', 'referensi_id' => $idTrip, 'referensi_tipe' => 'trip',
+            'dibaca' => 0, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        $res = $this->putJson("/api/v1/notifikasi/{$idNotif}/baca");
+
+        $res->assertStatus(200)->assertJsonPath('data.link', "/trip/{$idTrip}");
+
+        $baris = DB::table('notifikasi')->where('id_notifikasi', $idNotif)->first();
+        $this->assertSame(1, (int) $baris->dibaca);
+        $this->assertNotNull($baris->dibaca_pada);
+        $this->assertNotNull($baris->diubah_pada);
+    }
+
     public function test_dokumen_karyawan_kadaluarsa_membuat_notifikasi(): void
     {
         $idKaryawan = $this->makeKaryawan();

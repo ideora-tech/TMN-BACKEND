@@ -227,6 +227,7 @@ class TripJadwalSayaTest extends TestCase
             ->assertJsonPath('data.0.tanggal_tugas', '2026-08-03')
             ->assertJsonPath('data.0.status', 'aktif')
             ->assertJsonPath('data.0.proyek.nama_proyek', 'Proyek Trip Jadwal Saya Test')
+            ->assertJsonPath('data.0.proyek.nama_klien', 'Klien Trip Jadwal Saya Test')
             ->assertJsonPath('data.0.trip_berjalan', null)
             ->assertJsonPath('data.1.id_penugasan', $b->id_penugasan);
     }

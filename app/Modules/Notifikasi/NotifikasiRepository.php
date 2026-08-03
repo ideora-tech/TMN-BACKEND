@@ -86,7 +86,13 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
 
     public function markRead(NotifikasiModel $model): NotifikasiModel
     {
-        $model->update(['dibaca' => 1, 'dibaca_pada' => now()]);
+        NotifikasiModel::where('id_notifikasi', $model->id_notifikasi)->update([
+            'dibaca'      => 1,
+            'dibaca_pada' => now(),
+            'diubah_pada' => now(),
+            'diubah_oleh' => auth()->id(),
+        ]);
+
         return $this->attachLink($model->fresh());
     }
 

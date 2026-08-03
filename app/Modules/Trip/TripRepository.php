@@ -443,6 +443,19 @@ class TripRepository implements TripRepositoryInterface
             ->exists();
     }
 
+    public function namaKlienPerProyek(array $idProyekList): array
+    {
+        if ($idProyekList === []) {
+            return [];
+        }
+
+        return DB::table('proyek as pr')
+            ->join('klien as k', 'k.id_klien', '=', 'pr.id_klien')
+            ->whereIn('pr.id_proyek', $idProyekList)
+            ->pluck('k.nama_klien', 'pr.id_proyek')
+            ->all();
+    }
+
     public function tripAktifPerPenugasan(array $idPenugasanList): array
     {
         if ($idPenugasanList === []) {
