@@ -70,6 +70,41 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             ->all();
     }
 
+    public function supirTerdaftarDiProyek(string $idProyek): array
+    {
+        return DB::table('penugasan as p')
+            ->join('supir as s', 's.id_supir', '=', 'p.id_supir')
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('s.dihapus_pada')
+            ->where('p.id_proyek', $idProyek)
+            ->where('p.sumber', 'internal')
+            ->whereIn('p.status', ['pending', 'aktif'])
+            ->distinct()
+            ->orderBy('s.nama')
+            ->select('s.id_supir', 's.nama', 's.no_sim')
+            ->get()
+            ->all();
+    }
+
+    public function supirByNoSim(string $noSim, string $idPerusahaan): ?object
+    {
+        return DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('no_sim', $noSim)
+            ->first();
+    }
+
+    public function shiftByNama(string $nama, string $idPerusahaan): ?object
+    {
+        return DB::table('shift')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('aktif', 1)
+            ->whereRaw('LOWER(nama) = ?', [mb_strtolower($nama)])
+            ->first();
+    }
+
     public function supirPunyaPenugasan(string $idProyek, string $idSupir): bool
     {
         return DB::table('penugasan')

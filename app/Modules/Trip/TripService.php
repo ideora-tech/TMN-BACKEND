@@ -6,6 +6,7 @@ namespace App\Modules\Trip;
 
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Cuti\Contracts\CutiRepositoryInterface;
+use App\Modules\AlokasiArmada\Contracts\AlokasiArmadaRepositoryInterface;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
 use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
@@ -28,8 +29,28 @@ class TripService
         private readonly StatusTripRepositoryInterface $statusTripRepo,
         private readonly CutiRepositoryInterface $cutiRepo,
         private readonly PenugasanRepositoryInterface $penugasanRepo,
-        private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo
+        private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
+        private readonly AlokasiArmadaRepositoryInterface $alokasiRepo
     ) {}
+
+    /**
+     * Armada efektif sebuah penugasan: kolom armada penugasan bila diisi;
+     * untuk supir shift (penugasan tanpa armada) diambil dari alokasi harian.
+     */
+    private function armadaEfektif(?object $penugasan): ?string
+    {
+        if ($penugasan === null) {
+            return null;
+        }
+        if (!empty($penugasan->id_armada)) {
+            return (string) $penugasan->id_armada;
+        }
+        if (empty($penugasan->id_supir)) {
+            return null;
+        }
+        $alokasi = $this->alokasiRepo->findAktifBySupirTanggal((string) $penugasan->id_supir, now()->toDateString());
+        return $alokasi?->id_armada;
+    }
 
     /**
      * Jadwal harian supir dari dua sumber: penugasan (tanggal_tugas) dan papan
@@ -75,6 +96,7 @@ class TripService
         $tripMap = $this->repo->tripAktifPerPenugasan(
             array_values(array_unique(array_map(fn ($e) => $e['penugasan']->id_penugasan, $entri)))
         );
+        $alokasiMap = $this->alokasiRepo->alokasiNopolMap($idSupir, $dari, $sampai);
 
         $hasil = array_values(array_map(fn ($e) => [
             'id_penugasan'  => $e['penugasan']->id_penugasan,
@@ -84,10 +106,10 @@ class TripService
                 'id_proyek'   => $e['penugasan']->proyek->id_proyek,
                 'nama_proyek' => $e['penugasan']->proyek->nama_proyek,
             ],
-            'armada'        => $e['penugasan']->armada === null ? null : [
+            'armada'        => $e['penugasan']->armada !== null ? [
                 'id_armada' => $e['penugasan']->armada->id_armada,
                 'nopol'     => $e['penugasan']->armada->nopol,
-            ],
+            ] : ($alokasiMap[$e['tanggal']] ?? null),
             'shift'         => $e['shift'],
             'trip_berjalan' => $tripMap[$e['penugasan']->id_penugasan] ?? null,
         ], $entri));
@@ -244,7 +266,7 @@ class TripService
             }
 
             if ($this->repo->adaTripAktifUntukAktor(
-                $penugasan->id_armada,
+                $this->armadaEfektif($penugasan),
                 $penugasan->id_supir,
                 $penugasan->id_armada_vendor,
                 $penugasan->id_supir_vendor
@@ -301,8 +323,10 @@ class TripService
         }
 
         return DB::transaction(function () use ($trip, $penugasan) {
+            $armadaEfektif = $this->armadaEfektif($penugasan);
+
             if ($penugasan !== null && $this->repo->adaTripBerjalanUntukAktorLain(
-                $penugasan->id_armada,
+                $armadaEfektif,
                 $penugasan->id_supir,
                 $penugasan->id_armada_vendor,
                 $penugasan->id_supir_vendor,
@@ -318,9 +342,9 @@ class TripService
 
             $this->catatRiwayatStatus($trip->id_trip, 'berjalan', 'Check-in — trip dimulai');
 
-            if ($penugasan !== null && !empty($penugasan->id_armada)) {
-                if (!$this->armadaRepo->tandaiDigunakanJikaSiap($penugasan->id_armada)) {
-                    $armada = $this->armadaRepo->findById($penugasan->id_armada);
+            if ($penugasan !== null && !empty($armadaEfektif)) {
+                if (!$this->armadaRepo->tandaiDigunakanJikaSiap($armadaEfektif)) {
+                    $armada = $this->armadaRepo->findById($armadaEfektif);
                     if ($armada !== null) {
                         abort(422, 'Armada sedang ' . str_replace('_', ' ', $armada->status) . ' — trip tidak dapat dimulai');
                     }
@@ -373,15 +397,16 @@ class TripService
      */
     private function lepasArmadaJikaAman(?object $penugasan, string $excludeTripId): void
     {
-        if ($penugasan === null || empty($penugasan->id_armada)) {
+        $armadaEfektif = $this->armadaEfektif($penugasan);
+        if ($armadaEfektif === null) {
             return;
         }
 
-        if ($this->repo->adaTripBerjalanUntukAktorLain($penugasan->id_armada, null, null, null, $excludeTripId)) {
+        if ($this->repo->adaTripBerjalanUntukAktorLain($armadaEfektif, null, null, null, $excludeTripId)) {
             return;
         }
 
-        $this->armadaRepo->lepaskanJikaDigunakan($penugasan->id_armada);
+        $this->armadaRepo->lepaskanJikaDigunakan($armadaEfektif);
     }
 
     public function update(string $id, array $data): TripModel

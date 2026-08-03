@@ -22,6 +22,8 @@ class JadwalShiftServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:penugasan'])
             ->group(function () {
                 Route::get('jadwal-shift', [JadwalShiftController::class, 'index']);
+                Route::get('jadwal-shift/import/template', [JadwalShiftController::class, 'downloadTemplate']);
+                Route::post('jadwal-shift/import', [JadwalShiftController::class, 'import']);
                 Route::get('jadwal-shift/hari-ini-saya', [JadwalShiftController::class, 'hariIniSaya']);
                 Route::post('jadwal-shift', [JadwalShiftController::class, 'store']);
                 Route::put('jadwal-shift/{id}', [JadwalShiftController::class, 'update']);

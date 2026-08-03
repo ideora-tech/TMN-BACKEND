@@ -146,19 +146,52 @@ class PayrollService
             $periode->tanggal_selesai,
             1,
             500,
+            null,
+            true,
         );
+        $tanggalExit = $this->repo->tanggalExitTerakhir($idPerusahaan);
 
-        return DB::transaction(function () use ($periode, $pengaturan, $rekap) {
+        return DB::transaction(function () use ($periode, $pengaturan, $rekap, $tanggalExit) {
             $this->repo->hapusSlipByPeriode($periode->id_periode);
+
+            $mulai     = Carbon::parse($periode->tanggal_mulai);
+            $selesai   = Carbon::parse($periode->tanggal_selesai);
+            $totalHari = (int) $mulai->diffInDays($selesai) + 1;
 
             $dibuat = 0;
             foreach ($rekap['data'] as $r) {
-                $gajiPokok  = (float) $r['gaji_pokok'];
+                $exit = $tanggalExit[$r['id_karyawan']] ?? null;
+                if (!$r['aktif'] && $exit === null) continue;
+
+                $mulaiEfektif = $r['tanggal_masuk'] !== null
+                    ? Carbon::parse($r['tanggal_masuk'])->max($mulai)
+                    : $mulai->copy();
+                $selesaiEfektif = !$r['aktif']
+                    ? Carbon::parse($exit)->min($selesai)
+                    : $selesai->copy();
+
+                if ($selesaiEfektif->lessThan($mulaiEfektif)) continue;
+
+                $hariAktif = (int) $mulaiEfektif->diffInDays($selesaiEfektif) + 1;
+
+                $gajiPokokPenuh = (float) $r['gaji_pokok'];
+                $gajiPokok  = $gajiPokokPenuh;
                 $upahLembur = (float) $r['lembur_rupiah'];
                 $tunjangan  = (float) $r['tunjangan_jabatan'];
                 $alpha      = (int) $r['alpha'];
 
-                $potonganAbsen = round($alpha * ($gajiPokok / max(1, $pengaturan['hari_kerja_per_bulan'])), 2);
+                $catatan = null;
+                if ($hariAktif < $totalHari) {
+                    $gajiPokok = round($gajiPokok * $hariAktif / $totalHari, 2);
+                    $tunjangan = round($tunjangan * $hariAktif / $totalHari, 2);
+
+                    $sebab = [];
+                    if ($mulaiEfektif->greaterThan($mulai)) $sebab[] = 'masuk ' . $this->tanggalId($mulaiEfektif);
+                    if ($selesaiEfektif->lessThan($selesai)) $sebab[] = 'berhenti ' . $this->tanggalId($selesaiEfektif);
+                    $catatan = sprintf('Gaji prorata %d/%d hari kalender (%s)', $hariAktif, $totalHari, implode(', ', $sebab));
+                }
+
+                $potonganAbsen = round($alpha * ($gajiPokokPenuh / max(1, $pengaturan['hari_kerja_per_bulan'])), 2);
 
                 $persenKes = $r['override_persen_bpjs_kesehatan'] ?? $pengaturan['persen_bpjs_kesehatan'];
                 $persenJht = $r['override_persen_bpjs_jht'] ?? $pengaturan['persen_bpjs_jht'];
@@ -196,6 +229,7 @@ class PayrollService
                     'total_bruto'   => $bruto,
                     'total_potongan' => $totalPotongan,
                     'gaji_bersih'   => $bruto - $totalPotongan,
+                    'catatan'       => $catatan,
                 ]);
                 $dibuat++;
             }
@@ -333,6 +367,11 @@ class PayrollService
         $tanggungan = (int) $m[2];
 
         return self::PTKP_DASAR + (($kawin + $tanggungan) * self::PTKP_TAMBAHAN);
+    }
+
+    private function tanggalId(Carbon $tanggal): string
+    {
+        return $tanggal->day . ' ' . self::BULAN_ID[$tanggal->month] . ' ' . $tanggal->year;
     }
 
     private function periodeOrFail(string $id, string $idPerusahaan): object

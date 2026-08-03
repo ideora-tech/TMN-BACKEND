@@ -117,7 +117,7 @@ class PerawatanSparepartTest extends TestCase
         $spB = $this->makeSparepart('Busi', 20, 25000);
 
         $create = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis',
+            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
             'sparepart' => [
                 ['id_sparepart' => $spA->id_sparepart, 'qty' => 2, 'harga' => 55000],
                 ['id_sparepart' => $spB->id_sparepart, 'qty' => 4, 'harga' => 25000],
@@ -156,7 +156,7 @@ class PerawatanSparepartTest extends TestCase
         $idPerawatan = $create->json('data.id_perawatan');
         $this->assertSame(7, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
 
-        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$idPerawatan}")->assertStatus(200);
+        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", ['alasan' => 'Pembersihan data uji'])->assertStatus(200);
 
         $this->assertSame(10, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
         $this->assertDatabaseHas('sparepart_mutasi', ['id_perawatan' => $idPerawatan, 'jenis' => 'masuk', 'qty' => 3, 'keterangan' => 'Pembatalan servis']);
@@ -170,7 +170,7 @@ class PerawatanSparepartTest extends TestCase
         $jenisBaru = $this->makeJenis('Overhaul Mesin');
 
         $create = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Teks Manual Lama',
+            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Teks Manual Lama', 'status' => 'dalam_proses',
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
 
@@ -230,7 +230,7 @@ class PerawatanSparepartTest extends TestCase
         $this->assertNull(DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('dihapus_pada'));
 
         // setelah servisnya dihapus (lines ikut soft-delete), master boleh dihapus
-        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$idPerawatan}")->assertStatus(200);
+        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", ['alasan' => 'Pembersihan data uji'])->assertStatus(200);
         $this->deleteJson("/api/v1/sparepart/{$sp->id_sparepart}")->assertStatus(200);
     }
 
@@ -249,7 +249,7 @@ class PerawatanSparepartTest extends TestCase
         $resTolak->assertStatus(422);
         $this->assertStringContainsString('masih dipakai', (string) $resTolak->json('message'));
 
-        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$idPerawatan}")->assertStatus(200);
+        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", ['alasan' => 'Pembersihan data uji'])->assertStatus(200);
         $this->deleteJson("/api/v1/jenis-perawatan/{$jenis->id_jenis_perawatan}")->assertStatus(200);
     }
 

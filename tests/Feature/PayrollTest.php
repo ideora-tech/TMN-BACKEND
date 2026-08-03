@@ -43,6 +43,15 @@ class PayrollTest extends TestCase
         return $id;
     }
 
+    private function makeExit(string $idKaryawan, string $tanggalEfektif): void
+    {
+        DB::table('karyawan_exit')->insert([
+            'id_exit' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_karyawan' => $idKaryawan, 'jenis_exit' => 'resign',
+            'tanggal_efektif' => $tanggalEfektif, 'dibuat_pada' => now(),
+        ]);
+    }
+
     private function pengaturanPayload(array $override = []): array
     {
         return array_merge([
@@ -291,6 +300,82 @@ class PayrollTest extends TestCase
         $this->assertEquals(7500000, $slip['total_bruto']);
         $this->assertEquals(131250, $slip['pph21']);
         $this->assertEquals(7368750, $slip['gaji_bersih']);
+    }
+
+    public function test_generate_slip_prorata_karyawan_masuk_tengah_periode(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+
+        $idJabatan = $this->makeJabatan(310000);
+        // Periode Juli 2026 (cutoff 1) = 31 hari; masuk 16 Jul -> aktif 16 hari (16 s/d 31 Jul)
+        // Gaji 3.100.000 x 16/31 = 1.600.000; tunjangan 310.000 x 16/31 = 160.000
+        $idKaryawan = $this->makeKaryawan('Joni Prorata Masuk', 'NIK-PAY-11', 3100000, [
+            'id_jabatan' => $idJabatan, 'tanggal_masuk' => '2026-07-16',
+        ]);
+        // Masuk setelah periode berakhir -> tidak dapat slip
+        $this->makeKaryawan('Karyawan Masa Depan', 'NIK-PAY-12', 4000000, [
+            'tanggal_masuk' => '2026-08-10',
+        ]);
+
+        $idPeriode = $this->buatPeriode('2026-07');
+        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+
+        $slips = $this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips');
+        $this->assertCount(1, $slips);
+
+        $slip = collect($slips)->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertNotNull($slip);
+        $this->assertEquals(1600000, $slip['gaji_pokok']);
+        $this->assertEquals(160000, $slip['tunjangan_lain']);
+        $this->assertEquals(1760000, $slip['total_bruto']);
+        $this->assertEquals(1760000, $slip['gaji_bersih']);
+        $this->assertStringContainsString('16/31', $slip['catatan']);
+    }
+
+    public function test_generate_slip_prorata_karyawan_berhenti_tengah_periode(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+
+        // Berhenti efektif 10 Jul -> aktif 10 hari (1 s/d 10 Jul); 3.100.000 x 10/31 = 1.000.000
+        $idKaryawan = $this->makeKaryawan('Lani Prorata Berhenti', 'NIK-PAY-13', 3100000, ['aktif' => 0]);
+        $this->makeExit($idKaryawan, '2026-07-10');
+        // Non-aktif tanpa catatan exit -> tetap tidak dapat slip
+        $this->makeKaryawan('Mati Tanpa Exit', 'NIK-PAY-14', 4000000, ['aktif' => 0]);
+
+        $idPeriode = $this->buatPeriode('2026-07');
+        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+
+        $slips = $this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips');
+        $this->assertCount(1, $slips);
+
+        $slip = collect($slips)->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertNotNull($slip);
+        $this->assertEquals(1000000, $slip['gaji_pokok']);
+        $this->assertEquals(1000000, $slip['gaji_bersih']);
+        $this->assertStringContainsString('10/31', $slip['catatan']);
+    }
+
+    public function test_generate_slip_karyawan_berhenti_setelah_periode_dapat_gaji_penuh(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+
+        // Resign efektif 5 Agu (setelah periode Juli berakhir) -> gaji Juli tetap penuh
+        // Gaji 5jt TK/0: PPh21 12.500/bln (sama seperti test generate komponen)
+        $idKaryawan = $this->makeKaryawan('Nina Exit Agustus', 'NIK-PAY-15', 5000000, ['aktif' => 0]);
+        $this->makeExit($idKaryawan, '2026-08-05');
+
+        $idPeriode = $this->buatPeriode('2026-07');
+        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+
+        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))
+            ->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertNotNull($slip);
+        $this->assertEquals(5000000, $slip['gaji_pokok']);
+        $this->assertEquals(4987500, $slip['gaji_bersih']);
+        $this->assertNull($slip['catatan']);
     }
 
     public function test_edit_slip_menghitung_ulang_total(): void

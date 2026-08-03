@@ -257,6 +257,35 @@ class TripJadwalSayaTest extends TestCase
             ->assertJsonPath('data.0.trip_berjalan.status', 'berjalan');
     }
 
+    public function test_jadwal_saya_menampilkan_armada_pinjaman_dari_alokasi(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-03');
+
+        $idArmada = (string) Str::uuid();
+        DB::table('armada')->insert([
+            'id_armada'     => $idArmada,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B 777 PJ',
+            'merk'          => 'Hino',
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('alokasi_armada')->insert([
+            'id_alokasi'  => (string) Str::uuid(),
+            'tanggal'     => '2026-08-03',
+            'id_proyek'   => $proyek->id_proyek,
+            'id_supir'    => $ctx->id_supir,
+            'id_armada'   => $idArmada,
+            'sumber'      => 'otomatis',
+            'dibuat_pada' => now(),
+        ]);
+
+        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.armada.nopol', 'B 777 PJ');
+    }
+
     public function test_jadwal_saya_validasi_parameter(): void
     {
         $this->actingAsSupir();

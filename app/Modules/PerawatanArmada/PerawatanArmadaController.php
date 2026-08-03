@@ -5,12 +5,19 @@ declare(strict_types=1);
 namespace App\Modules\PerawatanArmada;
 
 use App\Helpers\ApiResponse;
+use App\Modules\PerawatanArmada\Exports\PerawatanUnitExport;
+use App\Modules\PerawatanArmada\Exports\RekapPerawatanUnitExport;
 use App\Modules\PerawatanArmada\Requests\StorePerawatanArmadaRequest;
 use App\Modules\PerawatanArmada\Requests\UpdatePerawatanArmadaRequest;
+use App\Modules\PerawatanArmada\Requests\UploadBuktiPerawatanRequest;
 use App\Modules\PerawatanArmada\Resources\PerawatanArmadaResource;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class PerawatanArmadaController extends Controller
 {
@@ -69,10 +76,104 @@ class PerawatanArmadaController extends Controller
         return ApiResponse::success(new PerawatanArmadaResource($record), 'Perawatan armada berhasil diperbarui');
     }
 
-    public function destroy(string $idArmada, string $id): JsonResponse
+    public function destroy(Request $request, string $idArmada, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $validated = $request->validate(
+            ['alasan' => ['required', 'string', 'max:500']],
+            ['alasan.required' => 'Alasan penghapusan wajib diisi'],
+        );
+
+        $this->service->delete($id, $validated['alasan']);
         return ApiResponse::success(null, 'Perawatan armada berhasil dihapus');
+    }
+
+    public function storeBukti(UploadBuktiPerawatanRequest $request, string $idArmada, string $id): JsonResponse
+    {
+        $record = $this->service->tambahBukti($id, $request->file('bukti', []));
+        return ApiResponse::success(new PerawatanArmadaResource($record), 'Bukti perawatan berhasil diunggah');
+    }
+
+    public function destroyBukti(string $idArmada, string $id, string $idBukti): JsonResponse
+    {
+        $this->service->hapusBukti($id, $idBukti);
+        return ApiResponse::success(null, 'Bukti perawatan berhasil dihapus');
+    }
+
+    public function rekapPerUnit(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->rekapPerUnit(
+            (string) $request->user()->id_perusahaan,
+            $request->get('tanggal_dari'),
+            $request->get('tanggal_sampai'),
+        ));
+    }
+
+    public function exportUnitExcel(Request $request, string $idArmada): BinaryFileResponse
+    {
+        $dari = $request->get('tanggal_dari');
+        $sampai = $request->get('tanggal_sampai');
+        $data = $this->service->dataExportUnit($idArmada, (string) $request->user()->id_perusahaan, $dari, $sampai);
+
+        return Excel::download(
+            new PerawatanUnitExport(collect($data['items']), $data['armada'], $dari, $sampai),
+            'perawatan-' . str_replace(' ', '', (string) $data['armada']->nopol) . '-' . date('Ymd') . '.xlsx'
+        );
+    }
+
+    public function exportUnitPdf(Request $request, string $idArmada): Response
+    {
+        $dari = $request->get('tanggal_dari');
+        $sampai = $request->get('tanggal_sampai');
+        $data = $this->service->dataExportUnit($idArmada, (string) $request->user()->id_perusahaan, $dari, $sampai);
+
+        $pdf = Pdf::loadView('exports.perawatan-unit', [
+            'armada'     => $data['armada'],
+            'items'      => $data['items'],
+            'dari'       => $dari,
+            'sampai'     => $sampai,
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan((string) $request->user()->id_perusahaan),
+        ]);
+
+        return $pdf->download('perawatan-' . str_replace(' ', '', (string) $data['armada']->nopol) . '-' . date('Ymd') . '.pdf');
+    }
+
+    public function exportRekapExcel(Request $request): BinaryFileResponse
+    {
+        $dari = $request->get('tanggal_dari');
+        $sampai = $request->get('tanggal_sampai');
+        $items = $this->service->rekapPerUnit((string) $request->user()->id_perusahaan, $dari, $sampai);
+
+        return Excel::download(
+            new RekapPerawatanUnitExport(collect($items), $dari, $sampai),
+            'rekap-perawatan-unit-' . date('Ymd') . '.xlsx'
+        );
+    }
+
+    public function exportRekapPdf(Request $request): Response
+    {
+        $dari = $request->get('tanggal_dari');
+        $sampai = $request->get('tanggal_sampai');
+        $items = $this->service->rekapPerUnit((string) $request->user()->id_perusahaan, $dari, $sampai);
+
+        $pdf = Pdf::loadView('exports.rekap-perawatan-unit', [
+            'items'      => $items,
+            'dari'       => $dari,
+            'sampai'     => $sampai,
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan((string) $request->user()->id_perusahaan),
+        ]);
+
+        return $pdf->download('rekap-perawatan-unit-' . date('Ymd') . '.pdf');
+    }
+
+    private function logoBase64(): ?string
+    {
+        $path = public_path('img/logo/logo-sli.png');
+        if (!is_file($path)) {
+            return null;
+        }
+        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
     }
 
     public function prediksiPerawatan(Request $request, string $idArmada): JsonResponse

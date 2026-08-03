@@ -16,6 +16,13 @@ interface PerawatanArmadaRepositoryInterface
     public function delete(object $record): void;
 
     public function getActiveLines(string $idPerawatan): array;
+    public function getPerusahaan(string $idPerusahaan): ?object;
+    public function rekapPerUnit(string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array;
+    public function listByArmadaRentang(string $idArmada, ?string $dari = null, ?string $sampai = null): array;
+    public function listBukti(string $idPerawatan): array;
+    public function insertBukti(array $data): void;
+    public function findBukti(string $idPerawatan, string $idBukti): ?object;
+    public function softDeleteBukti(string $idBukti): void;
     public function insertLine(array $data): void;
     public function softDeleteLines(string $idPerawatan): void;
     public function getSparepartForUpdate(string $idSparepart): ?object;

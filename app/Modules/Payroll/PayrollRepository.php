@@ -150,6 +150,17 @@ class PayrollRepository implements PayrollRepositoryInterface
             ->update(RecordHelper::stampDelete());
     }
 
+    public function tanggalExitTerakhir(string $idPerusahaan): array
+    {
+        return DB::table('karyawan_exit')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->groupBy('id_karyawan')
+            ->selectRaw('id_karyawan, MAX(tanggal_efektif) as tanggal_efektif')
+            ->pluck('tanggal_efektif', 'id_karyawan')
+            ->all();
+    }
+
     public function ringkasanPeriode(string $idPeriode): object
     {
         $row = DB::table('payroll_slip')

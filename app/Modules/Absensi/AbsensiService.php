@@ -153,7 +153,7 @@ class AbsensiService
         return $this->rekapRentang($idPerusahaan, $awal->toDateString(), $akhir->toDateString(), $page, $limit, $search);
     }
 
-    public function rekapRentang(string $idPerusahaan, string $awalStr, string $akhirStr, int $page = 1, int $limit = 10, ?string $search = null): array
+    public function rekapRentang(string $idPerusahaan, string $awalStr, string $akhirStr, int $page = 1, int $limit = 10, ?string $search = null, bool $termasukNonAktif = false): array
     {
         $awal  = Carbon::parse($awalStr);
         $akhir = Carbon::parse($akhirStr);
@@ -173,7 +173,7 @@ class AbsensiService
 
         $rows = [];
         foreach ($this->karyawanRepo->paginateByPerusahaan($idPerusahaan, 1, 500)->items() as $k) {
-            if (!(bool) $k->aktif) continue;
+            if (!(bool) $k->aktif && !$termasukNonAktif) continue;
 
             $c = $counts->get($k->id_karyawan, collect())->keyBy('status');
             $harian = $lemburHarian[$k->id_karyawan] ?? [];
@@ -181,6 +181,8 @@ class AbsensiService
                 'id_karyawan'   => $k->id_karyawan,
                 'nik'           => $k->nik,
                 'nama'          => $k->nama_karyawan,
+                'aktif'         => (bool) $k->aktif,
+                'tanggal_masuk' => $k->tanggal_masuk,
                 'gaji_pokok'    => (float) $k->gaji_pokok,
                 'status_ptkp'   => $k->status_ptkp ?? null,
                 'ikut_bpjs_kesehatan'       => (bool) ($k->ikut_bpjs_kesehatan ?? false),

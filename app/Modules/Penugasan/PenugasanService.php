@@ -147,7 +147,22 @@ class PenugasanService
             }
         }
 
-        return $this->repo->update($record, $data);
+        $armadaSebelum = $record->id_armada;
+        $updated = $this->repo->update($record, $data);
+
+        // Armada penugasan diubah user → alokasi jadwal ke depan dihitung ulang
+        // (penugasan = sumber kepemilikan harian; alokasi manual tidak disentuh).
+        if (array_key_exists('id_armada', $data)
+            && $data['id_armada'] !== $armadaSebelum
+            && !empty($updated->id_supir)) {
+            app(\App\Modules\AlokasiArmada\AlokasiArmadaService::class)->hitungUlangUntukPenugasan(
+                (string) $updated->id_supir,
+                (string) $updated->id_proyek,
+                now()->toDateString(),
+            );
+        }
+
+        return $updated;
     }
 
     /**

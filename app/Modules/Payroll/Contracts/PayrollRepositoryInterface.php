@@ -25,4 +25,7 @@ interface PayrollRepositoryInterface
     public function updateSlip(object $record, array $data): object;
     public function hapusSlipByPeriode(string $idPeriode): void;
     public function ringkasanPeriode(string $idPeriode): object;
+
+    /** @return array<string, string> map id_karyawan => tanggal_efektif exit terakhir */
+    public function tanggalExitTerakhir(string $idPerusahaan): array;
 }

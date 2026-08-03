@@ -22,10 +22,17 @@ class PerawatanArmadaServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:armada'])
             ->group(function () {
                 Route::get('perawatan-armada', [PerawatanArmadaController::class, 'index']);
+                Route::get('perawatan-armada/rekap-per-unit', [PerawatanArmadaController::class, 'rekapPerUnit']);
+                Route::get('perawatan-armada/rekap-per-unit/export/excel', [PerawatanArmadaController::class, 'exportRekapExcel']);
+                Route::get('perawatan-armada/rekap-per-unit/export/pdf', [PerawatanArmadaController::class, 'exportRekapPdf']);
+                Route::get('armada/{idArmada}/perawatan/export/excel', [PerawatanArmadaController::class, 'exportUnitExcel']);
+                Route::get('armada/{idArmada}/perawatan/export/pdf', [PerawatanArmadaController::class, 'exportUnitPdf']);
                 Route::get('armada/{idArmada}/prediksi-perawatan', [PerawatanArmadaController::class, 'prediksiPerawatan']);
                 Route::get('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'indexByArmada']);
                 Route::get('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'show']);
                 Route::post('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'store']);
+                Route::post('armada/{idArmada}/perawatan/{id}/bukti', [PerawatanArmadaController::class, 'storeBukti']);
+                Route::delete('armada/{idArmada}/perawatan/{id}/bukti/{idBukti}', [PerawatanArmadaController::class, 'destroyBukti']);
                 Route::put('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'update']);
                 Route::patch('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'update']);
                 Route::delete('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'destroy']);

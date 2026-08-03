@@ -9,7 +9,10 @@ use Illuminate\Support\Facades\DB;
 
 class JadwalShiftService
 {
-    public function __construct(private readonly JadwalShiftRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly JadwalShiftRepositoryInterface $repo,
+        private readonly \App\Modules\AlokasiArmada\AlokasiArmadaService $alokasiService,
+    ) {}
 
     public function list(string $idProyek, string $idPerusahaan, ?string $dari, ?string $sampai): array
     {
@@ -56,6 +59,7 @@ class JadwalShiftService
         return DB::transaction(function () use ($data, $periode) {
             $sukses = 0;
             $gagal  = [];
+            $terjadwal = [];
 
             foreach (array_unique($data['supir']) as $idSupir) {
                 if (!$this->repo->supirPunyaPenugasan($data['id_proyek'], $idSupir)) {
@@ -82,12 +86,146 @@ class JadwalShiftService
                         'id_supir'  => $idSupir,
                         'tanggal'   => $tanggal,
                     ]);
+                    $terjadwal[] = ['id_supir' => $idSupir, 'tanggal' => $tanggal];
                     $sukses++;
                 }
             }
 
+            // Alokasi armada otomatis setelah SEMUA baris jadwal batch tersimpan,
+            // supaya status "pemilik dijadwalkan" akurat lintas supir dalam batch.
+            $this->alokasiService->alokasikanBatch($terjadwal, $data['id_proyek']);
+
             return ['sukses' => $sukses, 'gagal' => $gagal];
         });
+    }
+
+    public function templateData(string $idProyek, string $idPerusahaan, string $dari, string $sampai): array
+    {
+        if (!$this->repo->proyekMilikPerusahaan($idProyek, $idPerusahaan)) {
+            abort(404, 'Proyek tidak ditemukan');
+        }
+
+        $mulai   = \Carbon\Carbon::parse($dari);
+        $selesai = \Carbon\Carbon::parse($sampai);
+        if ($mulai->diffInDays($selesai) > 62) {
+            abort(422, 'Rentang tanggal maksimal 62 hari');
+        }
+
+        $tanggal = [];
+        for ($t = $mulai->copy(); $t->lte($selesai); $t->addDay()) {
+            $tanggal[] = $t->toDateString();
+        }
+
+        return [
+            'supir'   => $this->repo->supirTerdaftarDiProyek($idProyek),
+            'tanggal' => $tanggal,
+        ];
+    }
+
+    /**
+     * Import matriks jadwal shift: baris = supir (No SIM + nama shift),
+     * kolom ke-4 dst = tanggal, isi sel H = dijadwalkan, selain itu dilewati.
+     * Gagal per-item (baris/tanggal bermasalah dilaporkan, sisanya tetap masuk),
+     * lalu alokasi armada otomatis dijalankan untuk semua yang berhasil.
+     */
+    public function importMatriks(\Illuminate\Http\UploadedFile $file, string $idProyek, string $idPerusahaan): array
+    {
+        if (!$this->repo->proyekMilikPerusahaan($idProyek, $idPerusahaan)) {
+            abort(404, 'Proyek tidak ditemukan');
+        }
+
+        $rows = \Maatwebsite\Excel\Facades\Excel::toArray(new \App\Modules\JadwalShift\Imports\JadwalShiftImport(), $file)[0] ?? [];
+        if (count($rows) < 2) {
+            abort(422, 'File kosong atau tidak berisi baris data');
+        }
+
+        $tanggalKolom = [];
+        foreach (array_slice($rows[0], 3, null, true) as $kolom => $nilai) {
+            $tanggal = $this->parseTanggalHeader($nilai);
+            if ($tanggal !== null) {
+                $tanggalKolom[$kolom] = $tanggal;
+            }
+        }
+        if ($tanggalKolom === []) {
+            abort(422, 'Kolom tanggal tidak ditemukan pada baris header (mulai kolom ke-4)');
+        }
+
+        return DB::transaction(function () use ($rows, $tanggalKolom, $idProyek, $idPerusahaan) {
+            $sukses    = 0;
+            $gagal     = [];
+            $terjadwal = [];
+
+            foreach (array_slice($rows, 1, null, true) as $idx => $row) {
+                $barisKe   = $idx + 1;
+                $noSim     = trim((string) ($row[0] ?? ''));
+                $namaShift = trim((string) ($row[2] ?? ''));
+
+                if ($noSim === '' && $namaShift === '') {
+                    continue;
+                }
+
+                $supir = $this->repo->supirByNoSim($noSim, $idPerusahaan);
+                if ($supir === null) {
+                    $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => "Supir dengan No SIM '{$noSim}' tidak ditemukan"];
+                    continue;
+                }
+
+                $shift = $this->repo->shiftByNama($namaShift, $idPerusahaan);
+                if ($shift === null) {
+                    $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => "Shift '{$namaShift}' tidak ditemukan di master shift"];
+                    continue;
+                }
+
+                if (!$this->repo->supirPunyaPenugasan($idProyek, (string) $supir->id_supir)) {
+                    $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => 'Supir tidak ter-assign ke proyek ini'];
+                    continue;
+                }
+
+                foreach ($tanggalKolom as $kolom => $tanggal) {
+                    if (strtoupper(trim((string) ($row[$kolom] ?? ''))) !== 'H') {
+                        continue;
+                    }
+
+                    $ada = $this->repo->findAktifBySupirTanggal((string) $supir->id_supir, $tanggal);
+                    if ($ada !== null) {
+                        $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => "Tanggal {$tanggal}: sudah dijadwalkan shift {$ada->shift_nama}"];
+                        continue;
+                    }
+
+                    $this->repo->create([
+                        'id_proyek' => $idProyek,
+                        'id_shift'  => $shift->id_shift,
+                        'id_supir'  => $supir->id_supir,
+                        'tanggal'   => $tanggal,
+                    ]);
+                    $terjadwal[] = ['id_supir' => (string) $supir->id_supir, 'tanggal' => $tanggal];
+                    $sukses++;
+                }
+            }
+
+            $this->alokasiService->alokasikanBatch($terjadwal, $idProyek);
+
+            return ['sukses' => $sukses, 'gagal' => $gagal];
+        });
+    }
+
+    private function parseTanggalHeader(mixed $nilai): ?string
+    {
+        if ($nilai === null || $nilai === '') {
+            return null;
+        }
+        if (is_numeric($nilai)) {
+            try {
+                return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $nilai)->format('Y-m-d');
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+        try {
+            return \Carbon\Carbon::parse(trim((string) $nilai))->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function updateShift(string $id, string $idShift): object
@@ -100,6 +238,7 @@ class JadwalShiftService
     {
         $record = $this->findOrFail($id);
         $this->repo->delete($record);
+        $this->alokasiService->hapusUntukJadwal((string) $record->id_supir, (string) $record->tanggal);
     }
 
     public function hariIniSaya(string $idSupir): ?object

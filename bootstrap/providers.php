@@ -3,6 +3,7 @@
 return [
     App\Providers\AppServiceProvider::class,
     App\Modules\Absensi\AbsensiServiceProvider::class,
+    App\Modules\AlokasiArmada\AlokasiArmadaServiceProvider::class,
     App\Modules\Armada\ArmadaServiceProvider::class,
     App\Modules\Auth\AuthServiceProvider::class,
     App\Modules\BriefingSupir\BriefingSupirServiceProvider::class,
@@ -37,6 +38,7 @@ return [
     App\Modules\PaketPerawatanSparepart\PaketPerawatanSparepartServiceProvider::class,
     App\Modules\ParameterBok\ParameterBokServiceProvider::class,
     App\Modules\Payroll\PayrollServiceProvider::class,
+    App\Modules\PembelianSparepart\PembelianSparepartServiceProvider::class,
     App\Modules\Pengguna\PenggunaServiceProvider::class,
     App\Modules\Penugasan\PenugasanServiceProvider::class,
     App\Modules\Peran\PeranServiceProvider::class,
@@ -50,6 +52,7 @@ return [
     App\Modules\Sparepart\SparepartServiceProvider::class,
     App\Modules\StatusTrip\StatusTripServiceProvider::class,
     App\Modules\Supir\SupirServiceProvider::class,
+    App\Modules\Supplier\SupplierServiceProvider::class,
     App\Modules\TarifRute\TarifRuteServiceProvider::class,
     App\Modules\Trip\TripServiceProvider::class,
     App\Modules\Vendor\VendorServiceProvider::class,

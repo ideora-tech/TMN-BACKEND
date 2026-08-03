@@ -41,7 +41,7 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->whereNull('perawatan_armada.dihapus_pada')
             ->whereNull('armada.dihapus_pada')
             ->when($idArmada, fn ($q, $v) => $q->where('perawatan_armada.id_armada', $v))
-            ->when($status, fn ($q, $v) => $q->where('perawatan_armada.status', $v))
+            ->when($status, fn ($q, $v) => $q->whereIn('perawatan_armada.status', array_map('trim', explode(',', $v))))
             ->when($tanggalDari, fn ($q, $v) => $q->whereDate('perawatan_armada.tanggal', '>=', $v))
             ->when($tanggalSampai, fn ($q, $v) => $q->whereDate('perawatan_armada.tanggal', '<=', $v))
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
@@ -58,6 +58,8 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
                     ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
                     LIMIT 1
                 )'))
+            ->orderByRaw('MAX(perawatan_armada.tanggal) OVER (PARTITION BY perawatan_armada.id_armada) DESC')
+            ->orderBy('armada.nopol')
             ->orderByDesc('perawatan_armada.tanggal')
             ->orderByDesc('perawatan_armada.dibuat_pada')
             ->select(array_merge(self::COLUMNS, ['armada.nopol as armada_nopol', 'armada.merk as armada_merk']))
@@ -71,6 +73,54 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->whereNull('dihapus_pada')
             ->where('id_perawatan', $id)
             ->first();
+    }
+
+    public function getPerusahaan(string $idPerusahaan): ?object
+    {
+        return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
+    }
+
+    private function subTotalSparepart()
+    {
+        return DB::table('perawatan_sparepart')
+            ->selectRaw('id_perawatan, SUM(qty * harga) as total_sparepart')
+            ->whereNull('dihapus_pada')
+            ->groupBy('id_perawatan');
+    }
+
+    public function rekapPerUnit(string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    {
+        return DB::table('perawatan_armada as p')
+            ->join('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoinSub($this->subTotalSparepart(), 'sp', 'sp.id_perawatan', '=', 'p.id_perawatan')
+            ->where('a.id_perusahaan', $idPerusahaan)
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('a.dihapus_pada')
+            ->when($dari, fn ($q, $v) => $q->whereDate('p.tanggal', '>=', $v))
+            ->when($sampai, fn ($q, $v) => $q->whereDate('p.tanggal', '<=', $v))
+            ->groupBy('a.id_armada', 'a.nopol', 'a.merk')
+            ->orderBy('a.nopol')
+            ->selectRaw('a.id_armada, a.nopol, a.merk,
+                COUNT(p.id_perawatan) as jumlah_perawatan,
+                COALESCE(SUM(p.biaya), 0) as biaya_jasa,
+                COALESCE(SUM(sp.total_sparepart), 0) as biaya_sparepart')
+            ->get()
+            ->all();
+    }
+
+    public function listByArmadaRentang(string $idArmada, ?string $dari = null, ?string $sampai = null): array
+    {
+        return DB::table('perawatan_armada as p')
+            ->leftJoinSub($this->subTotalSparepart(), 'sp', 'sp.id_perawatan', '=', 'p.id_perawatan')
+            ->whereNull('p.dihapus_pada')
+            ->where('p.id_armada', $idArmada)
+            ->when($dari, fn ($q, $v) => $q->whereDate('p.tanggal', '>=', $v))
+            ->when($sampai, fn ($q, $v) => $q->whereDate('p.tanggal', '<=', $v))
+            ->orderByDesc('p.tanggal')
+            ->orderByDesc('p.dibuat_pada')
+            ->selectRaw('p.*, COALESCE(sp.total_sparepart, 0) as total_sparepart')
+            ->get()
+            ->all();
     }
 
     public function create(array $data): object
@@ -113,6 +163,38 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
     public function insertLine(array $data): void
     {
         DB::table('perawatan_sparepart')->insert(RecordHelper::stampCreate($data, 'id_perawatan_sparepart'));
+    }
+
+    public function listBukti(string $idPerawatan): array
+    {
+        return DB::table('perawatan_armada_bukti')
+            ->whereNull('dihapus_pada')
+            ->where('id_perawatan', $idPerawatan)
+            ->orderBy('dibuat_pada')
+            ->select('id_bukti', 'url_file', 'nama_asli')
+            ->get()
+            ->all();
+    }
+
+    public function insertBukti(array $data): void
+    {
+        DB::table('perawatan_armada_bukti')->insert(RecordHelper::stampCreate($data, 'id_bukti'));
+    }
+
+    public function findBukti(string $idPerawatan, string $idBukti): ?object
+    {
+        return DB::table('perawatan_armada_bukti')
+            ->whereNull('dihapus_pada')
+            ->where('id_perawatan', $idPerawatan)
+            ->where('id_bukti', $idBukti)
+            ->first();
+    }
+
+    public function softDeleteBukti(string $idBukti): void
+    {
+        DB::table('perawatan_armada_bukti')
+            ->where('id_bukti', $idBukti)
+            ->update(RecordHelper::stampDelete());
     }
 
     public function softDeleteLines(string $idPerawatan): void

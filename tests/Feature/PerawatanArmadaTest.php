@@ -66,17 +66,50 @@ class PerawatanArmadaTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
-        $perawatan = $this->makePerawatan($armada->id_armada);
+        $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'terjadwal');
 
         $resUpdate = $this->putJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
             'status' => 'dalam_proses',
         ]);
         $resUpdate->assertStatus(200)->assertJsonPath('data.status', 'dalam_proses');
 
-        $resDelete = $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}");
+        $resDelete = $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+            'alasan' => 'Data duplikat',
+        ]);
         $resDelete->assertStatus(200);
 
         $this->assertSoftDeleted('perawatan_armada', ['id_perawatan' => $perawatan->id_perawatan]);
+    }
+
+    public function test_hapus_perawatan_wajib_beri_alasan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->makeArmada();
+        $perawatan = $this->makePerawatan($armada->id_armada);
+
+        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}")
+            ->assertStatus(422);
+
+        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+            'alasan' => 'Salah input data biaya',
+        ])->assertStatus(200);
+
+        $this->assertSoftDeleted('perawatan_armada', ['id_perawatan' => $perawatan->id_perawatan]);
+        $this->assertDatabaseHas('perawatan_armada', [
+            'id_perawatan' => $perawatan->id_perawatan,
+            'alasan_hapus' => 'Salah input data biaya',
+        ]);
+    }
+
+    public function test_perawatan_selesai_tidak_bisa_diubah(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->makeArmada();
+        $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'selesai');
+
+        $this->putJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+            'status' => 'dalam_proses',
+        ])->assertStatus(422);
     }
 
     public function test_list_lintas_armada_scoped_ke_perusahaan_sendiri(): void

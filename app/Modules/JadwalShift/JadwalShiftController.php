@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\JadwalShift;
 
 use App\Helpers\ApiResponse;
+use App\Modules\JadwalShift\Exports\JadwalShiftTemplateExport;
+use App\Modules\JadwalShift\Requests\ImportJadwalShiftRequest;
 use App\Modules\JadwalShift\Requests\StoreJadwalShiftRequest;
 use App\Modules\JadwalShift\Requests\UpdateJadwalShiftRequest;
 use App\Modules\JadwalShift\Resources\JadwalShiftResource;
@@ -13,6 +15,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Validator;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class JadwalShiftController extends Controller
 {
@@ -20,6 +24,38 @@ class JadwalShiftController extends Controller
         private readonly JadwalShiftService $service,
         private readonly SupirRepositoryInterface $supirRepo,
     ) {}
+
+    public function downloadTemplate(Request $request): BinaryFileResponse
+    {
+        $validated = $request->validate([
+            'id_proyek' => ['required', 'string'],
+            'dari'      => ['required', 'date_format:Y-m-d'],
+            'sampai'    => ['required', 'date_format:Y-m-d', 'after_or_equal:dari'],
+        ]);
+
+        $data = $this->service->templateData(
+            $validated['id_proyek'],
+            (string) $request->user()->id_perusahaan,
+            $validated['dari'],
+            $validated['sampai'],
+        );
+
+        return Excel::download(
+            new JadwalShiftTemplateExport($data['supir'], $data['tanggal']),
+            'template-jadwal-shift.xlsx'
+        );
+    }
+
+    public function import(ImportJadwalShiftRequest $request): JsonResponse
+    {
+        $result = $this->service->importMatriks(
+            $request->file('file'),
+            (string) $request->input('id_proyek'),
+            (string) $request->user()->id_perusahaan,
+        );
+
+        return ApiResponse::success($result, 'Import jadwal shift selesai diproses');
+    }
 
     public function index(Request $request): JsonResponse
     {

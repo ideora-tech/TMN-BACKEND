@@ -9,8 +9,10 @@ use App\Modules\IntervalPerawatan\Contracts\IntervalPerawatanRepositoryInterface
 use App\Modules\PaketPerawatanSparepart\Contracts\PaketPerawatanSparepartRepositoryInterface;
 use App\Modules\PerawatanArmada\Contracts\PerawatanArmadaRepositoryInterface;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class PerawatanArmadaService
 {
@@ -107,6 +109,37 @@ class PerawatanArmadaService
         ];
     }
 
+    public function rekapPerUnit(string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    {
+        return array_map(fn ($row) => [
+            'id_armada'        => $row->id_armada,
+            'nopol'            => $row->nopol,
+            'merk'             => $row->merk,
+            'jumlah_perawatan' => (int) $row->jumlah_perawatan,
+            'biaya_jasa'       => (float) $row->biaya_jasa,
+            'biaya_sparepart'  => (float) $row->biaya_sparepart,
+            'total_biaya'      => (float) $row->biaya_jasa + (float) $row->biaya_sparepart,
+        ], $this->repo->rekapPerUnit($idPerusahaan, $dari, $sampai));
+    }
+
+    public function dataExportUnit(string $idArmada, string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    {
+        $armada = $this->armadaRepo->findById($idArmada);
+        if ($armada === null || $armada->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Armada tidak ditemukan');
+        }
+
+        return [
+            'armada' => $armada,
+            'items'  => $this->repo->listByArmadaRentang($idArmada, $dari, $sampai),
+        ];
+    }
+
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->repo->getPerusahaan($idPerusahaan);
+    }
+
     public function findOrFail(string $id): object
     {
         $record = $this->repo->findById($id);
@@ -123,7 +156,42 @@ class PerawatanArmadaService
             'subtotal'               => (int) $line->qty * (float) $line->harga,
         ], $this->repo->getActiveLines($id));
 
+        $record->bukti = array_map(fn ($b) => [
+            'id_bukti'  => $b->id_bukti,
+            'url_file'  => $b->url_file,
+            'nama_asli' => $b->nama_asli,
+        ], $this->repo->listBukti($id));
+
         return $record;
+    }
+
+    /** @param UploadedFile[] $files */
+    public function tambahBukti(string $idPerawatan, array $files): object
+    {
+        $this->findOrFail($idPerawatan);
+
+        foreach ($files as $file) {
+            $path = $file->store('perawatan', 'public');
+            $this->repo->insertBukti([
+                'id_perawatan' => $idPerawatan,
+                'url_file'     => Storage::disk('public')->url($path),
+                'nama_asli'    => $file->getClientOriginalName(),
+            ]);
+        }
+
+        return $this->findOrFail($idPerawatan);
+    }
+
+    public function hapusBukti(string $idPerawatan, string $idBukti): void
+    {
+        $this->findOrFail($idPerawatan);
+
+        $bukti = $this->repo->findBukti($idPerawatan, $idBukti);
+        if ($bukti === null) {
+            abort(404, 'Bukti perawatan tidak ditemukan');
+        }
+
+        $this->repo->softDeleteBukti($idBukti);
     }
 
     public function create(string $idArmada, array $data): object
@@ -142,6 +210,11 @@ class PerawatanArmadaService
     public function update(string $id, array $data): object
     {
         $record = $this->findOrFail($id);
+
+        if ($record->status === 'selesai') {
+            abort(422, 'Perawatan yang sudah selesai tidak dapat diubah');
+        }
+
         $adaItems = array_key_exists('sparepart', $data);
         $items = $data['sparepart'] ?? [];
         unset($data['sparepart']);
@@ -156,11 +229,12 @@ class PerawatanArmadaService
         });
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, string $alasan): void
     {
         $record = $this->findOrFail($id);
 
-        DB::transaction(function () use ($record) {
+        DB::transaction(function () use ($record, $alasan) {
+            $this->repo->update($record, ['alasan_hapus' => $alasan]);
             foreach ($this->repo->getActiveLines($record->id_perawatan) as $line) {
                 $sp = $this->repo->getSparepartForUpdate($line->id_sparepart);
                 if ($sp !== null) {

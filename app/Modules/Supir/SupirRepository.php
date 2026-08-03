@@ -28,22 +28,35 @@ class SupirRepository implements SupirRepositoryInterface
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status = null, ?string $search = null): LengthAwarePaginator
     {
         $query = DB::table('supir')
-            ->whereNull('dihapus_pada')
-            ->where('id_perusahaan', $idPerusahaan)
-            ->orderBy('nama', 'asc');
+            ->leftJoin('armada', function ($join) {
+                $join->on('armada.id_armada', '=', 'supir.id_armada_default')
+                     ->whereNull('armada.dihapus_pada');
+            })
+            ->whereNull('supir.dihapus_pada')
+            ->where('supir.id_perusahaan', $idPerusahaan)
+            ->orderBy('supir.nama', 'asc');
 
         if ($status !== null) {
-            $query->where('status', $status);
+            $query->where('supir.status', $status);
         }
 
         if ($search !== null && $search !== '') {
             $query->where(function ($q) use ($search) {
-                $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('no_sim', 'like', "%{$search}%");
+                $q->where('supir.nama', 'like', "%{$search}%")
+                  ->orWhere('supir.no_sim', 'like', "%{$search}%")
+                  ->orWhere('armada.nopol', 'like', "%{$search}%");
             });
         }
 
-        return $query->paginate($limit, self::COLUMNS, 'page', $page);
+        return $query->paginate(
+            $limit,
+            array_merge(
+                array_map(fn ($c) => 'supir.' . $c, self::COLUMNS),
+                ['armada.nopol as armada_default'],
+            ),
+            'page',
+            $page
+        );
     }
 
     public function findById(string $id): ?object
