@@ -252,11 +252,15 @@ class TripService
 
     public function checkoutUntukSupir(string $idTrip, string $idSupir, string $idPerusahaan): TripModel
     {
-        $this->findOrFail($idTrip, $idPerusahaan);
+        $trip = $this->findOrFail($idTrip, $idPerusahaan);
 
         $penugasan = $this->findPenugasanUntukTrip($idTrip);
         if ($penugasan === null || (string) $penugasan->id_supir !== $idSupir) {
             abort(403, 'Trip ini bukan milik Anda');
+        }
+
+        if ($trip->status === 'selesai') {
+            return $trip;
         }
 
         return $this->checkout($idTrip, $idPerusahaan, false);

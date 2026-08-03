@@ -349,6 +349,41 @@ class TripSayaTest extends TestCase
         $this->assertNotSame($idTripPertama, $mulaiKedua->json('data.id_trip'));
     }
 
+    public function test_checkout_ulang_trip_yang_sudah_selesai_tetap_sukses(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(201);
+        $idTrip = $mulai->json('data.id_trip');
+
+        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")->assertStatus(200);
+
+        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'selesai');
+    }
+
+    public function test_checkout_trip_dibatalkan_tetap_ditolak(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(201);
+        $idTrip = $mulai->json('data.id_trip');
+
+        DB::table('trip')->where('id_trip', $idTrip)->update(['status' => 'dibatalkan']);
+
+        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+            ->assertStatus(422);
+    }
+
     public function test_supir_tidak_bisa_selesaikan_trip_milik_supir_lain(): void
     {
         $proyek = $this->makeProyek();
