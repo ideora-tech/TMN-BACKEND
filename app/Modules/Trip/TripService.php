@@ -212,7 +212,7 @@ class TripService
         return $this->repo->findPenugasanDariTrip($idTrip);
     }
 
-    public function detailPenugasanUntukSupir(string $idPenugasan, string $idSupir, string $idPerusahaan): array
+    public function detailPenugasanUntukSupir(string $idPenugasan, string $idSupir, string $idPerusahaan, ?string $tanggal = null): array
     {
         $penugasan = $this->penugasanService->findOrFail($idPenugasan);
         if ((string) $penugasan->id_supir !== $idSupir) {
@@ -226,7 +226,7 @@ class TripService
 
         $ruteTersedia = $this->proyekRuteRepo->listByProyek((string) $penugasan->id_proyek);
 
-        $hariIni = now()->toDateString();
+        $hariIni = $tanggal ?? now()->toDateString();
         $shiftHariIni = null;
         foreach ($this->jadwalShiftRepo->listShiftSupir($idSupir, $hariIni, $hariIni) as $row) {
             if ((string) $row->id_proyek === (string) $penugasan->id_proyek) {

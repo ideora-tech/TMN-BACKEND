@@ -49,6 +49,10 @@ class TripController extends Controller
 
     public function penugasanSaya(Request $request, string $idPenugasan): JsonResponse
     {
+        $validated = $request->validate([
+            'tanggal' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
         $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
         if ($supir === null) {
             abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
@@ -57,7 +61,8 @@ class TripController extends Controller
         $result = $this->service->detailPenugasanUntukSupir(
             $idPenugasan,
             (string) $supir->id_supir,
-            (string) $request->user()->id_perusahaan
+            (string) $request->user()->id_perusahaan,
+            $validated['tanggal'] ?? null
         );
 
         return ApiResponse::success([
