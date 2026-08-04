@@ -91,6 +91,12 @@ class PenugasanService
             }
         }
 
+        if (($data['sumber'] ?? 'internal') === 'internal' && !empty($data['id_supir'])) {
+            if ($this->repo->existsAktifUntukSupirProyek($data['id_proyek'], $data['id_supir'])) {
+                abort(422, 'Supir sudah di-assign ke proyek ini');
+            }
+        }
+
         $this->assertAktorVendorTidakDobel($data, $data['tanggal_tugas'] ?? null);
 
         return $this->repo->create($data);
@@ -130,6 +136,15 @@ class PenugasanService
             }
         }
 
+        if ($merged['sumber'] === 'internal'
+            && array_key_exists('id_supir', $data)
+            && !empty($data['id_supir'])
+            && $data['id_supir'] !== $record->id_supir) {
+            if ($this->repo->existsAktifUntukSupirProyek((string) $record->id_proyek, $data['id_supir'], $id)) {
+                abort(422, 'Supir sudah di-assign ke proyek ini');
+            }
+        }
+
         $aktorBerubah = false;
         foreach (['id_armada', 'id_supir', 'id_armada_vendor', 'id_supir_vendor'] as $kolomAktor) {
             if (array_key_exists($kolomAktor, $data) && $data[$kolomAktor] !== $record->{$kolomAktor}) {
@@ -151,7 +166,7 @@ class PenugasanService
         $updated = $this->repo->update($record, $data);
 
         // Armada penugasan diubah user → alokasi jadwal ke depan dihitung ulang
-        // (penugasan = sumber kepemilikan harian; alokasi manual tidak disentuh).
+        // (penugasan = satu-satunya sumber kepemilikan harian armada).
         if (array_key_exists('id_armada', $data)
             && $data['id_armada'] !== $armadaSebelum
             && !empty($updated->id_supir)) {

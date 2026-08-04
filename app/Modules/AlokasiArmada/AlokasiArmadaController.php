@@ -34,22 +34,6 @@ class AlokasiArmadaController extends Controller
         return ApiResponse::paginated(collect($result['data']), $result['meta']);
     }
 
-    public function armadaTersedia(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'tanggal'   => ['required', 'date_format:Y-m-d'],
-            'id_supir'  => ['sometimes', 'nullable', 'string'],
-            'id_proyek' => ['sometimes', 'nullable', 'string'],
-        ]);
-
-        return ApiResponse::success($this->service->armadaTersedia(
-            (string) $request->user()->id_perusahaan,
-            $validated['tanggal'],
-            $validated['id_supir'] ?? null,
-            $validated['id_proyek'] ?? null,
-        ));
-    }
-
     public function riwayat(Request $request): JsonResponse
     {
         $validated = $request->validate(['id_armada' => ['required', 'string']]);
@@ -106,17 +90,5 @@ class AlokasiArmadaController extends Controller
             return null;
         }
         return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
-    }
-
-    public function update(Request $request, string $id): JsonResponse
-    {
-        $validated = $request->validate(
-            ['id_armada' => ['required', 'string']],
-            ['id_armada.required' => 'Armada wajib dipilih'],
-        );
-
-        $record = $this->service->override($id, $validated['id_armada']);
-
-        return ApiResponse::success($record, 'Alokasi armada berhasil diubah');
     }
 }

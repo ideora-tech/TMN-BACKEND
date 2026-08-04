@@ -124,7 +124,7 @@ class JadwalShiftImportTest extends TestCase
             'id_supir'  => $idSupir,
             'tanggal'   => '2026-08-10',
             'id_armada' => $armada->id_armada,
-            'sumber'    => 'default',
+            'sumber'    => 'penugasan',
         ]);
     }
 

@@ -76,14 +76,6 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
     }
 
-    public function findById(string $id): ?object
-    {
-        return DB::table('alokasi_armada')
-            ->whereNull('dihapus_pada')
-            ->where('id_alokasi', $id)
-            ->first();
-    }
-
     public function findAktifBySupirTanggal(string $idSupir, string $tanggal): ?object
     {
         return DB::table('alokasi_armada')
@@ -100,23 +92,6 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
         return DB::table('alokasi_armada')->where('id_alokasi', $data['id_alokasi'])->first();
     }
 
-    public function update(string $id, array $data): void
-    {
-        DB::table('alokasi_armada')
-            ->where('id_alokasi', $id)
-            ->update(RecordHelper::stampUpdate($data));
-    }
-
-    public function softDeleteNonManual(string $idSupir, string $tanggal): void
-    {
-        DB::table('alokasi_armada')
-            ->whereNull('dihapus_pada')
-            ->where('id_supir', $idSupir)
-            ->where('tanggal', $tanggal)
-            ->where('sumber', '!=', 'manual')
-            ->update(RecordHelper::stampDelete());
-    }
-
     public function softDeleteById(string $idAlokasi): void
     {
         DB::table('alokasi_armada')
@@ -131,111 +106,6 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ->where('id_supir', $idSupir)
             ->where('tanggal', $tanggal)
             ->update(RecordHelper::stampDelete());
-    }
-
-    public function supirRow(string $idSupir): ?object
-    {
-        return DB::table('supir')
-            ->whereNull('dihapus_pada')
-            ->where('id_supir', $idSupir)
-            ->first();
-    }
-
-    public function armadaLayak(string $idArmada): ?object
-    {
-        return DB::table('armada')
-            ->whereNull('dihapus_pada')
-            ->whereNotIn('status', ['perawatan', 'tidak_aktif'])
-            ->where('id_armada', $idArmada)
-            ->first();
-    }
-
-    public function armadaTerpakai(string $idArmada, string $tanggal, ?string $excludeIdAlokasi = null): bool
-    {
-        return DB::table('alokasi_armada')
-            ->whereNull('dihapus_pada')
-            ->where('id_armada', $idArmada)
-            ->where('tanggal', $tanggal)
-            ->when($excludeIdAlokasi, fn ($q, $v) => $q->where('id_alokasi', '!=', $v))
-            ->exists();
-    }
-
-    /**
-     * Armada nganggur tanggal T (kepemilikan dibaca dari PENUGASAN, bukan master):
-     * armada layak, belum dialokasikan tanggal itu, dan TIDAK ADA penugasan aktif
-     * yang memegang armada tsb dengan supir yang benar-benar masuk hari itu
-     * (dijadwalkan shift dan tidak sedang cuti disetujui).
-     */
-    public function cariArmadaNganggur(string $idPerusahaan, string $tanggal, ?string $idProyek = null): array
-    {
-        return DB::table('armada as a')
-            ->where('a.id_perusahaan', $idPerusahaan)
-            ->whereNull('a.dihapus_pada')
-            ->whereNotIn('a.status', ['perawatan', 'tidak_aktif'])
-            // Batasi ke lingkup proyek: mobil pegangan penugasan proyek LAIN
-            // tidak boleh dipinjam (mobil bebas tanpa penugasan tetap boleh).
-            ->when($idProyek, fn ($q, $v) => $q->whereNotExists(function ($q2) use ($v) {
-                $q2->select(DB::raw(1))->from('penugasan as pgl')
-                   ->whereColumn('pgl.id_armada', 'a.id_armada')
-                   ->whereNull('pgl.dihapus_pada')
-                   ->whereIn('pgl.status', ['pending', 'aktif'])
-                   ->where('pgl.id_proyek', '!=', $v);
-            }))
-            ->whereNotExists(function ($q) use ($tanggal) {
-                $q->select(DB::raw(1))->from('alokasi_armada as al')
-                  ->whereColumn('al.id_armada', 'a.id_armada')
-                  ->whereNull('al.dihapus_pada')
-                  ->where('al.tanggal', $tanggal);
-            })
-            ->whereNotExists(function ($q) use ($tanggal) {
-                $q->select(DB::raw(1))->from('penugasan as pg')
-                  ->whereColumn('pg.id_armada', 'a.id_armada')
-                  ->whereNull('pg.dihapus_pada')
-                  ->whereIn('pg.status', ['pending', 'aktif'])
-                  ->whereNotNull('pg.id_supir')
-                  ->whereExists(function ($q2) use ($tanggal) {
-                      $q2->select(DB::raw(1))->from('jadwal_shift as js')
-                         ->whereColumn('js.id_supir', 'pg.id_supir')
-                         ->whereNull('js.dihapus_pada')
-                         ->where('js.tanggal', $tanggal);
-                  })
-                  ->whereNotExists(function ($q3) use ($tanggal) {
-                      $q3->select(DB::raw(1))->from('pengajuan_cuti as pc')
-                         ->whereColumn('pc.id_supir', 'pg.id_supir')
-                         ->whereNull('pc.dihapus_pada')
-                         ->where('pc.status', 'disetujui')
-                         ->whereDate('pc.tanggal_mulai', '<=', $tanggal)
-                         ->whereDate('pc.tanggal_selesai', '>=', $tanggal);
-                  });
-            })
-            ->orderBy('a.nopol')
-            ->select('a.id_armada', 'a.nopol')
-            ->get()
-            ->all();
-    }
-
-    public function pemilikCuti(string $idSupir, string $tanggal): bool
-    {
-        return DB::table('pengajuan_cuti')
-            ->whereNull('dihapus_pada')
-            ->where('id_supir', $idSupir)
-            ->where('status', 'disetujui')
-            ->whereDate('tanggal_mulai', '<=', $tanggal)
-            ->whereDate('tanggal_selesai', '>=', $tanggal)
-            ->exists();
-    }
-
-    public function cariPemegangArmada(string $idArmada): ?object
-    {
-        return DB::table('penugasan as pg')
-            ->join('supir as s', 's.id_supir', '=', 'pg.id_supir')
-            ->whereNull('pg.dihapus_pada')
-            ->whereNull('s.dihapus_pada')
-            ->whereIn('pg.status', ['pending', 'aktif'])
-            ->where('pg.id_armada', $idArmada)
-            ->orderByDesc('pg.dibuat_pada')
-            ->select('s.id_supir', 's.nama')
-            ->first();
     }
 
     public function jadwalMendatangSupirProyek(string $idSupir, string $idProyek, string $dariTanggal): array
