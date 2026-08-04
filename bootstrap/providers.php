@@ -3,6 +3,7 @@
 return [
     App\Providers\AppServiceProvider::class,
     App\Modules\Absensi\AbsensiServiceProvider::class,
+    App\Modules\AbsensiSupir\AbsensiSupirServiceProvider::class,
     App\Modules\AlokasiArmada\AlokasiArmadaServiceProvider::class,
     App\Modules\Armada\ArmadaServiceProvider::class,
     App\Modules\Auth\AuthServiceProvider::class,

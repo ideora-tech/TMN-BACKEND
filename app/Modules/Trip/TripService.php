@@ -6,6 +6,7 @@ namespace App\Modules\Trip;
 
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Cuti\Contracts\CutiRepositoryInterface;
+use App\Modules\AbsensiSupir\Contracts\AbsensiSupirRepositoryInterface;
 use App\Modules\AlokasiArmada\Contracts\AlokasiArmadaRepositoryInterface;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
 use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
@@ -30,7 +31,8 @@ class TripService
         private readonly CutiRepositoryInterface $cutiRepo,
         private readonly PenugasanRepositoryInterface $penugasanRepo,
         private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
-        private readonly AlokasiArmadaRepositoryInterface $alokasiRepo
+        private readonly AlokasiArmadaRepositoryInterface $alokasiRepo,
+        private readonly AbsensiSupirRepositoryInterface $absensiRepo
     ) {}
 
     /**
@@ -259,6 +261,14 @@ class TripService
         $penugasan = $this->penugasanService->findOrFail((string) $data['id_penugasan']);
         if ((string) $penugasan->id_supir !== $idSupir) {
             abort(403, 'Penugasan ini bukan milik Anda');
+        }
+
+        $absen = $this->absensiRepo->findBySupirTanggal($idSupir, now()->toDateString());
+        if ($absen === null) {
+            abort(422, 'Anda belum absen hari ini — lakukan absensi terlebih dahulu sebelum memulai trip');
+        }
+        if ($absen->status !== 'hadir') {
+            abort(422, 'Absensi Anda hari ini berstatus berhalangan — trip tidak dapat dimulai');
         }
 
         unset($data['uang_jalan_alokasi']);

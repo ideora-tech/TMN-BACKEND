@@ -104,10 +104,16 @@ class TripController extends Controller
 
     public function riwayatSaya(Request $request): JsonResponse
     {
+        $validated = $request->validate([
+            'tanggal' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
         $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
         if ($supir === null) {
             abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
         }
+
+        $tanggal = $validated['tanggal'] ?? null;
 
         $result = $this->service->list(
             (string) $request->user()->id_perusahaan,
@@ -117,7 +123,10 @@ class TripController extends Controller
             null,
             (string) $supir->id_supir,
             null,
-            'selesai,dibatalkan'
+            'selesai,dibatalkan',
+            null,
+            $tanggal,
+            $tanggal
         );
 
         return ApiResponse::paginated(TripResource::collection($result['data']), $result['meta']);

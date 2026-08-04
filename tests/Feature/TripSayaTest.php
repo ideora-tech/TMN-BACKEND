@@ -70,6 +70,18 @@ class TripSayaTest extends TestCase
         return (object) ['pengguna' => $pengguna, 'id_supir' => $idSupir];
     }
 
+    private function absenHadir(string $idSupir, string $status = 'hadir'): void
+    {
+        DB::table('absensi_supir')->insert([
+            'id_absensi'    => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_supir'      => $idSupir,
+            'tanggal'       => now()->toDateString(),
+            'status'        => $status,
+            'dibuat_pada'   => now(),
+        ]);
+    }
+
     private function makeProyek(): ProyekModel
     {
         $idKlien = (string) Str::uuid();
@@ -250,6 +262,7 @@ class TripSayaTest extends TestCase
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
 
         $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
@@ -296,6 +309,52 @@ class TripSayaTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.status', 'selesai');
+    }
+
+    public function test_riwayat_saya_bisa_difilter_per_tanggal(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek, 'selesai');
+
+        $jadwalLama = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => '2026-08-01 08:00:00',
+        ]);
+        $tripLama = TripModel::create([
+            'id_jadwal'      => $jadwalLama->id_jadwal,
+            'status'         => 'selesai',
+            'waktu_checkin'  => '2026-08-01 08:00:00',
+            'waktu_checkout' => '2026-08-01 17:00:00',
+        ]);
+
+        $jadwalBaru = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => '2026-08-04 08:00:00',
+        ]);
+        $tripBaru = TripModel::create([
+            'id_jadwal'      => $jadwalBaru->id_jadwal,
+            'status'         => 'selesai',
+            'waktu_checkin'  => '2026-08-04 08:00:00',
+            'waktu_checkout' => '2026-08-04 17:00:00',
+        ]);
+
+        $this->getJson('/api/v1/trip/riwayat-saya?tanggal=2026-08-04')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id_trip', $tripBaru->id_trip);
+
+        $this->getJson('/api/v1/trip/riwayat-saya?tanggal=2026-08-01')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id_trip', $tripLama->id_trip);
+
+        $this->getJson('/api/v1/trip/riwayat-saya')
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data');
+
+        $this->getJson('/api/v1/trip/riwayat-saya?tanggal=04-08-2026')
+            ->assertStatus(422);
     }
 
     public function test_riwayat_saya_tidak_tampilkan_trip_supir_lain(): void
@@ -429,11 +488,35 @@ class TripSayaTest extends TestCase
             ->assertJsonCount(0, 'data');
     }
 
+    public function test_supir_tidak_bisa_mulai_trip_tanpa_absen(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        $this->postJson('/api/v1/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(422);
+    }
+
+    public function test_supir_tidak_bisa_mulai_trip_jika_absen_berhalangan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir, 'berhalangan');
+
+        $this->postJson('/api/v1/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(422);
+    }
+
     public function test_supir_bisa_mulai_trip_untuk_penugasan_miliknya(): void
     {
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
 
         $response = $this->postJson('/api/v1/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
@@ -462,6 +545,7 @@ class TripSayaTest extends TestCase
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
 
         $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
@@ -480,6 +564,7 @@ class TripSayaTest extends TestCase
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
 
         $mulaiPertama = $this->postJson('/api/v1/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
@@ -502,6 +587,7 @@ class TripSayaTest extends TestCase
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
 
         $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
@@ -520,6 +606,7 @@ class TripSayaTest extends TestCase
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
 
         $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
@@ -537,6 +624,7 @@ class TripSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $pemilik = $this->actingAsSupir();
         $penugasan = $this->makePenugasan($pemilik->id_supir, $proyek->id_proyek);
+        $this->absenHadir($pemilik->id_supir);
         $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
