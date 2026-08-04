@@ -59,6 +59,77 @@ class LaporanPerjalananService
         return $laporan;
     }
 
+    private function pastikanTripMilikSupir(string $idTrip, string $idSupir): object
+    {
+        $penugasan = $this->tripRepo->findPenugasanDariTrip($idTrip);
+        if ($penugasan === null || (string) $penugasan->id_supir !== $idSupir) {
+            abort(403, 'Trip ini bukan milik Anda');
+        }
+        return $penugasan;
+    }
+
+    public function showUntukSupir(string $idTrip, string $idSupir): ?LaporanPerjalananModel
+    {
+        $this->pastikanTripMilikSupir($idTrip, $idSupir);
+        return $this->repo->findByTrip($idTrip);
+    }
+
+    /** @param UploadedFile[] $fotoFiles */
+    public function upsertUntukSupir(string $idTrip, string $idSupir, array $data, string $idPerusahaan, array $fotoFiles = []): LaporanPerjalananModel
+    {
+        $this->pastikanTripMilikSupir($idTrip, $idSupir);
+
+        $trip = $this->tripRepo->findById($idTrip);
+        if ($trip === null) {
+            abort(404, 'Trip tidak ditemukan');
+        }
+        if ($trip->status !== 'selesai') {
+            abort(422, 'Laporan hanya bisa diisi setelah trip selesai');
+        }
+
+        $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
+
+        $existing = $this->repo->findByTrip($idTrip);
+        $hasBiayaLain = array_key_exists('biaya_lain', $data);
+        $biayaLain = $data['biaya_lain'] ?? [];
+        unset($data['biaya_lain'], $data['foto']);
+
+        $laporan = $existing === null
+            ? $this->repo->create(array_merge($data, ['id_trip' => $idTrip, 'id_perusahaan' => $idPerusahaan]))
+            : $this->repo->update($existing, $data);
+
+        if ($hasBiayaLain) {
+            $this->repo->syncBiayaLain($laporan, $biayaLain);
+        }
+        $this->simpanFotoFiles($laporan, $fotoFiles);
+
+        return $this->repo->reload($laporan);
+    }
+
+    /**
+     * @param UploadedFile[] $files
+     * @return FotoLaporanPerjalananModel[]
+     */
+    public function addFotoUntukSupir(string $idLaporan, string $idSupir, array $files, ?string $keterangan = null): array
+    {
+        $laporan = $this->findOrFail($idLaporan);
+        $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir);
+
+        return $this->simpanFotoFiles($laporan, $files, $keterangan);
+    }
+
+    public function deleteFotoUntukSupir(string $idLaporan, string $idFoto, string $idSupir): void
+    {
+        $laporan = $this->findOrFail($idLaporan);
+        $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir);
+
+        $foto = $this->repo->findFotoById($idLaporan, $idFoto);
+        if (!$foto) {
+            abort(404, 'Foto laporan tidak ditemukan');
+        }
+        $this->repo->deleteFoto($foto);
+    }
+
     public function findOrFail(string $id): LaporanPerjalananModel
     {
         $record = $this->repo->findById($id);
