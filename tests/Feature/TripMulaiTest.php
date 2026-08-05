@@ -145,6 +145,57 @@ class TripMulaiTest extends TestCase
         $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
         $res->assertStatus(422);
         $this->assertStringContainsString('trip aktif', $res->json('message'));
+        $this->assertStringContainsString('Proyek Mulai Trip', $res->json('message'));
+    }
+
+    public function test_pesan_trip_aktif_menyebutkan_proyek_lama_yang_memblokir_bukan_proyek_baru(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idSupir = $this->makeSupir();
+
+        $proyekLama = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-' . Str::random(8),
+            'nama_proyek'   => 'Proyek Lama Nyangkut',
+        ]);
+        $armadaLama = ArmadaModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B ' . rand(1000, 9999) . ' LM',
+            'merk'          => 'Hino',
+        ]);
+        $penugasanLama = PenugasanModel::create([
+            'id_proyek' => $proyekLama->id_proyek,
+            'id_armada' => $armadaLama->id_armada,
+            'id_supir'  => $idSupir,
+            'status'    => 'aktif',
+        ]);
+        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanLama->id_penugasan])
+            ->assertStatus(201);
+
+        $proyekBaru = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $this->makeKlien(),
+            'kode_proyek'   => 'PRJ-' . Str::random(8),
+            'nama_proyek'   => 'Proyek Baru',
+        ]);
+        $armadaBaru = ArmadaModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B ' . rand(1000, 9999) . ' BR',
+            'merk'          => 'Hino',
+        ]);
+        $penugasanBaru = PenugasanModel::create([
+            'id_proyek' => $proyekBaru->id_proyek,
+            'id_armada' => $armadaBaru->id_armada,
+            'id_supir'  => $idSupir,
+            'status'    => 'aktif',
+        ]);
+
+        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanBaru->id_penugasan]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('Proyek Lama Nyangkut', $res->json('message'));
+        $this->assertStringNotContainsString('Proyek Baru', $res->json('message'));
     }
 
     public function test_setelah_checkout_bisa_mulai_trip_lagi(): void

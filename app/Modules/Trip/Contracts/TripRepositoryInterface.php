@@ -25,7 +25,7 @@ interface TripRepositoryInterface
     public function adaTripNonFinalUntukPenugasan(string $idPenugasan, ?string $excludeTripId = null): bool;
     public function adaTripBerjalanUntukAktorLain(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor, string $excludeTripId): bool;
     public function findPenugasanMilikPerusahaan(string $idPenugasan, string $idPerusahaan): ?object;
-    public function adaTripAktifUntukAktor(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor): bool;
+    public function findTripAktifUntukAktor(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor): ?object;
     public function tripAktifSupir(string $idSupir): array;
 
     public function tripSelesaiPerPenugasanTanggal(array $idPenugasanList): array;

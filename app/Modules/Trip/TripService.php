@@ -335,13 +335,15 @@ class TripService
                 abort(422, 'Penugasan sudah berstatus ' . $penugasan->status . ' — trip tidak dapat dimulai');
             }
 
-            if ($this->repo->adaTripAktifUntukAktor(
+            $tripAktif = $this->repo->findTripAktifUntukAktor(
                 $this->armadaEfektif($penugasan),
                 $penugasan->id_supir,
                 $penugasan->id_armada_vendor,
                 $penugasan->id_supir_vendor
-            )) {
-                abort(422, 'Supir/armada masih memiliki trip aktif');
+            );
+            if ($tripAktif !== null) {
+                $status = str_replace('_', ' ', $tripAktif->status);
+                abort(422, "Supir/armada masih memiliki trip aktif di proyek {$tripAktif->nama_proyek} (status: {$status}) — selesaikan atau batalkan trip tersebut dahulu");
             }
 
             $idRute = $data['id_rute'] ?? null;

@@ -291,15 +291,16 @@ class TripRepository implements TripRepositoryInterface
             ->exists();
     }
 
-    public function adaTripAktifUntukAktor(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor): bool
+    public function findTripAktifUntukAktor(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor): ?object
     {
         if (!$idArmada && !$idSupir && !$idArmadaVendor && !$idSupirVendor) {
-            return false;
+            return null;
         }
 
         return DB::table('trip as t')
             ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
             ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
+            ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
             ->whereNull('t.dihapus_pada')
             ->whereNull('jk.dihapus_pada')
             ->whereNull('p.dihapus_pada')
@@ -318,8 +319,9 @@ class TripRepository implements TripRepositoryInterface
                     $q->orWhere('p.id_supir_vendor', $idSupirVendor);
                 }
             })
+            ->select('t.id_trip', 't.status', 't.dibuat_pada', 'pr.nama_proyek')
             ->lockForUpdate()
-            ->exists();
+            ->first();
     }
 
     public function create(array $data): TripModel
