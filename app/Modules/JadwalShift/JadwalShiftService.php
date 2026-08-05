@@ -12,6 +12,7 @@ class JadwalShiftService
     public function __construct(
         private readonly JadwalShiftRepositoryInterface $repo,
         private readonly \App\Modules\AlokasiArmada\AlokasiArmadaService $alokasiService,
+        private readonly \App\Modules\Trip\Contracts\TripRepositoryInterface $tripRepo,
     ) {}
 
     public function list(string $idProyek, string $idPerusahaan, ?string $dari, ?string $sampai): array
@@ -234,9 +235,24 @@ class JadwalShiftService
         return $this->repo->updateShift($record, $idShift);
     }
 
+    /**
+     * Jadwal hari ini tidak boleh dihapus selama supirnya masih punya trip
+     * aktif — menghapus jadwal memicu penghitungan ulang alokasi armada, dan
+     * armada yang sedang dipakai trip aktif bisa keliru ditawarkan sebagai
+     * "menganggur" ke supir lain (lihat AlokasiArmadaRepository::kandidatArmadaNganggur).
+     */
     public function delete(string $id): void
     {
         $record = $this->findOrFail($id);
+
+        if ((string) $record->tanggal === now()->toDateString()) {
+            $tripAktif = $this->tripRepo->findTripAktifUntukAktor(null, (string) $record->id_supir, null, null);
+            if ($tripAktif !== null) {
+                $status = str_replace('_', ' ', $tripAktif->status);
+                abort(422, "Supir ini masih memiliki trip aktif di proyek {$tripAktif->nama_proyek} (status: {$status}) — jadwal hari ini tidak dapat dihapus sebelum trip diselesaikan/dibatalkan");
+            }
+        }
+
         $this->repo->delete($record);
         $this->alokasiService->hapusUntukJadwal((string) $record->id_supir, (string) $record->tanggal);
     }

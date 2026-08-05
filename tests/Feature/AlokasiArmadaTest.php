@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Modules\Armada\ArmadaModel;
+use App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
+use App\Modules\Trip\TripModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -139,6 +141,48 @@ class AlokasiArmadaTest extends TestCase
             'id_pemilik_asal' => $idPemilik,
             'sumber'          => 'otomatis',
             'keterangan'      => 'Pemilik tidak dijadwalkan',
+        ]);
+    }
+
+    public function test_supir_shift_tidak_meminjam_armada_yang_sedang_trip_aktif(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $armada = $this->makeArmada('B 9001 TMN');
+        $idPemilik = $this->makeSupir('Ahmad Fauzi');
+        $penugasanPemilik = $this->makePenugasan($idPemilik, $proyek->id_proyek, $armada->id_armada);
+
+        // Ahmad sedang trip aktif hari ini pakai B 9001 TMN — meski jadwal shift-nya
+        // hari itu dihapus/tidak ada, mobilnya TETAP tidak boleh dianggap menganggur.
+        $jadwal = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasanPemilik->id_penugasan,
+            'waktu_berangkat' => now(),
+        ]);
+        TripModel::create([
+            'id_jadwal'     => $jadwal->id_jadwal,
+            'status'        => 'berjalan',
+            'waktu_checkin' => now(),
+        ]);
+
+        $idShiftSupir = $this->makeSupir('Dadang Hermawan');
+        $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
+        $idShift = $this->makeShift();
+
+        // Pemilik TIDAK dijadwalkan tanggal 10 → secara jadwal terlihat "menganggur",
+        // tapi armadanya masih dipakai trip aktif → tidak boleh dipinjamkan.
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir'   => $idShiftSupir,
+            'tanggal'    => '2026-08-10',
+            'id_armada'  => null,
+            'sumber'     => 'penugasan',
+            'keterangan' => 'Tidak ada armada tersedia',
+        ]);
+        $this->assertDatabaseMissing('alokasi_armada', [
+            'id_supir'  => $idShiftSupir,
+            'tanggal'   => '2026-08-10',
+            'id_armada' => $armada->id_armada,
         ]);
     }
 

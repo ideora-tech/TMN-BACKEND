@@ -172,6 +172,21 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ->pluck('id_armada')
             ->all();
 
+        // Armada yang sedang dipakai trip aktif (belum_mulai/berjalan) TIDAK BOLEH
+        // dianggap menganggur — meski pemiliknya tidak/tidak-lagi dijadwalkan hari
+        // itu (mis. jadwalnya baru saja dihapus/diganti sementara dia masih di jalan).
+        $armadaTripAktif = DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->join('penugasan as pn2', 'jk.id_penugasan', '=', 'pn2.id_penugasan')
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereNull('pn2.dihapus_pada')
+            ->whereIn('t.status', ['belum_mulai', 'berjalan'])
+            ->whereNotNull('pn2.id_armada')
+            ->pluck('pn2.id_armada')
+            ->unique()
+            ->all();
+
         $milikSupirLain = DB::table('penugasan as pn')
             ->join('armada as a', function ($join) {
                 $join->on('a.id_armada', '=', 'pn.id_armada')
@@ -183,6 +198,7 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ->where('pn.id_supir', '!=', $idSupir)
             ->whereNotIn('a.status', ['perawatan', 'tidak_aktif'])
             ->when($dialokasikan !== [], fn ($q) => $q->whereNotIn('a.id_armada', $dialokasikan))
+            ->when($armadaTripAktif !== [], fn ($q) => $q->whereNotIn('a.id_armada', $armadaTripAktif))
             ->select('a.id_armada', 'a.nopol', 'pn.id_supir as id_pemilik_asal')
             ->get();
 
@@ -227,6 +243,7 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ->whereNotIn('status', ['perawatan', 'tidak_aktif'])
             ->when($dipegang !== [], fn ($q) => $q->whereNotIn('id_armada', $dipegang))
             ->when($dialokasikan !== [], fn ($q) => $q->whereNotIn('id_armada', $dialokasikan))
+            ->when($armadaTripAktif !== [], fn ($q) => $q->whereNotIn('id_armada', $armadaTripAktif))
             ->select('id_armada', 'nopol')
             ->get();
 

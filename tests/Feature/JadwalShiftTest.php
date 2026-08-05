@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
+use App\Modules\Trip\TripModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -154,6 +156,67 @@ class JadwalShiftTest extends TestCase
             'tanggal' => '2026-07-21', 'supir' => [$supir],
         ]);
         $res->assertJsonPath('data.sukses', 1);
+    }
+
+    public function test_hapus_jadwal_hari_ini_ditolak_jika_supir_masih_trip_aktif(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $supir = $this->makeSupir();
+        $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $shift = $this->makeShift();
+        $hariIni = now()->toDateString();
+
+        $this->postJson('/api/v1/jadwal-shift', [
+            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
+            'tanggal' => $hariIni, 'supir' => [$supir],
+        ]);
+        $idJadwal = DB::table('jadwal_shift')->value('id_jadwal_shift');
+
+        $jadwalKeberangkatan = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => now(),
+        ]);
+        TripModel::create([
+            'id_jadwal'     => $jadwalKeberangkatan->id_jadwal,
+            'status'        => 'berjalan',
+            'waktu_checkin' => now(),
+        ]);
+
+        $res = $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}");
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('trip aktif', $res->json('message'));
+        $this->assertDatabaseHas('jadwal_shift', ['id_jadwal_shift' => $idJadwal, 'dihapus_pada' => null]);
+    }
+
+    public function test_hapus_jadwal_tanggal_lain_tetap_boleh_meski_supir_trip_aktif_hari_ini(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $supir = $this->makeSupir();
+        $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $shift = $this->makeShift();
+        $besok = now()->addDay()->toDateString();
+
+        $this->postJson('/api/v1/jadwal-shift', [
+            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
+            'tanggal' => $besok, 'supir' => [$supir],
+        ]);
+        $idJadwal = DB::table('jadwal_shift')->value('id_jadwal_shift');
+
+        $jadwalKeberangkatan = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => now(),
+        ]);
+        TripModel::create([
+            'id_jadwal'     => $jadwalKeberangkatan->id_jadwal,
+            'status'        => 'berjalan',
+            'waktu_checkin' => now(),
+        ]);
+
+        $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}")->assertStatus(200);
+        $this->assertSoftDeleted('jadwal_shift', ['id_jadwal_shift' => $idJadwal]);
     }
 
     public function test_batch_create_rentang_tanggal_mengisi_semua_hari(): void
