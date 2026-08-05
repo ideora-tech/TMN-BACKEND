@@ -26,6 +26,11 @@ class CutiServiceProvider extends ServiceProvider
                 Route::put('jenis-cuti/{id}', [CutiController::class, 'updateJenis']);
                 Route::delete('jenis-cuti/{id}', [CutiController::class, 'destroyJenis']);
 
+                Route::get('pengajuan-cuti/saya', [CutiController::class, 'indexPengajuanSaya']);
+                Route::post('pengajuan-cuti/saya', [CutiController::class, 'storePengajuanSaya']);
+                Route::post('pengajuan-cuti/saya/{id}/batalkan', [CutiController::class, 'batalkanSaya']);
+                Route::get('saldo-cuti/saya', [CutiController::class, 'saldoSaya']);
+
                 Route::get('pengajuan-cuti', [CutiController::class, 'indexPengajuan']);
                 Route::get('pengajuan-cuti/aktif', [CutiController::class, 'cutiAktif']);
                 Route::post('pengajuan-cuti', [CutiController::class, 'storePengajuan']);

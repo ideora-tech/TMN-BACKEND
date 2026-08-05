@@ -84,10 +84,11 @@ class AbsensiService
             }
 
             $this->repo->upsert($idPerusahaan, $idKaryawan, $tanggal, [
-                'status'     => $entry['status'],
-                'jam_masuk'  => $entry['jam_masuk'] ?? null,
-                'jam_pulang' => $entry['jam_pulang'] ?? null,
-                'keterangan' => $entry['keterangan'] ?? null,
+                'status'         => $entry['status'],
+                'jam_masuk'      => $entry['jam_masuk'] ?? null,
+                'jam_pulang'     => $entry['jam_pulang'] ?? null,
+                'keterangan'     => $entry['keterangan'] ?? null,
+                'pulang_mandiri' => 0,
             ]);
             $tersimpan++;
         }
@@ -128,6 +129,17 @@ class AbsensiService
             abort(422, 'Sudah absen masuk hari ini');
         }
 
+        $cuti = collect($this->cutiRepo->orangCutiPadaTanggal($idPerusahaan, $tanggal))
+            ->pluck('id_karyawan')
+            ->contains($idKaryawan);
+        if ($cuti) {
+            abort(422, 'Anda tercatat sedang cuti hari ini');
+        }
+
+        if ($existing !== null && in_array($existing->status, ['izin', 'sakit', 'alpha'], true)) {
+            abort(422, 'Absensi Anda hari ini sudah dicatat admin: ' . $existing->status);
+        }
+
         $pengaturan = $this->pengaturan($idPerusahaan);
         $batas = Carbon::parse($tanggal . ' ' . $pengaturan['jam_masuk'])
             ->addMinutes($pengaturan['toleransi_terlambat_menit']);
@@ -161,6 +173,7 @@ class AbsensiService
             'latitude_pulang'  => $lokasi['latitude'] ?? null,
             'longitude_pulang' => $lokasi['longitude'] ?? null,
             'alamat_pulang'    => $lokasi['alamat'] ?? null,
+            'pulang_mandiri'   => 1,
         ]);
 
         return $this->repo->findByKaryawanTanggal($idKaryawan, $tanggal);

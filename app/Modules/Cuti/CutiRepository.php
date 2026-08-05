@@ -86,6 +86,18 @@ class CutiRepository implements CutiRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    public function pengajuanByKaryawan(string $idKaryawan): array
+    {
+        return DB::table('pengajuan_cuti as pc')
+            ->join('jenis_cuti as jc', 'pc.id_jenis_cuti', '=', 'jc.id_jenis_cuti')
+            ->whereNull('pc.dihapus_pada')
+            ->where('pc.id_karyawan', $idKaryawan)
+            ->select('pc.*', 'jc.nama_jenis', 'jc.mengurangi_saldo')
+            ->orderByDesc('pc.dibuat_pada')
+            ->get()
+            ->all();
+    }
+
     public function findPengajuanById(string $id): ?object
     {
         return DB::table('pengajuan_cuti as pc')
@@ -111,6 +123,14 @@ class CutiRepository implements CutiRepositoryInterface
             ->where('id_pengajuan', $record->id_pengajuan)
             ->update(RecordHelper::stampUpdate($data));
         return $this->findPengajuanById($record->id_pengajuan);
+    }
+
+    public function updatePengajuanJikaStatus(string $idPengajuan, string $status, array $data): int
+    {
+        return DB::table('pengajuan_cuti')
+            ->where('id_pengajuan', $idPengajuan)
+            ->where('status', $status)
+            ->update(RecordHelper::stampUpdate($data));
     }
 
     public function adaPengajuanTumpangTindih(?string $idKaryawan, ?string $idSupir, string $tanggalMulai, string $tanggalSelesai, ?string $excludeId = null): bool

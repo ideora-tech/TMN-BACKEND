@@ -120,4 +120,40 @@ class AbsensiSayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(422);
     }
+
+    public function test_absen_masuk_ditolak_saat_sedang_cuti_disetujui(): void
+    {
+        $idKaryawan = $this->loginSebagaiKaryawan();
+        $this->setPengaturan();
+        Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
+
+        $idJenis = (string) Str::uuid();
+        DB::table('jenis_cuti')->insert([
+            'id_jenis_cuti' => $idJenis, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama_jenis' => 'Cuti Absen Sendiri', 'mengurangi_saldo' => 0, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        DB::table('pengajuan_cuti')->insert([
+            'id_pengajuan' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_karyawan' => $idKaryawan, 'id_jenis_cuti' => $idJenis,
+            'tanggal_mulai' => '2026-08-06', 'tanggal_selesai' => '2026-08-06',
+            'jumlah_hari' => 1, 'status' => 'disetujui', 'dibuat_pada' => now(),
+        ]);
+
+        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(422);
+    }
+
+    public function test_absen_masuk_ditolak_saat_sudah_dicatat_admin(): void
+    {
+        $idKaryawan = $this->loginSebagaiKaryawan();
+        $this->setPengaturan();
+        Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
+
+        DB::table('absensi')->insert([
+            'id_absensi' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_karyawan' => $idKaryawan, 'tanggal' => '2026-08-06',
+            'status' => 'sakit', 'dibuat_pada' => now(),
+        ]);
+
+        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(422);
+    }
 }

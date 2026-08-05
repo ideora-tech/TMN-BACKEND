@@ -79,6 +79,7 @@ class AbsensiRepository implements AbsensiRepositoryInterface
             ->where('id_perusahaan', $idPerusahaan)
             ->whereBetween('tanggal', [$awal, $akhir])
             ->whereNotNull('jam_pulang')
+            ->where('pulang_mandiri', 0)
             ->select('id_karyawan', 'jam_pulang')
             ->get()
             ->all();

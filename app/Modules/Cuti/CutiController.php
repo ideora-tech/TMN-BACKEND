@@ -106,6 +106,39 @@ class CutiController extends Controller
         return ApiResponse::success(new PengajuanCutiResource($record), 'Pengajuan cuti dibatalkan');
     }
 
+    public function indexPengajuanSaya(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $data = $this->service->listPengajuanSaya((string) $user->id_perusahaan, $user->id_karyawan);
+        return ApiResponse::success(PengajuanCutiResource::collection($data));
+    }
+
+    public function storePengajuanSaya(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id_jenis_cuti'   => ['required', 'string'],
+            'tanggal_mulai'   => ['required', 'date'],
+            'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai'],
+            'alasan'          => ['nullable', 'string', 'max:1000'],
+        ]);
+        $user = $request->user();
+        $record = $this->service->createPengajuanSaya((string) $user->id_perusahaan, $user->id_karyawan, $validated);
+        return ApiResponse::success(new PengajuanCutiResource($record), 'Pengajuan cuti berhasil dibuat', 201);
+    }
+
+    public function batalkanSaya(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+        $record = $this->service->batalkanSaya($id, (string) $user->id_perusahaan, $user->id_karyawan);
+        return ApiResponse::success(new PengajuanCutiResource($record), 'Pengajuan cuti dibatalkan');
+    }
+
+    public function saldoSaya(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        return ApiResponse::success($this->service->saldoSaya((string) $user->id_perusahaan, $user->id_karyawan));
+    }
+
     public function cutiAktif(Request $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;

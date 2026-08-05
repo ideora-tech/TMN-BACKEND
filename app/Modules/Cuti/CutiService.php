@@ -111,6 +111,50 @@ class CutiService
         ]);
     }
 
+    public function listPengajuanSaya(string $idPerusahaan, ?string $idKaryawan): array
+    {
+        $this->pastikanKaryawan($idKaryawan);
+        return $this->repo->pengajuanByKaryawan($idKaryawan);
+    }
+
+    public function createPengajuanSaya(string $idPerusahaan, ?string $idKaryawan, array $data): object
+    {
+        $this->pastikanKaryawan($idKaryawan);
+        return $this->createPengajuan($idPerusahaan, array_merge($data, [
+            'id_karyawan' => $idKaryawan,
+            'id_supir'    => null,
+        ]));
+    }
+
+    public function batalkanSaya(string $id, string $idPerusahaan, ?string $idKaryawan): object
+    {
+        $this->pastikanKaryawan($idKaryawan);
+        $pengajuan = $this->pengajuanOrFail($id, $idPerusahaan);
+        if ($pengajuan->id_karyawan !== $idKaryawan) {
+            abort(404, 'Pengajuan cuti tidak ditemukan');
+        }
+        if ($pengajuan->status !== 'menunggu') {
+            abort(422, 'Hanya pengajuan berstatus menunggu yang dapat dibatalkan');
+        }
+
+        $terdampak = $this->repo->updatePengajuanJikaStatus($pengajuan->id_pengajuan, 'menunggu', [
+            'status'        => 'dibatalkan',
+            'diproses_oleh' => auth()->id(),
+            'diproses_pada' => now(),
+        ]);
+        if ($terdampak === 0) {
+            abort(422, 'Hanya pengajuan berstatus menunggu yang dapat dibatalkan');
+        }
+
+        return $this->repo->findPengajuanById($pengajuan->id_pengajuan);
+    }
+
+    public function saldoSaya(string $idPerusahaan, ?string $idKaryawan): array
+    {
+        $this->pastikanKaryawan($idKaryawan);
+        return $this->saldoInfo($idPerusahaan, $idKaryawan, null, (int) now()->format('Y'));
+    }
+
     public function setujui(string $id, string $idPerusahaan): object
     {
         $pengajuan = $this->pengajuanOrFail($id, $idPerusahaan);
@@ -292,6 +336,13 @@ class CutiService
             'terpakai'    => (int) $terpakai,
             'sisa'        => self::JATAH_TAHUNAN + (int) $penyesuaian - (int) $terpakai,
         ];
+    }
+
+    private function pastikanKaryawan(?string $idKaryawan): void
+    {
+        if ($idKaryawan === null || $idKaryawan === '') {
+            abort(422, 'Akun Anda tidak tertaut dengan data karyawan');
+        }
     }
 
     private function jenisOrFail(string $id, string $idPerusahaan): object
