@@ -32,6 +32,7 @@ class SupirRepository implements SupirRepositoryInterface
                 $join->on('armada.id_armada', '=', 'supir.id_armada_default')
                      ->whereNull('armada.dihapus_pada');
             })
+            ->leftJoin('pengguna', 'pengguna.id_pengguna', '=', 'supir.id_pengguna')
             ->whereNull('supir.dihapus_pada')
             ->where('supir.id_perusahaan', $idPerusahaan)
             ->orderBy('supir.nama', 'asc');
@@ -52,7 +53,7 @@ class SupirRepository implements SupirRepositoryInterface
             $limit,
             array_merge(
                 array_map(fn ($c) => 'supir.' . $c, self::COLUMNS),
-                ['armada.nopol as armada_default'],
+                ['armada.nopol as armada_default', 'pengguna.username as username_pengguna'],
             ),
             'page',
             $page
@@ -62,19 +63,53 @@ class SupirRepository implements SupirRepositoryInterface
     public function findById(string $id): ?object
     {
         return DB::table('supir')
-            ->select(self::COLUMNS)
-            ->whereNull('dihapus_pada')
-            ->where('id_supir', $id)
+            ->leftJoin('pengguna', 'pengguna.id_pengguna', '=', 'supir.id_pengguna')
+            ->select(array_merge(
+                array_map(fn ($c) => 'supir.' . $c, self::COLUMNS),
+                ['pengguna.username as username_pengguna'],
+            ))
+            ->whereNull('supir.dihapus_pada')
+            ->where('supir.id_supir', $id)
             ->first();
     }
 
-    public function findByPengguna(string $idPengguna): ?object
+    public function findByPengguna(string $idPengguna, ?string $excludeIdSupir = null): ?object
     {
         return DB::table('supir')
             ->select(self::COLUMNS)
             ->whereNull('dihapus_pada')
             ->where('id_pengguna', $idPengguna)
+            ->when($excludeIdSupir !== null, fn ($query) => $query->where('id_supir', '!=', $excludeIdSupir))
             ->first();
+    }
+
+    public function findPenggunaMilikPerusahaan(string $idPengguna, string $idPerusahaan): ?object
+    {
+        return DB::table('pengguna')
+            ->where('id_pengguna', $idPengguna)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->first();
+    }
+
+    public function listOpsiPengguna(string $idPerusahaan): array
+    {
+        return DB::table('pengguna')
+            ->leftJoin('supir', function ($join) {
+                $join->on('supir.id_pengguna', '=', 'pengguna.id_pengguna')
+                     ->whereNull('supir.dihapus_pada');
+            })
+            ->where('pengguna.id_perusahaan', $idPerusahaan)
+            ->where('pengguna.kode_peran', 'SUPIR')
+            ->where('pengguna.aktif', 1)
+            ->orderBy('pengguna.username')
+            ->get([
+                'pengguna.id_pengguna',
+                'pengguna.username',
+                'pengguna.email',
+                'supir.id_supir as id_supir_tertaut',
+                'supir.nama as nama_supir_tertaut',
+            ])
+            ->all();
     }
 
     public function findByNoSim(string $idPerusahaan, string $noSim): ?object

@@ -20,6 +20,7 @@ class SupirServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:supir'])
             ->group(function () {
                 Route::get('supir/me', [SupirController::class, 'me']);
+                Route::get('supir/opsi-pengguna', [SupirController::class, 'opsiPengguna']);
                 Route::get('supir/import/template', [SupirController::class, 'downloadTemplate']);
                 Route::post('supir/import', [SupirController::class, 'import']);
                 Route::apiResource('supir', SupirController::class)

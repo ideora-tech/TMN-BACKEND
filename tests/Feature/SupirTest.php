@@ -107,6 +107,93 @@ class SupirTest extends TestCase
         ])->assertStatus(404);
     }
 
+    private function makePenggunaSupir(?string $idPerusahaan = null, string $kodePeran = 'SUPIR', int $aktif = 1): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('pengguna')->insert([
+            'id_pengguna'   => $id,
+            'id_perusahaan' => $idPerusahaan ?? self::PERUSAHAAN_ID,
+            'kode_peran'    => $kodePeran,
+            'username'      => '08' . random_int(1000000000, 9999999999),
+            'email'         => Str::random(10) . '@test.id',
+            'kata_sandi'    => bcrypt('Password123!'),
+            'aktif'         => $aktif,
+        ]);
+        return $id;
+    }
+
+    public function test_menautkan_akun_pengguna_saat_create_dan_update(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idPengguna = $this->makePenggunaSupir();
+
+        $res = $this->postJson('/api/v1/supir', [
+            'nama' => 'Supir Mobile', 'no_sim' => 'SIM-AKUN-1', 'id_pengguna' => $idPengguna,
+        ]);
+        $res->assertStatus(201)->assertJsonPath('data.id_pengguna', $idPengguna);
+
+        $idSupir = $res->json('data.id_supir');
+        $idPenggunaBaru = $this->makePenggunaSupir();
+
+        $this->putJson("/api/v1/supir/{$idSupir}", ['id_pengguna' => $idPenggunaBaru])
+            ->assertStatus(200)->assertJsonPath('data.id_pengguna', $idPenggunaBaru);
+
+        $this->putJson("/api/v1/supir/{$idSupir}", ['id_pengguna' => $idPenggunaBaru])
+            ->assertStatus(200)->assertJsonPath('data.id_pengguna', $idPenggunaBaru);
+
+        $this->putJson("/api/v1/supir/{$idSupir}", ['id_pengguna' => null])
+            ->assertStatus(200)->assertJsonPath('data.id_pengguna', null);
+    }
+
+    public function test_satu_akun_tidak_bisa_ditautkan_ke_dua_supir(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idPengguna = $this->makePenggunaSupir();
+
+        $this->postJson('/api/v1/supir', [
+            'nama' => 'Supir Pertama', 'no_sim' => 'SIM-AKUN-2', 'id_pengguna' => $idPengguna,
+        ])->assertStatus(201);
+
+        $res = $this->postJson('/api/v1/supir', [
+            'nama' => 'Supir Kedua', 'no_sim' => 'SIM-AKUN-3', 'id_pengguna' => $idPengguna,
+        ]);
+        $res->assertStatus(422);
+        $this->assertStringContainsString('sudah ditautkan', (string) $res->json('message'));
+    }
+
+    public function test_akun_perusahaan_lain_tidak_bisa_ditautkan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idLain = $this->makePerusahaanLain();
+        $idPenggunaLain = $this->makePenggunaSupir($idLain);
+
+        $this->postJson('/api/v1/supir', [
+            'nama' => 'Supir Nakal', 'no_sim' => 'SIM-AKUN-4', 'id_pengguna' => $idPenggunaLain,
+        ])->assertStatus(404);
+    }
+
+    public function test_opsi_pengguna_hanya_peran_supir_aktif_perusahaan_sendiri(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idBebas    = $this->makePenggunaSupir();
+        $idTertaut  = $this->makePenggunaSupir();
+        $this->makePenggunaSupir(null, 'MANAGER');
+        $this->makePenggunaSupir(null, 'SUPIR', 0);
+        $this->makePenggunaSupir($this->makePerusahaanLain());
+
+        $this->postJson('/api/v1/supir', [
+            'nama' => 'Supir Tertaut Akun', 'no_sim' => 'SIM-AKUN-5', 'id_pengguna' => $idTertaut,
+        ])->assertStatus(201);
+
+        $res = $this->getJson('/api/v1/supir/opsi-pengguna');
+
+        $res->assertStatus(200);
+        $data = collect($res->json('data'))->keyBy('id_pengguna');
+        $this->assertCount(2, $data);
+        $this->assertNull($data->get($idBebas)['id_supir_tertaut']);
+        $this->assertSame('Supir Tertaut Akun', $data->get($idTertaut)['nama_supir_tertaut']);
+    }
+
     public function test_list_supir_hanya_menampilkan_milik_perusahaan_sendiri(): void
     {
         $this->actingAsRole('SUPERADMIN');

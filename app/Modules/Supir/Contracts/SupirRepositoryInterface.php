@@ -8,7 +8,9 @@ interface SupirRepositoryInterface
 {
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status = null, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?object;
-    public function findByPengguna(string $idPengguna): ?object;
+    public function findByPengguna(string $idPengguna, ?string $excludeIdSupir = null): ?object;
+    public function findPenggunaMilikPerusahaan(string $idPengguna, string $idPerusahaan): ?object;
+    public function listOpsiPengguna(string $idPerusahaan): array;
     public function findByKaryawan(string $idKaryawan, ?string $excludeIdSupir = null): ?object;
     public function findByNoSim(string $idPerusahaan, string $noSim): ?object;
     public function findPemegangArmadaDefault(string $idArmada, ?string $excludeIdSupir = null): ?object;

@@ -58,6 +58,12 @@ class SupirController extends Controller
         return ApiResponse::success(new SupirResource($record));
     }
 
+    public function opsiPengguna(Request $request): JsonResponse
+    {
+        $result = $this->service->listOpsiPengguna((string) $request->user()->id_perusahaan);
+        return ApiResponse::success($result);
+    }
+
     public function store(StoreSupirRequest $request): JsonResponse
     {
         $data = array_merge($request->validated(), ['id_perusahaan' => (string) $request->user()->id_perusahaan]);
