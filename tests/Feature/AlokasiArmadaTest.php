@@ -117,12 +117,100 @@ class AlokasiArmadaTest extends TestCase
         $this->assertSame($armada->id_armada, DB::table('penugasan')->where('id_penugasan', $penugasan->id_penugasan)->value('id_armada'));
     }
 
-    public function test_supir_tanpa_armada_penugasan_dapat_alokasi_kosong_tanpa_pinjam(): void
+    public function test_supir_shift_meminjam_armada_pemilik_tidak_dijadwalkan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
-        // Armada nganggur ini TIDAK boleh ikut dipinjamkan — sistem tidak lagi mencari armada kosong.
-        $this->makeArmada('B 2000 BB');
+        $armada = $this->makeArmada('B 9001 TMN');
+        $idPemilik = $this->makeSupir('Ahmad Pemilik');
+        $this->makePenugasan($idPemilik, $proyek->id_proyek, $armada->id_armada);
+
+        $idShiftSupir = $this->makeSupir('Dadang Pengganti');
+        $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
+        $idShift = $this->makeShift();
+
+        // Pemilik TIDAK dijadwalkan tanggal 10 → armadanya dipinjamkan.
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir'        => $idShiftSupir,
+            'tanggal'         => '2026-08-10',
+            'id_armada'       => $armada->id_armada,
+            'id_pemilik_asal' => $idPemilik,
+            'sumber'          => 'otomatis',
+            'keterangan'      => 'Pemilik tidak dijadwalkan',
+        ]);
+    }
+
+    public function test_armada_pemilik_yang_masuk_tidak_dipinjam(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $armada = $this->makeArmada('B 9001 TMN');
+        $idPemilik = $this->makeSupir('Ahmad Pemilik');
+        $this->makePenugasan($idPemilik, $proyek->id_proyek, $armada->id_armada);
+
+        $idShiftSupir = $this->makeSupir('Dadang Pengganti');
+        $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
+        $idShift = $this->makeShift();
+
+        // Pemilik ikut dijadwalkan di tanggal yang sama → mobilnya tidak boleh dipinjam.
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik, $idShiftSupir], '2026-08-10');
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir' => $idPemilik, 'tanggal' => '2026-08-10',
+            'id_armada' => $armada->id_armada, 'sumber' => 'penugasan',
+        ]);
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir'   => $idShiftSupir,
+            'tanggal'    => '2026-08-10',
+            'id_armada'  => null,
+            'sumber'     => 'penugasan',
+            'keterangan' => 'Tidak ada armada tersedia',
+        ]);
+    }
+
+    public function test_supir_shift_meminjam_armada_pemilik_cuti(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $armada = $this->makeArmada('B 9002 TMN');
+        $idPemilik = $this->makeSupir('Pemilik Cuti');
+        $this->makePenugasan($idPemilik, $proyek->id_proyek, $armada->id_armada);
+
+        DB::table('pengajuan_cuti')->insert([
+            'id_pengajuan'    => (string) Str::uuid(),
+            'id_perusahaan'   => self::PERUSAHAAN_ID,
+            'id_supir'        => $idPemilik,
+            'id_jenis_cuti'   => (string) Str::uuid(),
+            'tanggal_mulai'   => '2026-08-09',
+            'tanggal_selesai' => '2026-08-11',
+            'jumlah_hari'     => 3,
+            'status'          => 'disetujui',
+            'dibuat_pada'     => now(),
+        ]);
+
+        $idShiftSupir = $this->makeSupir('Supir Pengganti');
+        $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
+        $idShift = $this->makeShift();
+
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir'        => $idShiftSupir,
+            'tanggal'         => '2026-08-10',
+            'id_armada'       => $armada->id_armada,
+            'id_pemilik_asal' => $idPemilik,
+            'sumber'          => 'otomatis',
+            'keterangan'      => 'Pemilik cuti',
+        ]);
+    }
+
+    public function test_armada_tanpa_pemilik_ikut_dipinjamkan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $armada = $this->makeArmada('B 2000 BB');
 
         $idShiftSupir = $this->makeSupir('Supir Shift');
         $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
@@ -133,11 +221,40 @@ class AlokasiArmadaTest extends TestCase
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'        => $idShiftSupir,
             'tanggal'         => '2026-08-10',
-            'id_armada'       => null,
+            'id_armada'       => $armada->id_armada,
             'id_pemilik_asal' => null,
-            'sumber'          => 'penugasan',
-            'keterangan'      => null,
+            'sumber'          => 'otomatis',
+            'keterangan'      => 'Armada tanpa pemilik',
         ]);
+    }
+
+    public function test_dua_supir_shift_tidak_rebutan_satu_armada(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $armada = $this->makeArmada('B 3000 CC');
+
+        $idSupirA = $this->makeSupir('Supir Shift A');
+        $idSupirB = $this->makeSupir('Supir Shift B');
+        $this->makePenugasan($idSupirA, $proyek->id_proyek);
+        $this->makePenugasan($idSupirB, $proyek->id_proyek);
+        $idShift = $this->makeShift();
+
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupirA, $idSupirB], '2026-08-10');
+
+        $dapatArmada = DB::table('alokasi_armada')
+            ->whereNull('dihapus_pada')
+            ->where('tanggal', '2026-08-10')
+            ->where('id_armada', $armada->id_armada)
+            ->count();
+        $tanpaArmada = DB::table('alokasi_armada')
+            ->whereNull('dihapus_pada')
+            ->where('tanggal', '2026-08-10')
+            ->whereNull('id_armada')
+            ->count();
+
+        $this->assertSame(1, $dapatArmada);
+        $this->assertSame(1, $tanpaArmada);
     }
 
     public function test_ganti_armada_supir_dilakukan_lewat_penugasan(): void
@@ -185,11 +302,14 @@ class AlokasiArmadaTest extends TestCase
         $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", ['id_armada' => null])
             ->assertStatus(200);
 
-        // Mobil dilepas dari penugasan → alokasi ikut jadi kosong, tidak dicarikan gantinya.
+        // Mobil dilepas dari penugasan → jadi armada tanpa pemilik → sistem
+        // meminjamkannya kembali ke supir yang masih terjadwal (sumber otomatis).
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir'   => $idSupir,
-            'tanggal'    => '2026-08-20',
-            'id_armada'  => null,
+            'id_supir'     => $idSupir,
+            'tanggal'      => '2026-08-20',
+            'id_armada'    => $armada->id_armada,
+            'sumber'       => 'otomatis',
+            'keterangan'   => 'Armada tanpa pemilik',
             'dihapus_pada' => null,
         ]);
         $this->assertNull(DB::table('penugasan')->where('id_penugasan', $penugasan->id_penugasan)->value('id_armada'));

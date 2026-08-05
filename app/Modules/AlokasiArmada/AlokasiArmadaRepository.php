@@ -151,4 +151,96 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ->first();
     }
 
+    /**
+     * Kandidat armada yang boleh dipinjamkan ke supir shift pada satu tanggal:
+     * (1) armada penugasan supir lain di proyek yang sama yang pemiliknya off
+     *     (cuti disetujui ATAU tidak dijadwalkan shift tanggal itu), dan
+     * (2) armada aktif tanpa pemegang penugasan sama sekali.
+     * Armada berstatus perawatan/tidak_aktif atau yang sudah dialokasikan aktif
+     * tanggal itu dikecualikan. Hasil diurutkan nopol.
+     *
+     * @return array<int, object{id_armada: string, nopol: string, id_pemilik_asal: ?string, keterangan: string}>
+     */
+    public function kandidatArmadaNganggur(string $idSupir, string $tanggal, string $idProyek): array
+    {
+        $idPerusahaan = DB::table('supir')->where('id_supir', $idSupir)->value('id_perusahaan');
+
+        $dialokasikan = DB::table('alokasi_armada')
+            ->whereNull('dihapus_pada')
+            ->where('tanggal', $tanggal)
+            ->whereNotNull('id_armada')
+            ->pluck('id_armada')
+            ->all();
+
+        $milikSupirLain = DB::table('penugasan as pn')
+            ->join('armada as a', function ($join) {
+                $join->on('a.id_armada', '=', 'pn.id_armada')
+                     ->whereNull('a.dihapus_pada');
+            })
+            ->whereNull('pn.dihapus_pada')
+            ->where('pn.id_proyek', $idProyek)
+            ->whereIn('pn.status', ['pending', 'aktif'])
+            ->where('pn.id_supir', '!=', $idSupir)
+            ->whereNotIn('a.status', ['perawatan', 'tidak_aktif'])
+            ->when($dialokasikan !== [], fn ($q) => $q->whereNotIn('a.id_armada', $dialokasikan))
+            ->select('a.id_armada', 'a.nopol', 'pn.id_supir as id_pemilik_asal')
+            ->get();
+
+        $hasil = [];
+        foreach ($milikSupirLain as $row) {
+            $pemilikCuti = DB::table('pengajuan_cuti')
+                ->whereNull('dihapus_pada')
+                ->where('id_supir', $row->id_pemilik_asal)
+                ->where('status', 'disetujui')
+                ->where('tanggal_mulai', '<=', $tanggal)
+                ->where('tanggal_selesai', '>=', $tanggal)
+                ->exists();
+
+            $pemilikDijadwalkan = DB::table('jadwal_shift')
+                ->whereNull('dihapus_pada')
+                ->where('id_supir', $row->id_pemilik_asal)
+                ->where('tanggal', $tanggal)
+                ->exists();
+
+            if (!$pemilikCuti && $pemilikDijadwalkan) {
+                continue;
+            }
+
+            $hasil[] = (object) [
+                'id_armada'       => $row->id_armada,
+                'nopol'           => $row->nopol,
+                'id_pemilik_asal' => $row->id_pemilik_asal,
+                'keterangan'      => $pemilikCuti ? 'Pemilik cuti' : 'Pemilik tidak dijadwalkan',
+            ];
+        }
+
+        $dipegang = DB::table('penugasan')
+            ->whereNull('dihapus_pada')
+            ->whereIn('status', ['pending', 'aktif'])
+            ->whereNotNull('id_armada')
+            ->pluck('id_armada')
+            ->all();
+
+        $tanpaPemilik = DB::table('armada')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNotIn('status', ['perawatan', 'tidak_aktif'])
+            ->when($dipegang !== [], fn ($q) => $q->whereNotIn('id_armada', $dipegang))
+            ->when($dialokasikan !== [], fn ($q) => $q->whereNotIn('id_armada', $dialokasikan))
+            ->select('id_armada', 'nopol')
+            ->get();
+
+        foreach ($tanpaPemilik as $row) {
+            $hasil[] = (object) [
+                'id_armada'       => $row->id_armada,
+                'nopol'           => $row->nopol,
+                'id_pemilik_asal' => null,
+                'keterangan'      => 'Armada tanpa pemilik',
+            ];
+        }
+
+        usort($hasil, fn ($a, $b) => strcmp((string) $a->nopol, (string) $b->nopol));
+        return $hasil;
+    }
+
 }

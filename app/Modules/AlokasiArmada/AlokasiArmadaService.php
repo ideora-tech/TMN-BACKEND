@@ -38,32 +38,58 @@ class AlokasiArmadaService
     }
 
     /**
-     * Log harian polos: armada dicerminkan langsung dari PENUGASAN aktif
-     * supir tsb (id_armada apa adanya, boleh null). Tidak ada pencarian atau
-     * pinjam armada nganggur — kalau supir butuh armada, ubah di penugasan.
+     * Armada harian supir: pakai armada PENUGASAN-nya sendiri bila ada (sumber
+     * 'penugasan'). Bila penugasannya tanpa armada (supir shift), sistem
+     * meminjamkan armada menganggur — milik supir lain di proyek yang sama yang
+     * off (cuti disetujui / tidak dijadwalkan tanggal itu) atau armada tanpa
+     * pemegang — tercatat sumber 'otomatis' + pemilik asal + keterangan.
+     * Tidak ada kandidat → baris tetap dibuat dengan id_armada NULL.
+     * Sistem tidak pernah menulis ke penugasan.id_armada.
      */
     public function alokasikan(string $idSupir, string $tanggal, string $idProyek): void
     {
-        $penugasan = $this->repo->penugasanAktifSupirProyek($idSupir, $idProyek);
-        $idArmada = $penugasan?->id_armada;
-
         $ada = $this->repo->findAktifBySupirTanggal($idSupir, $tanggal);
-        if ($ada !== null && (string) $ada->id_armada === (string) $idArmada) {
+
+        $penugasan = $this->repo->penugasanAktifSupirProyek($idSupir, $idProyek);
+        $idArmadaSendiri = $penugasan?->id_armada;
+
+        if ($idArmadaSendiri !== null) {
+            if ($ada !== null && (string) $ada->id_armada === (string) $idArmadaSendiri) {
+                return;
+            }
+
+            if ($ada !== null) {
+                $this->repo->softDeleteById($ada->id_alokasi);
+            }
+
+            $this->repo->create([
+                'tanggal'         => $tanggal,
+                'id_proyek'       => $idProyek,
+                'id_supir'        => $idSupir,
+                'id_armada'       => $idArmadaSendiri,
+                'id_pemilik_asal' => null,
+                'sumber'          => 'penugasan',
+                'keterangan'      => null,
+            ]);
             return;
         }
 
+        // Supir shift: lepas alokasi lamanya dulu supaya armada lamanya tidak
+        // ikut terhitung "sudah dialokasikan" saat pencarian kandidat.
         if ($ada !== null) {
             $this->repo->softDeleteById($ada->id_alokasi);
         }
+
+        $kandidat = $this->repo->kandidatArmadaNganggur($idSupir, $tanggal, $idProyek)[0] ?? null;
 
         $this->repo->create([
             'tanggal'         => $tanggal,
             'id_proyek'       => $idProyek,
             'id_supir'        => $idSupir,
-            'id_armada'       => $idArmada,
-            'id_pemilik_asal' => null,
-            'sumber'          => 'penugasan',
-            'keterangan'      => null,
+            'id_armada'       => $kandidat?->id_armada,
+            'id_pemilik_asal' => $kandidat?->id_pemilik_asal,
+            'sumber'          => $kandidat !== null ? 'otomatis' : 'penugasan',
+            'keterangan'      => $kandidat?->keterangan ?? 'Tidak ada armada tersedia',
         ]);
     }
 

@@ -13,7 +13,7 @@ class PenggunaResource extends JsonResource
         return [
             'id_pengguna'         => $this->id_pengguna,
             'id_perusahaan'       => $this->id_perusahaan,
-            'id_peran'            => $this->id_peran,
+            'kode_peran'          => $this->kode_peran,
             'id_karyawan'         => $this->id_karyawan,
             'username'            => $this->username,
             'email'               => $this->email,

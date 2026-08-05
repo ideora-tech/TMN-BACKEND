@@ -19,4 +19,5 @@ interface AlokasiArmadaRepositoryInterface
     public function jadwalMendatangSupirProyek(string $idSupir, string $idProyek, string $dariTanggal): array;
     public function alokasiNopolMap(string $idSupir, string $dari, string $sampai): array;
     public function penugasanAktifSupirProyek(string $idSupir, string $idProyek): ?object;
+    public function kandidatArmadaNganggur(string $idSupir, string $tanggal, string $idProyek): array;
 }

@@ -23,12 +23,21 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
     {
         return DB::table('jadwal_shift')
             ->join('shift', 'shift.id_shift', '=', 'jadwal_shift.id_shift')
+            ->leftJoin('alokasi_armada', function ($join) {
+                $join->on('alokasi_armada.id_supir', '=', 'jadwal_shift.id_supir')
+                     ->on('alokasi_armada.tanggal', '=', 'jadwal_shift.tanggal')
+                     ->whereNull('alokasi_armada.dihapus_pada');
+            })
+            ->leftJoin('armada', 'armada.id_armada', '=', 'alokasi_armada.id_armada')
             ->whereNull('jadwal_shift.dihapus_pada')
             ->where('jadwal_shift.id_proyek', $idProyek)
             ->when($dari, fn ($q, $v) => $q->where('jadwal_shift.tanggal', '>=', $v))
             ->when($sampai, fn ($q, $v) => $q->where('jadwal_shift.tanggal', '<=', $v))
             ->orderBy('jadwal_shift.tanggal')
-            ->select(array_merge(self::COLUMNS, self::JOINED))
+            ->select(array_merge(self::COLUMNS, self::JOINED, [
+                'armada.nopol as nopol_alokasi',
+                'alokasi_armada.sumber as sumber_alokasi',
+            ]))
             ->get()
             ->all();
     }

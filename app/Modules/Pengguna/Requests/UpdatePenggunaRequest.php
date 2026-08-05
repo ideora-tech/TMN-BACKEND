@@ -16,7 +16,7 @@ class UpdatePenggunaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_peran'    => ['sometimes', 'string', 'size:36'],
+            'kode_peran'  => ['sometimes', 'nullable', 'string', 'max:50'],
             'username'    => ['sometimes', 'string', 'max:100'],
             'email'       => ['sometimes', 'email', 'max:150'],
             'password'    => ['sometimes', 'string', 'min:8'],
