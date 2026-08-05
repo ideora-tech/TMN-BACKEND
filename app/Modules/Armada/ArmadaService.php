@@ -113,9 +113,23 @@ class ArmadaService
         $this->repo->delete($record);
     }
 
+    /**
+     * Gabungan dua basis warning: HARI (jadwal_servis_berikutnya ≤ hari ini + days)
+     * dan KM (odometer mendekati/melewati km jatuh tempo interval). Satu armada
+     * bisa muncul dua kali dengan `basis` berbeda — frontend menampilkan keduanya.
+     */
     public function servisJatuhTempo(string $idPerusahaan, int $days = 30): array
     {
-        return $this->repo->findServisJatuhTempo($idPerusahaan, $days);
+        $hari = array_map(
+            fn ($item) => array_merge($item, ['basis' => 'hari']),
+            $this->repo->findServisJatuhTempo($idPerusahaan, $days),
+        );
+        $km = array_map(
+            fn ($item) => array_merge($item, ['basis' => 'km']),
+            $this->repo->findServisJatuhTempoKm($idPerusahaan),
+        );
+
+        return array_merge($hari, $km);
     }
 
     /**

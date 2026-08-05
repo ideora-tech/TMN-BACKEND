@@ -18,6 +18,7 @@ class IntervalPerawatanResource extends JsonResource
             'nama_jenis_perawatan'  => $this->nama_jenis_perawatan ?? null,
             'nama_jenis_kendaraan'  => $this->nama_jenis_kendaraan ?? null,
             'interval_hari'         => (int) $this->interval_hari,
+            'interval_km'           => $this->interval_km !== null ? (int) $this->interval_km : null,
             'aktif'                 => (bool) $this->aktif,
             'dibuat_pada'           => $this->dibuat_pada,
             'diubah_pada'           => $this->diubah_pada,

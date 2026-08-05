@@ -32,4 +32,5 @@ interface PerawatanArmadaRepositoryInterface
 
     /** Riwayat servis "selesai" terakhir per jenis perawatan untuk 1 armada (dipakai fitur prediksi perawatan). */
     public function getLatestPerJenisByArmada(string $idArmada): array;
+    public function kmOdometerTerakhir(string $idArmada): ?int;
 }

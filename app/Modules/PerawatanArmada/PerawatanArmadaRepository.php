@@ -256,4 +256,16 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->get(['id_jenis_perawatan', 'tanggal', 'jadwal_servis_berikutnya', 'km_odometer'])
             ->all();
     }
+
+    /** Odometer terakhir yang diketahui untuk 1 armada (dari catatan servis ber-km). */
+    public function kmOdometerTerakhir(string $idArmada): ?int
+    {
+        $km = DB::table('perawatan_armada')
+            ->whereNull('dihapus_pada')
+            ->where('id_armada', $idArmada)
+            ->whereNotNull('km_odometer')
+            ->max('km_odometer');
+
+        return $km !== null ? (int) $km : null;
+    }
 }

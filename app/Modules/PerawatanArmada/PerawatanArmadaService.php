@@ -36,6 +36,9 @@ class PerawatanArmadaService
     /**
      * Gabungkan interval_perawatan (aturan) + riwayat servis terakhir + paket sparepart standar
      * jadi daftar prediksi jenis perawatan apa saja yang akan datang untuk 1 armada.
+     * Dua basis dihitung: HARI (jadwal_servis_berikutnya vs hari ini) dan KM
+     * (km servis terakhir + interval_km vs odometer terakhir armada; ambang
+     * "segera" = sisa ≤ 10% interval_km) — status akhir mengambil yang terburuk.
      */
     public function prediksiPerawatan(string $idArmada, string $idPerusahaan, int $days = 30): array
     {
@@ -50,6 +53,7 @@ class PerawatanArmadaService
 
         $rules  = $this->intervalRepo->findAllByJenisKendaraan($idPerusahaan, $armada->id_jenis_kendaraan);
         $latest = collect($this->repo->getLatestPerJenisByArmada($idArmada))->keyBy('id_jenis_perawatan');
+        $kmSekarang = $this->repo->kmOdometerTerakhir($idArmada);
 
         $items = [];
         foreach ($rules as $rule) {
@@ -72,12 +76,42 @@ class PerawatanArmadaService
                 };
             }
 
+            $intervalKm       = isset($rule->interval_km) && $rule->interval_km !== null ? (int) $rule->interval_km : null;
+            $kmServisTerakhir = isset($riwayat->km_odometer) && $riwayat->km_odometer !== null ? (int) $riwayat->km_odometer : null;
+
+            $kmJatuhTempo = null;
+            $sisaKm = null;
+            $statusKm = null;
+            if ($intervalKm !== null && $kmServisTerakhir !== null && $kmSekarang !== null) {
+                $kmJatuhTempo = $kmServisTerakhir + $intervalKm;
+                $sisaKm = $kmJatuhTempo - $kmSekarang;
+                $ambangKm = max(1, (int) round($intervalKm * 0.1));
+                $statusKm = match (true) {
+                    $sisaKm < 0         => 'lewat_jatuh_tempo',
+                    $sisaKm <= $ambangKm => 'segera',
+                    default             => 'aman',
+                };
+            }
+
+            if ($statusKm !== null) {
+                $urutan = ['lewat_jatuh_tempo' => 0, 'segera' => 1, 'aman' => 2, 'belum_pernah' => 3];
+                if ($urutan[$statusKm] < $urutan[$status]) {
+                    $status = $statusKm;
+                }
+            }
+
             $items[] = [
                 'id_jenis_perawatan'       => $rule->id_jenis_perawatan,
                 'nama_jenis_perawatan'     => $rule->nama_jenis_perawatan,
                 'interval_hari'            => (int) $rule->interval_hari,
+                'interval_km'              => $intervalKm,
                 'tanggal_servis_terakhir'  => $tanggalTerakhir,
                 'jadwal_servis_berikutnya' => $jadwalBerikutnya,
+                'km_servis_terakhir'       => $kmServisTerakhir,
+                'km_sekarang'              => $kmSekarang,
+                'km_jatuh_tempo'           => $kmJatuhTempo,
+                'sisa_km'                  => $sisaKm,
+                'status_km'                => $statusKm,
                 'status'                   => $status,
                 'sisa_hari'                => $sisaHari,
                 'sparepart_standar'        => $this->paketRepo->resolusiList($idPerusahaan, $rule->id_jenis_perawatan, $armada->id_jenis_kendaraan),

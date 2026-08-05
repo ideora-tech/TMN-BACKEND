@@ -108,6 +108,7 @@ class IntervalPerawatanRepository implements IntervalPerawatanRepositoryInterfac
                 'interval_perawatan.id_jenis_perawatan',
                 'jenis_perawatan.nama as nama_jenis_perawatan',
                 'interval_perawatan.interval_hari',
+                'interval_perawatan.interval_km',
             ])
             ->all();
     }

@@ -19,6 +19,7 @@ class UpdateIntervalPerawatanRequest extends FormRequest
             'id_jenis_perawatan' => ['sometimes', 'string', 'max:36'],
             'id_jenis_kendaraan' => ['sometimes', 'string', 'max:36'],
             'interval_hari'      => ['sometimes', 'integer', 'min:1'],
+            'interval_km'        => ['sometimes', 'nullable', 'integer', 'min:1'],
             'aktif'               => ['sometimes', 'boolean'],
         ];
     }

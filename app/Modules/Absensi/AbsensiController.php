@@ -52,6 +52,34 @@ class AbsensiController extends Controller
         return ApiResponse::success($hasil, 'Pengaturan jam kerja tersimpan');
     }
 
+    public function absensiSaya(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        return ApiResponse::success($this->service->absensiSaya((string) $user->id_perusahaan, $user->id_karyawan));
+    }
+
+    public function absenMasuk(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $lokasi = $request->validate([
+            'latitude'  => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'alamat'    => ['nullable', 'string', 'max:500'],
+        ]);
+        return ApiResponse::success($this->service->absenMasuk((string) $user->id_perusahaan, $user->id_karyawan, $lokasi), 'Absen masuk tercatat');
+    }
+
+    public function absenPulang(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $lokasi = $request->validate([
+            'latitude'  => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'alamat'    => ['nullable', 'string', 'max:500'],
+        ]);
+        return ApiResponse::success($this->service->absenPulang((string) $user->id_perusahaan, $user->id_karyawan, $lokasi), 'Absen pulang tercatat');
+    }
+
     public function rekap(Request $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;

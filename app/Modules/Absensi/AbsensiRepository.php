@@ -20,6 +20,15 @@ class AbsensiRepository implements AbsensiRepositoryInterface
             ->all();
     }
 
+    public function findByKaryawanTanggal(string $idKaryawan, string $tanggal): ?object
+    {
+        return DB::table('absensi')
+            ->whereNull('dihapus_pada')
+            ->where('id_karyawan', $idKaryawan)
+            ->whereDate('tanggal', $tanggal)
+            ->first();
+    }
+
     public function upsert(string $idPerusahaan, string $idKaryawan, string $tanggal, array $data): void
     {
         $existing = DB::table('absensi')

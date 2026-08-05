@@ -146,4 +146,105 @@ class ArmadaRepository implements ArmadaRepositoryInterface
             ->map(fn ($r) => (array) $r)
             ->all();
     }
+
+    /**
+     * Warning servis berbasis KILOMETER: per armada × aturan interval_km jenis
+     * kendaraannya, hitung sisa km = (km servis terakhir jenis itu + interval_km)
+     * − odometer terakhir armada. Masuk daftar bila sisa ≤ 10% interval_km
+     * (termasuk negatif = lewat). Armada tanpa riwayat km dilewati.
+     */
+    public function findServisJatuhTempoKm(string $idPerusahaan): array
+    {
+        $rules = DB::table('interval_perawatan as ip')
+            ->join('jenis_perawatan as jp', 'jp.id_jenis_perawatan', '=', 'ip.id_jenis_perawatan')
+            ->whereNull('ip.dihapus_pada')
+            ->whereNull('jp.dihapus_pada')
+            ->where('ip.id_perusahaan', $idPerusahaan)
+            ->where('ip.aktif', 1)
+            ->whereNotNull('ip.interval_km')
+            ->get(['ip.id_jenis_kendaraan', 'ip.id_jenis_perawatan', 'ip.interval_km', 'jp.nama as nama_jenis_perawatan']);
+
+        if ($rules->isEmpty()) {
+            return [];
+        }
+
+        $armadaList = DB::table('armada')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereIn('id_jenis_kendaraan', $rules->pluck('id_jenis_kendaraan')->unique()->all())
+            ->get(['id_armada', 'nopol', 'id_jenis_kendaraan']);
+
+        if ($armadaList->isEmpty()) {
+            return [];
+        }
+
+        $armadaIds = $armadaList->pluck('id_armada')->all();
+
+        $kmSekarangMap = DB::table('perawatan_armada')
+            ->whereNull('dihapus_pada')
+            ->whereIn('id_armada', $armadaIds)
+            ->whereNotNull('km_odometer')
+            ->groupBy('id_armada')
+            ->selectRaw('id_armada, MAX(km_odometer) as km_terakhir')
+            ->pluck('km_terakhir', 'id_armada');
+
+        $servisTerakhir = DB::table('perawatan_armada as p1')
+            ->whereNull('p1.dihapus_pada')
+            ->whereIn('p1.id_armada', $armadaIds)
+            ->where('p1.status', 'selesai')
+            ->whereNotNull('p1.id_jenis_perawatan')
+            ->whereNotNull('p1.km_odometer')
+            ->whereRaw('p1.id_perawatan = (
+                SELECT p2.id_perawatan FROM perawatan_armada p2
+                WHERE p2.id_armada = p1.id_armada
+                  AND p2.id_jenis_perawatan = p1.id_jenis_perawatan
+                  AND p2.status = \'selesai\'
+                  AND p2.km_odometer IS NOT NULL
+                  AND p2.dihapus_pada IS NULL
+                ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
+                LIMIT 1
+            )')
+            ->get(['p1.id_armada', 'p1.id_jenis_perawatan', 'p1.km_odometer']);
+
+        $servisMap = [];
+        foreach ($servisTerakhir as $row) {
+            $servisMap[$row->id_armada . '|' . $row->id_jenis_perawatan] = (int) $row->km_odometer;
+        }
+
+        $rulesPerKendaraan = $rules->groupBy('id_jenis_kendaraan');
+
+        $hasil = [];
+        foreach ($armadaList as $armada) {
+            $kmSekarang = $kmSekarangMap[$armada->id_armada] ?? null;
+            if ($kmSekarang === null) {
+                continue;
+            }
+
+            foreach ($rulesPerKendaraan->get($armada->id_jenis_kendaraan, collect()) as $rule) {
+                $kmServis = $servisMap[$armada->id_armada . '|' . $rule->id_jenis_perawatan] ?? null;
+                if ($kmServis === null) {
+                    continue;
+                }
+
+                $intervalKm = (int) $rule->interval_km;
+                $sisaKm = ($kmServis + $intervalKm) - (int) $kmSekarang;
+                $ambang = max(1, (int) round($intervalKm * 0.1));
+                if ($sisaKm > $ambang) {
+                    continue;
+                }
+
+                $hasil[] = [
+                    'id_armada'       => $armada->id_armada,
+                    'nopol'           => $armada->nopol,
+                    'jenis_perawatan' => $rule->nama_jenis_perawatan,
+                    'km_jatuh_tempo'  => $kmServis + $intervalKm,
+                    'km_sekarang'     => (int) $kmSekarang,
+                    'sisa_km'         => $sisaKm,
+                ];
+            }
+        }
+
+        usort($hasil, fn ($a, $b) => $a['sisa_km'] <=> $b['sisa_km']);
+        return $hasil;
+    }
 }

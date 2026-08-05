@@ -112,6 +112,67 @@ class AbsensiService
         return $this->pengaturan($idPerusahaan);
     }
 
+    public function absensiSaya(string $idPerusahaan, ?string $idKaryawan): ?object
+    {
+        $this->pastikanKaryawan($idKaryawan);
+        return $this->repo->findByKaryawanTanggal($idKaryawan, now()->toDateString());
+    }
+
+    public function absenMasuk(string $idPerusahaan, ?string $idKaryawan, array $lokasi): object
+    {
+        $this->pastikanKaryawan($idKaryawan);
+        $tanggal = now()->toDateString();
+
+        $existing = $this->repo->findByKaryawanTanggal($idKaryawan, $tanggal);
+        if ($existing !== null && $existing->jam_masuk !== null) {
+            abort(422, 'Sudah absen masuk hari ini');
+        }
+
+        $pengaturan = $this->pengaturan($idPerusahaan);
+        $batas = Carbon::parse($tanggal . ' ' . $pengaturan['jam_masuk'])
+            ->addMinutes($pengaturan['toleransi_terlambat_menit']);
+
+        $this->repo->upsert($idPerusahaan, $idKaryawan, $tanggal, [
+            'status'          => now()->greaterThan($batas) ? 'terlambat' : 'hadir',
+            'jam_masuk'       => now()->format('H:i:s'),
+            'latitude_masuk'  => $lokasi['latitude'] ?? null,
+            'longitude_masuk' => $lokasi['longitude'] ?? null,
+            'alamat_masuk'    => $lokasi['alamat'] ?? null,
+        ]);
+
+        return $this->repo->findByKaryawanTanggal($idKaryawan, $tanggal);
+    }
+
+    public function absenPulang(string $idPerusahaan, ?string $idKaryawan, array $lokasi): object
+    {
+        $this->pastikanKaryawan($idKaryawan);
+        $tanggal = now()->toDateString();
+
+        $existing = $this->repo->findByKaryawanTanggal($idKaryawan, $tanggal);
+        if ($existing === null || $existing->jam_masuk === null) {
+            abort(422, 'Belum absen masuk hari ini');
+        }
+        if ($existing->jam_pulang !== null) {
+            abort(422, 'Sudah absen pulang hari ini');
+        }
+
+        $this->repo->upsert($idPerusahaan, $idKaryawan, $tanggal, [
+            'jam_pulang'       => now()->format('H:i:s'),
+            'latitude_pulang'  => $lokasi['latitude'] ?? null,
+            'longitude_pulang' => $lokasi['longitude'] ?? null,
+            'alamat_pulang'    => $lokasi['alamat'] ?? null,
+        ]);
+
+        return $this->repo->findByKaryawanTanggal($idKaryawan, $tanggal);
+    }
+
+    private function pastikanKaryawan(?string $idKaryawan): void
+    {
+        if ($idKaryawan === null || $idKaryawan === '') {
+            abort(422, 'Akun Anda tidak tertaut dengan data karyawan');
+        }
+    }
+
     /** Menit lembur per karyawan per HARI (selisih jam_pulang aktual vs standar) — per hari karena pengali 1,5×/2× berlaku per blok lembur harian. */
     private function hitungLemburHarian(string $idPerusahaan, string $awal, string $akhir): array
     {
