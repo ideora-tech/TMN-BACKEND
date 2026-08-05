@@ -7,13 +7,18 @@ namespace App\Modules\Trip;
 use App\Helpers\ApiResponse;
 use App\Modules\Penugasan\Resources\PenugasanResource;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
+use App\Modules\Trip\Exports\RekapTripSupirExport;
 use App\Modules\Trip\Requests\MulaiTripRequest;
 use App\Modules\Trip\Requests\StoreTripRequest;
 use App\Modules\Trip\Resources\TripResource;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TripController extends Controller
 {
@@ -270,5 +275,41 @@ class TripController extends Controller
         $alokasi = $validated['uang_jalan_alokasi'] !== null ? (float) $validated['uang_jalan_alokasi'] : null;
         $record = $this->service->updateUangJalan($id, $idPerusahaan, $alokasi);
         return ApiResponse::success(new TripResource($record), 'Uang jalan berhasil diperbarui');
+    }
+
+    private function rekapFilter(Request $request): array
+    {
+        return [
+            'dari'   => $request->query('dari'),
+            'sampai' => $request->query('sampai'),
+            'sumber' => $request->query('sumber'),
+            'status' => $request->query('status'),
+        ];
+    }
+
+    public function exportRekapSupirExcel(Request $request): BinaryFileResponse
+    {
+        $idPerusahaan = (string) auth()->user()?->id_perusahaan;
+        $filter = $this->rekapFilter($request);
+        $items = $this->service->rekapSupir($idPerusahaan, $filter);
+
+        return Excel::download(
+            new RekapTripSupirExport($items, $filter['dari'], $filter['sampai']),
+            'rekap-trip-supir-' . date('Ymd') . '.xlsx'
+        );
+    }
+
+    public function exportRekapSupirPdf(Request $request): Response
+    {
+        $idPerusahaan = (string) auth()->user()?->id_perusahaan;
+        $filter = $this->rekapFilter($request);
+        $items = $this->service->rekapSupir($idPerusahaan, $filter);
+
+        $pdf = Pdf::loadView('exports.rekap-trip-supir', [
+            'items'   => $items,
+            'periode' => RekapTripSupirExport::labelPeriode($filter['dari'], $filter['sampai']),
+        ]);
+
+        return $pdf->download('rekap-trip-supir-' . date('Ymd') . '.pdf');
     }
 }

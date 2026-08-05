@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\DokumenVendor\Resources;
 
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class DokumenVendorResource extends JsonResource
@@ -16,7 +17,7 @@ class DokumenVendorResource extends JsonResource
             'jenis_dokumen'     => $this->jenis_dokumen,
             'nomor'             => $this->nomor,
             'berlaku_sampai'    => $this->berlaku_sampai?->toDateString(),
-            'url_file'          => $this->url_file,
+            'url_file'          => PenyimpananBerkas::url($this->url_file),
             'dibuat_pada'       => $this->dibuat_pada,
             'diubah_pada'       => $this->diubah_pada,
         ];

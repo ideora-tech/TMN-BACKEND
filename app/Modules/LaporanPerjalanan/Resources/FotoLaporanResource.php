@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\LaporanPerjalanan\Resources;
 
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class FotoLaporanResource extends JsonResource
@@ -13,7 +14,7 @@ class FotoLaporanResource extends JsonResource
         return [
             'id_foto'    => $this->id_foto,
             'id_laporan' => $this->id_laporan,
-            'url_file'   => $this->url_file,
+            'url_file'   => PenyimpananBerkas::url($this->url_file),
             'keterangan' => $this->keterangan,
         ];
     }

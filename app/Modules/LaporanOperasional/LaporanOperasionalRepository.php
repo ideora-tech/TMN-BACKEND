@@ -8,13 +8,14 @@ use App\Modules\Armada\ArmadaModel;
 use App\Modules\LaporanOperasional\Contracts\LaporanOperasionalRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class LaporanOperasionalRepository implements LaporanOperasionalRepositoryInterface
 {
     /**
      * Join dasar trip -> jadwal_keberangkatan -> penugasan -> proyek (+klien/armada/supir/laporan)
-     * yang dipakai bersama oleh queryTrip() dan ringkasanTrip().
+     * yang dipakai bersama oleh queryTrip(), ringkasanTrip(), dan rekapTripPerSupir().
      */
     private function baseTripQuery(string $idPerusahaan, array $f): Builder
     {
@@ -68,6 +69,30 @@ class LaporanOperasionalRepository implements LaporanOperasionalRepositoryInterf
             'jumlah_trip' => (int) ($row->jumlah_trip ?? 0),
             'total_biaya' => (float) ($row->total_biaya ?? 0),
         ];
+    }
+
+    public function rekapTripPerSupir(string $idPerusahaan, array $filter): Collection
+    {
+        return $this->baseTripQuery($idPerusahaan, $filter)
+            ->whereRaw('coalesce(s.id_supir, sv.id_supir_vendor) is not null')
+            ->when($filter['status'] ?? null,
+                fn ($q, $v) => $q->where('t.status', $v),
+                fn ($q) => $q->whereIn('t.status', ['selesai', 'dibatalkan']))
+            ->groupBy(
+                DB::raw('coalesce(s.id_supir, sv.id_supir_vendor)'),
+                DB::raw('coalesce(s.nama, sv.nama)'),
+                'p.sumber',
+            )
+            ->selectRaw('coalesce(s.nama, sv.nama) as nama_supir')
+            ->selectRaw('p.sumber')
+            ->selectRaw('count(t.id_trip) as jumlah_trip')
+            ->selectRaw("sum(t.status = 'selesai') as selesai")
+            ->selectRaw("sum(t.status = 'dibatalkan') as dibatalkan")
+            ->selectRaw('coalesce(sum(coalesce(lp.jarak_tempuh_km, 0)), 0) as total_jarak_km')
+            ->selectRaw('coalesce(sum(coalesce(lp.biaya_bbm,0) + coalesce(lp.uang_jalan,0) + coalesce(lp.uang_tol,0) + coalesce(bl.total_lain,0)), 0) as total_biaya')
+            ->selectRaw('max(jk.waktu_berangkat) as trip_terakhir')
+            ->orderBy('nama_supir')
+            ->get();
     }
 
     private const KARYAWAN_COLUMNS = [

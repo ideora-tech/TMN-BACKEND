@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Armada\Resources;
 
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ArmadaResource extends JsonResource
@@ -31,7 +32,7 @@ class ArmadaResource extends JsonResource
             'tanggal_beli'        => $this->tanggal_beli,
             'harga_beli'          => $this->harga_beli !== null ? (float) $this->harga_beli : null,
             'kondisi_beli'        => $this->kondisi_beli,
-            'url_foto'            => $this->url_foto,
+            'url_foto'            => PenyimpananBerkas::url($this->url_foto),
             'keterangan'          => $this->keterangan,
             'jumlah_penugasan_aktif' => isset($this->jumlah_penugasan_aktif) ? (int) $this->jumlah_penugasan_aktif : null,
             'dibuat_pada'         => $this->dibuat_pada,

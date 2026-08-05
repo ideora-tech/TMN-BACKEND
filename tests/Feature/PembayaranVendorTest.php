@@ -159,6 +159,10 @@ class PembayaranVendorTest extends TestCase
         $urlBukti = $res->json('data.url_bukti');
         $this->assertIsString($urlBukti);
         $this->assertStringContainsString('bukti-pembayaran', $urlBukti);
+
+        $tersimpan = (string) DB::table('pembayaran_vendor')->orderByDesc('dibuat_pada')->value('url_bukti');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('bukti-pembayaran/', $tersimpan);
     }
 
     public function test_validasi_metode_tidak_dikenal_422(): void

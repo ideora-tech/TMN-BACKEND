@@ -305,6 +305,33 @@ class InvoiceVendorTest extends TestCase
         $this->assertSame('transfer', $res->json('data.pembayaran.0.metode'));
     }
 
+    public function test_detail_invoice_url_bukti_pembayaran_dikembalikan_sebagai_url_lengkap(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $id = $this->insertInvoice($vendor->id_vendor, [
+            'status'            => 'diverifikasi',
+            'total'             => 5000000,
+            'status_pembayaran' => 'sebagian',
+        ]);
+        DB::table('pembayaran_vendor')->insert([
+            'id_pembayaran_vendor' => (string) Str::uuid(),
+            'id_invoice_vendor'    => $id,
+            'tanggal_bayar'        => now()->toDateString(),
+            'nominal'              => 2000000,
+            'metode'               => 'transfer',
+            'url_bukti'            => 'bukti-pembayaran/contoh.pdf',
+            'dibuat_pada'          => now(),
+        ]);
+
+        $res = $this->getJson("/api/v1/invoice-vendor/{$id}");
+
+        $res->assertStatus(200);
+        $urlBukti = $res->json('data.pembayaran.0.url_bukti');
+        $this->assertIsString($urlBukti);
+        $this->assertStringContainsString('/storage/bukti-pembayaran/', $urlBukti);
+    }
+
     public function test_detail_invoice_tanpa_kontrak_kontrak_null(): void
     {
         $this->actingAsRole('SUPERADMIN');

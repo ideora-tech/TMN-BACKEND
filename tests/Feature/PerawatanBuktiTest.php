@@ -64,6 +64,10 @@ class PerawatanBuktiTest extends TestCase
 
         $detail = $this->getJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}");
         $detail->assertStatus(200)->assertJsonCount(2, 'data.bukti');
+
+        $tersimpan = (string) DB::table('perawatan_armada_bukti')->orderByDesc('dibuat_pada')->value('url_file');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('perawatan/', $tersimpan);
     }
 
     public function test_hapus_bukti_dan_404_untuk_bukti_perawatan_lain(): void

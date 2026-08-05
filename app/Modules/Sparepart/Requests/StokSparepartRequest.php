@@ -16,19 +16,10 @@ class StokSparepartRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'jenis'      => ['required', 'in:masuk,penyesuaian'],
-            'qty'        => ['required', 'integer', 'not_in:0', 'required_if:jenis,masuk'],
+            'jenis'      => ['required', 'in:penyesuaian'],
+            'qty'        => ['required', 'integer', 'not_in:0'],
             'harga'      => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'keterangan' => ['sometimes', 'nullable', 'string'],
+            'keterangan' => ['required', 'string'],
         ];
-    }
-
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($v) {
-            if ($this->input('jenis') === 'masuk' && (int) $this->input('qty') <= 0) {
-                $v->errors()->add('qty', 'Qty barang masuk harus lebih dari 0');
-            }
-        });
     }
 }

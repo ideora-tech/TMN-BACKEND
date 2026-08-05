@@ -63,6 +63,10 @@ class DokumenArmadaTest extends TestCase
         $filesTersimpan = Storage::disk('public')->allFiles('dokumen');
         $this->assertNotEmpty($filesTersimpan, 'File upload seharusnya benar-benar tersimpan di disk fake, bukan no-op.');
         Storage::disk('public')->assertExists($filesTersimpan[0]);
+
+        $tersimpan = (string) DB::table('dokumen_armada')->orderByDesc('dibuat_pada')->value('url_file');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('dokumen/', $tersimpan);
     }
 
     public function test_update_dan_delete_dokumen_via_endpoint_nested_masih_berfungsi(): void

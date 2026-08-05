@@ -30,6 +30,8 @@ class TripServiceProvider extends ServiceProvider
                 Route::post('trip/mulai-saya', [TripController::class, 'mulaiSaya']);
                 Route::get('trip/ringkasan-proyek', [TripController::class, 'ringkasanProyek']);
                 Route::get('trip/settlement', [TripController::class, 'settlementIndex']);
+                Route::get('trip/rekap-supir/export/excel', [TripController::class, 'exportRekapSupirExcel']);
+                Route::get('trip/rekap-supir/export/pdf', [TripController::class, 'exportRekapSupirPdf']);
                 Route::get('trip/{id}', [TripController::class, 'show']);
                 Route::delete('trip/{id}', [TripController::class, 'destroy']);
 

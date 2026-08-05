@@ -10,12 +10,14 @@ use App\Modules\AbsensiSupir\Contracts\AbsensiSupirRepositoryInterface;
 use App\Modules\AlokasiArmada\Contracts\AlokasiArmadaRepositoryInterface;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
 use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
+use App\Modules\LaporanOperasional\Contracts\LaporanOperasionalRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
 use App\Modules\Penugasan\PenugasanService;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Modules\Rute\Contracts\RuteRepositoryInterface;
 use App\Modules\StatusTrip\Contracts\StatusTripRepositoryInterface;
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class TripService
@@ -32,7 +34,8 @@ class TripService
         private readonly PenugasanRepositoryInterface $penugasanRepo,
         private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
         private readonly AlokasiArmadaRepositoryInterface $alokasiRepo,
-        private readonly AbsensiSupirRepositoryInterface $absensiRepo
+        private readonly AbsensiSupirRepositoryInterface $absensiRepo,
+        private readonly LaporanOperasionalRepositoryInterface $laporanRepo
     ) {}
 
     /**
@@ -325,6 +328,9 @@ class TripService
                 abort(404, 'Penugasan tidak ditemukan');
             }
 
+            if ($penugasan->status === 'pending') {
+                abort(422, 'Penugasan masih pending — armada dan supir belum lengkap, trip tidak dapat dimulai');
+            }
             if (in_array($penugasan->status, ['selesai', 'batal'], true)) {
                 abort(422, 'Penugasan sudah berstatus ' . $penugasan->status . ' — trip tidak dapat dimulai');
             }
@@ -604,5 +610,10 @@ class TripService
         $this->findOrFail($id, $idPerusahaan);
 
         return $this->repo->rekapBiaya($id);
+    }
+
+    public function rekapSupir(string $idPerusahaan, array $filter): Collection
+    {
+        return $this->laporanRepo->rekapTripPerSupir($idPerusahaan, $filter);
     }
 }

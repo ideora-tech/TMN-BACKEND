@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\KontrakKaryawan\Resources;
 
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class KontrakKaryawanResource extends JsonResource
@@ -18,7 +19,7 @@ class KontrakKaryawanResource extends JsonResource
             'tanggal_mulai'   => $this->tanggal_mulai,
             'tanggal_selesai' => $this->tanggal_selesai,
             'keterangan'      => $this->keterangan,
-            'url_file'        => $this->url_file,
+            'url_file'        => PenyimpananBerkas::url($this->url_file),
             'aktif'           => $this->tanggal_selesai === null || $this->tanggal_selesai >= now()->toDateString(),
             'dibuat_pada'     => $this->dibuat_pada,
             'diubah_pada'     => $this->diubah_pada,

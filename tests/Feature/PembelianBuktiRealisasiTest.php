@@ -66,9 +66,12 @@ class PembelianBuktiRealisasiTest extends TestCase
         ]);
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data.bukti'));
-        $urlFile = (string) DB::table('pembelian_sparepart_bukti')->value('url_file');
-        $this->assertStringContainsString('/storage/pembelian-sparepart/', $urlFile);
-        Storage::disk('public')->assertExists(substr(parse_url($urlFile, PHP_URL_PATH), strlen('/storage/')));
+        $this->assertStringContainsString('/storage/pembelian-sparepart/', (string) $res->json('data.bukti.0.url_file'));
+
+        $tersimpan = (string) DB::table('pembelian_sparepart_bukti')->orderByDesc('dibuat_pada')->value('url_file');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('pembelian-sparepart/', $tersimpan);
+        Storage::disk('public')->assertExists($tersimpan);
 
         $idBukti = $res->json('data.bukti.0.id_bukti');
         $this->deleteJson("/api/v1/pembelian-sparepart/{$id}/bukti/{$idBukti}")->assertStatus(200);

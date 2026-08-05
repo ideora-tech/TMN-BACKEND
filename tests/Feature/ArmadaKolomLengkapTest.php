@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Modules\Armada\ArmadaModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -175,6 +176,10 @@ class ArmadaKolomLengkapTest extends TestCase
         $urlFoto = $res->json('data.url_foto');
         $this->assertNotNull($urlFoto);
         $this->assertStringContainsString('/storage/', $urlFoto);
+
+        $tersimpan = (string) DB::table('armada')->orderByDesc('dibuat_pada')->value('url_foto');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('armada/', $tersimpan);
     }
 
     public function test_update_dengan_foto_multipart_method_put_mengganti_url_foto(): void

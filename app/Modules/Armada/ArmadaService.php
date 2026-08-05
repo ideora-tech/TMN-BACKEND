@@ -6,8 +6,8 @@ namespace App\Modules\Armada;
 
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Armada\Imports\ArmadaImport;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ArmadaService
@@ -104,9 +104,7 @@ class ArmadaService
 
     private function simpanFoto(UploadedFile $foto): string
     {
-        $path = $foto->store('armada', 'public');
-
-        return Storage::disk('public')->url($path);
+        return PenyimpananBerkas::simpan($foto, 'armada');
     }
 
     public function delete(string $id): void

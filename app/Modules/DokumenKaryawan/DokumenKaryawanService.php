@@ -6,8 +6,8 @@ namespace App\Modules\DokumenKaryawan;
 
 use App\Modules\DokumenKaryawan\Contracts\DokumenKaryawanRepositoryInterface;
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 
 class DokumenKaryawanService
 {
@@ -42,8 +42,7 @@ class DokumenKaryawanService
         $this->karyawanOrFail($idKaryawan, $idPerusahaan);
 
         if ($file) {
-            $path = $file->store('dokumen', 'public');
-            $data['url_file'] = Storage::disk('public')->url($path);
+            $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
         }
         unset($data['file']);
 
@@ -55,8 +54,7 @@ class DokumenKaryawanService
         $record = $this->findOrFail($id, $idPerusahaan);
 
         if ($file) {
-            $path = $file->store('dokumen', 'public');
-            $data['url_file'] = Storage::disk('public')->url($path);
+            $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
         }
         unset($data['file']);
 

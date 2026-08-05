@@ -106,6 +106,7 @@ class TripSettlementTest extends TestCase
         $penugasan = PenugasanModel::create([
             'id_proyek' => $proyek->id_proyek,
             'id_supir'  => $this->makeSupir('Supir Alokasi'),
+            'status'    => 'aktif',
         ]);
 
         $res = $this->postJson('/api/v1/trip/mulai', [

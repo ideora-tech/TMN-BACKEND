@@ -105,12 +105,21 @@ class TripPenugasanSinkronTest extends TestCase
         $this->assertStringContainsString('batal', $res->json('message'));
     }
 
-    public function test_mulai_trip_dari_penugasan_pending_dan_aktif_tetap_boleh(): void
+    public function test_mulai_trip_dari_penugasan_pending_ditolak(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
         $pending = $this->makePenugasan('digunakan', 'pending');
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $pending->id_penugasan])->assertStatus(201);
+        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $pending->id_penugasan]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('pending', $res->json('message'));
+        $this->assertSame(0, DB::table('trip')->count());
+    }
+
+    public function test_mulai_trip_dari_penugasan_aktif_tetap_boleh(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
 
         $aktif = $this->makePenugasan('digunakan', 'aktif');
         $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $aktif->id_penugasan])->assertStatus(201);

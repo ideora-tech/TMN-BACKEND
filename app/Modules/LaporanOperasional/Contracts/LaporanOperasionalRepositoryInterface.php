@@ -29,4 +29,9 @@ interface LaporanOperasionalRepositoryInterface
      * Master armada aktif milik perusahaan, untuk export.
      */
     public function armadaAktif(string $idPerusahaan): EloquentCollection;
+
+    /**
+     * Rekap agregat trip per supir (internal & vendor) untuk export tab Riwayat.
+     */
+    public function rekapTripPerSupir(string $idPerusahaan, array $filter): Collection;
 }

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\DokumenVendor;
 
 use App\Modules\DokumenVendor\Contracts\DokumenVendorRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 
 class DokumenVendorService
 {
@@ -52,8 +52,7 @@ class DokumenVendorService
     public function create(string $idVendor, array $data, ?UploadedFile $file = null): DokumenVendorModel
     {
         if ($file) {
-            $path = $file->store('dokumen', 'public');
-            $data['url_file'] = Storage::disk('public')->url($path);
+            $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
         }
         unset($data['file']);
         return $this->repo->create(array_merge($data, ['id_vendor' => $idVendor]));
@@ -62,8 +61,7 @@ class DokumenVendorService
     public function update(string $id, string $idVendor, string $idPerusahaan, array $data, ?UploadedFile $file = null): DokumenVendorModel
     {
         if ($file) {
-            $path = $file->store('dokumen', 'public');
-            $data['url_file'] = Storage::disk('public')->url($path);
+            $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
         }
         unset($data['file']);
         $record = $this->findOrFailUntukVendor($id, $idVendor, $idPerusahaan);

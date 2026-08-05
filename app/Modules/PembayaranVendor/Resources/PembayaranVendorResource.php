@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\PembayaranVendor\Resources;
 
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class PembayaranVendorResource extends JsonResource
@@ -18,7 +19,7 @@ class PembayaranVendorResource extends JsonResource
             'metode'               => $this->metode,
             'bank_pengirim'        => $this->bank_pengirim,
             'no_referensi'         => $this->no_referensi,
-            'url_bukti'            => $this->url_bukti,
+            'url_bukti'            => PenyimpananBerkas::url($this->url_bukti),
             'catatan'              => $this->catatan,
             'dibuat_pada'          => $this->dibuat_pada,
             'diubah_pada'          => $this->diubah_pada,

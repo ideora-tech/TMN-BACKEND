@@ -8,11 +8,11 @@ use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\IntervalPerawatan\Contracts\IntervalPerawatanRepositoryInterface;
 use App\Modules\PaketPerawatanSparepart\Contracts\PaketPerawatanSparepartRepositoryInterface;
 use App\Modules\PerawatanArmada\Contracts\PerawatanArmadaRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class PerawatanArmadaService
 {
@@ -158,7 +158,7 @@ class PerawatanArmadaService
 
         $record->bukti = array_map(fn ($b) => [
             'id_bukti'  => $b->id_bukti,
-            'url_file'  => $b->url_file,
+            'url_file'  => PenyimpananBerkas::url($b->url_file),
             'nama_asli' => $b->nama_asli,
         ], $this->repo->listBukti($id));
 
@@ -171,10 +171,9 @@ class PerawatanArmadaService
         $this->findOrFail($idPerawatan);
 
         foreach ($files as $file) {
-            $path = $file->store('perawatan', 'public');
             $this->repo->insertBukti([
                 'id_perawatan' => $idPerawatan,
-                'url_file'     => Storage::disk('public')->url($path),
+                'url_file'     => PenyimpananBerkas::simpan($file, 'perawatan'),
                 'nama_asli'    => $file->getClientOriginalName(),
             ]);
         }
@@ -279,7 +278,12 @@ class PerawatanArmadaService
                 abort(422, 'Spare part tidak ditemukan');
             }
 
-            $this->repo->setSparepartStok($idSparepart, (int) $sp->stok - $agg['qty']);
+            $stokBaru = (int) $sp->stok - $agg['qty'];
+            if ($stokBaru < 0) {
+                abort(422, "Stok {$sp->nama} tidak cukup (tersedia {$sp->stok}, dibutuhkan {$agg['qty']})");
+            }
+
+            $this->repo->setSparepartStok($idSparepart, $stokBaru);
             $this->repo->insertLine([
                 'id_perawatan'   => $idPerawatan,
                 'id_sparepart'   => $idSparepart,
@@ -326,7 +330,12 @@ class PerawatanArmadaService
                 continue;
             }
 
-            $this->repo->setSparepartStok($idSparepart, (int) $sp->stok - $delta);
+            $stokBaru = (int) $sp->stok - $delta;
+            if ($delta > 0 && $stokBaru < 0) {
+                abort(422, "Stok {$sp->nama} tidak cukup (tersedia {$sp->stok}, tambahan dibutuhkan {$delta})");
+            }
+
+            $this->repo->setSparepartStok($idSparepart, $stokBaru);
             $this->repo->insertSparepartMutasi([
                 'id_sparepart' => $idSparepart,
                 'jenis'        => $delta > 0 ? 'keluar' : 'masuk',

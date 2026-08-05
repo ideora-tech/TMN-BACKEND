@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\InvoiceVendor;
 
 use App\Modules\InvoiceVendor\Contracts\InvoiceVendorRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Support\Carbon;
 
 class InvoiceVendorService
@@ -61,7 +62,7 @@ class InvoiceVendorService
             'metode'               => $row->metode,
             'bank_pengirim'        => $row->bank_pengirim,
             'no_referensi'         => $row->no_referensi,
-            'url_bukti'            => $row->url_bukti,
+            'url_bukti'            => PenyimpananBerkas::url($row->url_bukti),
             'catatan'              => $row->catatan,
         ], $this->repo->daftarPembayaran($record->id_invoice_vendor));
 

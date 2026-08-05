@@ -289,6 +289,10 @@ class LaporanPerjalananTest extends TestCase
             'id_laporan' => $idLaporan,
             'keterangan' => 'Muatan depan',
         ]);
+
+        $tersimpan = (string) DB::table('foto_laporan_perjalanan')->orderByDesc('dibuat_pada')->value('url_file');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('laporan-perjalanan/', $tersimpan);
     }
 
     public function test_upload_foto_multi_file(): void

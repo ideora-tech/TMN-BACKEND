@@ -65,6 +65,10 @@ class DokumenVendorTest extends TestCase
             'jenis_dokumen' => 'SIUP',
             'nomor'         => 'SIUP-001',
         ]);
+
+        $tersimpan = (string) DB::table('dokumen_vendor')->orderByDesc('dibuat_pada')->value('url_file');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('dokumen/', $tersimpan);
     }
 
     public function test_list_dokumen_vendor_by_vendor(): void

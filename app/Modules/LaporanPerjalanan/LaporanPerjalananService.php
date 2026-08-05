@@ -7,8 +7,8 @@ namespace App\Modules\LaporanPerjalanan;
 use App\Modules\JenisBbm\Contracts\JenisBbmRepositoryInterface;
 use App\Modules\LaporanPerjalanan\Contracts\LaporanPerjalananRepositoryInterface;
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 
 class LaporanPerjalananService
 {
@@ -199,9 +199,8 @@ class LaporanPerjalananService
     {
         $hasil = [];
         foreach ($files as $file) {
-            $path = $file->store('laporan-perjalanan', 'public');
             $hasil[] = $this->repo->addFoto($laporan->id_laporan, [
-                'url_file'   => Storage::disk('public')->url($path),
+                'url_file'   => PenyimpananBerkas::simpan($file, 'laporan-perjalanan'),
                 'keterangan' => $keterangan,
             ]);
         }

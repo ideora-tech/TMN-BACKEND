@@ -99,6 +99,7 @@ class TripMulaiTest extends TestCase
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $idArmada,
             'id_supir'  => $this->makeSupir(),
+            'status'    => 'aktif',
         ]);
     }
 

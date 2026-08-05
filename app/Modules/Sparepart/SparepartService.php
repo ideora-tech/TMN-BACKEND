@@ -79,9 +79,9 @@ class SparepartService
     }
 
     /**
-     * jenis 'masuk'  : qty wajib > 0 (divalidasi Request), menambah stok.
-     * jenis 'penyesuaian' : qty delta bertanda (koreksi opname), boleh negatif.
-     * Stok hasil akhir tidak boleh negatif → 422.
+     * Jalur manual hanya untuk jenis 'penyesuaian' (koreksi opname/saldo awal/retur),
+     * qty delta bertanda dan hasil akhir boleh minus. Barang masuk normal dicatat
+     * lewat realisasi pembelian sparepart.
      */
     public function mutasiStok(string $id, array $data): object
     {
@@ -91,12 +91,7 @@ class SparepartService
                 abort(404, 'Spare part tidak ditemukan');
             }
 
-            $stokBaru = (int) $record->stok + (int) $data['qty'];
-            if ($stokBaru < 0) {
-                abort(422, "Stok tidak boleh negatif (stok saat ini {$record->stok}, perubahan {$data['qty']})");
-            }
-
-            $this->repo->setStok($id, $stokBaru);
+            $this->repo->setStok($id, (int) $record->stok + (int) $data['qty']);
             $this->repo->insertMutasi([
                 'id_sparepart' => $id,
                 'jenis'        => $data['jenis'],

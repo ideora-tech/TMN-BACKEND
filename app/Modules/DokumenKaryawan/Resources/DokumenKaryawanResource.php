@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\DokumenKaryawan\Resources;
 
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class DokumenKaryawanResource extends JsonResource
@@ -16,7 +17,7 @@ class DokumenKaryawanResource extends JsonResource
             'jenis_dokumen'       => $this->jenis_dokumen,
             'nomor'               => $this->nomor,
             'berlaku_sampai'      => $this->berlaku_sampai,
-            'url_file'            => $this->url_file,
+            'url_file'            => PenyimpananBerkas::url($this->url_file),
             'karyawan_nama'       => $this->karyawan_nama ?? null,
             'karyawan_nik'        => $this->karyawan_nik ?? null,
             'dibuat_pada'         => $this->dibuat_pada,

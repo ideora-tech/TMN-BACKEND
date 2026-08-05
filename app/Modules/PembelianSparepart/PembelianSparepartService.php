@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace App\Modules\PembelianSparepart;
 
 use App\Modules\PembelianSparepart\Contracts\PembelianSparepartRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class PembelianSparepartService
 {
@@ -39,7 +39,11 @@ class PembelianSparepartService
             abort(404, 'Pengajuan pembelian tidak ditemukan');
         }
         $record->items = $this->repo->listItems($id);
-        $record->bukti = $this->repo->listBukti($id);
+        $record->bukti = array_map(fn ($b) => [
+            'id_bukti'  => $b->id_bukti,
+            'url_file'  => PenyimpananBerkas::url($b->url_file),
+            'nama_asli' => $b->nama_asli,
+        ], $this->repo->listBukti($id));
         return $record;
     }
 
@@ -168,10 +172,9 @@ class PembelianSparepartService
         $record = $this->findOrFail($id, $idPerusahaan);
         $this->pastikanStatus($record, [self::STATUS_DISETUJUI_FINANCE, self::STATUS_DIBELI], 'Bukti hanya bisa diunggah setelah disetujui finance');
         foreach ($files as $file) {
-            $path = $file->store('pembelian-sparepart', 'public');
             $this->repo->insertBukti([
                 'id_pembelian' => $id,
-                'url_file'     => Storage::disk('public')->url($path),
+                'url_file'     => PenyimpananBerkas::simpan($file, 'pembelian-sparepart'),
                 'nama_asli'    => $file->getClientOriginalName(),
             ]);
         }

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\PembayaranVendor;
 
 use App\Modules\PembayaranVendor\Contracts\PembayaranVendorRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 class PembayaranVendorService
 {
@@ -28,8 +28,7 @@ class PembayaranVendorService
         }
 
         if ($file) {
-            $path = $file->store('bukti-pembayaran', 'public');
-            $data['url_bukti'] = Storage::disk('public')->url($path);
+            $data['url_bukti'] = PenyimpananBerkas::simpan($file, 'bukti-pembayaran');
         }
         unset($data['bukti']);
 

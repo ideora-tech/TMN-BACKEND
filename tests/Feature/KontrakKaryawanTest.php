@@ -139,6 +139,10 @@ class KontrakKaryawanTest extends TestCase
         $this->assertNotNull($urlFile);
 
         $this->assertCount(1, Storage::disk('public')->allFiles('dokumen'));
+
+        $tersimpan = (string) DB::table('kontrak_karyawan')->orderByDesc('dibuat_pada')->value('url_file');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('dokumen/', $tersimpan);
     }
 
     public function test_update_kontrak_dengan_upload_file(): void

@@ -99,6 +99,10 @@ class PenugasanService
 
         $this->assertAktorVendorTidakDobel($data, $data['tanggal_tugas'] ?? null);
 
+        if (($data['status'] ?? 'pending') === 'pending') {
+            $data['status'] = $this->sudahAdaSupir($data) ? 'aktif' : 'pending';
+        }
+
         return $this->repo->create($data);
     }
 
@@ -119,6 +123,7 @@ class PenugasanService
             'id_armada_vendor'  => array_key_exists('id_armada_vendor', $data) ? $data['id_armada_vendor'] : $record->id_armada_vendor,
             'id_supir_vendor'   => array_key_exists('id_supir_vendor', $data) ? $data['id_supir_vendor'] : $record->id_supir_vendor,
             'id_supir'          => array_key_exists('id_supir', $data) ? $data['id_supir'] : $record->id_supir,
+            'id_armada'         => array_key_exists('id_armada', $data) ? $data['id_armada'] : $record->id_armada,
         ];
         $this->assertVendorRules($merged, $idPerusahaan);
 
@@ -162,6 +167,11 @@ class PenugasanService
             }
         }
 
+        $statusTarget = array_key_exists('status', $data) ? $data['status'] : $record->status;
+        if ($statusTarget === 'pending' && $this->sudahAdaSupir($merged)) {
+            $data['status'] = 'aktif';
+        }
+
         $armadaSebelum = $record->id_armada;
         $updated = $this->repo->update($record, $data);
 
@@ -200,6 +210,23 @@ class PenugasanService
         }
 
         $this->repo->update($record, ['status' => 'selesai']);
+    }
+
+    /**
+     * Penugasan otomatis naik dari 'pending' ke 'aktif' begitu ada orang yang
+     * bertanggung jawab (supir internal, atau supir vendor/internal untuk
+     * penugasan vendor). Armada SENGAJA tidak jadi syarat — supir shift tidak
+     * pernah punya armada langsung di penugasan, unitnya ditentukan harian
+     * lewat alokasi armada (papan jadwal), bukan kolom id_armada di sini.
+     * tanggal_tugas juga bukan syarat, dengan alasan yang sama.
+     */
+    private function sudahAdaSupir(array $data): bool
+    {
+        if (($data['sumber'] ?? 'internal') === 'vendor') {
+            return !empty($data['id_supir_vendor']) || !empty($data['id_supir']);
+        }
+
+        return !empty($data['id_supir']);
     }
 
     private function assertArmadaAdaOrFail(string $idArmada): void

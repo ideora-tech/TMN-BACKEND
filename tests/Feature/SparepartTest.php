@@ -62,28 +62,28 @@ class SparepartTest extends TestCase
         $this->assertSame(2, DB::table('sparepart')->where('kode', 'SP-001')->count());
     }
 
-    public function test_tambah_stok_masuk_menambah_dan_mencatat_mutasi(): void
+    public function test_penyesuaian_positif_menambah_dan_mencatat_mutasi(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart('SP-001', 'Filter Oli', 10);
 
         $res = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
-            'jenis'      => 'masuk',
+            'jenis'      => 'penyesuaian',
             'qty'        => 5,
             'harga'      => 45000,
-            'keterangan' => 'Pembelian rutin',
+            'keterangan' => 'Saldo awal gudang',
         ]);
 
         $res->assertStatus(200)->assertJsonPath('data.stok', 15);
 
         $this->assertDatabaseHas('sparepart_mutasi', [
             'id_sparepart' => $sp->id_sparepart,
-            'jenis'        => 'masuk',
+            'jenis'        => 'penyesuaian',
             'qty'          => 5,
         ]);
     }
 
-    public function test_penyesuaian_negatif_boleh_tapi_stok_minus_ditolak_422(): void
+    public function test_penyesuaian_negatif_boleh_hingga_stok_minus(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart('SP-001', 'Filter Oli', 10);
@@ -94,19 +94,26 @@ class SparepartTest extends TestCase
         $resOk->assertStatus(200)->assertJsonPath('data.stok', 7);
 
         $resMinus = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
-            'jenis' => 'penyesuaian', 'qty' => -100,
+            'jenis' => 'penyesuaian', 'qty' => -12, 'keterangan' => 'Koreksi darurat',
         ]);
-        $resMinus->assertStatus(422);
-        $this->assertSame(7, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
+        $resMinus->assertStatus(200)->assertJsonPath('data.stok', -5);
+        $this->assertSame(-5, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
+
+        // koreksi naik dari posisi minus tetap boleh walau hasil masih minus
+        $resNaik = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
+            'jenis' => 'penyesuaian', 'qty' => 2, 'keterangan' => 'Koreksi bertahap',
+        ]);
+        $resNaik->assertStatus(200)->assertJsonPath('data.stok', -3);
     }
 
-    public function test_masuk_qty_nol_atau_negatif_ditolak_422(): void
+    public function test_validasi_mutasi_manual_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart();
 
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'masuk', 'qty' => 0])->assertStatus(422);
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'masuk', 'qty' => -2])->assertStatus(422);
+        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'masuk', 'qty' => 5, 'keterangan' => 'Barang masuk manual'])->assertStatus(422);
+        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 0, 'keterangan' => 'Nol'])->assertStatus(422);
+        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 3])->assertStatus(422);
     }
 
     public function test_riwayat_mutasi_terbaru_dulu(): void
@@ -114,15 +121,15 @@ class SparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart();
 
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'masuk', 'qty' => 5]);
+        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 5, 'keterangan' => 'Saldo awal']);
         $this->travel(1)->seconds();
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => -1]);
+        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => -1, 'keterangan' => 'Stok opname']);
 
         $res = $this->getJson("/api/v1/sparepart/{$sp->id_sparepart}/mutasi");
 
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));
-        $this->assertSame('penyesuaian', $res->json('data.0.jenis'));
+        $this->assertSame(-1, (int) $res->json('data.0.qty'));
     }
 
     public function test_list_scoped_dan_search(): void

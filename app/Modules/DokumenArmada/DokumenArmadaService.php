@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\DokumenArmada;
 
 use App\Modules\DokumenArmada\Contracts\DokumenArmadaRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Storage;
 
 class DokumenArmadaService
 {
@@ -53,8 +53,7 @@ class DokumenArmadaService
     public function create(string $idArmada, array $data, ?UploadedFile $file = null): object
     {
         if ($file) {
-            $path = $file->store('dokumen', 'public');
-            $data['url_file'] = Storage::disk('public')->url($path);
+            $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
         }
         unset($data['file']);
         return $this->repo->create(array_merge($data, ['id_armada' => $idArmada]));
@@ -63,8 +62,7 @@ class DokumenArmadaService
     public function update(string $id, array $data, ?UploadedFile $file = null): object
     {
         if ($file) {
-            $path = $file->store('dokumen', 'public');
-            $data['url_file'] = Storage::disk('public')->url($path);
+            $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
         }
         unset($data['file']);
         $record = $this->findOrFail($id);

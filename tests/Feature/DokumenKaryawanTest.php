@@ -62,6 +62,10 @@ class DokumenKaryawanTest extends TestCase
         $this->assertNotNull($res->json('data.url_file'));
         $filesTersimpan = Storage::disk('public')->allFiles('dokumen');
         $this->assertCount(1, $filesTersimpan);
+
+        $tersimpan = (string) DB::table('dokumen_karyawan')->orderByDesc('dibuat_pada')->value('url_file');
+        $this->assertStringStartsNotWith('http', $tersimpan);
+        $this->assertStringStartsWith('dokumen/', $tersimpan);
     }
 
     public function test_list_dokumen_per_karyawan(): void
