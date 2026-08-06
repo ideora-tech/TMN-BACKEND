@@ -22,7 +22,10 @@ return new class extends Migration
             ->get();
 
         foreach ($supirs as $supir) {
-            $nik = 'SPR-' . strtoupper(substr($supir->id_supir, 0, 8));
+            // NIK dari UUID id_supir PENUH — banyak supir di data seed/import
+            // berbagi prefix UUID yang sama, jadi cuma ambil 8 karakter awal
+            // akan bentrok dan bikin banyak supir numpang ke 1 karyawan.
+            $nik = 'SPR-' . strtoupper(str_replace('-', '', $supir->id_supir));
 
             $idKaryawan = DB::table('karyawan')->where('nik', $nik)->value('id_karyawan');
 

@@ -372,9 +372,12 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
 
 Artisan::command('karyawan:dari-supir', function () {
     // Satu karyawan maksimal tertaut ke satu supir. Bila beberapa supir
-    // menunjuk karyawan yang sama (mis. akibat import massal), pertahankan
-    // pemilik sah (NIK cocok pola SPR-<id supir>, atau yang tertua) dan
-    // lepaskan sisanya agar dibuatkan karyawan sendiri di loop utama.
+    // menunjuk karyawan yang sama (mis. akibat bug NIK lama yang cuma pakai
+    // 8 karakter awal id_supir — bentrok kalau banyak supir berbagi prefix
+    // UUID yang sama, spt data seed), pertahankan pemilik sah (NIK cocok pola
+    // baru maupun lama, atau yang tertua) dan lepaskan sisanya agar
+    // dibuatkan karyawan sendiri (dengan NIK yang benar-benar unik) di loop
+    // utama.
     $duplikat = DB::table('supir')
         ->whereNull('dihapus_pada')
         ->whereNotNull('id_karyawan')
@@ -390,7 +393,8 @@ Artisan::command('karyawan:dari-supir', function () {
             ->where('id_karyawan', $idKaryawanGanda)
             ->orderBy('dibuat_pada')
             ->get();
-        $pemilik = $kandidat->first(fn ($s) => $nik === 'SPR-' . strtoupper(substr($s->id_supir, 0, 8)))
+        $pemilik = $kandidat->first(fn ($s) => $nik === 'SPR-' . strtoupper(str_replace('-', '', $s->id_supir)))
+            ?? $kandidat->first(fn ($s) => $nik === 'SPR-' . strtoupper(substr($s->id_supir, 0, 8)))
             ?? $kandidat->first();
 
         DB::table('supir')
@@ -413,7 +417,10 @@ Artisan::command('karyawan:dari-supir', function () {
 
     $tertaut = 0;
     foreach ($supirs as $supir) {
-        $nik = 'SPR-' . strtoupper(substr($supir->id_supir, 0, 8));
+        // NIK dari UUID id_supir PENUH (bukan cuma 8 karakter awal) — banyak
+        // supir di data seed/import berbagi prefix UUID yang sama, jadi
+        // hanya ambil sebagian akan bentrok.
+        $nik = 'SPR-' . strtoupper(str_replace('-', '', $supir->id_supir));
         $idKaryawan = DB::table('karyawan')->where('nik', $nik)->value('id_karyawan');
 
         if ($idKaryawan === null) {

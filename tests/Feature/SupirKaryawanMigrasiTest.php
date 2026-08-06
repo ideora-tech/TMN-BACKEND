@@ -13,9 +13,9 @@ class SupirKaryawanMigrasiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function makeSupir(string $nama, ?string $idKaryawan = null, string $status = 'aktif'): string
+    private function makeSupir(string $nama, ?string $idKaryawan = null, string $status = 'aktif', ?string $id = null): string
     {
-        $id = (string) Str::uuid();
+        $id ??= (string) Str::uuid();
         DB::table('supir')->insert([
             'id_supir'      => $id,
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -50,7 +50,7 @@ class SupirKaryawanMigrasiTest extends TestCase
         $karyawanA = DB::table('karyawan')->where('id_karyawan', $supirA->id_karyawan)->first();
         $this->assertSame('Supir Migrasi A', $karyawanA->nama_karyawan);
         $this->assertSame(self::PERUSAHAAN_ID, $karyawanA->id_perusahaan);
-        $this->assertSame('SPR-' . strtoupper(substr($idSupirA, 0, 8)), $karyawanA->nik);
+        $this->assertSame('SPR-' . strtoupper(str_replace('-', '', $idSupirA)), $karyawanA->nik);
         $this->assertSame(1, (int) $karyawanA->aktif);
 
         $karyawanB = DB::table('karyawan')->where('id_karyawan', $supirB->id_karyawan)->first();
@@ -72,7 +72,7 @@ class SupirKaryawanMigrasiTest extends TestCase
     public function test_command_memperbaiki_banyak_supir_menunjuk_satu_karyawan(): void
     {
         $idSupirPemilik = $this->makeSupir('Supir Pemilik Sah');
-        $nikPemilik = 'SPR-' . strtoupper(substr($idSupirPemilik, 0, 8));
+        $nikPemilik = 'SPR-' . strtoupper(str_replace('-', '', $idSupirPemilik));
 
         $idKaryawan = (string) Str::uuid();
         DB::table('karyawan')->insert([
@@ -98,6 +98,30 @@ class SupirKaryawanMigrasiTest extends TestCase
         $this->assertNotSame($idKaryawan, $karyawanNebeng1);
         $this->assertNotSame($idKaryawan, $karyawanNebeng2);
         $this->assertNotSame($karyawanNebeng1, $karyawanNebeng2);
+        $this->assertSame(3, DB::table('karyawan')->count());
+    }
+
+    public function test_supir_dengan_prefix_uuid_sama_tidak_bentrok_nik(): void
+    {
+        // Pola nyata data seed/produksi: banyak id_supir berbagi 8 karakter
+        // awal yang sama (mis. 'd2000001-0000-4000-8000-0000000000XX').
+        // NIK harus tetap unik per supir meski prefix-nya sama.
+        $idA = $this->makeSupir('Supir Prefix A', null, 'aktif', 'd2000001-0000-4000-8000-000000000001');
+        $idB = $this->makeSupir('Supir Prefix B', null, 'aktif', 'd2000001-0000-4000-8000-000000000002');
+        $idC = $this->makeSupir('Supir Prefix C', null, 'aktif', 'd2000001-0000-4000-8000-000000000003');
+
+        $this->artisan('karyawan:dari-supir')->assertSuccessful();
+
+        $karyawanA = DB::table('supir')->where('id_supir', $idA)->value('id_karyawan');
+        $karyawanB = DB::table('supir')->where('id_supir', $idB)->value('id_karyawan');
+        $karyawanC = DB::table('supir')->where('id_supir', $idC)->value('id_karyawan');
+
+        $this->assertNotNull($karyawanA);
+        $this->assertNotNull($karyawanB);
+        $this->assertNotNull($karyawanC);
+        $this->assertNotSame($karyawanA, $karyawanB);
+        $this->assertNotSame($karyawanA, $karyawanC);
+        $this->assertNotSame($karyawanB, $karyawanC);
         $this->assertSame(3, DB::table('karyawan')->count());
     }
 
