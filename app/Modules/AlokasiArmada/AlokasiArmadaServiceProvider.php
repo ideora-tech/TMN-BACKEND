@@ -22,6 +22,7 @@ class AlokasiArmadaServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:penugasan'])
             ->group(function () {
                 Route::get('alokasi-armada', [AlokasiArmadaController::class, 'index']);
+                Route::post('alokasi-armada/hitung-ulang', [AlokasiArmadaController::class, 'hitungUlang']);
                 Route::get('alokasi-armada/riwayat', [AlokasiArmadaController::class, 'riwayat']);
                 Route::get('alokasi-armada/export/excel', [AlokasiArmadaController::class, 'exportExcel']);
                 Route::get('alokasi-armada/export/pdf', [AlokasiArmadaController::class, 'exportPdf']);

@@ -34,6 +34,24 @@ class AlokasiArmadaController extends Controller
         return ApiResponse::paginated(collect($result['data']), $result['meta']);
     }
 
+    public function hitungUlang(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id_proyek' => ['required', 'string'],
+            'dari'      => ['required', 'date_format:Y-m-d'],
+            'sampai'    => ['required', 'date_format:Y-m-d', 'after_or_equal:dari'],
+        ]);
+
+        $jumlah = $this->service->hitungUlangUntukProyek(
+            $validated['id_proyek'],
+            (string) $request->user()->id_perusahaan,
+            $validated['dari'],
+            $validated['sampai']
+        );
+
+        return ApiResponse::success(['jumlah_dihitung_ulang' => $jumlah], 'Alokasi armada berhasil dihitung ulang');
+    }
+
     public function riwayat(Request $request): JsonResponse
     {
         $validated = $request->validate(['id_armada' => ['required', 'string']]);

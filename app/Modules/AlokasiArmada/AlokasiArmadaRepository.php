@@ -120,6 +120,29 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ->all();
     }
 
+    public function proyekMilikPerusahaan(string $idProyek, string $idPerusahaan): bool
+    {
+        return DB::table('proyek')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek', $idProyek)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->exists();
+    }
+
+    /** @return array<int, array{id_supir: string, tanggal: string}> */
+    public function pasanganSupirTanggalUntukProyek(string $idProyek, string $dari, string $sampai): array
+    {
+        return DB::table('jadwal_shift')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek', $idProyek)
+            ->whereBetween('tanggal', [$dari, $sampai])
+            ->select('id_supir', 'tanggal')
+            ->distinct()
+            ->get()
+            ->map(fn ($row) => ['id_supir' => $row->id_supir, 'tanggal' => substr((string) $row->tanggal, 0, 10)])
+            ->all();
+    }
+
     public function alokasiNopolMap(string $idSupir, string $dari, string $sampai): array
     {
         $rows = DB::table('alokasi_armada as al')
@@ -230,6 +253,12 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ];
         }
 
+        // Pool 1 (armada idle milik supir lain di proyek yang sama) diurutkan &
+        // dikunci di sini SEBELUM pool 2 ditambahkan — supaya pool 2 (armada
+        // tanpa pemilik sama sekali) tidak pernah menyalip pool 1 hanya karena
+        // nopol-nya lebih kecil secara alfabet.
+        usort($hasil, fn ($a, $b) => strcmp((string) $a->nopol, (string) $b->nopol));
+
         $dipegang = DB::table('penugasan')
             ->whereNull('dihapus_pada')
             ->whereIn('status', ['pending', 'aktif'])
@@ -247,17 +276,18 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ->select('id_armada', 'nopol')
             ->get();
 
+        $hasilTanpaPemilik = [];
         foreach ($tanpaPemilik as $row) {
-            $hasil[] = (object) [
+            $hasilTanpaPemilik[] = (object) [
                 'id_armada'       => $row->id_armada,
                 'nopol'           => $row->nopol,
                 'id_pemilik_asal' => null,
                 'keterangan'      => 'Armada tanpa pemilik',
             ];
         }
+        usort($hasilTanpaPemilik, fn ($a, $b) => strcmp((string) $a->nopol, (string) $b->nopol));
 
-        usort($hasil, fn ($a, $b) => strcmp((string) $a->nopol, (string) $b->nopol));
-        return $hasil;
+        return array_merge($hasil, $hasilTanpaPemilik);
     }
 
 }

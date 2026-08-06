@@ -113,6 +113,29 @@ class AlokasiArmadaService
         $this->repo->softDeleteSemua($idSupir, $tanggal);
     }
 
+    /**
+     * Pemicu manual: alokasi dihitung SEKALI saja saat jadwal (supir, tanggal)
+     * pertama kali dibuat — kalau supir LAIN di proyek yang sama baru belakangan
+     * jadi libur/cuti, alokasi yang sudah kepalang dibuat tidak otomatis
+     * ter-update (sistem cuma mikir ulang saat jadwal si supir itu SENDIRI
+     * berubah). Endpoint ini re-evaluasi ulang semua pasangan (supir, tanggal)
+     * di proyek+rentang tanggal terpilih, supaya kandidat yang baru tersedia
+     * ikut terpakai. Aman dipanggil berkali-kali (idempoten).
+     */
+    public function hitungUlangUntukProyek(string $idProyek, string $idPerusahaan, string $dari, string $sampai): int
+    {
+        if (!$this->repo->proyekMilikPerusahaan($idProyek, $idPerusahaan)) {
+            abort(404, 'Proyek tidak ditemukan');
+        }
+
+        $pasangan = $this->repo->pasanganSupirTanggalUntukProyek($idProyek, $dari, $sampai);
+        foreach ($pasangan as $p) {
+            $this->alokasikan($p['id_supir'], $p['tanggal'], $idProyek);
+        }
+
+        return count($pasangan);
+    }
+
     public function dataLaporanArmada(string $idArmada, string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
     {
         $armada = $this->repo->findArmadaMilikPerusahaan($idArmada, $idPerusahaan);

@@ -186,6 +186,81 @@ class AlokasiArmadaTest extends TestCase
         ]);
     }
 
+    public function test_hitung_ulang_proyek_memperbarui_alokasi_yang_ketinggalan_zaman(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $armadaPemilik = $this->makeArmada('B 9037 TMN');
+        $armadaTanpaPemilik = $this->makeArmada('B 9002 TMN');
+        $idPemilik = $this->makeSupir('Gilang Pemilik');
+        $this->makePenugasan($idPemilik, $proyek->id_proyek, $armadaPemilik->id_armada);
+
+        $idShiftSupir = $this->makeSupir('Dadang Shift');
+        $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
+        $idShift = $this->makeShift();
+
+        // Gilang MASIH terjadwal tanggal 10 saat Dadang pertama kali di-assign,
+        // jadi mobilnya belum jadi kandidat — Dadang dapat armada tanpa pemilik.
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir' => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_armada' => $armadaTanpaPemilik->id_armada, 'keterangan' => 'Armada tanpa pemilik',
+        ]);
+
+        // Jadwal Gilang dihapus (jadi libur) — tapi alokasi Dadang yang sudah
+        // kepalang dibuat TIDAK otomatis berubah.
+        $idJadwalGilang = DB::table('jadwal_shift')
+            ->where('id_supir', $idPemilik)->where('tanggal', '2026-08-10')
+            ->value('id_jadwal_shift');
+        $this->deleteJson("/api/v1/jadwal-shift/{$idJadwalGilang}")->assertStatus(200);
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir' => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_armada' => $armadaTanpaPemilik->id_armada,
+        ]);
+
+        $res = $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
+            'id_proyek' => $proyek->id_proyek,
+            'dari'      => '2026-08-01',
+            'sampai'    => '2026-08-31',
+        ]);
+        $res->assertStatus(200);
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir'        => $idShiftSupir,
+            'tanggal'         => '2026-08-10',
+            'id_armada'       => $armadaPemilik->id_armada,
+            'id_pemilik_asal' => $idPemilik,
+            'sumber'          => 'otomatis',
+            'keterangan'      => 'Pemilik tidak dijadwalkan',
+        ]);
+        $this->assertDatabaseMissing('alokasi_armada', [
+            'id_supir'  => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_armada' => $armadaTanpaPemilik->id_armada, 'dihapus_pada' => null,
+        ]);
+    }
+
+    public function test_hitung_ulang_proyek_lain_perusahaan_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insert([
+            'id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain Hitung Ulang', 'dibuat_pada' => now(),
+        ]);
+        $proyekLain = ProyekModel::create([
+            'id_perusahaan' => $idPerusahaanLain,
+            'id_klien'      => (string) Str::uuid(),
+            'kode_proyek'   => 'PRJ-' . Str::random(8),
+            'nama_proyek'   => 'Proyek Perusahaan Lain',
+        ]);
+
+        $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
+            'id_proyek' => $proyekLain->id_proyek, 'dari' => '2026-08-01', 'sampai' => '2026-08-31',
+        ])->assertStatus(404);
+    }
+
     public function test_armada_pemilik_yang_masuk_tidak_dipinjam(): void
     {
         $this->actingAsRole('SUPERADMIN');
