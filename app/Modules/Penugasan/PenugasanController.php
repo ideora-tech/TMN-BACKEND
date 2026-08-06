@@ -30,7 +30,7 @@ class PenugasanController extends Controller
         } elseif ($request->filled('id_proyek')) {
             $result = $this->service->list((string) $request->get('id_proyek'), $page, $limit, $sumber, $status);
         } else {
-            abort(422, 'Parameter id_proyek, id_armada, atau id_supir wajib diisi');
+            $result = $this->service->listByPerusahaan((string) $request->user()->id_perusahaan, $page, $limit, $sumber, $status);
         }
 
         return ApiResponse::paginated(

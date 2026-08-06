@@ -36,6 +36,21 @@ class PenugasanService
         ];
     }
 
+    public function listByPerusahaan(string $idPerusahaan, int $page = 1, int $limit = 20, ?string $sumber = null, ?string $status = null): array
+    {
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $sumber, $status);
+
+        return [
+            'data' => $result->items(),
+            'meta' => [
+                'page'       => $result->currentPage(),
+                'limit'      => $result->perPage(),
+                'total'      => $result->total(),
+                'totalPages' => $result->lastPage(),
+            ],
+        ];
+    }
+
     public function listByArmada(string $idArmada, int $page = 1, int $limit = 20, ?string $sumber = null, ?string $status = null): array
     {
         $result = $this->repo->paginateByArmada($idArmada, $page, $limit, $sumber, $status);

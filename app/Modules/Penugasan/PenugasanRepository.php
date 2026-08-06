@@ -45,6 +45,18 @@ class PenugasanRepository implements PenugasanRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    /** Tabel penugasan tidak punya id_perusahaan — tenant di-scope lewat proyek. */
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
+    {
+        return PenugasanModel::active()
+            ->with(['proyek', 'armada'])
+            ->whereHas('proyek', fn ($q) => $q->where('id_perusahaan', $idPerusahaan)->whereNull('dihapus_pada'))
+            ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
+            ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
+            ->orderBy('tanggal_tugas', 'desc')
+            ->paginate($limit, ['*'], 'page', $page);
+    }
+
     public function paginateByArmada(string $idArmada, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
     {
         return PenugasanModel::active()
