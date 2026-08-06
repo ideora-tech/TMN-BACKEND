@@ -20,7 +20,22 @@ class JadwalShiftService
         if (!$this->repo->proyekMilikPerusahaan($idProyek, $idPerusahaan)) {
             abort(404, 'Proyek tidak ditemukan');
         }
-        return $this->repo->listByProyek($idProyek, $dari, $sampai);
+
+        $rows = $this->repo->listByProyek($idProyek, $dari, $sampai);
+        if ($rows === []) {
+            return $rows;
+        }
+
+        $idSupirList = collect($rows)->pluck('id_supir')->unique()->values()->all();
+        $tanggalAwal = (string) collect($rows)->min('tanggal');
+        $tanggalAkhir = (string) collect($rows)->max('tanggal');
+        $statusMap = $this->tripRepo->statusTripPerSupirTanggal($idProyek, $idSupirList, $tanggalAwal, $tanggalAkhir);
+
+        foreach ($rows as $row) {
+            $row->status_trip = $statusMap["{$row->id_supir}|{$row->tanggal}"] ?? null;
+        }
+
+        return $rows;
     }
 
     public function findOrFail(string $id): object

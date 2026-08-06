@@ -509,4 +509,50 @@ class TripRepository implements TripRepositoryInterface
 
         return $map;
     }
+
+    /**
+     * Status trip per (supir, tanggal) UNTUK SATU PROYEK — dipakai Papan Jadwal
+     * supaya sel jadwal bisa ditandai "sedang jalan"/"selesai". Sengaja
+     * di-scope ke id_proyek supaya trip supir yang sama di proyek lain tidak
+     * ikut menandai sel proyek ini. 'belum_mulai' dianggap 'berjalan' (armada
+     * sudah dikunci); 'berjalan' menang atas 'selesai' bila ada lebih dari
+     * satu trip di tanggal yang sama.
+     *
+     * @return array<string, 'berjalan'|'selesai'> kunci "idSupir|tanggal"
+     */
+    public function statusTripPerSupirTanggal(string $idProyek, array $idSupirList, string $dari, string $sampai): array
+    {
+        if ($idSupirList === []) {
+            return [];
+        }
+
+        $rows = DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereNull('p.dihapus_pada')
+            ->where('p.id_proyek', $idProyek)
+            ->whereIn('p.id_supir', $idSupirList)
+            ->whereIn('t.status', ['belum_mulai', 'berjalan', 'selesai'])
+            ->select('p.id_supir', 't.status', 't.waktu_checkin', 't.waktu_checkout', 't.dibuat_pada')
+            ->get();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $tanggal = substr((string) ($row->waktu_checkin ?? $row->waktu_checkout ?? $row->dibuat_pada), 0, 10);
+            if ($tanggal < $dari || $tanggal > $sampai) {
+                continue;
+            }
+
+            $kunci = $row->id_supir . '|' . $tanggal;
+            $statusSaatIni = in_array($row->status, ['belum_mulai', 'berjalan'], true) ? 'berjalan' : 'selesai';
+
+            if ($statusSaatIni === 'berjalan' || !isset($map[$kunci])) {
+                $map[$kunci] = $statusSaatIni;
+            }
+        }
+
+        return $map;
+    }
 }

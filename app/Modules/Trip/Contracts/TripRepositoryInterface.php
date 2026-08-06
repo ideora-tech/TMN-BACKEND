@@ -29,5 +29,6 @@ interface TripRepositoryInterface
     public function tripAktifSupir(string $idSupir): array;
 
     public function tripSelesaiPerPenugasanTanggal(array $idPenugasanList): array;
+    public function statusTripPerSupirTanggal(string $idProyek, array $idSupirList, string $dari, string $sampai): array;
     public function namaKlienPerProyek(array $idProyekList): array;
 }
