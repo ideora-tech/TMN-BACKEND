@@ -92,7 +92,7 @@ class IntervalPerawatanService
     {
         $interval = $this->repo->findByKombinasi($idPerusahaan, $idJenisPerawatan, $idJenisKendaraan);
 
-        return $interval !== null ? (int) $interval->interval_hari : null;
+        return $interval?->interval_hari !== null ? (int) $interval->interval_hari : null;
     }
 
     private function validasiReferensi(array $data, string $idPerusahaan): void

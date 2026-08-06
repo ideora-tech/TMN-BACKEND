@@ -53,7 +53,7 @@ class IntervalPerawatanResolusiTest extends TestCase
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
         $this->postJson('/api/v1/interval-perawatan', [
-            'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'interval_hari' => 180,
+            'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'interval_hari' => 180, 'interval_km' => 10000,
         ]);
 
         $res = $this->getJson("/api/v1/interval-perawatan/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");

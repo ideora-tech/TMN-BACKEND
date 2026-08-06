@@ -18,8 +18,8 @@ class StoreIntervalPerawatanRequest extends FormRequest
         return [
             'id_jenis_perawatan' => ['required', 'string', 'max:36'],
             'id_jenis_kendaraan' => ['required', 'string', 'max:36'],
-            'interval_hari'      => ['required', 'integer', 'min:1'],
-            'interval_km'        => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'interval_hari'      => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'interval_km'        => ['required', 'integer', 'min:1'],
             'aktif'               => ['sometimes', 'boolean'],
         ];
     }

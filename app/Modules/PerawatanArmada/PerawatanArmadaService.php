@@ -61,7 +61,7 @@ class PerawatanArmadaService
             $tanggalTerakhir = $riwayat->tanggal ?? null;
 
             $jadwalBerikutnya = $riwayat->jadwal_servis_berikutnya ?? null;
-            if ($jadwalBerikutnya === null && $tanggalTerakhir !== null) {
+            if ($jadwalBerikutnya === null && $tanggalTerakhir !== null && $rule->interval_hari !== null) {
                 $jadwalBerikutnya = Carbon::parse($tanggalTerakhir)->addDays((int) $rule->interval_hari)->toDateString();
             }
 
@@ -103,7 +103,7 @@ class PerawatanArmadaService
             $items[] = [
                 'id_jenis_perawatan'       => $rule->id_jenis_perawatan,
                 'nama_jenis_perawatan'     => $rule->nama_jenis_perawatan,
-                'interval_hari'            => (int) $rule->interval_hari,
+                'interval_hari'            => $rule->interval_hari !== null ? (int) $rule->interval_hari : null,
                 'interval_km'              => $intervalKm,
                 'tanggal_servis_terakhir'  => $tanggalTerakhir,
                 'jadwal_servis_berikutnya' => $jadwalBerikutnya,
