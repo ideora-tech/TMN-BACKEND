@@ -32,7 +32,7 @@ services:
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_URL: http://localhost:4019
+      APP_URL: https://apisulita.ideora-tech.com
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
