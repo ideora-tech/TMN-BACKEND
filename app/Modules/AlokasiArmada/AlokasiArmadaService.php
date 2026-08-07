@@ -26,18 +26,6 @@ class AlokasiArmadaService
     }
 
     /**
-     * Dipanggil JadwalShiftService setelah seluruh baris jadwal batch tersimpan.
-     *
-     * @param array<int, array{id_supir: string, tanggal: string}> $pasangan
-     */
-    public function alokasikanBatch(array $pasangan, string $idProyek): void
-    {
-        foreach ($pasangan as $p) {
-            $this->alokasikan($p['id_supir'], $p['tanggal'], $idProyek);
-        }
-    }
-
-    /**
      * Armada harian supir: pakai armada PENUGASAN-nya sendiri bila ada (sumber
      * 'penugasan'). Bila penugasannya tanpa armada (supir shift), sistem
      * meminjamkan armada menganggur — milik supir lain di proyek yang sama yang
@@ -114,13 +102,11 @@ class AlokasiArmadaService
     }
 
     /**
-     * Pemicu manual: alokasi dihitung SEKALI saja saat jadwal (supir, tanggal)
-     * pertama kali dibuat — kalau supir LAIN di proyek yang sama baru belakangan
-     * jadi libur/cuti, alokasi yang sudah kepalang dibuat tidak otomatis
-     * ter-update (sistem cuma mikir ulang saat jadwal si supir itu SENDIRI
-     * berubah). Endpoint ini re-evaluasi ulang semua pasangan (supir, tanggal)
-     * di proyek+rentang tanggal terpilih, supaya kandidat yang baru tersedia
-     * ikut terpakai. Aman dipanggil berkali-kali (idempoten).
+     * Endpoint manual — untuk staleness yang bukan dari papan jadwal (mis.
+     * pengajuan cuti disetujui belakangan). Perubahan papan jadwal sendiri
+     * (tambah/hapus/import di JadwalShiftService) sudah memicu hitungUlangRentang()
+     * otomatis, jadi endpoint ini jadi pelengkap/escape hatch, bukan satu-satunya
+     * jalan. Aman dipanggil berkali-kali (idempoten).
      */
     public function hitungUlangUntukProyek(string $idProyek, string $idPerusahaan, string $dari, string $sampai): int
     {
@@ -128,6 +114,19 @@ class AlokasiArmadaService
             abort(404, 'Proyek tidak ditemukan');
         }
 
+        return $this->hitungUlangRentang($idProyek, $dari, $sampai);
+    }
+
+    /**
+     * Inti hitung ulang, tanpa cek kepemilikan proyek — dipakai
+     * hitungUlangUntukProyek() (sudah tervalidasi lewat pemanggil endpoint
+     * manual di atas) dan dipanggil otomatis oleh JadwalShiftService setiap
+     * papan jadwal proyek berubah (tambah/hapus/import), supaya supir lain
+     * yang terdampak (pemiliknya baru dijadwalkan/dibebaskan) ikut ter-update
+     * tanpa perlu tombol manual.
+     */
+    public function hitungUlangRentang(string $idProyek, string $dari, string $sampai): int
+    {
         $pasangan = $this->repo->pasanganSupirTanggalUntukProyek($idProyek, $dari, $sampai);
         foreach ($pasangan as $p) {
             $this->alokasikan($p['id_supir'], $p['tanggal'], $idProyek);

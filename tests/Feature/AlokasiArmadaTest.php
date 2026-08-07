@@ -186,7 +186,7 @@ class AlokasiArmadaTest extends TestCase
         ]);
     }
 
-    public function test_hitung_ulang_proyek_memperbarui_alokasi_yang_ketinggalan_zaman(): void
+    public function test_hapus_jadwal_shift_otomatis_hitung_ulang_alokasi_supir_lain(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -209,24 +209,12 @@ class AlokasiArmadaTest extends TestCase
             'id_armada' => $armadaTanpaPemilik->id_armada, 'keterangan' => 'Armada tanpa pemilik',
         ]);
 
-        // Jadwal Gilang dihapus (jadi libur) — tapi alokasi Dadang yang sudah
-        // kepalang dibuat TIDAK otomatis berubah.
+        // Jadwal Gilang dihapus (jadi libur) — alokasi Dadang HARUS langsung
+        // ter-update, tanpa perlu memanggil endpoint hitung-ulang manual.
         $idJadwalGilang = DB::table('jadwal_shift')
             ->where('id_supir', $idPemilik)->where('tanggal', '2026-08-10')
             ->value('id_jadwal_shift');
         $this->deleteJson("/api/v1/jadwal-shift/{$idJadwalGilang}")->assertStatus(200);
-
-        $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idShiftSupir, 'tanggal' => '2026-08-10',
-            'id_armada' => $armadaTanpaPemilik->id_armada,
-        ]);
-
-        $res = $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
-            'id_proyek' => $proyek->id_proyek,
-            'dari'      => '2026-08-01',
-            'sampai'    => '2026-08-31',
-        ]);
-        $res->assertStatus(200);
 
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'        => $idShiftSupir,
@@ -240,6 +228,71 @@ class AlokasiArmadaTest extends TestCase
             'id_supir'  => $idShiftSupir, 'tanggal' => '2026-08-10',
             'id_armada' => $armadaTanpaPemilik->id_armada, 'dihapus_pada' => null,
         ]);
+    }
+
+    public function test_tambah_jadwal_shift_otomatis_menarik_kembali_armada_pemilik(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $armadaPemilik = $this->makeArmada('B 9037 TMN');
+        $idPemilik = $this->makeSupir('Gilang Pemilik');
+        $this->makePenugasan($idPemilik, $proyek->id_proyek, $armadaPemilik->id_armada);
+
+        $idShiftSupir = $this->makeSupir('Dadang Shift');
+        $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
+        $idShift = $this->makeShift();
+
+        // Gilang BELUM terjadwal tanggal 10 → mobilnya idle → Dadang meminjamnya.
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir' => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_armada' => $armadaPemilik->id_armada, 'keterangan' => 'Pemilik tidak dijadwalkan',
+        ]);
+
+        // Gilang belakangan ikut dijadwalkan di tanggal yang sama — mobilnya
+        // harus ditarik kembali dari Dadang secara otomatis.
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik], '2026-08-10');
+
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir' => $idPemilik, 'tanggal' => '2026-08-10',
+            'id_armada' => $armadaPemilik->id_armada, 'sumber' => 'penugasan',
+        ]);
+        $this->assertDatabaseMissing('alokasi_armada', [
+            'id_supir' => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_armada' => $armadaPemilik->id_armada, 'dihapus_pada' => null,
+        ]);
+    }
+
+    /**
+     * Papan jadwal sekarang memicu hitung ulang otomatis di titik-titik
+     * mutasinya sendiri (tambah/hapus di JadwalShiftService) — endpoint manual
+     * tetap ada sebagai escape hatch umum (mis. staleness dari sumber di luar
+     * papan jadwal). Test ini memastikan endpoint tetap aman dipanggil kapan
+     * saja tanpa merusak alokasi yang sudah benar (idempoten, tidak ada churn).
+     */
+    public function test_hitung_ulang_manual_aman_dipanggil_meski_tidak_ada_yang_berubah(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $armada = $this->makeArmada('B 9037 TMN');
+        $idSupir = $this->makeSupir('Supir Tetap');
+        $this->makePenugasan($idSupir, $proyek->id_proyek, $armada->id_armada);
+        $idShift = $this->makeShift();
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-10');
+
+        $res = $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
+            'id_proyek' => $proyek->id_proyek,
+            'dari'      => '2026-08-01',
+            'sampai'    => '2026-08-31',
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.jumlah_dihitung_ulang', 1);
+        $this->assertDatabaseHas('alokasi_armada', [
+            'id_supir' => $idSupir, 'tanggal' => '2026-08-10',
+            'id_armada' => $armada->id_armada, 'sumber' => 'penugasan', 'dihapus_pada' => null,
+        ]);
+        $this->assertSame(1, DB::table('alokasi_armada')->where('id_supir', $idSupir)->count());
     }
 
     public function test_hitung_ulang_proyek_lain_perusahaan_404(): void

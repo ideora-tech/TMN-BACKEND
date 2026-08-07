@@ -357,6 +357,49 @@ class TripSayaTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_riwayat_saya_menampilkan_armada_nopol_dari_alokasi_untuk_supir_shift(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        // Supir shift: penugasan TANPA id_armada — armada hariannya berasal
+        // dari alokasi_armada (lihat AlokasiArmadaService::alokasikan()), bukan
+        // dari kolom penugasan yang memang sengaja dibiarkan NULL.
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek, 'selesai');
+
+        $idArmada = (string) Str::uuid();
+        DB::table('armada')->insert([
+            'id_armada'     => $idArmada,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B 9037 TMN',
+            'merk'          => 'Hino',
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('alokasi_armada')->insert([
+            'id_alokasi'  => (string) Str::uuid(),
+            'tanggal'     => '2026-08-06',
+            'id_proyek'   => $proyek->id_proyek,
+            'id_supir'    => $ctx->id_supir,
+            'id_armada'   => $idArmada,
+            'sumber'      => 'otomatis',
+            'dibuat_pada' => now(),
+        ]);
+
+        $jadwal = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => '2026-08-06 07:00:00',
+        ]);
+        TripModel::create([
+            'id_jadwal'      => $jadwal->id_jadwal,
+            'status'         => 'selesai',
+            'waktu_checkin'  => '2026-08-06 07:18:00',
+            'waktu_checkout' => '2026-08-06 11:30:00',
+        ]);
+
+        $this->getJson('/api/v1/trip/riwayat-saya')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.armada_nopol', 'B 9037 TMN');
+    }
+
     public function test_riwayat_saya_tidak_tampilkan_trip_supir_lain(): void
     {
         $proyek = $this->makeProyek();

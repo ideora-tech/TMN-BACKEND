@@ -107,9 +107,11 @@ class JadwalShiftService
                 }
             }
 
-            // Alokasi armada otomatis setelah SEMUA baris jadwal batch tersimpan,
-            // supaya status "pemilik dijadwalkan" akurat lintas supir dalam batch.
-            $this->alokasiService->alokasikanBatch($terjadwal, $data['id_proyek']);
+            // Hitung ulang alokasi armada untuk rentang tanggal yang baru saja
+            // berubah — bukan cuma pasangan baru, supaya supir LAIN di proyek
+            // yang sama yang terdampak (mis. pemiliknya baru ikut dijadwalkan
+            // di batch ini, atau baru bebas) ikut ter-update otomatis.
+            $this->hitungUlangUntukTerjadwal($terjadwal, $data['id_proyek']);
 
             return ['sukses' => $sukses, 'gagal' => $gagal];
         });
@@ -219,10 +221,20 @@ class JadwalShiftService
                 }
             }
 
-            $this->alokasiService->alokasikanBatch($terjadwal, $idProyek);
+            $this->hitungUlangUntukTerjadwal($terjadwal, $idProyek);
 
             return ['sukses' => $sukses, 'gagal' => $gagal];
         });
+    }
+
+    /** @param array<int, array{id_supir: string, tanggal: string}> $terjadwal */
+    private function hitungUlangUntukTerjadwal(array $terjadwal, string $idProyek): void
+    {
+        if ($terjadwal === []) {
+            return;
+        }
+        $tanggalList = array_column($terjadwal, 'tanggal');
+        $this->alokasiService->hitungUlangRentang($idProyek, min($tanggalList), max($tanggalList));
     }
 
     private function parseTanggalHeader(mixed $nilai): ?string
@@ -268,8 +280,16 @@ class JadwalShiftService
             }
         }
 
+        $idProyek = (string) $record->id_proyek;
+        $tanggal  = (string) $record->tanggal;
+
         $this->repo->delete($record);
-        $this->alokasiService->hapusUntukJadwal((string) $record->id_supir, (string) $record->tanggal);
+        $this->alokasiService->hapusUntukJadwal((string) $record->id_supir, $tanggal);
+
+        // Armada yang tadi dipakai supir ini bisa jadi kandidat pinjaman baru
+        // buat supir lain di proyek yang sama pada tanggal itu — hitung ulang
+        // otomatis, tanpa perlu tombol "Hitung Ulang" manual.
+        $this->alokasiService->hitungUlangRentang($idProyek, $tanggal, $tanggal);
     }
 
     public function hariIniSaya(string $idSupir): ?object
