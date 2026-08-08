@@ -118,6 +118,7 @@ class TripService
         }
 
         $selesaiMap = $this->repo->tripSelesaiPerPenugasanTanggal(array_keys($penugasanById));
+        $laporanMap = $this->repo->laporanTerisiPerPenugasanTanggal(array_keys($penugasanById));
         $alokasiMap = $this->alokasiRepo->alokasiNopolMap($idSupir, $dari, $sampai);
         $klienMap = $this->repo->namaKlienPerProyek(
             array_values(array_unique(array_map(fn ($e) => (string) $e['penugasan']->id_proyek, $entri)))
@@ -145,6 +146,7 @@ class TripService
                 'shift'         => $e['shift'],
                 'trip_berjalan' => $trip === null ? null : ['id_trip' => $trip['id_trip'], 'status' => $trip['status']],
                 'jumlah_trip_selesai' => $selesaiMap[$e['penugasan']->id_penugasan . '|' . $e['tanggal']] ?? 0,
+                'jumlah_laporan_terisi' => $laporanMap[$e['penugasan']->id_penugasan . '|' . $e['tanggal']] ?? 0,
             ];
         }
 

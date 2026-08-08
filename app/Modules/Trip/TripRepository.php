@@ -544,6 +544,34 @@ class TripRepository implements TripRepositoryInterface
         return $map;
     }
 
+    public function laporanTerisiPerPenugasanTanggal(array $idPenugasanList): array
+    {
+        if ($idPenugasanList === []) {
+            return [];
+        }
+
+        $rows = DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->join('laporan_perjalanan as lp', 'lp.id_trip', '=', 't.id_trip')
+            ->whereIn('jk.id_penugasan', $idPenugasanList)
+            ->where('t.status', 'selesai')
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereNull('lp.dihapus_pada')
+            ->select('jk.id_penugasan', 't.id_trip', 't.waktu_checkin', 't.waktu_checkout', 't.dibuat_pada')
+            ->distinct()
+            ->get();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $tanggal = substr((string) ($row->waktu_checkin ?? $row->waktu_checkout ?? $row->dibuat_pada), 0, 10);
+            $kunci = $row->id_penugasan . '|' . $tanggal;
+            $map[$kunci] = ($map[$kunci] ?? 0) + 1;
+        }
+
+        return $map;
+    }
+
     /**
      * Status trip per (supir, tanggal) UNTUK SATU PROYEK — dipakai Papan Jadwal
      * supaya sel jadwal bisa ditandai "sedang jalan"/"selesai". Sengaja

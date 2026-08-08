@@ -303,6 +303,28 @@ class TripJadwalSayaTest extends TestCase
             ->assertJsonPath('data.1.jumlah_trip_selesai', 0);
     }
 
+    public function test_jumlah_laporan_terisi_dihitung_per_tanggal(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $p = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-03');
+        $t1 = $this->makeTrip($p->id_penugasan, 'selesai', '2026-08-03 08:30:00', '2026-08-03 17:00:00');
+        $this->makeTrip($p->id_penugasan, 'selesai', '2026-08-03 18:00:00', '2026-08-03 20:00:00');
+        DB::table('laporan_perjalanan')->insert([
+            'id_laporan'    => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_trip'       => $t1,
+            'biaya_bbm'     => 100000,
+            'uang_jalan'    => 0,
+            'dibuat_pada'   => now(),
+        ]);
+
+        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.jumlah_trip_selesai', 2)
+            ->assertJsonPath('data.0.jumlah_laporan_terisi', 1);
+    }
+
     public function test_trip_berjalan_tanpa_jadwal_di_tanggalnya_tetap_muncul(): void
     {
         $ctx = $this->actingAsSupir();
