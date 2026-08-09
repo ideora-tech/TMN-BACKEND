@@ -47,6 +47,8 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
         return match ($n->referensi_tipe) {
             'trip'             => "/trip/{$n->referensi_id}",
             'supir'            => "/supir/{$n->referensi_id}",
+            'penugasan'        => "/penugasan/{$n->referensi_id}",
+            'jadwal_shift'     => '/penugasan',
             'perawatan_armada' => $this->linkViaColumn('perawatan_armada', 'id_perawatan', $n->referensi_id, 'id_armada', '/armada'),
             'dokumen_armada'   => $this->linkViaColumn('dokumen_armada', 'id_dokumen_armada', $n->referensi_id, 'id_armada', '/armada'),
             'dokumen_vendor'   => $this->linkViaColumn('dokumen_vendor', 'id_dokumen_vendor', $n->referensi_id, 'id_vendor', '/vendor'),
@@ -94,6 +96,14 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
         ]);
 
         return $this->attachLink($model->fresh());
+    }
+
+    public function idPenggunaUntukSupir(string $idSupir): ?string
+    {
+        return DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_supir', $idSupir)
+            ->value('id_pengguna');
     }
 
     public function markAllRead(string $idPengguna, string $idPerusahaan): int

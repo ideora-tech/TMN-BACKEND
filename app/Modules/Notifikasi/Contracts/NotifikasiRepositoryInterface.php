@@ -15,4 +15,5 @@ interface NotifikasiRepositoryInterface
     public function create(array $data): NotifikasiModel;
     public function markRead(NotifikasiModel $model): NotifikasiModel;
     public function markAllRead(string $idPengguna, string $idPerusahaan): int;
+    public function idPenggunaUntukSupir(string $idSupir): ?string;
 }

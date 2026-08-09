@@ -24,6 +24,8 @@ CACHE_DRIVER=file
 SESSION_DRIVER=file
 QUEUE_CONNECTION=sync
 
+FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS:-}
+
 SANCTUM_STATEFUL_DOMAINS=localhost
 EOF
 
@@ -39,6 +41,9 @@ php artisan migrate --force
 
 echo "==> Linking storage..."
 php artisan storage:link || true
+
+echo "==> Starting scheduler (schedule:work)..."
+php artisan schedule:work &
 
 echo "==> Starting Laravel on port 4019..."
 exec php artisan serve --host=0.0.0.0 --port=4019

@@ -55,6 +55,7 @@ return [
     App\Modules\Supir\SupirServiceProvider::class,
     App\Modules\Supplier\SupplierServiceProvider::class,
     App\Modules\TarifRute\TarifRuteServiceProvider::class,
+    App\Modules\TokenPerangkat\TokenPerangkatServiceProvider::class,
     App\Modules\Trip\TripServiceProvider::class,
     App\Modules\Vendor\VendorServiceProvider::class,
     App\Modules\WajahReferensi\WajahReferensiServiceProvider::class,

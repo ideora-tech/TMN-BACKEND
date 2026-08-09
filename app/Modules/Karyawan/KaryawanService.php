@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace App\Modules\Karyawan;
 
+use App\Modules\Jabatan\Contracts\JabatanRepositoryInterface;
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
+use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 
 class KaryawanService
 {
-    public function __construct(private readonly KaryawanRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly KaryawanRepositoryInterface $repo,
+        private readonly JabatanRepositoryInterface $jabatanRepo,
+        private readonly SupirRepositoryInterface $supirRepo,
+    ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $status = null, ?string $search = null): array
     {
@@ -41,7 +47,10 @@ class KaryawanService
             abort(422, 'NIK sudah terdaftar');
         }
 
-        return $this->repo->create($data);
+        $record = $this->repo->create($data);
+        $this->buatSupirJikaPerlu($record);
+
+        return $record;
     }
 
     public function update(string $id, array $data): object
@@ -60,6 +69,7 @@ class KaryawanService
                 $record->id_jabatan,
                 $data['id_jabatan'] ?? null,
             );
+            $this->buatSupirJikaPerlu($updated);
         }
 
         return $updated;
@@ -81,5 +91,34 @@ class KaryawanService
     {
         $this->findOrFail($id);
         return $this->repo->exitHistory($id);
+    }
+
+    private function buatSupirJikaPerlu(object $karyawan): void
+    {
+        if (($karyawan->id_jabatan ?? null) === null) {
+            return;
+        }
+
+        $jabatan = $this->jabatanRepo->findById((string) $karyawan->id_jabatan);
+        if ($jabatan === null || (int) $jabatan->is_supir !== 1) {
+            return;
+        }
+
+        if ((string) $jabatan->id_perusahaan !== (string) $karyawan->id_perusahaan) {
+            return;
+        }
+
+        if ($this->supirRepo->findByKaryawan($karyawan->id_karyawan) !== null) {
+            return;
+        }
+
+        $this->supirRepo->create([
+            'id_perusahaan' => (string) $karyawan->id_perusahaan,
+            'id_karyawan'   => $karyawan->id_karyawan,
+            'nama'          => $karyawan->nama_karyawan,
+            'telepon'       => $karyawan->telepon ?? null,
+            'no_sim'        => null,
+            'status'        => 'aktif',
+        ]);
     }
 }

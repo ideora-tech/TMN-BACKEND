@@ -445,3 +445,62 @@ Artisan::command('karyawan:dari-supir', function () {
 
     $this->info("{$tertaut} supir dibuatkan/ditautkan ke karyawan.");
 })->purpose('Buatkan & tautkan record karyawan untuk semua supir yang belum tertaut');
+
+Artisan::command('notifikasi:reminder-shift', function () {
+    $sekarang = now();
+    $dikirim = 0;
+    $dilewati = 0;
+
+    $rows = DB::table('jadwal_shift as js')
+        ->join('shift as s', 's.id_shift', '=', 'js.id_shift')
+        ->join('proyek as p', 'p.id_proyek', '=', 'js.id_proyek')
+        ->join('supir as sp', 'sp.id_supir', '=', 'js.id_supir')
+        ->whereNull('js.dihapus_pada')
+        ->whereNull('s.dihapus_pada')
+        ->whereNull('p.dihapus_pada')
+        ->whereNull('sp.dihapus_pada')
+        ->where('s.aktif', 1)
+        ->whereBetween('js.tanggal', [$sekarang->toDateString(), $sekarang->copy()->addDay()->toDateString()])
+        ->select(
+            'js.id_jadwal_shift', 'js.tanggal',
+            's.nama as nama_shift', 's.jam_mulai',
+            'p.nama_proyek', 'p.id_perusahaan',
+            'sp.id_pengguna'
+        )
+        ->get();
+
+    foreach ($rows as $row) {
+        $tanggal = substr((string) $row->tanggal, 0, 10);
+        $mulai = \Illuminate\Support\Carbon::parse($tanggal . ' ' . $row->jam_mulai);
+        if ($sekarang->lt($mulai->copy()->subMinutes(60)) || $sekarang->gte($mulai)) {
+            continue;
+        }
+
+        if ($row->id_pengguna === null || $row->id_pengguna === '') {
+            $dilewati++;
+            continue;
+        }
+
+        $sudah = NotifikasiModel::where('referensi_id', $row->id_jadwal_shift)
+            ->where('referensi_tipe', 'jadwal_shift')
+            ->exists();
+        if ($sudah) {
+            continue;
+        }
+
+        app(\App\Modules\Notifikasi\NotifikasiService::class)->buatDanKirim([
+            'id_perusahaan'  => $row->id_perusahaan,
+            'id_pengguna'    => $row->id_pengguna,
+            'judul'          => "Shift {$row->nama_shift} dimulai pukul " . $mulai->format('H:i'),
+            'isi'            => "Shift {$row->nama_shift} proyek {$row->nama_proyek} dimulai pukul " . $mulai->format('H:i') . '. Bersiaplah.',
+            'tipe'           => 'reminder_shift',
+            'referensi_id'   => $row->id_jadwal_shift,
+            'referensi_tipe' => 'jadwal_shift',
+            'dibaca'         => 0,
+        ]);
+        $dikirim++;
+    }
+
+    $this->info("{$dikirim} reminder shift dikirim, {$dilewati} supir tanpa akun dilewati.");
+    Log::info("notifikasi:reminder-shift — {$dikirim} dikirim, {$dilewati} dilewati.");
+})->purpose('Kirim pengingat shift ke supir 1 jam sebelum jam mulai')->everyFiveMinutes();

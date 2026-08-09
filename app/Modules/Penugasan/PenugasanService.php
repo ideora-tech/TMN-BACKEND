@@ -118,7 +118,13 @@ class PenugasanService
             $data['status'] = $this->sudahAdaSupir($data) ? 'aktif' : 'pending';
         }
 
-        return $this->repo->create($data);
+        $record = $this->repo->create($data);
+
+        if (!empty($record->id_supir)) {
+            $this->notifikasiPenugasan($record);
+        }
+
+        return $record;
     }
 
     public function update(string $id, array $data, string $idPerusahaan): PenugasanModel
@@ -188,6 +194,7 @@ class PenugasanService
         }
 
         $armadaSebelum = $record->id_armada;
+        $supirSebelum  = $record->id_supir;
         $updated = $this->repo->update($record, $data);
 
         // Armada penugasan diubah user → alokasi jadwal ke depan dihitung ulang
@@ -202,7 +209,43 @@ class PenugasanService
             );
         }
 
+        if (array_key_exists('id_supir', $data)
+            && !empty($updated->id_supir)
+            && $updated->id_supir !== $supirSebelum) {
+            $this->notifikasiPenugasan($updated);
+        }
+
         return $updated;
+    }
+
+    private function notifikasiPenugasan(PenugasanModel $record): void
+    {
+        try {
+            $proyek = $record->proyek;
+            if ($proyek === null) {
+                return;
+            }
+
+            $isi = "Anda ditugaskan pada proyek {$proyek->nama_proyek}";
+            if (!empty($record->tanggal_tugas)) {
+                $tanggal = $record->tanggal_tugas instanceof \DateTimeInterface
+                    ? $record->tanggal_tugas->format('d M Y')
+                    : (string) $record->tanggal_tugas;
+                $isi .= " untuk tanggal {$tanggal}";
+            }
+
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKeSupir(
+                (string) $record->id_supir,
+                (string) $proyek->id_perusahaan,
+                "Penugasan baru: {$proyek->nama_proyek}",
+                $isi,
+                'penugasan',
+                'penugasan',
+                (string) $record->id_penugasan,
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi penugasan gagal: ' . $e->getMessage());
+        }
     }
 
     /**
