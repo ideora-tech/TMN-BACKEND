@@ -22,6 +22,7 @@ class JadwalShiftResource extends JsonResource
             'nopol_alokasi'   => $this->nopol_alokasi ?? null,
             'sumber_alokasi'  => $this->sumber_alokasi ?? null,
             'status_trip'     => $this->status_trip ?? null,
+            'id_trip'         => $this->id_trip ?? null,
         ];
     }
 }

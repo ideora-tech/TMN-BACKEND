@@ -199,6 +199,46 @@ class JadwalShiftImportTest extends TestCase
         $this->assertDatabaseHas('jadwal_shift', ['id_supir' => $idSupir, 'tanggal' => '2026-08-15']);
     }
 
+    public function test_import_tidak_menimpa_jadwal_dengan_trip_selesai(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $idSupir = $this->makeSupir('Supir Terkunci', 'SIM-LOCK-1');
+        $penugasan = PenugasanModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_proyek'     => $proyek->id_proyek,
+            'id_supir'      => $idSupir,
+            'status'        => 'aktif',
+            'tanggal_tugas' => now()->toDateString(),
+        ]);
+        $idShiftPagi = $this->makeShiftNamed('Pagi');
+        $this->makeShiftNamed('Malam');
+        $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupir, '2026-08-10');
+
+        $jk = \App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel::create([
+            'id_penugasan' => $penugasan->id_penugasan, 'waktu_berangkat' => '2026-08-10 08:00:00',
+        ]);
+        \App\Modules\Trip\TripModel::create([
+            'id_jadwal' => $jk->id_jadwal, 'status' => 'selesai',
+            'waktu_checkin' => '2026-08-10 08:05:00', 'waktu_checkout' => '2026-08-10 17:00:00',
+        ]);
+
+        $file = $this->buatFileMatriks([
+            ['No SIM', 'Nama Supir', 'Shift', '2026-08-10'],
+            ['SIM-LOCK-1', 'Supir Terkunci', 'Malam', 'H'],
+        ]);
+
+        $res = $this->post('/api/v1/jadwal-shift/import', [
+            'id_proyek' => $proyek->id_proyek,
+            'file'      => $file,
+        ]);
+        $res->assertStatus(200)->assertJsonPath('data.sukses', 0);
+        $this->assertStringContainsString('sudah selesai', (string) $res->json('data.gagal.0.alasan'));
+        $this->assertDatabaseHas('jadwal_shift', [
+            'id_supir' => $idSupir, 'tanggal' => '2026-08-10', 'id_shift' => $idShiftPagi, 'dihapus_pada' => null,
+        ]);
+    }
+
     public function test_template_bergaya_tetap_bisa_diimport_balik(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -416,7 +456,7 @@ class JadwalShiftImportTest extends TestCase
             ->assertJsonPath('data.sukses', 0)
             ->assertJsonCount(0, 'data.ditimpa')
             ->assertJsonCount(1, 'data.gagal');
-        $this->assertStringContainsString('trip aktif', $res->json('data.gagal.0.alasan'));
+        $this->assertStringContainsString('sedang berjalan', $res->json('data.gagal.0.alasan'));
 
         $this->assertNull(DB::table('jadwal_shift')->where('id_jadwal_shift', $idLama)->value('dihapus_pada'));
     }

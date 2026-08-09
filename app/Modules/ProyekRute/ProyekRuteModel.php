@@ -19,6 +19,11 @@ class ProyekRuteModel extends BaseModel
         'id_jenis_kendaraan',
         'id_tarif_rute',
         'harga_penawaran',
+        'estimasi_ritase',
         'keterangan',
+    ];
+
+    protected $casts = [
+        'estimasi_ritase' => 'integer',
     ];
 }

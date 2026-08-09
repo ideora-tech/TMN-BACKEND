@@ -21,6 +21,8 @@ class ProyekServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum', 'izin:project'])
             ->group(function () {
+                Route::get('proyek/{id}/pdf', [ProyekController::class, 'exportPdf']);
+
                 Route::apiResource('proyek', ProyekController::class)
                     ->parameters(['proyek' => 'id']);
 

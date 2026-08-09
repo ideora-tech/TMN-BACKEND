@@ -30,6 +30,10 @@ class ProyekRuteResource extends JsonResource
             'nama_jenis'         => $this->nama_jenis ?? null,
             'id_tarif_rute'      => $this->id_tarif_rute,
             'harga_penawaran'    => $this->harga_penawaran !== null ? (float) $this->harga_penawaran : null,
+            'estimasi_ritase'    => (int) $this->estimasi_ritase,
+            'subtotal'           => $this->harga_penawaran !== null
+                ? (float) $this->harga_penawaran * (int) $this->estimasi_ritase
+                : null,
             'uang_jalan'         => ($this->uang_jalan ?? null) !== null ? (float) $this->uang_jalan : null,
             'estimasi_biaya'     => $semuaKosong ? null : array_sum(array_map(fn ($k) => (float) ($k ?? 0), $komponen)),
             'keterangan'         => $this->keterangan,

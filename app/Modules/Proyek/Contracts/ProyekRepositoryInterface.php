@@ -16,4 +16,5 @@ interface ProyekRepositoryInterface
     public function create(array $data): ProyekModel;
     public function update(ProyekModel $model, array $data): ProyekModel;
     public function delete(ProyekModel $model): void;
+    public function getPerusahaan(string $idPerusahaan): ?object;
 }

@@ -105,7 +105,7 @@ class JadwalShiftTest extends TestCase
             'id_penugasan'    => $penugasanJalan->id_penugasan,
             'waktu_berangkat' => '2026-07-20 08:00:00',
         ]);
-        TripModel::create([
+        $tripJalan = TripModel::create([
             'id_jadwal'     => $jadwalJalan->id_jadwal,
             'status'        => 'berjalan',
             'waktu_checkin' => '2026-07-20 08:05:00',
@@ -115,7 +115,7 @@ class JadwalShiftTest extends TestCase
             'id_penugasan'    => $penugasanSelesai->id_penugasan,
             'waktu_berangkat' => '2026-07-20 08:00:00',
         ]);
-        TripModel::create([
+        $tripSelesai = TripModel::create([
             'id_jadwal'      => $jadwalSelesai->id_jadwal,
             'status'         => 'selesai',
             'waktu_checkin'  => '2026-07-20 08:05:00',
@@ -129,6 +129,9 @@ class JadwalShiftTest extends TestCase
         $this->assertSame('berjalan', $data[$supirJalan]['status_trip']);
         $this->assertSame('selesai', $data[$supirSelesai]['status_trip']);
         $this->assertNull($data[$supirKosong]['status_trip']);
+        $this->assertSame($tripJalan->id_trip, $data[$supirJalan]['id_trip']);
+        $this->assertSame($tripSelesai->id_trip, $data[$supirSelesai]['id_trip']);
+        $this->assertNull($data[$supirKosong]['id_trip']);
     }
 
     public function test_status_trip_tidak_bocor_dari_proyek_lain(): void
@@ -161,7 +164,8 @@ class JadwalShiftTest extends TestCase
         $list = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyekB->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
 
         $list->assertStatus(200)
-            ->assertJsonPath('data.0.status_trip', null);
+            ->assertJsonPath('data.0.status_trip', null)
+            ->assertJsonPath('data.0.id_trip', null);
     }
 
     public function test_dobel_tanggal_ditolak_per_item_lintas_proyek(): void
@@ -266,7 +270,7 @@ class JadwalShiftTest extends TestCase
         $res = $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}");
 
         $res->assertStatus(422);
-        $this->assertStringContainsString('trip aktif', $res->json('message'));
+        $this->assertStringContainsString('sedang berjalan', $res->json('message'));
         $this->assertDatabaseHas('jadwal_shift', ['id_jadwal_shift' => $idJadwal, 'dihapus_pada' => null]);
     }
 
@@ -380,5 +384,86 @@ class JadwalShiftTest extends TestCase
 
         $res = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyekLain->id_proyek}");
         $res->assertStatus(404); // proyek bukan milik perusahaan user
+    }
+
+    public function test_hapus_jadwal_dengan_trip_selesai_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $supir = $this->makeSupir('Supir Kunci Selesai');
+        $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $shift = $this->makeShift();
+
+        $this->postJson('/api/v1/jadwal-shift', [
+            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
+            'tanggal' => '2026-07-20', 'supir' => [$supir],
+        ])->assertJsonPath('data.sukses', 1);
+        $idJadwal = (string) DB::table('jadwal_shift')->where('id_supir', $supir)->value('id_jadwal_shift');
+
+        $jk = JadwalKeberangkatanModel::create([
+            'id_penugasan' => $penugasan->id_penugasan, 'waktu_berangkat' => '2026-07-20 08:00:00',
+        ]);
+        TripModel::create([
+            'id_jadwal' => $jk->id_jadwal, 'status' => 'selesai',
+            'waktu_checkin' => '2026-07-20 08:05:00', 'waktu_checkout' => '2026-07-20 17:00:00',
+        ]);
+
+        $res = $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}");
+        $res->assertStatus(422);
+        $this->assertStringContainsString('sudah selesai', (string) $res->json('message'));
+        $this->assertDatabaseHas('jadwal_shift', ['id_jadwal_shift' => $idJadwal, 'dihapus_pada' => null]);
+    }
+
+    public function test_hapus_jadwal_dengan_trip_berjalan_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $supir = $this->makeSupir('Supir Kunci Jalan');
+        $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $shift = $this->makeShift();
+
+        $this->postJson('/api/v1/jadwal-shift', [
+            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
+            'tanggal' => '2026-07-20', 'supir' => [$supir],
+        ])->assertJsonPath('data.sukses', 1);
+        $idJadwal = (string) DB::table('jadwal_shift')->where('id_supir', $supir)->value('id_jadwal_shift');
+
+        $jk = JadwalKeberangkatanModel::create([
+            'id_penugasan' => $penugasan->id_penugasan, 'waktu_berangkat' => '2026-07-20 08:00:00',
+        ]);
+        TripModel::create([
+            'id_jadwal' => $jk->id_jadwal, 'status' => 'berjalan', 'waktu_checkin' => '2026-07-20 08:05:00',
+        ]);
+
+        $res = $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}");
+        $res->assertStatus(422);
+        $this->assertStringContainsString('sedang berjalan', (string) $res->json('message'));
+    }
+
+    public function test_ganti_shift_jadwal_dengan_trip_selesai_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $supir = $this->makeSupir('Supir Kunci Ganti');
+        $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $shiftA = $this->makeShift();
+        $shiftB = $this->makeShift('Malam', '16:00:00', '23:00:00');
+
+        $this->postJson('/api/v1/jadwal-shift', [
+            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shiftA,
+            'tanggal' => '2026-07-20', 'supir' => [$supir],
+        ])->assertJsonPath('data.sukses', 1);
+        $idJadwal = (string) DB::table('jadwal_shift')->where('id_supir', $supir)->value('id_jadwal_shift');
+
+        $jk = JadwalKeberangkatanModel::create([
+            'id_penugasan' => $penugasan->id_penugasan, 'waktu_berangkat' => '2026-07-20 08:00:00',
+        ]);
+        TripModel::create([
+            'id_jadwal' => $jk->id_jadwal, 'status' => 'selesai',
+            'waktu_checkin' => '2026-07-20 08:05:00', 'waktu_checkout' => '2026-07-20 17:00:00',
+        ]);
+
+        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", ['id_shift' => $shiftB])->assertStatus(422);
+        $this->assertDatabaseHas('jadwal_shift', ['id_jadwal_shift' => $idJadwal, 'id_shift' => $shiftA]);
     }
 }

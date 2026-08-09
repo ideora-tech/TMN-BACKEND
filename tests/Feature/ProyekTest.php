@@ -402,4 +402,196 @@ class ProyekTest extends TestCase
             'harga_penawaran'  => 725000,
         ]);
     }
+
+    public function test_store_proyek_dari_penawaran_menyalin_estimasi_ritase(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien   = $this->makeKlien();
+        $idRute  = $this->makeRuteUntukProyekTest();
+        $idJenis = $this->makeJenisKendaraanUntukProyekTest();
+
+        $idPenawaran = (string) Str::uuid();
+        DB::table('penawaran')->insert([
+            'id_penawaran'    => $idPenawaran,
+            'id_perusahaan'   => self::PERUSAHAAN_ID,
+            'id_klien'        => $klien->id_klien,
+            'nomor_penawaran' => 'PNW-' . Str::random(8),
+            'judul'           => 'Penawaran Ritase Copy Test',
+            'status'          => 'disetujui',
+            'aktif'           => 1,
+            'dibuat_pada'     => now(),
+        ]);
+        DB::table('penawaran_item')->insert([
+            'id_penawaran_item'  => (string) Str::uuid(),
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'id_penawaran'       => $idPenawaran,
+            'id_rute'            => $idRute,
+            'id_jenis_kendaraan' => $idJenis,
+            'id_tarif_rute'      => null,
+            'harga_satuan'       => 500000,
+            'estimasi_ritase'    => 4,
+            'subtotal'           => 2000000,
+            'dibuat_pada'        => now(),
+        ]);
+
+        $res = $this->postJson('/api/v1/proyek', [
+            'id_klien'     => $klien->id_klien,
+            'kode_proyek'  => 'PRJ-RITASE-COPY',
+            'nama_proyek'  => 'Proyek Ritase Copy',
+            'id_penawaran' => $idPenawaran,
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertDatabaseHas('proyek_rute', [
+            'id_proyek'       => $res->json('data.id_proyek'),
+            'id_rute'         => $idRute,
+            'estimasi_ritase' => 4,
+        ]);
+    }
+
+    public function test_store_proyek_manual_dengan_ritase_tersimpan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien   = $this->makeKlien();
+        $idRute  = $this->makeRuteUntukProyekTest();
+        $idJenis = $this->makeJenisKendaraanUntukProyekTest();
+
+        $res = $this->postJson('/api/v1/proyek', [
+            'id_klien'    => $klien->id_klien,
+            'kode_proyek' => 'PRJ-RITASE-MANUAL',
+            'nama_proyek' => 'Proyek Ritase Manual',
+            'rute' => [[
+                'id_rute'            => $idRute,
+                'id_jenis_kendaraan' => $idJenis,
+                'harga_penawaran'    => 750000,
+                'estimasi_ritase'    => 3,
+            ]],
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertDatabaseHas('proyek_rute', [
+            'id_proyek'       => $res->json('data.id_proyek'),
+            'estimasi_ritase' => 3,
+        ]);
+    }
+
+    public function test_store_proyek_manual_tanpa_ritase_default_1(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien   = $this->makeKlien();
+        $idRute  = $this->makeRuteUntukProyekTest();
+        $idJenis = $this->makeJenisKendaraanUntukProyekTest();
+
+        $res = $this->postJson('/api/v1/proyek', [
+            'id_klien'    => $klien->id_klien,
+            'kode_proyek' => 'PRJ-RITASE-DEFAULT',
+            'nama_proyek' => 'Proyek Ritase Default',
+            'rute' => [[
+                'id_rute'            => $idRute,
+                'id_jenis_kendaraan' => $idJenis,
+                'harga_penawaran'    => 500000,
+            ]],
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertDatabaseHas('proyek_rute', [
+            'id_proyek'       => $res->json('data.id_proyek'),
+            'estimasi_ritase' => 1,
+        ]);
+    }
+
+    public function test_store_proyek_ritase_nol_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien   = $this->makeKlien();
+        $idRute  = $this->makeRuteUntukProyekTest();
+        $idJenis = $this->makeJenisKendaraanUntukProyekTest();
+
+        $res = $this->postJson('/api/v1/proyek', [
+            'id_klien'    => $klien->id_klien,
+            'kode_proyek' => 'PRJ-RITASE-NOL',
+            'nama_proyek' => 'Proyek Ritase Nol',
+            'rute' => [[
+                'id_rute'            => $idRute,
+                'id_jenis_kendaraan' => $idJenis,
+                'estimasi_ritase'    => 0,
+            ]],
+        ]);
+
+        $res->assertStatus(422)
+            ->assertJsonValidationErrors(['rute.0.estimasi_ritase']);
+    }
+
+    public function test_rute_proyek_mengembalikan_subtotal_dan_bisa_update_ritase(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien    = $this->makeKlien();
+        $idRuteA  = $this->makeRuteUntukProyekTest();
+        $idRuteB  = $this->makeRuteUntukProyekTest();
+        $idJenis  = $this->makeJenisKendaraanUntukProyekTest();
+
+        $res = $this->postJson('/api/v1/proyek', [
+            'id_klien'    => $klien->id_klien,
+            'kode_proyek' => 'PRJ-SUBTOTAL',
+            'nama_proyek' => 'Proyek Subtotal',
+            'rute' => [
+                [
+                    'id_rute'            => $idRuteA,
+                    'id_jenis_kendaraan' => $idJenis,
+                    'harga_penawaran'    => 750000,
+                    'estimasi_ritase'    => 3,
+                ],
+                [
+                    'id_rute'            => $idRuteB,
+                    'id_jenis_kendaraan' => $idJenis,
+                ],
+            ],
+        ]);
+        $res->assertStatus(201);
+        $idProyek = $res->json('data.id_proyek');
+
+        $list = $this->getJson("/api/v1/proyek/{$idProyek}/rute");
+        $list->assertStatus(200);
+        $data = collect($list->json('data'));
+
+        $denganHarga = $data->firstWhere('id_rute', $idRuteA);
+        $this->assertSame(3, $denganHarga['estimasi_ritase']);
+        $this->assertSame(2250000, (int) $denganHarga['subtotal']);
+
+        $tanpaHarga = $data->firstWhere('id_rute', $idRuteB);
+        $this->assertSame(1, $tanpaHarga['estimasi_ritase']);
+        $this->assertNull($tanpaHarga['subtotal']);
+
+        $update = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$denganHarga['id_proyek_rute']}", [
+            'estimasi_ritase' => 5,
+        ]);
+        $update->assertStatus(200)
+            ->assertJsonPath('data.estimasi_ritase', 5);
+        $this->assertSame(3750000, (int) $update->json('data.subtotal'));
+    }
+
+    public function test_export_pdf_proyek_mengembalikan_200(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien  = $this->makeKlien();
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-PDF-1');
+
+        $res = $this->get("/api/v1/proyek/{$proyek->id_proyek}/pdf");
+
+        $res->assertStatus(200);
+        $this->assertSame('application/pdf', $res->headers->get('content-type'));
+    }
+
+    public function test_export_pdf_proyek_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyekLain = ProyekModel::create([
+            'id_perusahaan' => (string) Str::uuid(),
+            'id_klien'      => (string) Str::uuid(),
+            'kode_proyek'   => 'PRJ-PDF-LAIN',
+            'nama_proyek'   => 'Proyek Perusahaan Lain',
+        ]);
+
+        $this->get("/api/v1/proyek/{$proyekLain->id_proyek}/pdf")->assertStatus(404);
+    }
 }

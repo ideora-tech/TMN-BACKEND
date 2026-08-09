@@ -6,6 +6,7 @@ namespace App\Modules\Proyek;
 
 use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class ProyekRepository implements ProyekRepositoryInterface
 {
@@ -62,5 +63,10 @@ class ProyekRepository implements ProyekRepositoryInterface
     public function delete(ProyekModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function getPerusahaan(string $idPerusahaan): ?object
+    {
+        return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
     }
 }

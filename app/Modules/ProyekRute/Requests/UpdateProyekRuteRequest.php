@@ -20,6 +20,7 @@ class UpdateProyekRuteRequest extends FormRequest
             'id_jenis_kendaraan' => ['sometimes', 'string', 'max:36'],
             'id_tarif_rute'      => ['sometimes', 'nullable', 'string', 'max:36'],
             'harga_penawaran'    => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'estimasi_ritase'    => ['sometimes', 'integer', 'min:1'],
             'keterangan'         => ['sometimes', 'nullable', 'string'],
         ];
     }

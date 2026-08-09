@@ -580,7 +580,7 @@ class TripRepository implements TripRepositoryInterface
      * sudah dikunci); 'berjalan' menang atas 'selesai' bila ada lebih dari
      * satu trip di tanggal yang sama.
      *
-     * @return array<string, 'berjalan'|'selesai'> kunci "idSupir|tanggal"
+     * @return array<string, array{status: 'berjalan'|'selesai', id_trip: string}> kunci "idSupir|tanggal"
      */
     public function statusTripPerSupirTanggal(string $idProyek, array $idSupirList, string $dari, string $sampai): array
     {
@@ -597,7 +597,7 @@ class TripRepository implements TripRepositoryInterface
             ->where('p.id_proyek', $idProyek)
             ->whereIn('p.id_supir', $idSupirList)
             ->whereIn('t.status', ['belum_mulai', 'berjalan', 'selesai'])
-            ->select('p.id_supir', 't.status', 't.waktu_checkin', 't.waktu_checkout', 't.dibuat_pada')
+            ->select('p.id_supir', 't.id_trip', 't.status', 't.waktu_checkin', 't.waktu_checkout', 't.dibuat_pada')
             ->get();
 
         $map = [];
@@ -611,7 +611,7 @@ class TripRepository implements TripRepositoryInterface
             $statusSaatIni = in_array($row->status, ['belum_mulai', 'berjalan'], true) ? 'berjalan' : 'selesai';
 
             if ($statusSaatIni === 'berjalan' || !isset($map[$kunci])) {
-                $map[$kunci] = $statusSaatIni;
+                $map[$kunci] = ['status' => $statusSaatIni, 'id_trip' => $row->id_trip];
             }
         }
 

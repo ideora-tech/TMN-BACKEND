@@ -32,7 +32,9 @@ class JadwalShiftService
         $statusMap = $this->tripRepo->statusTripPerSupirTanggal($idProyek, $idSupirList, $tanggalAwal, $tanggalAkhir);
 
         foreach ($rows as $row) {
-            $row->status_trip = $statusMap["{$row->id_supir}|{$row->tanggal}"] ?? null;
+            $info = $statusMap["{$row->id_supir}|{$row->tanggal}"] ?? null;
+            $row->status_trip = $info['status'] ?? null;
+            $row->id_trip     = $info['id_trip'] ?? null;
         }
 
         return $rows;
@@ -249,6 +251,12 @@ class JadwalShiftService
                             continue;
                         }
 
+                        $statusTrip = $this->statusTripUntukJadwal($ada);
+                        if ($statusTrip !== null) {
+                            $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => "Tanggal {$tanggal}: trip supir " . $this->labelStatusTrip($statusTrip) . ' — jadwal tidak ditimpa'];
+                            continue;
+                        }
+
                         if ($tanggal === now()->toDateString()) {
                             $tripAktif = $this->tripRepo->findTripAktifUntukAktor(null, (string) $supir->id_supir, null, null);
                             if ($tripAktif !== null) {
@@ -316,9 +324,33 @@ class JadwalShiftService
         }
     }
 
+    private function statusTripUntukJadwal(object $record): ?string
+    {
+        $tanggal = (string) $record->tanggal;
+        $map = $this->tripRepo->statusTripPerSupirTanggal(
+            (string) $record->id_proyek,
+            [(string) $record->id_supir],
+            $tanggal,
+            $tanggal,
+        );
+
+        return $map["{$record->id_supir}|{$tanggal}"]['status'] ?? null;
+    }
+
+    private function labelStatusTrip(string $status): string
+    {
+        return $status === 'selesai' ? 'sudah selesai' : 'sedang berjalan';
+    }
+
     public function updateShift(string $id, string $idShift): object
     {
         $record = $this->findOrFail($id);
+
+        $statusTrip = $this->statusTripUntukJadwal($record);
+        if ($statusTrip !== null) {
+            abort(422, "Jadwal tanggal {$record->tanggal} tidak dapat diganti shift-nya — trip supir pada tanggal ini " . $this->labelStatusTrip($statusTrip));
+        }
+
         return $this->repo->updateShift($record, $idShift);
     }
 
@@ -331,6 +363,11 @@ class JadwalShiftService
     public function delete(string $id): void
     {
         $record = $this->findOrFail($id);
+
+        $statusTrip = $this->statusTripUntukJadwal($record);
+        if ($statusTrip !== null) {
+            abort(422, "Jadwal tanggal {$record->tanggal} tidak dapat dihapus — trip supir pada tanggal ini " . $this->labelStatusTrip($statusTrip));
+        }
 
         if ((string) $record->tanggal === now()->toDateString()) {
             $tripAktif = $this->tripRepo->findTripAktifUntukAktor(null, (string) $record->id_supir, null, null);

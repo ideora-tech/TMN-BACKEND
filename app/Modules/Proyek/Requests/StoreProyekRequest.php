@@ -30,6 +30,7 @@ class StoreProyekRequest extends FormRequest
             'rute.*.id_jenis_kendaraan'  => ['required_with:rute', 'string', 'max:36'],
             'rute.*.id_tarif_rute'       => ['sometimes', 'nullable', 'string', 'max:36'],
             'rute.*.harga_penawaran'     => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'rute.*.estimasi_ritase'     => ['sometimes', 'integer', 'min:1'],
             'rute.*.keterangan'          => ['sometimes', 'nullable', 'string'],
         ];
     }

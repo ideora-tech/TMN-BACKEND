@@ -103,6 +103,7 @@ class ProyekService
                 'id_jenis_kendaraan' => $item->id_jenis_kendaraan,
                 'id_tarif_rute'      => $item->id_tarif_rute,
                 'harga_penawaran'    => $item->harga_satuan,
+                'estimasi_ritase'    => (int) $item->estimasi_ritase,
             ]);
         }
     }
@@ -135,5 +136,10 @@ class ProyekService
     {
         $record = $this->findOrFail($id);
         $this->repo->delete($record);
+    }
+
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->repo->getPerusahaan($idPerusahaan);
     }
 }
