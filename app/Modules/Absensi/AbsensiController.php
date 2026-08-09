@@ -62,22 +62,34 @@ class AbsensiController extends Controller
     {
         $user = $request->user();
         $lokasi = $request->validate([
-            'latitude'  => ['nullable', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
-            'alamat'    => ['nullable', 'string', 'max:500'],
+            'latitude'    => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude'   => ['nullable', 'numeric', 'between:-180,180'],
+            'alamat'      => ['nullable', 'string', 'max:500'],
+            'foto'        => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:10240'],
+            'skor_wajah'  => ['nullable', 'numeric', 'between:0,1'],
+            'wajah_cocok' => ['nullable', 'boolean'],
         ]);
-        return ApiResponse::success($this->service->absenMasuk((string) $user->id_perusahaan, $user->id_karyawan, $lokasi), 'Absen masuk tercatat');
+        return ApiResponse::success(
+            $this->service->absenMasuk((string) $user->id_perusahaan, $user->id_karyawan, $lokasi, $request->file('foto')),
+            'Absen masuk tercatat'
+        );
     }
 
     public function absenPulang(Request $request): JsonResponse
     {
         $user = $request->user();
         $lokasi = $request->validate([
-            'latitude'  => ['nullable', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
-            'alamat'    => ['nullable', 'string', 'max:500'],
+            'latitude'    => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude'   => ['nullable', 'numeric', 'between:-180,180'],
+            'alamat'      => ['nullable', 'string', 'max:500'],
+            'foto'        => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:10240'],
+            'skor_wajah'  => ['nullable', 'numeric', 'between:0,1'],
+            'wajah_cocok' => ['nullable', 'boolean'],
         ]);
-        return ApiResponse::success($this->service->absenPulang((string) $user->id_perusahaan, $user->id_karyawan, $lokasi), 'Absen pulang tercatat');
+        return ApiResponse::success(
+            $this->service->absenPulang((string) $user->id_perusahaan, $user->id_karyawan, $lokasi, $request->file('foto')),
+            'Absen pulang tercatat'
+        );
     }
 
     public function rekap(Request $request): JsonResponse

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\AbsensiSupir;
 
 use App\Modules\AbsensiSupir\Contracts\AbsensiSupirRepositoryInterface;
+use App\Support\PenyimpananBerkas;
+use Illuminate\Http\UploadedFile;
 
 class AbsensiSupirService
 {
@@ -14,28 +16,41 @@ class AbsensiSupirService
 
     public function hariIni(string $idSupir): ?object
     {
-        return $this->repo->findBySupirTanggal($idSupir, now()->toDateString());
+        return $this->denganUrlFoto($this->repo->findBySupirTanggal($idSupir, now()->toDateString()));
     }
 
-    public function absen(string $idSupir, string $idPerusahaan, string $status, ?string $keterangan): object
+    public function absen(string $idSupir, string $idPerusahaan, string $status, ?string $keterangan, ?UploadedFile $foto = null, ?float $skorWajah = null, ?bool $wajahCocok = null): object
     {
         $tanggal = now()->toDateString();
 
-        $ada = $this->repo->findBySupirTanggal($idSupir, $tanggal);
-        if ($ada !== null) {
-            $this->repo->update($ada->id_absensi, [
-                'status'     => $status,
-                'keterangan' => $keterangan,
-            ]);
-            return $this->repo->findBySupirTanggal($idSupir, $tanggal);
+        $data = [
+            'status'     => $status,
+            'keterangan' => $keterangan,
+        ];
+        if ($foto !== null) {
+            $data['foto']        = PenyimpananBerkas::simpan($foto, 'absensi-selfie');
+            $data['skor_wajah']  = $skorWajah;
+            $data['wajah_cocok'] = $wajahCocok === null ? null : (int) $wajahCocok;
         }
 
-        return $this->repo->create([
+        $ada = $this->repo->findBySupirTanggal($idSupir, $tanggal);
+        if ($ada !== null) {
+            $this->repo->update($ada->id_absensi, $data);
+            return $this->denganUrlFoto($this->repo->findBySupirTanggal($idSupir, $tanggal));
+        }
+
+        return $this->denganUrlFoto($this->repo->create($data + [
             'id_perusahaan' => $idPerusahaan,
             'id_supir'      => $idSupir,
             'tanggal'       => $tanggal,
-            'status'        => $status,
-            'keterangan'    => $keterangan,
-        ]);
+        ]));
+    }
+
+    private function denganUrlFoto(?object $row): ?object
+    {
+        if ($row !== null) {
+            $row->url_foto = PenyimpananBerkas::url($row->foto ?? null);
+        }
+        return $row;
     }
 }

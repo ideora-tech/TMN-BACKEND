@@ -57,4 +57,5 @@ return [
     App\Modules\TarifRute\TarifRuteServiceProvider::class,
     App\Modules\Trip\TripServiceProvider::class,
     App\Modules\Vendor\VendorServiceProvider::class,
+    App\Modules\WajahReferensi\WajahReferensiServiceProvider::class,
 ];

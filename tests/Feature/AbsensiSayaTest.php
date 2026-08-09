@@ -121,6 +121,64 @@ class AbsensiSayaTest extends TestCase
         $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(422);
     }
 
+    public function test_absen_masuk_dengan_foto_wajah_tersimpan(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $idKaryawan = $this->loginSebagaiKaryawan();
+        $this->setPengaturan();
+        Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
+
+        $res = $this->post('/api/v1/absensi/saya/masuk', [
+            'latitude'    => -6.2,
+            'longitude'   => 106.8,
+            'foto'        => \Illuminate\Http\UploadedFile::fake()->create('selfie.jpg', 100, 'image/jpeg'),
+            'skor_wajah'  => 0.8123,
+            'wajah_cocok' => 1,
+        ], ['Accept' => 'application/json']);
+
+        $res->assertStatus(200)->assertJsonPath('data.status', 'hadir');
+        $this->assertNotNull($res->json('data.url_foto_masuk'));
+
+        $baris = DB::table('absensi')->where('id_karyawan', $idKaryawan)->where('tanggal', '2026-08-06')->first();
+        $this->assertStringStartsWith('absensi-selfie/', $baris->foto_masuk);
+        $this->assertEquals(0.8123, (float) $baris->skor_wajah_masuk);
+        $this->assertSame(1, (int) $baris->wajah_cocok_masuk);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($baris->foto_masuk);
+    }
+
+    public function test_absen_pulang_dengan_foto_wajah_tidak_cocok_tersimpan(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $idKaryawan = $this->loginSebagaiKaryawan();
+        $this->setPengaturan();
+        Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
+        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
+
+        Carbon::setTestNow(Carbon::parse('2026-08-06 17:05:00'));
+        $this->post('/api/v1/absensi/saya/pulang', [
+            'foto'        => \Illuminate\Http\UploadedFile::fake()->create('selfie.jpg', 100, 'image/jpeg'),
+            'skor_wajah'  => 0.41,
+            'wajah_cocok' => 0,
+        ], ['Accept' => 'application/json'])->assertStatus(200);
+
+        $baris = DB::table('absensi')->where('id_karyawan', $idKaryawan)->first();
+        $this->assertStringStartsWith('absensi-selfie/', $baris->foto_pulang);
+        $this->assertSame(0, (int) $baris->wajah_cocok_pulang);
+    }
+
+    public function test_absen_masuk_tanpa_foto_tetap_diterima(): void
+    {
+        $idKaryawan = $this->loginSebagaiKaryawan();
+        $this->setPengaturan();
+        Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
+
+        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
+
+        $baris = DB::table('absensi')->where('id_karyawan', $idKaryawan)->first();
+        $this->assertNull($baris->foto_masuk);
+        $this->assertNull($baris->wajah_cocok_masuk);
+    }
+
     public function test_absen_masuk_ditolak_saat_sedang_cuti_disetujui(): void
     {
         $idKaryawan = $this->loginSebagaiKaryawan();

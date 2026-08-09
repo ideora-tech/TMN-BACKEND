@@ -30,8 +30,11 @@ class AbsensiSupirController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'status'     => ['required', 'in:hadir,berhalangan'],
-            'keterangan' => ['nullable', 'string', 'max:500'],
+            'status'      => ['required', 'in:hadir,berhalangan'],
+            'keterangan'  => ['nullable', 'string', 'max:500'],
+            'foto'        => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:10240'],
+            'skor_wajah'  => ['nullable', 'numeric', 'between:0,1'],
+            'wajah_cocok' => ['nullable', 'boolean'],
         ]);
 
         $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
@@ -43,7 +46,10 @@ class AbsensiSupirController extends Controller
             (string) $supir->id_supir,
             (string) $request->user()->id_perusahaan,
             $validated['status'],
-            $validated['keterangan'] ?? null
+            $validated['keterangan'] ?? null,
+            $request->file('foto'),
+            isset($validated['skor_wajah']) ? (float) $validated['skor_wajah'] : null,
+            isset($validated['wajah_cocok']) ? filter_var($validated['wajah_cocok'], FILTER_VALIDATE_BOOLEAN) : null,
         );
 
         return ApiResponse::success($absen, 'Absensi tercatat', 201);

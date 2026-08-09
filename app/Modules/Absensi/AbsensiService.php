@@ -7,6 +7,8 @@ namespace App\Modules\Absensi;
 use App\Modules\Absensi\Contracts\AbsensiRepositoryInterface;
 use App\Modules\Cuti\Contracts\CutiRepositoryInterface;
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
+use App\Support\PenyimpananBerkas;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 
 class AbsensiService
@@ -116,10 +118,10 @@ class AbsensiService
     public function absensiSaya(string $idPerusahaan, ?string $idKaryawan): ?object
     {
         $this->pastikanKaryawan($idKaryawan);
-        return $this->repo->findByKaryawanTanggal($idKaryawan, now()->toDateString());
+        return $this->denganUrlFoto($this->repo->findByKaryawanTanggal($idKaryawan, now()->toDateString()));
     }
 
-    public function absenMasuk(string $idPerusahaan, ?string $idKaryawan, array $lokasi): object
+    public function absenMasuk(string $idPerusahaan, ?string $idKaryawan, array $lokasi, ?UploadedFile $foto = null): object
     {
         $this->pastikanKaryawan($idKaryawan);
         $tanggal = now()->toDateString();
@@ -144,18 +146,24 @@ class AbsensiService
         $batas = Carbon::parse($tanggal . ' ' . $pengaturan['jam_masuk'])
             ->addMinutes($pengaturan['toleransi_terlambat_menit']);
 
-        $this->repo->upsert($idPerusahaan, $idKaryawan, $tanggal, [
+        $data = [
             'status'          => now()->greaterThan($batas) ? 'terlambat' : 'hadir',
             'jam_masuk'       => now()->format('H:i:s'),
             'latitude_masuk'  => $lokasi['latitude'] ?? null,
             'longitude_masuk' => $lokasi['longitude'] ?? null,
             'alamat_masuk'    => $lokasi['alamat'] ?? null,
-        ]);
+        ];
+        if ($foto !== null) {
+            $data['foto_masuk']        = PenyimpananBerkas::simpan($foto, 'absensi-selfie');
+            $data['skor_wajah_masuk']  = $lokasi['skor_wajah'] ?? null;
+            $data['wajah_cocok_masuk'] = isset($lokasi['wajah_cocok']) ? (int) filter_var($lokasi['wajah_cocok'], FILTER_VALIDATE_BOOLEAN) : null;
+        }
+        $this->repo->upsert($idPerusahaan, $idKaryawan, $tanggal, $data);
 
-        return $this->repo->findByKaryawanTanggal($idKaryawan, $tanggal);
+        return $this->denganUrlFoto($this->repo->findByKaryawanTanggal($idKaryawan, $tanggal));
     }
 
-    public function absenPulang(string $idPerusahaan, ?string $idKaryawan, array $lokasi): object
+    public function absenPulang(string $idPerusahaan, ?string $idKaryawan, array $lokasi, ?UploadedFile $foto = null): object
     {
         $this->pastikanKaryawan($idKaryawan);
         $tanggal = now()->toDateString();
@@ -168,15 +176,21 @@ class AbsensiService
             abort(422, 'Sudah absen pulang hari ini');
         }
 
-        $this->repo->upsert($idPerusahaan, $idKaryawan, $tanggal, [
+        $data = [
             'jam_pulang'       => now()->format('H:i:s'),
             'latitude_pulang'  => $lokasi['latitude'] ?? null,
             'longitude_pulang' => $lokasi['longitude'] ?? null,
             'alamat_pulang'    => $lokasi['alamat'] ?? null,
             'pulang_mandiri'   => 1,
-        ]);
+        ];
+        if ($foto !== null) {
+            $data['foto_pulang']        = PenyimpananBerkas::simpan($foto, 'absensi-selfie');
+            $data['skor_wajah_pulang']  = $lokasi['skor_wajah'] ?? null;
+            $data['wajah_cocok_pulang'] = isset($lokasi['wajah_cocok']) ? (int) filter_var($lokasi['wajah_cocok'], FILTER_VALIDATE_BOOLEAN) : null;
+        }
+        $this->repo->upsert($idPerusahaan, $idKaryawan, $tanggal, $data);
 
-        return $this->repo->findByKaryawanTanggal($idKaryawan, $tanggal);
+        return $this->denganUrlFoto($this->repo->findByKaryawanTanggal($idKaryawan, $tanggal));
     }
 
     private function pastikanKaryawan(?string $idKaryawan): void
@@ -184,6 +198,15 @@ class AbsensiService
         if ($idKaryawan === null || $idKaryawan === '') {
             abort(422, 'Akun Anda tidak tertaut dengan data karyawan');
         }
+    }
+
+    private function denganUrlFoto(?object $row): ?object
+    {
+        if ($row !== null) {
+            $row->url_foto_masuk  = PenyimpananBerkas::url($row->foto_masuk ?? null);
+            $row->url_foto_pulang = PenyimpananBerkas::url($row->foto_pulang ?? null);
+        }
+        return $row;
     }
 
     /** Menit lembur per karyawan per HARI (selisih jam_pulang aktual vs standar) — per hari karena pengali 1,5×/2× berlaku per blok lembur harian. */

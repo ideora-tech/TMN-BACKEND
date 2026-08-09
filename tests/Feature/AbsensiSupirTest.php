@@ -121,6 +121,39 @@ class AbsensiSupirTest extends TestCase
             ->assertJsonPath('data.status', 'hadir');
     }
 
+    public function test_absen_hadir_dengan_foto_wajah_tersimpan(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $ctx = $this->actingAsSupir();
+
+        $res = $this->post('/api/v1/absensi-supir', [
+            'status'      => 'hadir',
+            'foto'        => \Illuminate\Http\UploadedFile::fake()->create('selfie.jpg', 100, 'image/jpeg'),
+            'skor_wajah'  => 0.7654,
+            'wajah_cocok' => 1,
+        ], ['Accept' => 'application/json']);
+
+        $res->assertStatus(201)->assertJsonPath('data.status', 'hadir');
+        $this->assertNotNull($res->json('data.url_foto'));
+
+        $baris = DB::table('absensi_supir')->where('id_supir', $ctx->id_supir)->first();
+        $this->assertStringStartsWith('absensi-selfie/', $baris->foto);
+        $this->assertEquals(0.7654, (float) $baris->skor_wajah);
+        $this->assertSame(1, (int) $baris->wajah_cocok);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($baris->foto);
+    }
+
+    public function test_absen_hadir_tanpa_foto_tetap_diterima(): void
+    {
+        $ctx = $this->actingAsSupir();
+
+        $this->postJson('/api/v1/absensi-supir', ['status' => 'hadir'])->assertStatus(201);
+
+        $baris = DB::table('absensi_supir')->where('id_supir', $ctx->id_supir)->first();
+        $this->assertNull($baris->foto);
+        $this->assertNull($baris->wajah_cocok);
+    }
+
     public function test_absen_status_tidak_valid_ditolak(): void
     {
         $this->actingAsSupir();
