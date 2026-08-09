@@ -134,16 +134,24 @@ class JadwalShiftService
             $tanggal[] = $t->toDateString();
         }
 
+        $periode = $mulai->isSameMonth($selesai, true)
+            ? 'PERIODE ' . mb_strtoupper($mulai->locale('id')->translatedFormat('F Y'))
+            : 'PERIODE ' . $mulai->format('d/m/Y') . ' - ' . $selesai->format('d/m/Y');
+
         return [
-            'supir'   => $this->repo->supirTerdaftarDiProyek($idProyek),
-            'tanggal' => $tanggal,
+            'supir'       => $this->repo->supirTerdaftarDiProyek($idProyek),
+            'tanggal'     => $tanggal,
+            'nama_proyek' => $this->repo->namaProyek($idProyek) ?? 'JADWAL SHIFT SUPIR',
+            'periode'     => $periode,
         ];
     }
 
     /**
      * Import matriks jadwal shift: baris = supir (No SIM + nama shift),
      * kolom ke-4 dst = tanggal, isi sel H = dijadwalkan, selain itu dilewati.
-     * Gagal per-item (baris/tanggal bermasalah dilaporkan, sisanya tetap masuk),
+     * Gagal per-item (baris/tanggal bermasalah dilaporkan, sisanya tetap masuk);
+     * konflik jadwal di proyek yang sama ditimpa (delete-insert, dilaporkan di
+     * `ditimpa`), konflik lintas proyek tetap gagal,
      * lalu alokasi armada otomatis dijalankan untuk semua yang berhasil.
      */
     public function importMatriks(\Illuminate\Http\UploadedFile $file, string $idProyek, string $idPerusahaan): array
@@ -157,8 +165,19 @@ class JadwalShiftService
             abort(422, 'File kosong atau tidak berisi baris data');
         }
 
+        $barisHeader = null;
+        foreach ($rows as $i => $row) {
+            if (strtolower(trim((string) ($row[0] ?? ''))) === 'no sim') {
+                $barisHeader = $i;
+                break;
+            }
+        }
+        if ($barisHeader === null) {
+            abort(422, 'Baris header (kolom "No SIM") tidak ditemukan');
+        }
+
         $tanggalKolom = [];
-        foreach (array_slice($rows[0], 3, null, true) as $kolom => $nilai) {
+        foreach (array_slice($rows[$barisHeader], 3, null, true) as $kolom => $nilai) {
             $tanggal = $this->parseTanggalHeader($nilai);
             if ($tanggal !== null) {
                 $tanggalKolom[$kolom] = $tanggal;
@@ -168,18 +187,32 @@ class JadwalShiftService
             abort(422, 'Kolom tanggal tidak ditemukan pada baris header (mulai kolom ke-4)');
         }
 
-        return DB::transaction(function () use ($rows, $tanggalKolom, $idProyek, $idPerusahaan) {
+        return DB::transaction(function () use ($rows, $barisHeader, $tanggalKolom, $idProyek, $idPerusahaan) {
             $sukses    = 0;
+            $ditimpa   = [];
             $gagal     = [];
             $terjadwal = [];
 
-            foreach (array_slice($rows, 1, null, true) as $idx => $row) {
+            foreach (array_slice($rows, $barisHeader + 1, null, true) as $idx => $row) {
                 $barisKe   = $idx + 1;
                 $noSim     = trim((string) ($row[0] ?? ''));
                 $namaShift = trim((string) ($row[2] ?? ''));
 
                 if ($noSim === '' && $namaShift === '') {
                     continue;
+                }
+
+                if ($namaShift === '') {
+                    $adaH = false;
+                    foreach (array_keys($tanggalKolom) as $kolom) {
+                        if (strtoupper(trim((string) ($row[$kolom] ?? ''))) === 'H') {
+                            $adaH = true;
+                            break;
+                        }
+                    }
+                    if (!$adaH) {
+                        continue;
+                    }
                 }
 
                 $supir = $this->repo->supirByNoSim($noSim, $idPerusahaan);
@@ -206,7 +239,34 @@ class JadwalShiftService
 
                     $ada = $this->repo->findAktifBySupirTanggal((string) $supir->id_supir, $tanggal);
                     if ($ada !== null) {
-                        $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => "Tanggal {$tanggal}: sudah dijadwalkan shift {$ada->shift_nama}"];
+                        if ((string) $ada->id_proyek !== $idProyek) {
+                            $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => "Tanggal {$tanggal}: sudah dijadwalkan shift {$ada->shift_nama} di proyek {$ada->nama_proyek}"];
+                            continue;
+                        }
+
+                        if ((string) $ada->id_shift === (string) $shift->id_shift) {
+                            $sukses++;
+                            continue;
+                        }
+
+                        if ($tanggal === now()->toDateString()) {
+                            $tripAktif = $this->tripRepo->findTripAktifUntukAktor(null, (string) $supir->id_supir, null, null);
+                            if ($tripAktif !== null) {
+                                $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => "Tanggal {$tanggal}: supir masih punya trip aktif — jadwal tidak ditimpa"];
+                                continue;
+                            }
+                        }
+
+                        $this->repo->delete($ada);
+                        $this->alokasiService->hapusUntukJadwal((string) $supir->id_supir, $tanggal);
+                        $this->repo->create([
+                            'id_proyek' => $idProyek,
+                            'id_shift'  => $shift->id_shift,
+                            'id_supir'  => $supir->id_supir,
+                            'tanggal'   => $tanggal,
+                        ]);
+                        $ditimpa[]   = ['baris' => $barisKe, 'no_sim' => $noSim, 'tanggal' => $tanggal, 'shift_lama' => $ada->shift_nama, 'shift_baru' => $shift->nama];
+                        $terjadwal[] = ['id_supir' => (string) $supir->id_supir, 'tanggal' => $tanggal];
                         continue;
                     }
 
@@ -223,7 +283,7 @@ class JadwalShiftService
 
             $this->hitungUlangUntukTerjadwal($terjadwal, $idProyek);
 
-            return ['sukses' => $sukses, 'gagal' => $gagal];
+            return ['sukses' => $sukses, 'ditimpa' => $ditimpa, 'gagal' => $gagal];
         });
     }
 

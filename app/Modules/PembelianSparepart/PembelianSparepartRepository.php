@@ -178,6 +178,7 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
                 'qty'          => (int) $item->qty,
                 'harga'        => $item->harga_aktual,
                 'id_perawatan' => $header->id_perawatan,
+                'id_pembelian' => $header->id_pembelian,
                 'keterangan'   => 'Pembelian ' . $header->nomor_pengajuan,
                 'tanggal'      => $header->tanggal_pembelian,
             ], 'id_mutasi'));

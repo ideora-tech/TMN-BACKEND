@@ -23,7 +23,7 @@ class RuteRepository implements RuteRepositoryInterface {
                    ->orWhere('asal','like',"%{$search}%")
                    ->orWhere('tujuan','like',"%{$search}%");
             }))
-            ->orderBy('nama_rute')
+            ->orderByDesc('dibuat_pada')
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }
 

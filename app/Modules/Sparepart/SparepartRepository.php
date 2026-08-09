@@ -20,7 +20,7 @@ class SparepartRepository implements SparepartRepositoryInterface
     ];
 
     private const MUTASI_COLUMNS = [
-        'id_mutasi', 'id_sparepart', 'jenis', 'qty', 'harga', 'id_perawatan', 'keterangan', 'tanggal',
+        'id_mutasi', 'id_sparepart', 'jenis', 'qty', 'harga', 'id_perawatan', 'id_pembelian', 'keterangan', 'tanggal',
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 

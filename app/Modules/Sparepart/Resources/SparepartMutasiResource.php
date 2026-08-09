@@ -17,6 +17,7 @@ class SparepartMutasiResource extends JsonResource
             'qty'          => (int) $this->qty,
             'harga'        => $this->harga !== null ? (float) $this->harga : null,
             'id_perawatan' => $this->id_perawatan,
+            'id_pembelian' => $this->id_pembelian,
             'keterangan'   => $this->keterangan,
             'tanggal'      => $this->tanggal,
             'dibuat_pada'  => $this->dibuat_pada,

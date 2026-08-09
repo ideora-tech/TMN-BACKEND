@@ -124,7 +124,11 @@ class PembelianBuktiRealisasiTest extends TestCase
         $this->assertSame(2, (int) DB::table('sparepart')->where('id_sparepart', $idSparepart)->value('stok'));
         $this->assertDatabaseHas('sparepart_mutasi', [
             'id_sparepart' => $idSparepart, 'jenis' => 'masuk', 'qty' => 2, 'harga' => 65000,
+            'id_pembelian' => $id,
         ]);
+
+        $mutasi = $this->getJson("/api/v1/sparepart/{$idSparepart}/mutasi")->json('data');
+        $this->assertSame($id, $mutasi[0]['id_pembelian']);
     }
 
     public function test_realisasi_tanpa_bukti_atau_item_kurang_ditolak(): void

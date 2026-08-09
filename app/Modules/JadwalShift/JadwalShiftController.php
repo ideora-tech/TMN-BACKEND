@@ -41,7 +41,7 @@ class JadwalShiftController extends Controller
         );
 
         return Excel::download(
-            new JadwalShiftTemplateExport($data['supir'], $data['tanggal']),
+            new JadwalShiftTemplateExport($data['supir'], $data['tanggal'], $data['nama_proyek'], $data['periode']),
             'template-jadwal-shift.xlsx'
         );
     }

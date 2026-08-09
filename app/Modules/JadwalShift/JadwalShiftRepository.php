@@ -134,6 +134,16 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             ->exists();
     }
 
+    public function namaProyek(string $idProyek): ?string
+    {
+        $nama = DB::table('proyek')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek', $idProyek)
+            ->value('nama_proyek');
+
+        return $nama !== null ? (string) $nama : null;
+    }
+
     public function create(array $data): object
     {
         $data = RecordHelper::stampCreate($data, 'id_jadwal_shift');

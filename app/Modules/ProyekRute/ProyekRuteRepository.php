@@ -27,6 +27,7 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
                 'rute.asal',
                 'rute.tujuan',
                 'jenis_kendaraan.nama_jenis',
+                'tarif_rute.harga as uang_jalan',
                 'tarif_rute.estimasi_tol',
                 'tarif_rute.estimasi_bbm',
                 'tarif_rute.estimasi_uang_jalan',
