@@ -620,4 +620,9 @@ class TripService
     {
         return $this->laporanRepo->rekapTripPerSupir($idPerusahaan, $filter);
     }
+
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->laporanRepo->getPerusahaan($idPerusahaan);
+    }
 }

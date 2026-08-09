@@ -88,4 +88,11 @@ class ArmadaController extends Controller
 
         return ApiResponse::success($this->service->servisJatuhTempo($idPerusahaan, $days));
     }
+
+    public function dashboard(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        return ApiResponse::success($this->service->dashboard($idPerusahaan));
+    }
 }

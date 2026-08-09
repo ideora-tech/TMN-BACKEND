@@ -311,6 +311,35 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.0.status', 'selesai');
     }
 
+    public function test_riwayat_saya_filter_status_selesai_dengan_total_akumulasi(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek, 'selesai');
+
+        foreach ([['selesai', '2026-08-01'], ['selesai', '2026-08-04'], ['dibatalkan', '2026-08-05']] as [$status, $tanggal]) {
+            $jadwal = JadwalKeberangkatanModel::create([
+                'id_penugasan'    => $penugasan->id_penugasan,
+                'waktu_berangkat' => "{$tanggal} 08:00:00",
+            ]);
+            TripModel::create([
+                'id_jadwal'      => $jadwal->id_jadwal,
+                'status'         => $status,
+                'waktu_checkin'  => "{$tanggal} 08:00:00",
+                'waktu_checkout' => $status === 'selesai' ? "{$tanggal} 17:00:00" : null,
+            ]);
+        }
+
+        $this->getJson('/api/v1/trip/riwayat-saya?status=selesai&limit=1')
+            ->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.status', 'selesai');
+
+        $this->getJson('/api/v1/trip/riwayat-saya?status=ngawur')
+            ->assertStatus(422);
+    }
+
     public function test_riwayat_saya_bisa_difilter_per_tanggal(): void
     {
         $ctx = $this->actingAsSupir();

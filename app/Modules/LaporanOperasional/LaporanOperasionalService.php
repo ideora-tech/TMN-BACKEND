@@ -50,6 +50,11 @@ class LaporanOperasionalService
         return $this->repo->armadaAktif($idPerusahaan);
     }
 
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->repo->getPerusahaan($idPerusahaan);
+    }
+
     private function castRow(object $row): object
     {
         $row->jarak_tempuh_km = $row->jarak_tempuh_km !== null ? (float) $row->jarak_tempuh_km : null;

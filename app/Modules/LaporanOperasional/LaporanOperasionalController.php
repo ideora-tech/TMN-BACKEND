@@ -67,11 +67,27 @@ class LaporanOperasionalController extends Controller
     public function exportTripPdf(Request $request): Response
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $items = $this->service->exportTrip($idPerusahaan, $this->filters($request));
+        $filters = $this->filters($request);
+        $items = $this->service->exportTrip($idPerusahaan, $filters);
 
-        $pdf = Pdf::loadView('exports.laporan-trip', ['items' => $items]);
+        $pdf = Pdf::loadView('exports.laporan-trip', [
+            'items'      => $items,
+            'dari'       => $filters['dari'],
+            'sampai'     => $filters['sampai'],
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
+        ]);
 
         return $pdf->download('laporan-trip-' . date('Ymd') . '.pdf');
+    }
+
+    private function logoBase64(): ?string
+    {
+        $path = public_path('img/logo/logo-sli.png');
+        if (!is_file($path)) {
+            return null;
+        }
+        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
     }
 
     public function exportKaryawanExcel(Request $request): BinaryFileResponse

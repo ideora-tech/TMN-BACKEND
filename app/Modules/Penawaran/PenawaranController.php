@@ -87,8 +87,23 @@ class PenawaranController extends Controller
 
         $klien = $penawaran->id_klien ? $this->klienRepo->findById($penawaran->id_klien) : null;
 
-        $pdf = Pdf::loadView('exports.penawaran', ['p' => $penawaran, 'klien' => $klien]);
+        $pdf = Pdf::loadView('exports.penawaran', [
+            'p'          => $penawaran,
+            'klien'      => $klien,
+            'items'      => $penawaran->items,
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan((string) $request->user()->id_perusahaan),
+        ]);
 
         return $pdf->download('penawaran-' . $penawaran->nomor_penawaran . '.pdf');
+    }
+
+    private function logoBase64(): ?string
+    {
+        $path = public_path('img/logo/logo-sli.png');
+        if (!is_file($path)) {
+            return null;
+        }
+        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
     }
 }

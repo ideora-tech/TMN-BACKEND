@@ -132,6 +132,23 @@ class ArmadaService
         return array_merge($hari, $km);
     }
 
+    public function dashboard(string $idPerusahaan): array
+    {
+        $statistik      = $this->repo->hitungStatusArmada($idPerusahaan);
+        $harusServis    = $this->servisJatuhTempo($idPerusahaan);
+        $perawatanAktif = $this->repo->findPerawatanAktif($idPerusahaan);
+
+        $statistik['dalamPerawatan'] = count(array_filter($perawatanAktif, fn ($p) => $p['status'] === 'dalam_proses'));
+        $statistik['terjadwal']      = count(array_filter($perawatanAktif, fn ($p) => $p['status'] === 'terjadwal'));
+        $statistik['harusServis']    = count($harusServis);
+
+        return [
+            'statistik'      => $statistik,
+            'harusServis'    => $harusServis,
+            'perawatanAktif' => $perawatanAktif,
+        ];
+    }
+
     /**
      * Import armada dari file Excel (template 14 kolom — kolom detail opsional; template lama 5 kolom tetap valid).
      * Mode "sebagian masuk + laporan gagal" — baris valid tetap di-insert walau

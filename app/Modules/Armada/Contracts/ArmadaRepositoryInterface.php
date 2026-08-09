@@ -22,4 +22,6 @@ interface ArmadaRepositoryInterface
     public function delete(ArmadaModel $model): void;
     public function findServisJatuhTempo(string $idPerusahaan, int $days): array;
     public function findServisJatuhTempoKm(string $idPerusahaan): array;
+    public function hitungStatusArmada(string $idPerusahaan): array;
+    public function findPerawatanAktif(string $idPerusahaan): array;
 }

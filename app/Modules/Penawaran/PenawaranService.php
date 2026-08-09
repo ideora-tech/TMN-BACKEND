@@ -142,6 +142,11 @@ class PenawaranService
         $this->repo->delete($record);
     }
 
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->repo->getPerusahaan($idPerusahaan);
+    }
+
     private function totalItems(array $items): float
     {
         return collect($items)->sum(

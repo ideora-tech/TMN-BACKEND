@@ -117,4 +117,9 @@ class LaporanOperasionalRepository implements LaporanOperasionalRepositoryInterf
             ->orderBy('nopol')
             ->get();
     }
+
+    public function getPerusahaan(string $idPerusahaan): ?object
+    {
+        return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
+    }
 }

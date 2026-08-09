@@ -247,4 +247,47 @@ class ArmadaRepository implements ArmadaRepositoryInterface
         usort($hasil, fn ($a, $b) => $a['sisa_km'] <=> $b['sisa_km']);
         return $hasil;
     }
+
+    public function hitungStatusArmada(string $idPerusahaan): array
+    {
+        $rows = DB::table('armada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->groupBy('status')
+            ->selectRaw('status, COUNT(*) as jumlah')
+            ->pluck('jumlah', 'status');
+
+        return [
+            'total'       => (int) $rows->sum(),
+            'tersedia'    => (int) ($rows['tersedia'] ?? 0),
+            'digunakan'   => (int) ($rows['digunakan'] ?? 0),
+            'perawatan'   => (int) ($rows['perawatan'] ?? 0),
+            'tidak_aktif' => (int) ($rows['tidak_aktif'] ?? 0),
+        ];
+    }
+
+    public function findPerawatanAktif(string $idPerusahaan): array
+    {
+        return DB::table('perawatan_armada as p')
+            ->join('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoin('jenis_perawatan as jp', 'jp.id_jenis_perawatan', '=', 'p.id_jenis_perawatan')
+            ->where('a.id_perusahaan', $idPerusahaan)
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('a.dihapus_pada')
+            ->whereIn('p.status', ['terjadwal', 'dalam_proses'])
+            ->orderByRaw("CASE p.status WHEN 'dalam_proses' THEN 0 ELSE 1 END")
+            ->orderBy('p.tanggal')
+            ->select(
+                'p.id_perawatan',
+                'p.id_armada',
+                'a.nopol',
+                DB::raw('COALESCE(jp.nama, p.jenis_perawatan) as jenis_perawatan'),
+                'p.tanggal',
+                'p.status',
+                'p.km_odometer',
+            )
+            ->get()
+            ->map(fn ($r) => (array) $r)
+            ->all();
+    }
 }

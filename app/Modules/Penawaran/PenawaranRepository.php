@@ -6,6 +6,7 @@ namespace App\Modules\Penawaran;
 
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class PenawaranRepository implements PenawaranRepositoryInterface
 {
@@ -71,5 +72,10 @@ class PenawaranRepository implements PenawaranRepositoryInterface
     public function delete(PenawaranModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function getPerusahaan(string $idPerusahaan): ?object
+    {
+        return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
     }
 }

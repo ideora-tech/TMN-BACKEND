@@ -111,6 +111,7 @@ class TripController extends Controller
     {
         $validated = $request->validate([
             'tanggal' => ['nullable', 'date_format:Y-m-d'],
+            'status'  => ['nullable', 'in:selesai,dibatalkan'],
         ]);
 
         $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
@@ -128,7 +129,7 @@ class TripController extends Controller
             null,
             (string) $supir->id_supir,
             null,
-            'selesai,dibatalkan',
+            $validated['status'] ?? 'selesai,dibatalkan',
             null,
             $tanggal,
             $tanggal
@@ -306,10 +307,21 @@ class TripController extends Controller
         $items = $this->service->rekapSupir($idPerusahaan, $filter);
 
         $pdf = Pdf::loadView('exports.rekap-trip-supir', [
-            'items'   => $items,
-            'periode' => RekapTripSupirExport::labelPeriode($filter['dari'], $filter['sampai']),
+            'items'      => $items,
+            'periode'    => RekapTripSupirExport::labelPeriode($filter['dari'], $filter['sampai']),
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
         ]);
 
         return $pdf->download('rekap-trip-supir-' . date('Ymd') . '.pdf');
+    }
+
+    private function logoBase64(): ?string
+    {
+        $path = public_path('img/logo/logo-sli.png');
+        if (!is_file($path)) {
+            return null;
+        }
+        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
     }
 }

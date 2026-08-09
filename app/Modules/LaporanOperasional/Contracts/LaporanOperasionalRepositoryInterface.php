@@ -34,4 +34,6 @@ interface LaporanOperasionalRepositoryInterface
      * Rekap agregat trip per supir (internal & vendor) untuk export tab Riwayat.
      */
     public function rekapTripPerSupir(string $idPerusahaan, array $filter): Collection;
+
+    public function getPerusahaan(string $idPerusahaan): ?object;
 }

@@ -24,6 +24,7 @@ class ArmadaServiceProvider extends ServiceProvider
                 Route::get('armada/import/template', [ArmadaController::class, 'downloadTemplate']);
                 Route::post('armada/import', [ArmadaController::class, 'import']);
                 Route::get('armada/servis-jatuh-tempo', [ArmadaController::class, 'servisJatuhTempo']);
+                Route::get('armada/dashboard', [ArmadaController::class, 'dashboard']);
                 Route::apiResource('armada', ArmadaController::class)
                     ->parameters(['armada' => 'id']);
             });

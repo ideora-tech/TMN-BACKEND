@@ -27,4 +27,6 @@ interface PenawaranRepositoryInterface
     public function update(PenawaranModel $model, array $data): PenawaranModel;
 
     public function delete(PenawaranModel $model): void;
+
+    public function getPerusahaan(string $idPerusahaan): ?object;
 }
