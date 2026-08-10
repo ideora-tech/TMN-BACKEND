@@ -18,7 +18,7 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             ->leftJoin('armada as a', 'a.id_armada', '=', 'al.id_armada')
             ->leftJoin('supir as p', 'p.id_supir', '=', 'al.id_pemilik_asal')
             ->leftJoin('proyek as pr', 'pr.id_proyek', '=', 'al.id_proyek')
-            ->whereNull('al.dihapus_pada')
+            ->when(!$idArmada, fn ($q) => $q->whereNull('al.dihapus_pada'))
             ->where('s.id_perusahaan', $idPerusahaan)
             ->when($idArmada, fn ($q, $v) => $q->where('al.id_armada', $v))
             ->when($idProyek, fn ($q, $v) => $q->where('al.id_proyek', $v))
@@ -30,9 +30,11 @@ class AlokasiArmadaRepository implements AlokasiArmadaRepositoryInterface
             }))
             ->orderByDesc('al.tanggal')
             ->orderBy('s.nama')
+            ->orderBy('al.dibuat_pada')
             ->select(
                 'al.id_alokasi', 'al.tanggal', 'al.id_proyek', 'al.id_supir', 'al.id_armada',
                 'al.id_pemilik_asal', 'al.sumber', 'al.keterangan', 'al.dibuat_pada',
+                'al.dihapus_pada',
                 's.nama as supir_nama', 'a.nopol as armada_nopol',
                 'p.nama as pemilik_nama', 'pr.nama_proyek'
             )

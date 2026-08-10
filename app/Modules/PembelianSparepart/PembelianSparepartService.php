@@ -240,4 +240,9 @@ class PembelianSparepartService
     {
         return $this->repo->laporan($idPerusahaan, $dari, $sampai);
     }
+
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->repo->getPerusahaan($idPerusahaan);
+    }
 }

@@ -233,4 +233,9 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
             'per_armada'  => $perArmada,
         ];
     }
+
+    public function getPerusahaan(string $idPerusahaan): ?object
+    {
+        return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
+    }
 }

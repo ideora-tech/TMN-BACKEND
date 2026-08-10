@@ -116,4 +116,26 @@ class PembelianLaporanTest extends TestCase
         $res = $this->getJson('/api/v1/pembelian-sparepart/laporan?dari=2020-01-01&sampai=2020-01-31');
         $this->assertSame(0, $res->json('data.ringkasan.jumlah'));
     }
+
+    public function test_export_laporan_excel_mengembalikan_200_dan_xlsx(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->pembelianDibeli(100000);
+
+        $res = $this->get('/api/v1/pembelian-sparepart/laporan/export/excel');
+
+        $res->assertStatus(200);
+        $this->assertStringContainsString('spreadsheetml', $res->headers->get('content-type'));
+    }
+
+    public function test_export_laporan_pdf_mengembalikan_200_dan_pdf(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->pembelianDibeli(100000);
+
+        $res = $this->get('/api/v1/pembelian-sparepart/laporan/export/pdf?dari=2020-01-01&sampai=' . now()->toDateString());
+
+        $res->assertStatus(200);
+        $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));
+    }
 }

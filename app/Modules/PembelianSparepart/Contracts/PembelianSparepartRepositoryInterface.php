@@ -25,4 +25,5 @@ interface PembelianSparepartRepositoryInterface
     public function gantiHargaAktualItems(string $idPembelian, array $hargaPerItem): void;
     public function tambahStokDanMutasi(object $header, array $items): void;
     public function laporan(string $idPerusahaan, ?string $dari, ?string $sampai): array;
+    public function getPerusahaan(string $idPerusahaan): ?object;
 }

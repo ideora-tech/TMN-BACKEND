@@ -4,14 +4,19 @@ declare(strict_types=1);
 namespace App\Modules\PembelianSparepart;
 
 use App\Helpers\ApiResponse;
+use App\Modules\PembelianSparepart\Exports\LaporanPembelianExport;
 use App\Modules\PembelianSparepart\Requests\RealisasiPembelianRequest;
 use App\Modules\PembelianSparepart\Requests\StorePembelianSparepartRequest;
 use App\Modules\PembelianSparepart\Requests\UpdatePembelianSparepartRequest;
 use App\Modules\PembelianSparepart\Requests\UploadBuktiPembelianRequest;
 use App\Modules\PembelianSparepart\Resources\PembelianSparepartResource;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class PembelianSparepartController extends Controller
 {
@@ -109,5 +114,43 @@ class PembelianSparepartController extends Controller
             $request->get('sampai')
         );
         return ApiResponse::success($hasil);
+    }
+
+    public function exportLaporanExcel(Request $request): BinaryFileResponse
+    {
+        $dari = $request->get('dari');
+        $sampai = $request->get('sampai');
+        $laporan = $this->service->laporan((string) $request->user()->id_perusahaan, $dari, $sampai);
+
+        return Excel::download(
+            new LaporanPembelianExport($laporan, $dari, $sampai),
+            'laporan-pembelian-sparepart-' . date('Ymd') . '.xlsx'
+        );
+    }
+
+    public function exportLaporanPdf(Request $request): Response
+    {
+        $dari = $request->get('dari');
+        $sampai = $request->get('sampai');
+        $laporan = $this->service->laporan((string) $request->user()->id_perusahaan, $dari, $sampai);
+
+        $pdf = Pdf::loadView('exports.laporan-pembelian-sparepart', [
+            'laporan'    => $laporan,
+            'dari'       => $dari,
+            'sampai'     => $sampai,
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan((string) $request->user()->id_perusahaan),
+        ]);
+
+        return $pdf->download('laporan-pembelian-sparepart-' . date('Ymd') . '.pdf');
+    }
+
+    private function logoBase64(): ?string
+    {
+        $path = public_path('img/logo/logo-sli.png');
+        if (!is_file($path)) {
+            return null;
+        }
+        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
     }
 }

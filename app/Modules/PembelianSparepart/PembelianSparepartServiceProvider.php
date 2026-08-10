@@ -21,6 +21,8 @@ class PembelianSparepartServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:pembelian-sparepart'])
             ->group(function () {
                 Route::get('pembelian-sparepart/laporan', [PembelianSparepartController::class, 'laporan']);
+                Route::get('pembelian-sparepart/laporan/export/excel', [PembelianSparepartController::class, 'exportLaporanExcel']);
+                Route::get('pembelian-sparepart/laporan/export/pdf', [PembelianSparepartController::class, 'exportLaporanPdf']);
                 Route::patch('pembelian-sparepart/{id}/approve-manager', [PembelianSparepartController::class, 'approveManager'])
                     ->middleware('role:SUPERADMIN,ADMIN,MANAGER');
                 Route::patch('pembelian-sparepart/{id}/approve-finance', [PembelianSparepartController::class, 'approveFinance'])

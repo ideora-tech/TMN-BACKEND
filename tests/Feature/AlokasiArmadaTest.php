@@ -584,4 +584,49 @@ class AlokasiArmadaTest extends TestCase
         $this->getJson('/api/v1/alokasi-armada/armada-tersedia?tanggal=2026-08-10')
             ->assertStatus(404);
     }
+
+    public function test_list_mode_audit_saat_filter_armada(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada  = $this->makeArmada('B 1111 ALK');
+        $idSupir = $this->makeSupir('Supir Audit');
+        $proyek  = $this->makeProyek();
+
+        DB::table('alokasi_armada')->insert([
+            [
+                'id_alokasi'      => (string) Str::uuid(),
+                'tanggal'         => '2026-08-10',
+                'id_proyek'       => $proyek->id_proyek,
+                'id_supir'        => $idSupir,
+                'id_armada'       => $armada->id_armada,
+                'id_pemilik_asal' => null,
+                'sumber'          => 'otomatis',
+                'keterangan'      => 'Armada tanpa pemilik',
+                'dibuat_pada'     => now()->subHour(),
+                'dihapus_pada'    => now(),
+            ],
+            [
+                'id_alokasi'      => (string) Str::uuid(),
+                'tanggal'         => '2026-08-10',
+                'id_proyek'       => $proyek->id_proyek,
+                'id_supir'        => $idSupir,
+                'id_armada'       => $armada->id_armada,
+                'id_pemilik_asal' => null,
+                'sumber'          => 'penugasan',
+                'keterangan'      => null,
+                'dibuat_pada'     => now(),
+                'dihapus_pada'    => null,
+            ],
+        ]);
+
+        $tanpaFilter = $this->getJson('/api/v1/alokasi-armada?tanggal_dari=2026-08-10&tanggal_sampai=2026-08-10');
+        $tanpaFilter->assertStatus(200);
+        $this->assertCount(1, $tanpaFilter->json('data'));
+        $this->assertNull($tanpaFilter->json('data.0.dihapus_pada'));
+
+        $denganFilter = $this->getJson("/api/v1/alokasi-armada?tanggal_dari=2026-08-10&tanggal_sampai=2026-08-10&id_armada={$armada->id_armada}");
+        $denganFilter->assertStatus(200);
+        $this->assertCount(2, $denganFilter->json('data'));
+        $this->assertCount(1, collect($denganFilter->json('data'))->filter(fn ($r) => $r['dihapus_pada'] !== null));
+    }
 }
