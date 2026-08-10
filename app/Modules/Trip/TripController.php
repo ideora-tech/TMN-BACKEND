@@ -8,6 +8,7 @@ use App\Helpers\ApiResponse;
 use App\Modules\Penugasan\Resources\PenugasanResource;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Modules\Trip\Exports\RekapTripSupirExport;
+use App\Modules\Trip\Exports\RiwayatTripExport;
 use App\Modules\Trip\Requests\MulaiTripRequest;
 use App\Modules\Trip\Requests\StoreTripRequest;
 use App\Modules\Trip\Resources\TripResource;
@@ -314,6 +315,46 @@ class TripController extends Controller
         ]);
 
         return $pdf->download('rekap-trip-supir-' . date('Ymd') . '.pdf');
+    }
+
+    private function riwayatFilter(Request $request): array
+    {
+        return [
+            'dari'   => $request->query('dari'),
+            'sampai' => $request->query('sampai'),
+            'sumber' => $request->query('sumber'),
+            'status' => $request->query('status'),
+            'search' => $request->query('search'),
+        ];
+    }
+
+    public function exportRiwayatExcel(Request $request): BinaryFileResponse
+    {
+        $idPerusahaan = (string) auth()->user()?->id_perusahaan;
+        $filter = $this->riwayatFilter($request);
+        $trips = $this->service->riwayatUntukExport($idPerusahaan, $filter);
+        $rekap = $this->service->rekapSupir($idPerusahaan, $this->rekapFilter($request));
+
+        return Excel::download(
+            new RiwayatTripExport($trips, $rekap, $filter['dari'], $filter['sampai']),
+            'riwayat-trip-' . date('Ymd') . '.xlsx'
+        );
+    }
+
+    public function exportRiwayatPdf(Request $request): Response
+    {
+        $idPerusahaan = (string) auth()->user()?->id_perusahaan;
+        $filter = $this->riwayatFilter($request);
+        $trips = $this->service->riwayatUntukExport($idPerusahaan, $filter);
+
+        $pdf = Pdf::loadView('exports.riwayat-trip', [
+            'items'      => $trips,
+            'periode'    => RekapTripSupirExport::labelPeriode($filter['dari'], $filter['sampai']),
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download('riwayat-trip-' . date('Ymd') . '.pdf');
     }
 
     private function logoBase64(): ?string

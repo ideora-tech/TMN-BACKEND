@@ -482,4 +482,24 @@ class TripTest extends TestCase
         $this->assertSame('Rute A', $res->json('data.0.rute'));
         $this->assertSame($proyekA->id_proyek, $res->json('data.0.id_proyek'));
     }
+
+    public function test_export_riwayat_trip_excel_mengembalikan_200(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->get('/api/v1/trip/riwayat/export/excel?dari=2026-08-01&sampai=2026-08-10');
+
+        $res->assertStatus(200);
+        $this->assertStringContainsString('spreadsheet', (string) $res->headers->get('content-type'));
+    }
+
+    public function test_export_riwayat_trip_pdf_mengembalikan_200(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->get('/api/v1/trip/riwayat/export/pdf');
+
+        $res->assertStatus(200);
+        $this->assertSame('application/pdf', $res->headers->get('content-type'));
+    }
 }

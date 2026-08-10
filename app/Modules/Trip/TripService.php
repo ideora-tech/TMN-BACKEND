@@ -180,6 +180,26 @@ class TripService
         ];
     }
 
+    public function riwayatUntukExport(string $idPerusahaan, array $filter): Collection
+    {
+        $result = $this->repo->paginate(
+            $idPerusahaan,
+            1,
+            10000,
+            null,
+            null,
+            null,
+            $filter['search'] ?? null,
+            ($filter['status'] ?? null) ?: 'selesai,dibatalkan',
+            null,
+            $filter['dari'] ?? null,
+            $filter['sampai'] ?? null,
+            $filter['sumber'] ?? null,
+        );
+
+        return collect($result->items());
+    }
+
     public function ringkasanProyek(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
     {
         $result = $this->repo->paginateProyekSummary($idPerusahaan, $page, $limit, $search, $status);

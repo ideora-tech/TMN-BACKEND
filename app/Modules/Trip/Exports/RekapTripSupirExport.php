@@ -11,8 +11,9 @@ use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithTitle;
 
-class RekapTripSupirExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithEvents
+class RekapTripSupirExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithEvents, WithTitle
 {
     use DenganGayaLaporan;
 
@@ -21,6 +22,11 @@ class RekapTripSupirExport implements FromCollection, WithHeadings, WithMapping,
         private readonly ?string $dari = null,
         private readonly ?string $sampai = null,
     ) {}
+
+    public function title(): string
+    {
+        return 'Rekap per Supir';
+    }
 
     public function judulLaporan(): string
     {
