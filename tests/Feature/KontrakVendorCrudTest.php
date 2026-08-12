@@ -134,6 +134,24 @@ class KontrakVendorCrudTest extends TestCase
         ]);
     }
 
+    public function test_satuan_di_luar_daftar_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+
+        $this->postJson('/api/v1/kontrak-vendor', [
+            'id_vendor' => $vendor->id_vendor,
+            'mekanisme' => 'unit_only',
+            'satuan'    => 'per kilo',
+        ])->assertStatus(422);
+
+        $this->postJson('/api/v1/kontrak-vendor', [
+            'id_vendor' => $vendor->id_vendor,
+            'mekanisme' => 'unit_only',
+            'satuan'    => 'per trip',
+        ])->assertStatus(201);
+    }
+
     public function test_membuat_kontrak_dengan_nilai_kontrak_null_tersimpan_nol(): void
     {
         $this->actingAsRole('SUPERADMIN');

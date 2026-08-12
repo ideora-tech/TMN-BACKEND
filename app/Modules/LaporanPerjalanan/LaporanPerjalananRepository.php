@@ -95,4 +95,14 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
             ->whereNull('pr.dihapus_pada')
             ->exists();
     }
+
+    public function mekanismeKontrak(string $idKontrakVendor): ?string
+    {
+        $mekanisme = DB::table('kontrak_vendor')
+            ->whereNull('dihapus_pada')
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->value('mekanisme');
+
+        return $mekanisme !== null ? (string) $mekanisme : null;
+    }
 }

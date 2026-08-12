@@ -16,6 +16,8 @@ class ArmadaVendorResource extends JsonResource
             'nopol'             => $this->nopol,
             'merk'              => $this->merk,
             'jenis'             => $this->jenis,
+            'id_jenis_kendaraan'   => $this->id_jenis_kendaraan,
+            'nama_jenis_kendaraan' => $this->whenNotNull($this->nama_jenis_kendaraan ?? null),
             'kapasitas'         => $this->kapasitas,
             'tahun'             => $this->tahun,
             'masa_berlaku_stnk' => $this->masa_berlaku_stnk?->toDateString(),

@@ -35,18 +35,25 @@ class LaporanProyekExport implements FromCollection, WithHeadings, WithMapping, 
 
     public function headings(): array
     {
-        return ['ID Laporan', 'ID Proyek', 'Ringkasan', 'Total Trip', 'Diserahkan Pada', 'Dibuat Pada'];
+        return ['No', 'Kode Proyek', 'Nama Proyek', 'Klien', 'Trip Selesai', 'Total Jarak (km)', 'Total Biaya Ops (Rp)', 'Diserahkan Oleh', 'Diserahkan Pada', 'Ringkasan'];
     }
 
     public function map($row): array
     {
+        static $no = 0;
+        $no++;
+
         return [
-            $row->id_laporan ?? '',
-            $row->id_proyek ?? '',
-            $row->ringkasan ?? '',
-            $row->total_trip ?? 0,
-            $row->diserahkan_pada ? $row->diserahkan_pada->format('d/m/Y H:i') : '',
-            $row->dibuat_pada ?? '',
+            $no,
+            $row->kode_proyek ?? '-',
+            $row->nama_proyek ?? '-',
+            $row->nama_klien ?? '-',
+            (int) ($row->total_trip ?? 0),
+            (float) ($row->total_jarak_km ?? 0),
+            (float) ($row->total_biaya ?? 0),
+            $row->diserahkan_oleh ?? '-',
+            $row->diserahkan_pada ? \Carbon\Carbon::parse($row->diserahkan_pada)->format('d/m/Y H:i') : '-',
+            $row->ringkasan ?? '-',
         ];
     }
 }

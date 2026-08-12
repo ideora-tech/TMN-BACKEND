@@ -17,6 +17,7 @@ class ArmadaVendorModel extends BaseModel
         'nopol',
         'merk',
         'jenis',
+        'id_jenis_kendaraan',
         'kapasitas',
         'tahun',
         'masa_berlaku_stnk',

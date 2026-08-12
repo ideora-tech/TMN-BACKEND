@@ -23,7 +23,7 @@ class StoreKontrakVendorRequest extends FormRequest
             'jenis_layanan'          => ['sometimes', 'nullable', 'string', 'max:150'],
             'nilai_kontrak'          => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'rate'                   => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'satuan'                 => ['sometimes', 'nullable', 'string', 'max:50'],
+            'satuan'                 => ['sometimes', 'nullable', 'string', 'in:per trip,per ton,per hari,per bulan,lumpsum'],
             'pajak_persen'           => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
             'termin_pembayaran_hari' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:365'],
             'tanggal_mulai'          => ['sometimes', 'nullable', 'date'],

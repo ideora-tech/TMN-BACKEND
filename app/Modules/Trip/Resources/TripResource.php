@@ -23,6 +23,7 @@ class TripResource extends JsonResource
             'armada_nopol'    => $this->armada_nopol,
             'sumber'          => $this->sumber ?? 'internal',
             'vendor_nama'     => $this->vendor_nama,
+            'mekanisme'       => $this->mekanisme,
             'waktu_checkin'   => $this->waktu_checkin,
             'waktu_checkout'  => $this->waktu_checkout,
             'status'          => $this->status,

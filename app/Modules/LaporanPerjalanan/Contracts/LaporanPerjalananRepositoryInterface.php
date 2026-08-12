@@ -21,4 +21,5 @@ interface LaporanPerjalananRepositoryInterface
     public function findFotoById(string $idLaporan, string $idFoto): ?FotoLaporanPerjalananModel;
     public function deleteFoto(FotoLaporanPerjalananModel $foto): void;
     public function tripMilikPerusahaan(string $idTrip, string $idPerusahaan): bool;
+    public function mekanismeKontrak(string $idKontrakVendor): ?string;
 }

@@ -39,6 +39,8 @@ class ArmadaVendorService
         if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $idPerusahaan)) {
             abort(404, 'Vendor tidak ditemukan');
         }
+        $this->pastikanJenisKendaraanMilikPerusahaan($data, $idPerusahaan);
+
         return $this->repo->create($data);
     }
 
@@ -51,8 +53,19 @@ class ArmadaVendorService
                 abort(404, 'Vendor tidak ditemukan');
             }
         }
+        $this->pastikanJenisKendaraanMilikPerusahaan($data, $idPerusahaan);
 
         return $this->repo->update($record, $data);
+    }
+
+    private function pastikanJenisKendaraanMilikPerusahaan(array $data, string $idPerusahaan): void
+    {
+        if (empty($data['id_jenis_kendaraan'])) {
+            return;
+        }
+        if (!$this->repo->jenisKendaraanMilikPerusahaan((string) $data['id_jenis_kendaraan'], $idPerusahaan)) {
+            abort(404, 'Jenis kendaraan tidak ditemukan');
+        }
     }
 
     public function delete(string $id, string $idPerusahaan): void

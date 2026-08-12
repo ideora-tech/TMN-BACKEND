@@ -95,6 +95,8 @@ class InvoiceVendorTest extends TestCase
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-2026-001',
             'tanggal_invoice' => '2026-07-01',
+            'periode_dari'    => '2026-06-01',
+            'periode_sampai'  => '2026-06-30',
             'dpp'             => 10000000,
             'ppn'             => 1100000,
             'pph'             => 200000,
@@ -105,7 +107,9 @@ class InvoiceVendorTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.nomor_invoice', 'INV-2026-001')
             ->assertJsonPath('data.status', 'draft')
-            ->assertJsonPath('data.status_pembayaran', 'belum');
+            ->assertJsonPath('data.status_pembayaran', 'belum')
+            ->assertJsonPath('data.periode_dari', '2026-06-01')
+            ->assertJsonPath('data.periode_sampai', '2026-06-30');
 
         $this->assertSame(10900000.0, (float) $res->json('data.total'));
 

@@ -14,6 +14,7 @@ class ProyekResource extends JsonResource
             'id_proyek'       => $this->id_proyek,
             'id_perusahaan'   => $this->id_perusahaan,
             'id_klien'        => $this->id_klien,
+            'nama_klien'      => $this->nama_klien ?? null,
             'kode_proyek'     => $this->kode_proyek,
             'nama_proyek'     => $this->nama_proyek,
             'tanggal_mulai'   => $this->tanggal_mulai,

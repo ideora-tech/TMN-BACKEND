@@ -409,11 +409,13 @@ class TripTest extends TestCase
         $this->assertNotNull($item);
         $this->assertSame('vendor', $item['sumber']);
         $this->assertSame('PT Vendor Ekspedisi', $item['vendor_nama']);
+        $this->assertSame('full', $item['mekanisme']);
 
         $resDetail = $this->getJson("/api/v1/trip/{$trip->id_trip}");
         $resDetail->assertStatus(200)
             ->assertJsonPath('data.sumber', 'vendor')
-            ->assertJsonPath('data.vendor_nama', 'PT Vendor Ekspedisi');
+            ->assertJsonPath('data.vendor_nama', 'PT Vendor Ekspedisi')
+            ->assertJsonPath('data.mekanisme', 'full');
     }
 
     public function test_filter_sumber_memisahkan_trip_vendor_dan_internal(): void
@@ -450,6 +452,7 @@ class TripTest extends TestCase
         $this->assertNotNull($item);
         $this->assertSame('internal', $item['sumber']);
         $this->assertNull($item['vendor_nama']);
+        $this->assertNull($item['mekanisme']);
 
         $resDetail = $this->getJson("/api/v1/trip/{$trip->id_trip}");
         $resDetail->assertStatus(200)

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -20,24 +20,34 @@
     <table>
         <thead>
             <tr>
-                <th>ID Laporan</th>
-                <th>ID Proyek</th>
-                <th>Ringkasan</th>
-                <th class="num">Total Trip</th>
+                <th>No</th>
+                <th>Kode Proyek</th>
+                <th>Nama Proyek</th>
+                <th>Klien</th>
+                <th class="num">Trip Selesai</th>
+                <th class="num">Total Jarak (km)</th>
+                <th class="num">Total Biaya Ops</th>
+                <th>Diserahkan Oleh</th>
                 <th>Diserahkan Pada</th>
+                <th>Ringkasan</th>
             </tr>
         </thead>
         <tbody>
             @forelse($items as $item)
             <tr>
-                <td>{{ $item->id_laporan }}</td>
-                <td>{{ $item->id_proyek }}</td>
-                <td>{{ $item->ringkasan }}</td>
-                <td class="num">{{ $item->total_trip }}</td>
-                <td>{{ $item->diserahkan_pada ? $item->diserahkan_pada->format('d/m/Y H:i') : '-' }}</td>
+                <td>{{ $loop->iteration }}</td>
+                <td>{{ $item->kode_proyek ?? '-' }}</td>
+                <td>{{ $item->nama_proyek ?? '-' }}</td>
+                <td>{{ $item->nama_klien ?? '-' }}</td>
+                <td class="num">{{ number_format((int) $item->total_trip, 0, ',', '.') }}</td>
+                <td class="num">{{ number_format((float) $item->total_jarak_km, 1, ',', '.') }}</td>
+                <td class="num">Rp {{ number_format((float) $item->total_biaya, 0, ',', '.') }}</td>
+                <td>{{ $item->diserahkan_oleh ?? '-' }}</td>
+                <td>{{ $item->diserahkan_pada ? \Carbon\Carbon::parse($item->diserahkan_pada)->format('d/m/Y H:i') : '-' }}</td>
+                <td>{{ $item->ringkasan ?? '-' }}</td>
             </tr>
             @empty
-            <tr><td colspan="5" style="text-align:center">Tidak ada data</td></tr>
+            <tr><td colspan="10" style="text-align:center">Tidak ada data</td></tr>
             @endforelse
         </tbody>
     </table>

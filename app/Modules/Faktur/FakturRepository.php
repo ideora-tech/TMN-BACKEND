@@ -6,6 +6,7 @@ namespace App\Modules\Faktur;
 
 use App\Modules\Faktur\Contracts\FakturRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class FakturRepository implements FakturRepositoryInterface
 {
@@ -53,6 +54,19 @@ class FakturRepository implements FakturRepositoryInterface
             ->where('nomor_faktur', $nomor)
             ->where('id_perusahaan', $idPerusahaan)
             ->first();
+    }
+
+    public function nomorBerikutnya(string $idPerusahaan): string
+    {
+        $prefix = 'FK-' . now()->format('Ym') . '-';
+        $terakhir = DB::table('faktur')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('nomor_faktur', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->max('nomor_faktur');
+        $urut = $terakhir ? ((int) substr($terakhir, -4)) + 1 : 1;
+
+        return $prefix . str_pad((string) $urut, 4, '0', STR_PAD_LEFT);
     }
 
     public function create(array $data): FakturModel

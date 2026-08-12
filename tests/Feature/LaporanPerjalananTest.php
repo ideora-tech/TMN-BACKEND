@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Modules\ArmadaVendor\ArmadaVendorModel;
 use App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel;
+use App\Modules\KontrakVendor\KontrakVendorModel;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
+use App\Modules\SupirVendor\SupirVendorModel;
 use App\Modules\Trip\TripModel;
+use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +75,91 @@ class LaporanPerjalananTest extends TestCase
             'id_jadwal' => $jadwal->id_jadwal,
             'status'    => $status,
         ]);
+    }
+
+    private function makeTripVendorMekanisme(string $mekanisme, string $status = 'selesai'): TripModel
+    {
+        $idVendor = VendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor'   => 'VEN-' . Str::random(8),
+            'nama_vendor'   => 'PT Vendor Laporan',
+        ])->id_vendor;
+
+        $kontrak = KontrakVendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_vendor'     => $idVendor,
+            'mekanisme'     => $mekanisme,
+        ]);
+
+        $idArmadaVendor = ArmadaVendorModel::create([
+            'id_vendor' => $idVendor,
+            'nopol'     => 'B ' . random_int(1000, 9999) . ' LV',
+        ])->id_armada_vendor;
+
+        $idSupirVendor = SupirVendorModel::create([
+            'id_vendor' => $idVendor,
+            'nama'      => 'Supir Vendor ' . Str::random(4),
+        ])->id_supir_vendor;
+
+        $proyek = ProyekModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => (string) Str::uuid(),
+            'kode_proyek'   => 'PRJ-' . Str::random(8),
+            'nama_proyek'   => 'Proyek Laporan Vendor',
+        ]);
+
+        $penugasan = PenugasanModel::create([
+            'id_proyek'         => $proyek->id_proyek,
+            'sumber'            => 'vendor',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'id_armada_vendor'  => $idArmadaVendor,
+            'id_supir_vendor'   => $idSupirVendor,
+        ]);
+
+        $jadwal = JadwalKeberangkatanModel::create([
+            'id_penugasan' => $penugasan->id_penugasan,
+        ]);
+
+        return TripModel::create([
+            'id_jadwal' => $jadwal->id_jadwal,
+            'status'    => $status,
+        ]);
+    }
+
+    public function test_laporan_trip_vendor_unit_driver_tolak_uang_jalan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $trip = $this->makeTripVendorMekanisme('unit_driver');
+
+        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'uang_jalan' => 50000,
+        ]);
+        $res->assertStatus(422);
+        $this->assertStringContainsString('ditanggung vendor', (string) $res->json('message'));
+
+        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_bbm' => 100000,
+            'uang_tol'  => 20000,
+        ])->assertStatus(201);
+    }
+
+    public function test_laporan_trip_vendor_full_tolak_semua_biaya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $trip = $this->makeTripVendorMekanisme('full');
+
+        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_bbm' => 100000,
+        ])->assertStatus(422);
+
+        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_lain' => [['nama_biaya' => 'Parkir', 'nominal' => 10000]],
+        ])->assertStatus(422);
+
+        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'jarak_tempuh_km' => 120,
+            'catatan_insiden' => 'aman',
+        ])->assertStatus(201);
     }
 
     public function test_membuat_laporan_untuk_trip_selesai(): void

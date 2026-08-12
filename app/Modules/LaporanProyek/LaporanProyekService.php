@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\LaporanProyek;
 
 use App\Modules\LaporanProyek\Contracts\LaporanProyekRepositoryInterface;
-use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
 
 class LaporanProyekService
 {
     public function __construct(
         private readonly LaporanProyekRepositoryInterface $repo,
-        private readonly PenugasanRepositoryInterface $penugasanRepo,
     ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null): array
@@ -38,6 +36,45 @@ class LaporanProyekService
         return $record;
     }
 
+    public function dataExport(string $idPerusahaan): \Illuminate\Support\Collection
+    {
+        return collect($this->repo->semuaUntukExport($idPerusahaan))->map(function ($laporan) {
+            $statistik = $this->repo->statistikProyek((string) $laporan->id_proyek);
+
+            return (object) [
+                'kode_proyek'     => $laporan->kode_proyek,
+                'nama_proyek'     => $laporan->nama_proyek,
+                'nama_klien'      => $laporan->nama_klien,
+                'total_trip'      => $statistik['total_trip'],
+                'total_jarak_km'  => $statistik['total_jarak_km'],
+                'total_biaya'     => $statistik['total_biaya'],
+                'ringkasan'       => $laporan->ringkasan,
+                'diserahkan_oleh' => $laporan->diserahkan_oleh,
+                'diserahkan_pada' => $laporan->diserahkan_pada,
+            ];
+        });
+    }
+
+    public function detail(string $id, string $idPerusahaan): array
+    {
+        $laporan = $this->repo->detailById($id, $idPerusahaan);
+        if ($laporan === null) {
+            abort(404, 'Laporan proyek tidak ditemukan');
+        }
+
+        return [
+            'id_laporan'      => $laporan->id_laporan,
+            'id_proyek'       => $laporan->id_proyek,
+            'kode_proyek'     => $laporan->kode_proyek,
+            'nama_proyek'     => $laporan->nama_proyek,
+            'nama_klien'      => $laporan->nama_klien,
+            'ringkasan'       => $laporan->ringkasan,
+            'diserahkan_oleh' => $laporan->diserahkan_oleh,
+            'diserahkan_pada' => $laporan->diserahkan_pada,
+            'statistik'       => $this->repo->statistikProyek((string) $laporan->id_proyek),
+        ];
+    }
+
     public function getByProyek(string $idProyek): LaporanProyekModel
     {
         $record = $this->repo->findByProyek($idProyek);
@@ -55,7 +92,7 @@ class LaporanProyekService
             abort(409, 'Laporan untuk proyek ini sudah ada');
         }
 
-        $totalTrip = $this->penugasanRepo->countSelesaiByProyek($idProyek);
+        $totalTrip = $this->repo->countTripSelesaiByProyek($idProyek);
 
         return $this->repo->create(array_merge($data, [
             'total_trip'         => $totalTrip,

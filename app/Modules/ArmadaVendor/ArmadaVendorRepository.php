@@ -14,6 +14,7 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
     {
         return ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->leftJoin('jenis_kendaraan', 'jenis_kendaraan.id_jenis_kendaraan', '=', 'armada_vendor.id_jenis_kendaraan')
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->whereNull('vendor.dihapus_pada')
             ->when($idVendor, fn ($q) => $q->where('armada_vendor.id_vendor', $idVendor))
@@ -21,7 +22,7 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 $q2->where('armada_vendor.nopol', 'like', "%{$search}%")
                    ->orWhere('armada_vendor.merk', 'like', "%{$search}%");
             }))
-            ->select('armada_vendor.*', 'vendor.nama_vendor')
+            ->select('armada_vendor.*', 'vendor.nama_vendor', 'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan')
             ->orderBy('armada_vendor.nopol')
             ->paginate($limit, ['*'], 'page', $page);
     }
@@ -30,10 +31,11 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
     {
         return ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->leftJoin('jenis_kendaraan', 'jenis_kendaraan.id_jenis_kendaraan', '=', 'armada_vendor.id_jenis_kendaraan')
             ->where('armada_vendor.id_armada_vendor', $id)
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->whereNull('vendor.dihapus_pada')
-            ->select('armada_vendor.*', 'vendor.nama_vendor')
+            ->select('armada_vendor.*', 'vendor.nama_vendor', 'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan')
             ->first();
     }
 
@@ -41,6 +43,15 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
     {
         return DB::table('vendor')
             ->where('id_vendor', $idVendor)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
+    public function jenisKendaraanMilikPerusahaan(string $idJenisKendaraan, string $idPerusahaan): bool
+    {
+        return DB::table('jenis_kendaraan')
+            ->where('id_jenis_kendaraan', $idJenisKendaraan)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
             ->exists();

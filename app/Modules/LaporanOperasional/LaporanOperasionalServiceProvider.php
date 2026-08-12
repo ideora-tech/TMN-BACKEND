@@ -25,10 +25,20 @@ class LaporanOperasionalServiceProvider extends ServiceProvider
                 Route::get('laporan/trip/export/excel', [LaporanOperasionalController::class, 'exportTripExcel']);
                 Route::get('laporan/trip/export/pdf', [LaporanOperasionalController::class, 'exportTripPdf']);
                 Route::get('laporan/trip', [LaporanOperasionalController::class, 'indexTrip']);
+            });
 
+        // Export master menumpang izin menu masternya — tombolnya ada di halaman
+        // Karyawan/Armada, bukan di halaman Laporan.
+        Route::prefix('api/v1')
+            ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
+            ->group(function () {
                 Route::get('laporan/karyawan/export/excel', [LaporanOperasionalController::class, 'exportKaryawanExcel']);
                 Route::get('laporan/karyawan/export/pdf', [LaporanOperasionalController::class, 'exportKaryawanPdf']);
+            });
 
+        Route::prefix('api/v1')
+            ->middleware(['api', 'auth:sanctum', 'izin:armada'])
+            ->group(function () {
                 Route::get('laporan/armada/export/excel', [LaporanOperasionalController::class, 'exportArmadaExcel']);
                 Route::get('laporan/armada/export/pdf', [LaporanOperasionalController::class, 'exportArmadaPdf']);
             });

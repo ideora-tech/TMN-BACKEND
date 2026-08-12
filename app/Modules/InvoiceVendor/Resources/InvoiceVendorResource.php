@@ -25,6 +25,8 @@ class InvoiceVendorResource extends JsonResource
             'jatuh_tempo'        => $this->jatuh_tempo?->toDateString(),
             'no_po'              => $this->no_po,
             'no_do'              => $this->no_do,
+            'periode_dari'       => $this->periode_dari,
+            'periode_sampai'     => $this->periode_sampai,
             'dpp'                => (float) $this->dpp,
             'ppn'                => (float) $this->ppn,
             'pph'                => (float) $this->pph,

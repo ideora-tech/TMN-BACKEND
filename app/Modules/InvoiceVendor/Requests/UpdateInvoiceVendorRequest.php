@@ -23,6 +23,8 @@ class UpdateInvoiceVendorRequest extends FormRequest
             'jatuh_tempo'       => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'no_po'             => ['sometimes', 'nullable', 'string', 'max:100'],
             'no_do'             => ['sometimes', 'nullable', 'string', 'max:100'],
+            'periode_dari'      => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'periode_sampai'    => ['sometimes', 'nullable', 'date_format:Y-m-d', 'after_or_equal:periode_dari'],
             'dpp'               => ['sometimes', 'required', 'numeric', 'decimal:0,2', 'min:0'],
             'ppn'               => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0'],
             'pph'               => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0'],

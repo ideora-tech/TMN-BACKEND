@@ -12,6 +12,7 @@ interface ArmadaVendorRepositoryInterface
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null, ?string $search = null): LengthAwarePaginator;
     public function findByIdMilikPerusahaan(string $id, string $idPerusahaan): ?ArmadaVendorModel;
     public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
+    public function jenisKendaraanMilikPerusahaan(string $idJenisKendaraan, string $idPerusahaan): bool;
     public function milikVendor(string $id, string $idVendor): bool;
     public function create(array $data): ArmadaVendorModel;
     public function update(ArmadaVendorModel $model, array $data): ArmadaVendorModel;

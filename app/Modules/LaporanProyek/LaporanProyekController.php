@@ -6,7 +6,6 @@ namespace App\Modules\LaporanProyek;
 
 use App\Helpers\ApiResponse;
 use App\Modules\LaporanProyek\Exports\LaporanProyekExport;
-use App\Modules\LaporanProyek\LaporanProyekModel;
 use App\Modules\LaporanProyek\Requests\StoreLaporanProyekRequest;
 use App\Modules\LaporanProyek\Requests\UpdateLaporanProyekRequest;
 use App\Modules\LaporanProyek\Resources\LaporanProyekResource;
@@ -39,9 +38,9 @@ class LaporanProyekController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new LaporanProyekResource($this->service->findOrFail($id)));
+        return ApiResponse::success($this->service->detail($id, (string) $request->user()->id_perusahaan));
     }
 
     public function showByProyek(string $idProyek): JsonResponse
@@ -63,15 +62,7 @@ class LaporanProyekController extends Controller
 
     public function exportExcel(Request $request): BinaryFileResponse
     {
-        $idPerusahaan = (string) auth()->user()?->id_perusahaan;
-
-        $items = LaporanProyekModel::active()
-            ->join('proyek as pr', 'laporan_proyek.id_proyek', '=', 'pr.id_proyek')
-            ->where('pr.id_perusahaan', $idPerusahaan)
-            ->whereNull('pr.dihapus_pada')
-            ->select('laporan_proyek.*')
-            ->orderBy('laporan_proyek.dibuat_pada', 'DESC')
-            ->get();
+        $items = $this->service->dataExport((string) $request->user()->id_perusahaan);
 
         return Excel::download(
             new LaporanProyekExport(collect($items)),
@@ -81,15 +72,7 @@ class LaporanProyekController extends Controller
 
     public function exportPdf(Request $request): Response
     {
-        $idPerusahaan = (string) auth()->user()?->id_perusahaan;
-
-        $items = LaporanProyekModel::active()
-            ->join('proyek as pr', 'laporan_proyek.id_proyek', '=', 'pr.id_proyek')
-            ->where('pr.id_perusahaan', $idPerusahaan)
-            ->whereNull('pr.dihapus_pada')
-            ->select('laporan_proyek.*')
-            ->orderBy('laporan_proyek.dibuat_pada', 'DESC')
-            ->get();
+        $items = $this->service->dataExport((string) $request->user()->id_perusahaan);
 
         $pdf = Pdf::loadView('exports.laporan', ['items' => $items]);
 

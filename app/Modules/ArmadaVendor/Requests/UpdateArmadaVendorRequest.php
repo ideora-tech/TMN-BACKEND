@@ -20,6 +20,7 @@ class UpdateArmadaVendorRequest extends FormRequest
             'nopol'             => ['sometimes', 'string', 'max:20'],
             'merk'              => ['sometimes', 'nullable', 'string', 'max:100'],
             'jenis'             => ['sometimes', 'nullable', 'string', 'max:100'],
+            'id_jenis_kendaraan' => ['sometimes', 'nullable', 'string', 'max:36'],
             'kapasitas'         => ['sometimes', 'nullable', 'string', 'max:50'],
             'tahun'             => ['sometimes', 'nullable', 'integer'],
             'masa_berlaku_stnk' => ['sometimes', 'nullable', 'date'],

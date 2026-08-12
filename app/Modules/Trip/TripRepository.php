@@ -164,8 +164,9 @@ class TripRepository implements TripRepositoryInterface
             ->get()
             ->keyBy('id_proyek');
         $kontrakVendorMap = $idKontrakVendorList->isEmpty() ? collect()
-            : DB::table('kontrak_vendor')->whereIn('id_kontrak_vendor', $idKontrakVendorList)->pluck('id_vendor', 'id_kontrak_vendor');
-        $idVendorList = $kontrakVendorMap->values()->unique()->filter()->values();
+            : DB::table('kontrak_vendor')->whereIn('id_kontrak_vendor', $idKontrakVendorList)
+                ->get(['id_kontrak_vendor', 'id_vendor', 'mekanisme'])->keyBy('id_kontrak_vendor');
+        $idVendorList = $kontrakVendorMap->pluck('id_vendor')->unique()->filter()->values();
         $vendorMap = $idVendorList->isEmpty() ? collect()
             : DB::table('vendor')->whereIn('id_vendor', $idVendorList)->pluck('nama_vendor', 'id_vendor');
 
@@ -219,10 +220,10 @@ class TripRepository implements TripRepositoryInterface
                 ? ($ruteMap->get($jadwal->id_rute) ?? $jadwal->rute)
                 : null;
 
-            $idVendor = $penugasan !== null && $penugasan->id_kontrak_vendor !== null
+            $kontrak = $penugasan !== null && $penugasan->id_kontrak_vendor !== null
                 ? $kontrakVendorMap->get($penugasan->id_kontrak_vendor)
                 : null;
-            $vendorNama = $idVendor !== null ? $vendorMap->get($idVendor) : null;
+            $vendorNama = $kontrak?->id_vendor !== null ? $vendorMap->get($kontrak->id_vendor) : null;
 
             $record->setRelation('rute', $ruteNama);
             $record->setRelation('waktu_berangkat', $jadwal->waktu_berangkat ?? null);
@@ -234,6 +235,7 @@ class TripRepository implements TripRepositoryInterface
             $record->setRelation('nama_klien', $proyek->nama_klien ?? null);
             $record->setRelation('sumber', $penugasan->sumber ?? 'internal');
             $record->setRelation('vendor_nama', $vendorNama);
+            $record->setRelation('mekanisme', $kontrak?->mekanisme);
         }
     }
 

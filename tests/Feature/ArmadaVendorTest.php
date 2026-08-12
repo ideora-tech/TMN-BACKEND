@@ -46,6 +46,38 @@ class ArmadaVendorTest extends TestCase
         ]);
     }
 
+    public function test_armada_vendor_dengan_jenis_kendaraan_master(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+
+        $idJenis = (string) \Illuminate\Support\Str::uuid();
+        \Illuminate\Support\Facades\DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $idJenis, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_jenis' => 'JK-AV1', 'nama_jenis' => 'Tronton', 'dibuat_pada' => now(),
+        ]);
+
+        $this->postJson('/api/v1/armada-vendor', [
+            'id_vendor'          => $vendor->id_vendor,
+            'nopol'              => 'B 7001 JK',
+            'id_jenis_kendaraan' => $idJenis,
+        ])->assertStatus(201)
+            ->assertJsonPath('data.id_jenis_kendaraan', $idJenis);
+
+        $idPerusahaanLain = $this->makePerusahaanLain();
+        $idJenisLain = (string) \Illuminate\Support\Str::uuid();
+        \Illuminate\Support\Facades\DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $idJenisLain, 'id_perusahaan' => $idPerusahaanLain,
+            'kode_jenis' => 'JK-AV2', 'nama_jenis' => 'Trailer', 'dibuat_pada' => now(),
+        ]);
+
+        $this->postJson('/api/v1/armada-vendor', [
+            'id_vendor'          => $vendor->id_vendor,
+            'nopol'              => 'B 7002 JK',
+            'id_jenis_kendaraan' => $idJenisLain,
+        ])->assertStatus(404);
+    }
+
     public function test_membuat_armada_vendor_berhasil(): void
     {
         $this->actingAsRole('SUPERADMIN');

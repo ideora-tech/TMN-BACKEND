@@ -21,6 +21,8 @@ class InvoiceVendorModel extends BaseModel
         'jatuh_tempo',
         'no_po',
         'no_do',
+        'periode_dari',
+        'periode_sampai',
         'dpp',
         'ppn',
         'pph',

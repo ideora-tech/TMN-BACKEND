@@ -13,13 +13,15 @@ class ProyekRepository implements ProyekRepositoryInterface
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator
     {
         return ProyekModel::active()
-            ->where('id_perusahaan', $idPerusahaan)
+            ->leftJoin('klien as k', 'k.id_klien', '=', 'proyek.id_klien')
+            ->where('proyek.id_perusahaan', $idPerusahaan)
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
-                $q2->where('nama_proyek', 'like', "%{$search}%")
-                   ->orWhere('kode_proyek', 'like', "%{$search}%");
+                $q2->where('proyek.nama_proyek', 'like', "%{$search}%")
+                   ->orWhere('proyek.kode_proyek', 'like', "%{$search}%");
             }))
-            ->when($status, fn ($q, $v) => $q->where('status', $v))
-            ->orderBy('dibuat_pada', 'desc')
+            ->when($status, fn ($q, $v) => $q->where('proyek.status', $v))
+            ->orderBy('proyek.dibuat_pada', 'desc')
+            ->select('proyek.*', 'k.nama_klien')
             ->paginate($limit, ['*'], 'page', $page);
     }
 

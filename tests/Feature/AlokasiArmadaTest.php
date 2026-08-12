@@ -18,6 +18,16 @@ class AlokasiArmadaTest extends TestCase
 {
     use RefreshDatabase;
 
+    private string $tanggalUji;
+    private string $tanggalUjiJauh;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->tanggalUji     = now()->addDays(9)->toDateString();
+        $this->tanggalUjiJauh = now()->addDays(19)->toDateString();
+    }
+
     private function makeArmada(string $nopol): ArmadaModel
     {
         return ArmadaModel::create([
@@ -108,11 +118,11 @@ class AlokasiArmadaTest extends TestCase
         $penugasan = $this->makePenugasan($idSupir, $proyek->id_proyek, $armada->id_armada);
         $idShift = $this->makeShift();
 
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'  => $idSupir,
-            'tanggal'   => '2026-08-10',
+            'tanggal'   => $this->tanggalUji,
             'id_armada' => $armada->id_armada,
             'sumber'    => 'penugasan',
         ]);
@@ -132,11 +142,11 @@ class AlokasiArmadaTest extends TestCase
         $idShift = $this->makeShift();
 
         // Pemilik TIDAK dijadwalkan tanggal 10 → armadanya dipinjamkan.
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'        => $idShiftSupir,
-            'tanggal'         => '2026-08-10',
+            'tanggal'         => $this->tanggalUji,
             'id_armada'       => $armada->id_armada,
             'id_pemilik_asal' => $idPemilik,
             'sumber'          => 'otomatis',
@@ -170,18 +180,18 @@ class AlokasiArmadaTest extends TestCase
 
         // Pemilik TIDAK dijadwalkan tanggal 10 → secara jadwal terlihat "menganggur",
         // tapi armadanya masih dipakai trip aktif → tidak boleh dipinjamkan.
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'   => $idShiftSupir,
-            'tanggal'    => '2026-08-10',
+            'tanggal'    => $this->tanggalUji,
             'id_armada'  => null,
             'sumber'     => 'penugasan',
             'keterangan' => 'Tidak ada armada tersedia',
         ]);
         $this->assertDatabaseMissing('alokasi_armada', [
             'id_supir'  => $idShiftSupir,
-            'tanggal'   => '2026-08-10',
+            'tanggal'   => $this->tanggalUji,
             'id_armada' => $armada->id_armada,
         ]);
     }
@@ -201,31 +211,31 @@ class AlokasiArmadaTest extends TestCase
 
         // Gilang MASIH terjadwal tanggal 10 saat Dadang pertama kali di-assign,
         // jadi mobilnya belum jadi kandidat — Dadang dapat armada tanpa pemilik.
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik], '2026-08-10');
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik], $this->tanggalUji);
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_supir' => $idShiftSupir, 'tanggal' => $this->tanggalUji,
             'id_armada' => $armadaTanpaPemilik->id_armada, 'keterangan' => 'Armada tanpa pemilik',
         ]);
 
         // Jadwal Gilang dihapus (jadi libur) — alokasi Dadang HARUS langsung
         // ter-update, tanpa perlu memanggil endpoint hitung-ulang manual.
         $idJadwalGilang = DB::table('jadwal_shift')
-            ->where('id_supir', $idPemilik)->where('tanggal', '2026-08-10')
+            ->where('id_supir', $idPemilik)->where('tanggal', $this->tanggalUji)
             ->value('id_jadwal_shift');
         $this->deleteJson("/api/v1/jadwal-shift/{$idJadwalGilang}")->assertStatus(200);
 
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'        => $idShiftSupir,
-            'tanggal'         => '2026-08-10',
+            'tanggal'         => $this->tanggalUji,
             'id_armada'       => $armadaPemilik->id_armada,
             'id_pemilik_asal' => $idPemilik,
             'sumber'          => 'otomatis',
             'keterangan'      => 'Pemilik tidak dijadwalkan',
         ]);
         $this->assertDatabaseMissing('alokasi_armada', [
-            'id_supir'  => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_supir'  => $idShiftSupir, 'tanggal' => $this->tanggalUji,
             'id_armada' => $armadaTanpaPemilik->id_armada, 'dihapus_pada' => null,
         ]);
     }
@@ -243,23 +253,23 @@ class AlokasiArmadaTest extends TestCase
         $idShift = $this->makeShift();
 
         // Gilang BELUM terjadwal tanggal 10 → mobilnya idle → Dadang meminjamnya.
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_supir' => $idShiftSupir, 'tanggal' => $this->tanggalUji,
             'id_armada' => $armadaPemilik->id_armada, 'keterangan' => 'Pemilik tidak dijadwalkan',
         ]);
 
         // Gilang belakangan ikut dijadwalkan di tanggal yang sama — mobilnya
         // harus ditarik kembali dari Dadang secara otomatis.
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idPemilik, 'tanggal' => '2026-08-10',
+            'id_supir' => $idPemilik, 'tanggal' => $this->tanggalUji,
             'id_armada' => $armadaPemilik->id_armada, 'sumber' => 'penugasan',
         ]);
         $this->assertDatabaseMissing('alokasi_armada', [
-            'id_supir' => $idShiftSupir, 'tanggal' => '2026-08-10',
+            'id_supir' => $idShiftSupir, 'tanggal' => $this->tanggalUji,
             'id_armada' => $armadaPemilik->id_armada, 'dihapus_pada' => null,
         ]);
     }
@@ -279,17 +289,17 @@ class AlokasiArmadaTest extends TestCase
         $idSupir = $this->makeSupir('Supir Tetap');
         $this->makePenugasan($idSupir, $proyek->id_proyek, $armada->id_armada);
         $idShift = $this->makeShift();
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUji);
 
         $res = $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
             'id_proyek' => $proyek->id_proyek,
-            'dari'      => '2026-08-01',
-            'sampai'    => '2026-08-31',
+            'dari'      => now()->toDateString(),
+            'sampai'    => now()->addDays(30)->toDateString(),
         ]);
 
         $res->assertStatus(200)->assertJsonPath('data.jumlah_dihitung_ulang', 1);
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idSupir, 'tanggal' => '2026-08-10',
+            'id_supir' => $idSupir, 'tanggal' => $this->tanggalUji,
             'id_armada' => $armada->id_armada, 'sumber' => 'penugasan', 'dihapus_pada' => null,
         ]);
         $this->assertSame(1, DB::table('alokasi_armada')->where('id_supir', $idSupir)->count());
@@ -310,7 +320,7 @@ class AlokasiArmadaTest extends TestCase
         ]);
 
         $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
-            'id_proyek' => $proyekLain->id_proyek, 'dari' => '2026-08-01', 'sampai' => '2026-08-31',
+            'id_proyek' => $proyekLain->id_proyek, 'dari' => now()->toDateString(), 'sampai' => now()->addDays(30)->toDateString(),
         ])->assertStatus(404);
     }
 
@@ -327,15 +337,15 @@ class AlokasiArmadaTest extends TestCase
         $idShift = $this->makeShift();
 
         // Pemilik ikut dijadwalkan di tanggal yang sama → mobilnya tidak boleh dipinjam.
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik, $idShiftSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idPemilik, $idShiftSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idPemilik, 'tanggal' => '2026-08-10',
+            'id_supir' => $idPemilik, 'tanggal' => $this->tanggalUji,
             'id_armada' => $armada->id_armada, 'sumber' => 'penugasan',
         ]);
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'   => $idShiftSupir,
-            'tanggal'    => '2026-08-10',
+            'tanggal'    => $this->tanggalUji,
             'id_armada'  => null,
             'sumber'     => 'penugasan',
             'keterangan' => 'Tidak ada armada tersedia',
@@ -355,8 +365,8 @@ class AlokasiArmadaTest extends TestCase
             'id_perusahaan'   => self::PERUSAHAAN_ID,
             'id_supir'        => $idPemilik,
             'id_jenis_cuti'   => (string) Str::uuid(),
-            'tanggal_mulai'   => '2026-08-09',
-            'tanggal_selesai' => '2026-08-11',
+            'tanggal_mulai'   => now()->addDays(8)->toDateString(),
+            'tanggal_selesai' => now()->addDays(10)->toDateString(),
             'jumlah_hari'     => 3,
             'status'          => 'disetujui',
             'dibuat_pada'     => now(),
@@ -366,11 +376,11 @@ class AlokasiArmadaTest extends TestCase
         $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
         $idShift = $this->makeShift();
 
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'        => $idShiftSupir,
-            'tanggal'         => '2026-08-10',
+            'tanggal'         => $this->tanggalUji,
             'id_armada'       => $armada->id_armada,
             'id_pemilik_asal' => $idPemilik,
             'sumber'          => 'otomatis',
@@ -388,11 +398,11 @@ class AlokasiArmadaTest extends TestCase
         $this->makePenugasan($idShiftSupir, $proyek->id_proyek);
         $idShift = $this->makeShift();
 
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idShiftSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'        => $idShiftSupir,
-            'tanggal'         => '2026-08-10',
+            'tanggal'         => $this->tanggalUji,
             'id_armada'       => $armada->id_armada,
             'id_pemilik_asal' => null,
             'sumber'          => 'otomatis',
@@ -412,16 +422,16 @@ class AlokasiArmadaTest extends TestCase
         $this->makePenugasan($idSupirB, $proyek->id_proyek);
         $idShift = $this->makeShift();
 
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupirA, $idSupirB], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupirA, $idSupirB], $this->tanggalUji);
 
         $dapatArmada = DB::table('alokasi_armada')
             ->whereNull('dihapus_pada')
-            ->where('tanggal', '2026-08-10')
+            ->where('tanggal', $this->tanggalUji)
             ->where('id_armada', $armada->id_armada)
             ->count();
         $tanpaArmada = DB::table('alokasi_armada')
             ->whereNull('dihapus_pada')
-            ->where('tanggal', '2026-08-10')
+            ->where('tanggal', $this->tanggalUji)
             ->whereNull('id_armada')
             ->count();
 
@@ -438,10 +448,10 @@ class AlokasiArmadaTest extends TestCase
         $idSupir = $this->makeSupir('Supir Ganti');
         $penugasan = $this->makePenugasan($idSupir, $proyek->id_proyek, $armadaA->id_armada);
         $idShift = $this->makeShift();
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUji);
 
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idSupir, 'tanggal' => '2026-08-10', 'id_armada' => $armadaA->id_armada,
+            'id_supir' => $idSupir, 'tanggal' => $this->tanggalUji, 'id_armada' => $armadaA->id_armada,
         ]);
 
         // Ganti armada dilakukan lewat penugasan, bukan lewat alokasi_armada.
@@ -449,10 +459,10 @@ class AlokasiArmadaTest extends TestCase
             ->assertStatus(200);
 
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idSupir, 'tanggal' => '2026-08-10', 'id_armada' => $armadaB->id_armada, 'dihapus_pada' => null,
+            'id_supir' => $idSupir, 'tanggal' => $this->tanggalUji, 'id_armada' => $armadaB->id_armada, 'dihapus_pada' => null,
         ]);
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idSupir, 'tanggal' => '2026-08-10', 'id_armada' => $armadaA->id_armada,
+            'id_supir' => $idSupir, 'tanggal' => $this->tanggalUji, 'id_armada' => $armadaA->id_armada,
         ]);
     }
 
@@ -464,10 +474,10 @@ class AlokasiArmadaTest extends TestCase
         $idSupir = $this->makeSupir('Supir Berubah');
         $penugasan = $this->makePenugasan($idSupir, $proyek->id_proyek, $armada->id_armada);
         $idShift = $this->makeShift();
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-20');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUjiJauh);
 
         $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $idSupir, 'tanggal' => '2026-08-20',
+            'id_supir' => $idSupir, 'tanggal' => $this->tanggalUjiJauh,
             'id_armada' => $armada->id_armada, 'sumber' => 'penugasan',
         ]);
 
@@ -478,7 +488,7 @@ class AlokasiArmadaTest extends TestCase
         // meminjamkannya kembali ke supir yang masih terjadwal (sumber otomatis).
         $this->assertDatabaseHas('alokasi_armada', [
             'id_supir'     => $idSupir,
-            'tanggal'      => '2026-08-20',
+            'tanggal'      => $this->tanggalUjiJauh,
             'id_armada'    => $armada->id_armada,
             'sumber'       => 'otomatis',
             'keterangan'   => 'Armada tanpa pemilik',
@@ -496,7 +506,7 @@ class AlokasiArmadaTest extends TestCase
         $idSupir = $this->makeSupir('Supir Riwayat');
         $penugasan = $this->makePenugasan($idSupir, $proyek->id_proyek, $armadaA->id_armada);
         $idShift = $this->makeShift();
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUji);
 
         $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", ['id_armada' => $armadaB->id_armada])
             ->assertStatus(200);
@@ -523,7 +533,7 @@ class AlokasiArmadaTest extends TestCase
         $idSupir = $this->makeSupir('Supir Laporan');
         $this->makePenugasan($idSupir, $proyek->id_proyek, $armada->id_armada);
         $idShift = $this->makeShift();
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUji);
 
         $this->get("/api/v1/alokasi-armada/export/excel?id_armada={$armada->id_armada}")
             ->assertStatus(200);
@@ -543,7 +553,7 @@ class AlokasiArmadaTest extends TestCase
         $this->makePenugasan($supirA, $proyek->id_proyek, $armadaA->id_armada);
         $this->makePenugasan($supirB, $proyek->id_proyek, $armadaB->id_armada);
         $idShift = $this->makeShift();
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$supirA, $supirB], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$supirA, $supirB], $this->tanggalUji);
 
         $this->getJson("/api/v1/alokasi-armada?id_armada={$armadaA->id_armada}")
             ->assertStatus(200)
@@ -559,12 +569,12 @@ class AlokasiArmadaTest extends TestCase
         $idSupir = $this->makeSupir('Supir');
         $this->makePenugasan($idSupir, $proyek->id_proyek, $armada->id_armada);
         $idShift = $this->makeShift();
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUji);
 
         $idJadwal = DB::table('jadwal_shift')->where('id_supir', $idSupir)->value('id_jadwal_shift');
         $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}")->assertStatus(200);
 
-        $this->assertSoftDeleted('alokasi_armada', ['id_supir' => $idSupir, 'tanggal' => '2026-08-10']);
+        $this->assertSoftDeleted('alokasi_armada', ['id_supir' => $idSupir, 'tanggal' => $this->tanggalUji]);
     }
 
     public function test_endpoint_ganti_armada_manual_sudah_dihapus(): void
@@ -575,13 +585,13 @@ class AlokasiArmadaTest extends TestCase
         $idSupir = $this->makeSupir('Supir Endpoint Lama');
         $this->makePenugasan($idSupir, $proyek->id_proyek, $armada->id_armada);
         $idShift = $this->makeShift();
-        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], '2026-08-10');
+        $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUji);
 
         $idAlokasi = DB::table('alokasi_armada')->where('id_supir', $idSupir)->whereNull('dihapus_pada')->value('id_alokasi');
 
         $this->putJson("/api/v1/alokasi-armada/{$idAlokasi}", ['id_armada' => $armada->id_armada])
             ->assertStatus(404);
-        $this->getJson('/api/v1/alokasi-armada/armada-tersedia?tanggal=2026-08-10')
+        $this->getJson("/api/v1/alokasi-armada/armada-tersedia?tanggal={$this->tanggalUji}")
             ->assertStatus(404);
     }
 
@@ -595,7 +605,7 @@ class AlokasiArmadaTest extends TestCase
         DB::table('alokasi_armada')->insert([
             [
                 'id_alokasi'      => (string) Str::uuid(),
-                'tanggal'         => '2026-08-10',
+                'tanggal'         => $this->tanggalUji,
                 'id_proyek'       => $proyek->id_proyek,
                 'id_supir'        => $idSupir,
                 'id_armada'       => $armada->id_armada,
@@ -607,7 +617,7 @@ class AlokasiArmadaTest extends TestCase
             ],
             [
                 'id_alokasi'      => (string) Str::uuid(),
-                'tanggal'         => '2026-08-10',
+                'tanggal'         => $this->tanggalUji,
                 'id_proyek'       => $proyek->id_proyek,
                 'id_supir'        => $idSupir,
                 'id_armada'       => $armada->id_armada,
@@ -619,12 +629,12 @@ class AlokasiArmadaTest extends TestCase
             ],
         ]);
 
-        $tanpaFilter = $this->getJson('/api/v1/alokasi-armada?tanggal_dari=2026-08-10&tanggal_sampai=2026-08-10');
+        $tanpaFilter = $this->getJson("/api/v1/alokasi-armada?tanggal_dari={$this->tanggalUji}&tanggal_sampai={$this->tanggalUji}");
         $tanpaFilter->assertStatus(200);
         $this->assertCount(1, $tanpaFilter->json('data'));
         $this->assertNull($tanpaFilter->json('data.0.dihapus_pada'));
 
-        $denganFilter = $this->getJson("/api/v1/alokasi-armada?tanggal_dari=2026-08-10&tanggal_sampai=2026-08-10&id_armada={$armada->id_armada}");
+        $denganFilter = $this->getJson("/api/v1/alokasi-armada?tanggal_dari={$this->tanggalUji}&tanggal_sampai={$this->tanggalUji}&id_armada={$armada->id_armada}");
         $denganFilter->assertStatus(200);
         $this->assertCount(2, $denganFilter->json('data'));
         $this->assertCount(1, collect($denganFilter->json('data'))->filter(fn ($r) => $r['dihapus_pada'] !== null));

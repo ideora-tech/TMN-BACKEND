@@ -33,6 +33,7 @@ class LaporanPerjalananService
         }
 
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
+        $this->tolakBiayaTanggunganVendor($idTrip, $data);
 
         $biayaLain = $data['biaya_lain'] ?? [];
         unset($data['biaya_lain'], $data['foto']);
@@ -88,6 +89,7 @@ class LaporanPerjalananService
         }
 
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
+        $this->tolakBiayaTanggunganVendor($idTrip, $data);
 
         $existing = $this->repo->findByTrip($idTrip);
         $hasBiayaLain = array_key_exists('biaya_lain', $data);
@@ -154,6 +156,7 @@ class LaporanPerjalananService
         $record = $this->findOrFailMilik($id, $idPerusahaan);
 
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
+        $this->tolakBiayaTanggunganVendor((string) $record->id_trip, $data);
 
         $hasBiayaLain = array_key_exists('biaya_lain', $data);
         $biayaLain = $data['biaya_lain'] ?? [];
@@ -167,6 +170,32 @@ class LaporanPerjalananService
         $this->simpanFotoFiles($record, $fotoFiles);
 
         return $this->repo->reload($record);
+    }
+
+    private const LABEL_MEKANISME = ['unit_only' => 'Unit Only', 'unit_driver' => 'Unit + Driver', 'full' => 'Full'];
+
+    private function tolakBiayaTanggunganVendor(string $idTrip, array $data): void
+    {
+        $penugasan = $this->tripRepo->findPenugasanDariTrip($idTrip);
+        if ($penugasan === null || ($penugasan->sumber ?? 'internal') !== 'vendor' || empty($penugasan->id_kontrak_vendor)) {
+            return;
+        }
+
+        $mekanisme = $this->repo->mekanismeKontrak((string) $penugasan->id_kontrak_vendor);
+        if ($mekanisme === null || $mekanisme === 'unit_only') {
+            return;
+        }
+
+        $label = self::LABEL_MEKANISME[$mekanisme] ?? $mekanisme;
+        $terisi = fn (string $kolom) => isset($data[$kolom]) && (float) $data[$kolom] > 0;
+
+        if ($terisi('uang_jalan')) {
+            abort(422, "Uang jalan ditanggung vendor (kontrak {$label})");
+        }
+        if ($mekanisme === 'full'
+            && ($terisi('biaya_bbm') || $terisi('jumlah_liter') || $terisi('uang_tol') || !empty($data['id_jenis_bbm']) || !empty($data['biaya_lain']))) {
+            abort(422, "Biaya operasional ditanggung vendor (kontrak {$label})");
+        }
     }
 
     private function pastikanJenisBbmMilikPerusahaan(array $data, string $idPerusahaan): void
