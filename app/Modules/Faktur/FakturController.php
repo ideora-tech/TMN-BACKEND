@@ -9,9 +9,7 @@ use App\Modules\Faktur\Requests\StoreFakturRequest;
 use App\Modules\Faktur\Requests\UpdateFakturRequest;
 use App\Modules\Faktur\Requests\UpdateStatusFakturRequest;
 use App\Modules\Faktur\Resources\FakturResource;
-use App\Modules\Faktur\Exports\FakturExport;
-use App\Modules\Faktur\FakturModel;
-use Illuminate\Support\Facades\DB;
+use App\Modules\Faktur\Exports\FakturDetailExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -78,57 +76,37 @@ class FakturController extends Controller
         return ApiResponse::success(null, 'Faktur berhasil dihapus');
     }
 
-    public function exportExcel(Request $request): BinaryFileResponse
+    public function exportExcel(Request $request, string $id): BinaryFileResponse
     {
-        $idPerusahaan = (string) $request->user()->id_perusahaan;
-
-        $items = FakturModel::whereNull('dihapus_pada')
-            ->where('id_perusahaan', $idPerusahaan)
-            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
-            ->orderBy('dibuat_pada', 'DESC')
-            ->get();
-
-        $this->attachNamaKlien($items);
+        $faktur = $this->service->untukCetak($id, (string) $request->user()->id_perusahaan);
 
         return Excel::download(
-            new FakturExport(collect($items)),
-            'faktur-' . date('Ymd') . '.xlsx'
+            new FakturDetailExport($faktur),
+            'faktur-' . $faktur->nomor_faktur . '.xlsx'
         );
     }
 
-    public function exportPdf(Request $request): Response
+    public function exportPdf(Request $request, string $id): Response
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $faktur       = $this->service->untukCetak($id, $idPerusahaan);
 
-        $items = FakturModel::whereNull('dihapus_pada')
-            ->where('id_perusahaan', $idPerusahaan)
-            ->when($request->query('status'), fn ($q, $s) => $q->where('status', $s))
-            ->orderBy('dibuat_pada', 'DESC')
-            ->get();
+        $pdf = Pdf::loadView('exports.faktur', [
+            'f'          => $faktur,
+            'items'      => $faktur->items,
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
+        ]);
 
-        $this->attachNamaKlien($items);
-
-        $pdf = Pdf::loadView('exports.faktur', ['items' => $items]);
-
-        return $pdf->download('faktur-' . date('Ymd') . '.pdf');
+        return $pdf->download('faktur-' . $faktur->nomor_faktur . '.pdf');
     }
 
-    /**
-     * Tempel nama_klien via raw query builder (join manual), bukan Eloquent
-     * relationship — KlienModel sudah dikonversi ke Query Builder (Task 9)
-     * dan tidak lagi punya class Eloquent.
-     */
-    private function attachNamaKlien(\Illuminate\Support\Collection $items): void
+    private function logoBase64(): ?string
     {
-        $idKlienList = $items->pluck('id_klien')->filter()->unique()->values()->all();
-        if (empty($idKlienList)) {
-            return;
+        $path = public_path('img/logo/logo-sli.png');
+        if (!is_file($path)) {
+            return null;
         }
-
-        $namaByIdKlien = DB::table('klien')->whereIn('id_klien', $idKlienList)->pluck('nama_klien', 'id_klien');
-
-        foreach ($items as $item) {
-            $item->klien_nama = $namaByIdKlien[$item->id_klien] ?? null;
-        }
+        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
     }
 }

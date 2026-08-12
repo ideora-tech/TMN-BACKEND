@@ -55,6 +55,24 @@ class FakturService
         return $record;
     }
 
+    public function untukCetak(string $id, string $idPerusahaan): FakturModel
+    {
+        $record = $this->findOrFail($id);
+        if ((string) $record->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Faktur tidak ditemukan');
+        }
+
+        $record->nama_klien  = $record->id_klien ? $this->repo->namaKlien((string) $record->id_klien) : null;
+        $record->nama_proyek = $record->id_proyek ? $this->repo->namaProyek((string) $record->id_proyek) : null;
+
+        return $record;
+    }
+
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->repo->getPerusahaan($idPerusahaan);
+    }
+
     public function create(array $data): FakturModel
     {
         if ($this->repo->findByNomor($data['nomor_faktur'], $data['id_perusahaan'])) {

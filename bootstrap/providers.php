@@ -50,7 +50,6 @@ return [
     App\Modules\Perusahaan\PerusahaanServiceProvider::class,
     App\Modules\Proyek\ProyekServiceProvider::class,
     App\Modules\ProyekRute\ProyekRuteServiceProvider::class,
-    App\Modules\Rekonsiliasi\RekonsiliasiServiceProvider::class,
     App\Modules\Rute\RuteServiceProvider::class,
     App\Modules\Shift\ShiftServiceProvider::class,
     App\Modules\Sparepart\SparepartServiceProvider::class,

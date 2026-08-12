@@ -48,6 +48,27 @@ class FakturRepository implements FakturRepositoryInterface
         return FakturModel::active()->with('items')->find($id);
     }
 
+    public function namaKlien(string $idKlien): ?string
+    {
+        return DB::table('klien')
+            ->where('id_klien', $idKlien)
+            ->whereNull('dihapus_pada')
+            ->value('nama_klien');
+    }
+
+    public function namaProyek(string $idProyek): ?string
+    {
+        return DB::table('proyek')
+            ->where('id_proyek', $idProyek)
+            ->whereNull('dihapus_pada')
+            ->value('nama_proyek');
+    }
+
+    public function getPerusahaan(string $idPerusahaan): ?object
+    {
+        return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
+    }
+
     public function findByNomor(string $nomor, string $idPerusahaan): ?FakturModel
     {
         return FakturModel::active()

@@ -33,7 +33,6 @@ class MenuSeeder extends Seeder
             'rute'             => 'm0000001-0000-4000-8000-000000000027',
             'keuangan'         => 'm0000001-0000-4000-8000-000000000030',
             'faktur'           => 'm0000001-0000-4000-8000-000000000031',
-            'rekonsiliasi'     => 'm0000001-0000-4000-8000-000000000032',
             'invoice_vendor'   => 'm0000001-0000-4000-8000-000000000034',
             // Pengaturan
             'pengaturan'       => 'm0000001-0000-4000-8000-000000000040',
@@ -81,7 +80,6 @@ class MenuSeeder extends Seeder
             ['id_menu' => $ids['evaluasi_vendor'],  'nama_menu' => 'Evaluasi Vendor',  'path' => '/evaluasi-vendor',  'id_menu_induk' => $ids['vendor_grup'], 'icon' => 'notepad',    'urutan' => 6],
             ['id_menu' => $ids['keuangan'],     'nama_menu' => 'Keuangan',     'path' => null,             'id_menu_induk' => null,              'icon' => 'receipt',    'urutan' => 6],
             ['id_menu' => $ids['faktur'],       'nama_menu' => 'Faktur',       'path' => '/faktur',        'id_menu_induk' => $ids['keuangan'],   'icon' => 'receipt',    'urutan' => 1],
-            ['id_menu' => $ids['rekonsiliasi'],    'nama_menu' => 'Rekonsiliasi',    'path' => '/rekonsiliasi',    'id_menu_induk' => $ids['keuangan'],     'icon' => 'repeat',           'urutan' => 2],
             ['id_menu' => $ids['invoice_vendor'],  'nama_menu' => 'Invoice Vendor',  'path' => '/invoice-vendor',  'id_menu_induk' => $ids['keuangan'],     'icon' => 'receipt',          'urutan' => 4],
             // Pengaturan
             ['id_menu' => $ids['pengaturan'],      'nama_menu' => 'Pengaturan',      'path' => null,               'id_menu_induk' => null,                  'icon' => 'settings',         'urutan' => 7],
@@ -202,10 +200,6 @@ class MenuSeeder extends Seeder
             [$ids['faktur'],       'MANAGER'],
             [$ids['faktur'],       'ADMIN'],
             [$ids['faktur'],       'SUPERADMIN'],
-            [$ids['rekonsiliasi'], 'KEUANGAN'],
-            [$ids['rekonsiliasi'], 'MANAGER'],
-            [$ids['rekonsiliasi'], 'ADMIN'],
-            [$ids['rekonsiliasi'], 'SUPERADMIN'],
             [$ids['invoice_vendor'], 'KEUANGAN'],
             [$ids['invoice_vendor'], 'MANAGER'],
             [$ids['invoice_vendor'], 'ADMIN'],
