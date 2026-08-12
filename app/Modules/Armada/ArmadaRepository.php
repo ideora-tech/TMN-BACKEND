@@ -134,12 +134,14 @@ class ArmadaRepository implements ArmadaRepositoryInterface
             ->whereNull('a.dihapus_pada')
             ->whereNotNull('p1.jadwal_servis_berikutnya')
             ->where('p1.jadwal_servis_berikutnya', '<=', $batas)
-            ->whereRaw('p1.id_perawatan = (
+            ->where('p1.status', '!=', 'dibatalkan')
+            ->whereRaw("p1.id_perawatan = (
                 SELECT p2.id_perawatan FROM perawatan_armada p2
                 WHERE p2.id_armada = p1.id_armada AND p2.dihapus_pada IS NULL
+                  AND p2.status != 'dibatalkan'
                 ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
                 LIMIT 1
-            )')
+            )")
             ->select('a.id_armada', 'a.nopol', 'p1.jenis_perawatan', 'p1.jadwal_servis_berikutnya')
             ->orderBy('p1.jadwal_servis_berikutnya')
             ->get()
@@ -183,6 +185,7 @@ class ArmadaRepository implements ArmadaRepositoryInterface
         $kmSekarangMap = DB::table('perawatan_armada')
             ->whereNull('dihapus_pada')
             ->whereIn('id_armada', $armadaIds)
+            ->where('status', '!=', 'dibatalkan')
             ->whereNotNull('km_odometer')
             ->groupBy('id_armada')
             ->selectRaw('id_armada, MAX(km_odometer) as km_terakhir')

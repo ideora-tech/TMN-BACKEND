@@ -87,6 +87,17 @@ class PerawatanArmadaController extends Controller
         return ApiResponse::success(null, 'Perawatan armada berhasil dihapus');
     }
 
+    public function batal(Request $request, string $idArmada, string $id): JsonResponse
+    {
+        $validated = $request->validate(
+            ['alasan' => ['required', 'string', 'max:500']],
+            ['alasan.required' => 'Alasan pembatalan wajib diisi'],
+        );
+
+        $record = $this->service->batal($id, $validated['alasan']);
+        return ApiResponse::success(new PerawatanArmadaResource($record), 'Perawatan armada dibatalkan');
+    }
+
     public function storeBukti(UploadBuktiPerawatanRequest $request, string $idArmada, string $id): JsonResponse
     {
         $record = $this->service->tambahBukti($id, $request->file('bukti', []));

@@ -13,6 +13,7 @@ class RekonsiliasiResource extends JsonResource
         return [
             'id_rekonsiliasi'  => $this->id_rekonsiliasi,
             'id_faktur'        => $this->id_faktur,
+            'nomor_faktur'     => $this->faktur?->nomor_faktur,
             'catatan_klien'    => $this->catatan_klien,
             'catatan_keuangan' => $this->catatan_keuangan,
             'status'           => $this->status,

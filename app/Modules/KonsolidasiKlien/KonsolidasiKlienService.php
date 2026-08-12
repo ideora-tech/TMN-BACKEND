@@ -14,7 +14,7 @@ class KonsolidasiKlienService
         private readonly TarifRuteService $tarifRuteService,
     ) {}
 
-    public function rekap(string $idKlien, string $idPerusahaan, ?string $dari, ?string $sampai, ?string $sumber = null): array
+    public function rekap(string $idKlien, string $idPerusahaan, ?string $dari, ?string $sampai, ?string $sumber = null, ?string $idProyek = null): array
     {
         $klien = $this->repo->klienInfo($idKlien, $idPerusahaan);
         if ($klien === null) {
@@ -23,7 +23,7 @@ class KonsolidasiKlienService
 
         $trips = array_map(
             fn ($row) => $this->mapBaris($row, $idKlien, $idPerusahaan),
-            $this->repo->tripKlien($idPerusahaan, $idKlien, $dari, $sampai, $sumber)
+            $this->repo->tripKlien($idPerusahaan, $idKlien, $dari, $sampai, $sumber, $idProyek)
         );
 
         $bertarif = array_filter($trips, fn ($t) => $t['tarif'] !== null);
@@ -60,6 +60,8 @@ class KonsolidasiKlienService
 
         return [
             'id_trip'           => $row->id_trip,
+            'id_proyek'         => $row->id_proyek,
+            'id_rute'           => $row->id_rute,
             'tanggal'           => $row->tanggal,
             'kode_proyek'       => $row->kode_proyek,
             'nama_proyek'       => $row->nama_proyek,

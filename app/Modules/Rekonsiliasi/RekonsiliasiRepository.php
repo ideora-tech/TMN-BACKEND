@@ -22,6 +22,7 @@ class RekonsiliasiRepository implements RekonsiliasiRepositoryInterface
             }))
             ->when($status, fn ($q, $v) => $q->where('rekonsiliasi.status', $v))
             ->select('rekonsiliasi.*')
+            ->with('faktur:id_faktur,nomor_faktur')
             ->orderBy('rekonsiliasi.dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
@@ -30,13 +31,14 @@ class RekonsiliasiRepository implements RekonsiliasiRepositoryInterface
     {
         return RekonsiliasiModel::active()
             ->where('id_faktur', $idFaktur)
+            ->with('faktur:id_faktur,nomor_faktur')
             ->orderBy('dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
 
     public function findById(string $id): ?RekonsiliasiModel
     {
-        return RekonsiliasiModel::active()->find($id);
+        return RekonsiliasiModel::active()->with('faktur:id_faktur,nomor_faktur')->find($id);
     }
 
     public function create(array $data): RekonsiliasiModel

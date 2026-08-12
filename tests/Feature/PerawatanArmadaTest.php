@@ -85,7 +85,7 @@ class PerawatanArmadaTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
-        $perawatan = $this->makePerawatan($armada->id_armada);
+        $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'terjadwal');
 
         $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}")
             ->assertStatus(422);
@@ -109,6 +109,66 @@ class PerawatanArmadaTest extends TestCase
 
         $this->putJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
             'status' => 'dalam_proses',
+        ])->assertStatus(422);
+    }
+
+    public function test_perawatan_selesai_tidak_bisa_dihapus(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->makeArmada();
+        $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'selesai');
+
+        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+            'alasan' => 'Coba hapus riwayat',
+        ])->assertStatus(422);
+
+        $this->assertNull(DB::table('perawatan_armada')->where('id_perawatan', $perawatan->id_perawatan)->value('dihapus_pada'));
+    }
+
+    public function test_batal_perawatan_terjadwal_wajib_alasan_dan_ubah_status(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->makeArmada();
+        $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'terjadwal');
+
+        $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal")
+            ->assertStatus(422);
+
+        $res = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
+            'alasan' => 'Armada dipakai trip mendadak',
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.status', 'dibatalkan');
+        $this->assertDatabaseHas('perawatan_armada', [
+            'id_perawatan' => $perawatan->id_perawatan,
+            'status'       => 'dibatalkan',
+            'alasan_batal' => 'Armada dipakai trip mendadak',
+        ]);
+    }
+
+    public function test_batal_perawatan_selesai_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->makeArmada();
+        $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'selesai');
+
+        $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
+            'alasan' => 'Coba batalkan',
+        ])->assertStatus(422);
+    }
+
+    public function test_perawatan_dibatalkan_tidak_bisa_diubah(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->makeArmada();
+        $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'terjadwal');
+
+        $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
+            'alasan' => 'Tidak jadi servis',
+        ])->assertStatus(200);
+
+        $this->putJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+            'biaya' => 999999,
         ])->assertStatus(422);
     }
 

@@ -180,7 +180,7 @@ class PerawatanSparepartTest extends TestCase
         $sp = $this->makeSparepart('Filter Oli', 10);
 
         $create = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis',
+            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
             'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 3, 'harga' => 50000]],
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
@@ -191,6 +191,34 @@ class PerawatanSparepartTest extends TestCase
         $this->assertSame(10, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
         $this->assertDatabaseHas('sparepart_mutasi', ['id_perawatan' => $idPerawatan, 'jenis' => 'masuk', 'qty' => 3, 'keterangan' => 'Pembatalan servis']);
         $this->assertSoftDeleted('perawatan_armada', ['id_perawatan' => $idPerawatan]);
+    }
+
+    public function test_batal_servis_mengembalikan_stok_tanpa_menghapus_record(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->makeArmada();
+        $sp = $this->makeSparepart('Filter Udara', 10);
+
+        $create = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
+            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'terjadwal',
+            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 4, 'harga' => 60000]],
+        ]);
+        $idPerawatan = $create->json('data.id_perawatan');
+        $this->assertSame(6, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
+
+        $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$idPerawatan}/batal", [
+            'alasan' => 'Armada dipakai operasional',
+        ])->assertStatus(200);
+
+        $this->assertSame(10, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
+        $this->assertDatabaseHas('sparepart_mutasi', ['id_perawatan' => $idPerawatan, 'jenis' => 'masuk', 'qty' => 4, 'keterangan' => 'Pembatalan servis']);
+        $this->assertDatabaseHas('perawatan_armada', ['id_perawatan' => $idPerawatan, 'status' => 'dibatalkan', 'dihapus_pada' => null]);
+        // item servis tetap aktif agar riwayat pembatalan masih bisa dilihat
+        $this->assertSame(1, DB::table('perawatan_sparepart')->where('id_perawatan', $idPerawatan)->whereNull('dihapus_pada')->count());
+
+        // hapus setelah batal tidak mengembalikan stok dua kali
+        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", ['alasan' => 'Pembersihan data uji'])->assertStatus(200);
+        $this->assertSame(10, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
     }
 
     public function test_update_id_jenis_perawatan_menyinkronkan_snapshot_teks(): void
@@ -249,7 +277,7 @@ class PerawatanSparepartTest extends TestCase
         $sp = $this->makeSparepart('Filter Oli', 10);
 
         $create = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis',
+            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
             'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 2, 'harga' => 50000]],
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
@@ -271,7 +299,7 @@ class PerawatanSparepartTest extends TestCase
         $jenis = $this->makeJenis('Servis Berkala');
 
         $create = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'id_jenis_perawatan' => $jenis->id_jenis_perawatan,
+            'tanggal' => '2026-07-17', 'id_jenis_perawatan' => $jenis->id_jenis_perawatan, 'status' => 'dalam_proses',
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
 

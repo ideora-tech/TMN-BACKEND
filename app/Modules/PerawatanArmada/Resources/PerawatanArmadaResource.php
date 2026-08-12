@@ -21,6 +21,7 @@ class PerawatanArmadaResource extends JsonResource
             'biaya'                    => (float) $this->biaya,
             'km_odometer'              => $this->km_odometer !== null ? (int) $this->km_odometer : null,
             'status'                   => $this->status ?? 'selesai',
+            'alasan_batal'             => $this->alasan_batal ?? null,
             'jadwal_servis_berikutnya' => $this->jadwal_servis_berikutnya,
             'keterangan'               => $this->keterangan,
             'sparepart'                => $this->sparepart ?? [],

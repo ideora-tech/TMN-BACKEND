@@ -262,4 +262,24 @@ class KonsolidasiKlienTest extends TestCase
         $this->getJson("/api/v1/konsolidasi-klien?id_klien={$idKlienLain}")->assertStatus(404);
         $this->get("/api/v1/konsolidasi-klien/export/excel?id_klien={$this->idKlien}")->assertStatus(200);
     }
+
+    public function test_filter_id_proyek_menyaring_dan_baris_memuat_id(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $proyekA = $this->buatProyek();
+        $proyekB = $this->buatProyek();
+        $this->buatTrip($proyekA->id_proyek);
+        $this->buatTrip($proyekB->id_proyek);
+
+        $semua = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$proyekA->id_klien}");
+        $semua->assertStatus(200);
+        $this->assertCount(2, $semua->json('data.trips'));
+
+        $satu = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$proyekA->id_klien}&id_proyek={$proyekA->id_proyek}");
+        $satu->assertStatus(200);
+        $this->assertCount(1, $satu->json('data.trips'));
+        $this->assertSame($proyekA->id_proyek, $satu->json('data.trips.0.id_proyek'));
+        $this->assertNotNull($satu->json('data.trips.0.id_rute'));
+    }
 }

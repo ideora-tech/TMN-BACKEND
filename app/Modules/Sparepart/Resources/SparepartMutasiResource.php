@@ -21,6 +21,7 @@ class SparepartMutasiResource extends JsonResource
             'keterangan'   => $this->keterangan,
             'tanggal'      => $this->tanggal,
             'dibuat_pada'  => $this->dibuat_pada,
+            'dibuat_oleh_nama' => $this->dibuat_oleh_nama ?? null,
         ];
     }
 }

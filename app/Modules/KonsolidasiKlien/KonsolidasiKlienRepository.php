@@ -18,7 +18,7 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->first(['id_klien', 'nama_klien']);
     }
 
-    public function tripKlien(string $idPerusahaan, string $idKlien, ?string $dari, ?string $sampai, ?string $sumber = null): array
+    public function tripKlien(string $idPerusahaan, string $idKlien, ?string $dari, ?string $sampai, ?string $sumber = null, ?string $idProyek = null): array
     {
         $rows = DB::table('trip as t')
             ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
@@ -41,9 +41,11 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->when($dari, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) >= ?', [$v]))
             ->when($sampai, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) <= ?', [$v]))
             ->when($sumber, fn ($q, $v) => $q->where('p.sumber', $v))
+            ->when($idProyek, fn ($q, $v) => $q->where('pr.id_proyek', $v))
             ->orderByRaw('COALESCE(jk.waktu_berangkat, t.dibuat_pada)')
             ->select([
                 't.id_trip',
+                'pr.id_proyek',
                 DB::raw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) as tanggal'),
                 'jk.id_rute',
                 'r.nama_rute',

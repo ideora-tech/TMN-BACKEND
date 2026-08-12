@@ -244,8 +244,8 @@ class PerawatanArmadaService
     {
         $record = $this->findOrFail($id);
 
-        if ($record->status === 'selesai') {
-            abort(422, 'Perawatan yang sudah selesai tidak dapat diubah');
+        if (in_array($record->status, ['selesai', 'dibatalkan'], true)) {
+            abort(422, 'Perawatan yang sudah selesai atau dibatalkan tidak dapat diubah');
         }
 
         $adaItems = array_key_exists('sparepart', $data);
@@ -266,25 +266,52 @@ class PerawatanArmadaService
     {
         $record = $this->findOrFail($id);
 
+        if ($record->status === 'selesai') {
+            abort(422, 'Perawatan yang sudah selesai tidak dapat dihapus');
+        }
+
         DB::transaction(function () use ($record, $alasan) {
             $this->repo->update($record, ['alasan_hapus' => $alasan]);
-            foreach ($this->repo->getActiveLines($record->id_perawatan) as $line) {
-                $sp = $this->repo->getSparepartForUpdate($line->id_sparepart);
-                if ($sp !== null) {
-                    $this->repo->setSparepartStok($sp->id_sparepart, (int) $sp->stok + (int) $line->qty);
-                    $this->repo->insertSparepartMutasi([
-                        'id_sparepart' => $sp->id_sparepart,
-                        'jenis'        => 'masuk',
-                        'qty'          => (int) $line->qty,
-                        'id_perawatan' => $record->id_perawatan,
-                        'keterangan'   => 'Pembatalan servis',
-                        'tanggal'      => now()->toDateString(),
-                    ]);
-                }
+            if ($record->status !== 'dibatalkan') {
+                $this->kembalikanStok($record->id_perawatan);
             }
             $this->repo->softDeleteLines($record->id_perawatan);
             $this->repo->delete($record);
         });
+    }
+
+    public function batal(string $id, string $alasan): object
+    {
+        $record = $this->findOrFail($id);
+
+        if (!in_array($record->status, ['terjadwal', 'dalam_proses'], true)) {
+            abort(422, 'Hanya perawatan terjadwal atau dalam proses yang dapat dibatalkan');
+        }
+
+        return DB::transaction(function () use ($record, $alasan) {
+            $this->kembalikanStok($record->id_perawatan);
+            $this->repo->update($record, ['status' => 'dibatalkan', 'alasan_batal' => $alasan]);
+            return $this->findOrFail($record->id_perawatan);
+        });
+    }
+
+    /** Stok yang sudah dipotong saat servis dicatat dikembalikan + jejak mutasi masuk. */
+    private function kembalikanStok(string $idPerawatan): void
+    {
+        foreach ($this->repo->getActiveLines($idPerawatan) as $line) {
+            $sp = $this->repo->getSparepartForUpdate($line->id_sparepart);
+            if ($sp !== null) {
+                $this->repo->setSparepartStok($sp->id_sparepart, (int) $sp->stok + (int) $line->qty);
+                $this->repo->insertSparepartMutasi([
+                    'id_sparepart' => $sp->id_sparepart,
+                    'jenis'        => 'masuk',
+                    'qty'          => (int) $line->qty,
+                    'id_perawatan' => $idPerawatan,
+                    'keterangan'   => 'Pembatalan servis',
+                    'tanggal'      => now()->toDateString(),
+                ]);
+            }
+        }
     }
 
     /**

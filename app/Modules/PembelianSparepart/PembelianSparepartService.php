@@ -170,7 +170,7 @@ class PembelianSparepartService
     public function tambahBukti(string $id, array $files, string $idPerusahaan): object
     {
         $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DISETUJUI_FINANCE, self::STATUS_DIBELI], 'Bukti hanya bisa diunggah setelah disetujui finance');
+        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN, self::STATUS_DISETUJUI_MANAGER, self::STATUS_DISETUJUI_FINANCE, self::STATUS_DIBELI, self::STATUS_LUNAS], 'Bukti tidak bisa diunggah pada pengajuan yang ditolak');
         foreach ($files as $file) {
             $this->repo->insertBukti([
                 'id_pembelian' => $id,
@@ -184,7 +184,7 @@ class PembelianSparepartService
     public function hapusBukti(string $id, string $idBukti, string $idPerusahaan): object
     {
         $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DISETUJUI_FINANCE, self::STATUS_DIBELI], 'Bukti tidak bisa dihapus pada status ini');
+        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN, self::STATUS_DISETUJUI_MANAGER, self::STATUS_DISETUJUI_FINANCE, self::STATUS_DIBELI], 'Bukti tidak bisa dihapus pada status ini');
         $bukti = $this->repo->findBukti($id, $idBukti);
         if ($bukti === null) {
             abort(404, 'Bukti tidak ditemukan');

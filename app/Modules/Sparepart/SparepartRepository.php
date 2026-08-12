@@ -20,8 +20,12 @@ class SparepartRepository implements SparepartRepositoryInterface
     ];
 
     private const MUTASI_COLUMNS = [
-        'id_mutasi', 'id_sparepart', 'jenis', 'qty', 'harga', 'id_perawatan', 'id_pembelian', 'keterangan', 'tanggal',
-        'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
+        'sparepart_mutasi.id_mutasi', 'sparepart_mutasi.id_sparepart', 'sparepart_mutasi.jenis',
+        'sparepart_mutasi.qty', 'sparepart_mutasi.harga', 'sparepart_mutasi.id_perawatan',
+        'sparepart_mutasi.id_pembelian', 'sparepart_mutasi.keterangan', 'sparepart_mutasi.tanggal',
+        'sparepart_mutasi.dibuat_pada', 'sparepart_mutasi.dibuat_oleh',
+        'sparepart_mutasi.diubah_pada', 'sparepart_mutasi.diubah_oleh',
+        'sparepart_mutasi.dihapus_pada', 'sparepart_mutasi.dihapus_oleh',
     ];
 
     private function detailQuery()
@@ -118,10 +122,11 @@ class SparepartRepository implements SparepartRepositoryInterface
     public function paginateMutasi(string $idSparepart, int $page, int $limit): LengthAwarePaginator
     {
         return DB::table('sparepart_mutasi')
-            ->whereNull('dihapus_pada')
-            ->where('id_sparepart', $idSparepart)
-            ->orderByDesc('dibuat_pada')
-            ->orderByDesc('id_mutasi')
-            ->paginate($limit, self::MUTASI_COLUMNS, 'page', $page);
+            ->leftJoin('pengguna as pg', 'pg.id_pengguna', '=', 'sparepart_mutasi.dibuat_oleh')
+            ->whereNull('sparepart_mutasi.dihapus_pada')
+            ->where('sparepart_mutasi.id_sparepart', $idSparepart)
+            ->orderByDesc('sparepart_mutasi.dibuat_pada')
+            ->orderByDesc('sparepart_mutasi.id_mutasi')
+            ->paginate($limit, array_merge(self::MUTASI_COLUMNS, ['pg.username as dibuat_oleh_nama']), 'page', $page);
     }
 }

@@ -33,6 +33,7 @@ class PerawatanArmadaServiceProvider extends ServiceProvider
                 Route::post('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'store']);
                 Route::post('armada/{idArmada}/perawatan/{id}/bukti', [PerawatanArmadaController::class, 'storeBukti']);
                 Route::delete('armada/{idArmada}/perawatan/{id}/bukti/{idBukti}', [PerawatanArmadaController::class, 'destroyBukti']);
+                Route::post('armada/{idArmada}/perawatan/{id}/batal', [PerawatanArmadaController::class, 'batal']);
                 Route::put('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'update']);
                 Route::patch('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'update']);
                 Route::delete('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'destroy']);

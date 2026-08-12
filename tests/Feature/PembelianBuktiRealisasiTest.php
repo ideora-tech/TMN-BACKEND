@@ -89,12 +89,18 @@ class PembelianBuktiRealisasiTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_upload_ditolak_saat_status_diajukan(): void
+    public function test_upload_boleh_saat_diajukan_tapi_ditolak_saat_status_ditolak(): void
     {
         Storage::fake('public');
         $this->actingAsRole('SUPERADMIN');
         $id = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPengajuan())->json('data.id_pembelian');
 
+        $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
+            'bukti' => [UploadedFile::fake()->image('penawaran.jpg'), UploadedFile::fake()->create('penawaran.pdf', 100, 'application/pdf')],
+        ])->assertStatus(200);
+        $this->assertCount(2, $this->getJson("/api/v1/pembelian-sparepart/{$id}")->json('data.bukti'));
+
+        DB::table('pembelian_sparepart')->where('id_pembelian', $id)->update(['status' => 'ditolak']);
         $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(422);

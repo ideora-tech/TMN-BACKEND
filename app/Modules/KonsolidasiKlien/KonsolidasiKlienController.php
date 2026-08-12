@@ -26,6 +26,7 @@ class KonsolidasiKlienController extends Controller
             $validated['dari'] ?? null,
             $validated['sampai'] ?? null,
             $validated['sumber'] ?? null,
+            $validated['id_proyek'] ?? null,
         ));
     }
 
@@ -39,6 +40,7 @@ class KonsolidasiKlienController extends Controller
             $validated['dari'] ?? null,
             $validated['sampai'] ?? null,
             $validated['sumber'] ?? null,
+            $validated['id_proyek'] ?? null,
         );
 
         $periode = ($validated['dari'] ?? null) || ($validated['sampai'] ?? null)
@@ -54,10 +56,11 @@ class KonsolidasiKlienController extends Controller
     private function validasi(Request $request): array
     {
         return $request->validate([
-            'id_klien' => ['required', 'string', 'max:36'],
-            'dari'     => ['sometimes', 'nullable', 'date_format:Y-m-d'],
-            'sampai'   => ['sometimes', 'nullable', 'date_format:Y-m-d'],
-            'sumber'   => ['sometimes', 'nullable', 'in:internal,vendor'],
+            'id_klien'  => ['required', 'string', 'max:36'],
+            'dari'      => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'sampai'    => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'sumber'    => ['sometimes', 'nullable', 'in:internal,vendor'],
+            'id_proyek' => ['sometimes', 'nullable', 'string'],
         ]);
     }
 }

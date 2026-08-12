@@ -15,7 +15,8 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
         'perawatan_armada.id_perawatan', 'perawatan_armada.id_armada',
         'perawatan_armada.id_jenis_perawatan', 'perawatan_armada.tanggal',
         'perawatan_armada.jenis_perawatan', 'perawatan_armada.biaya', 'perawatan_armada.km_odometer',
-        'perawatan_armada.status', 'perawatan_armada.jadwal_servis_berikutnya', 'perawatan_armada.keterangan',
+        'perawatan_armada.status', 'perawatan_armada.alasan_batal',
+        'perawatan_armada.jadwal_servis_berikutnya', 'perawatan_armada.keterangan',
         'perawatan_armada.dibuat_pada', 'perawatan_armada.dibuat_oleh',
         'perawatan_armada.diubah_pada', 'perawatan_armada.diubah_oleh',
         'perawatan_armada.dihapus_pada', 'perawatan_armada.dihapus_oleh',
@@ -52,12 +53,13 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->when($jatuhTempo, fn ($q) => $q
                 ->whereNotNull('perawatan_armada.jadwal_servis_berikutnya')
                 ->where('perawatan_armada.jadwal_servis_berikutnya', '<=', $batas)
-                ->whereRaw('perawatan_armada.id_perawatan = (
+                ->whereRaw("perawatan_armada.id_perawatan = (
                     SELECT p2.id_perawatan FROM perawatan_armada p2
                     WHERE p2.id_armada = perawatan_armada.id_armada AND p2.dihapus_pada IS NULL
+                      AND p2.status != 'dibatalkan'
                     ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
                     LIMIT 1
-                )'))
+                )"))
             ->orderByRaw('MAX(perawatan_armada.tanggal) OVER (PARTITION BY perawatan_armada.id_armada) DESC')
             ->orderBy('armada.nopol')
             ->orderByDesc('perawatan_armada.tanggal')
@@ -96,6 +98,7 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->where('a.id_perusahaan', $idPerusahaan)
             ->whereNull('p.dihapus_pada')
             ->whereNull('a.dihapus_pada')
+            ->where('p.status', '!=', 'dibatalkan')
             ->when($dari, fn ($q, $v) => $q->whereDate('p.tanggal', '>=', $v))
             ->when($sampai, fn ($q, $v) => $q->whereDate('p.tanggal', '<=', $v))
             ->groupBy('a.id_armada', 'a.nopol', 'a.merk')
@@ -114,6 +117,7 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->leftJoinSub($this->subTotalSparepart(), 'sp', 'sp.id_perawatan', '=', 'p.id_perawatan')
             ->whereNull('p.dihapus_pada')
             ->where('p.id_armada', $idArmada)
+            ->where('p.status', '!=', 'dibatalkan')
             ->when($dari, fn ($q, $v) => $q->whereDate('p.tanggal', '>=', $v))
             ->when($sampai, fn ($q, $v) => $q->whereDate('p.tanggal', '<=', $v))
             ->orderByDesc('p.tanggal')
@@ -263,6 +267,7 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
         $km = DB::table('perawatan_armada')
             ->whereNull('dihapus_pada')
             ->where('id_armada', $idArmada)
+            ->where('status', '!=', 'dibatalkan')
             ->whereNotNull('km_odometer')
             ->max('km_odometer');
 

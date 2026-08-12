@@ -330,12 +330,14 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
         ->whereNull('a.dihapus_pada')
         ->whereNotNull('p1.jadwal_servis_berikutnya')
         ->where('p1.jadwal_servis_berikutnya', '<=', $batas)
-        ->whereRaw('p1.id_perawatan = (
+        ->where('p1.status', '!=', 'dibatalkan')
+        ->whereRaw("p1.id_perawatan = (
             SELECT p2.id_perawatan FROM perawatan_armada p2
             WHERE p2.id_armada = p1.id_armada AND p2.dihapus_pada IS NULL
+              AND p2.status != 'dibatalkan'
             ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
             LIMIT 1
-        )')
+        )")
         ->select('p1.id_perawatan', 'p1.jenis_perawatan', 'p1.jadwal_servis_berikutnya', 'a.nopol', 'a.id_perusahaan')
         ->get();
 
