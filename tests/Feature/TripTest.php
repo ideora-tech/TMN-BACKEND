@@ -416,6 +416,7 @@ class TripTest extends TestCase
             ->assertJsonPath('data.sumber', 'vendor')
             ->assertJsonPath('data.vendor_nama', 'PT Vendor Ekspedisi')
             ->assertJsonPath('data.mekanisme', 'full');
+        $this->assertNotNull($resDetail->json('data.id_penugasan'));
     }
 
     public function test_filter_sumber_memisahkan_trip_vendor_dan_internal(): void

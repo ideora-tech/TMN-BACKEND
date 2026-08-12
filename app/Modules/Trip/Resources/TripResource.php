@@ -13,6 +13,7 @@ class TripResource extends JsonResource
         return [
             'id_trip'         => $this->id_trip,
             'id_jadwal'       => $this->id_jadwal,
+            'id_penugasan'    => $this->id_penugasan,
             'id_proyek'       => $this->id_proyek,
             'kode_proyek'     => $this->kode_proyek,
             'nama_proyek'     => $this->nama_proyek,

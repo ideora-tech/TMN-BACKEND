@@ -236,6 +236,7 @@ class TripRepository implements TripRepositoryInterface
             $record->setRelation('sumber', $penugasan->sumber ?? 'internal');
             $record->setRelation('vendor_nama', $vendorNama);
             $record->setRelation('mekanisme', $kontrak?->mekanisme);
+            $record->setRelation('id_penugasan', $penugasan?->id_penugasan);
         }
     }
 
