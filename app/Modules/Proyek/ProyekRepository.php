@@ -25,10 +25,11 @@ class ProyekRepository implements ProyekRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
-    public function paginateByKlien(string $idKlien, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator
+    public function paginateByKlien(string $idKlien, string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator
     {
         return ProyekModel::active()
             ->where('id_klien', $idKlien)
+            ->where('id_perusahaan', $idPerusahaan)
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
                 $q2->where('nama_proyek', 'like', "%{$search}%")
                    ->orWhere('kode_proyek', 'like', "%{$search}%");

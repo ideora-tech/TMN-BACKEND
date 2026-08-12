@@ -31,9 +31,9 @@ class FakturService
         ];
     }
 
-    public function listByKlien(string $idKlien, int $page = 1, int $limit = 20): array
+    public function listByKlien(string $idKlien, string $idPerusahaan, int $page = 1, int $limit = 20): array
     {
-        $result = $this->repo->paginateByKlien($idKlien, $page, $limit);
+        $result = $this->repo->paginateByKlien($idKlien, $idPerusahaan, $page, $limit);
 
         return [
             'data' => $result->items(),
@@ -46,10 +46,10 @@ class FakturService
         ];
     }
 
-    public function findOrFail(string $id): FakturModel
+    public function findOrFail(string $id, ?string $idPerusahaan = null): FakturModel
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Faktur tidak ditemukan');
         }
         return $record;
@@ -57,13 +57,10 @@ class FakturService
 
     public function untukCetak(string $id, string $idPerusahaan): FakturModel
     {
-        $record = $this->findOrFail($id);
-        if ((string) $record->id_perusahaan !== $idPerusahaan) {
-            abort(404, 'Faktur tidak ditemukan');
-        }
+        $record = $this->findOrFail($id, $idPerusahaan);
 
-        $record->nama_klien  = $record->id_klien ? $this->repo->namaKlien((string) $record->id_klien) : null;
-        $record->nama_proyek = $record->id_proyek ? $this->repo->namaProyek((string) $record->id_proyek) : null;
+        $record->nama_klien  = $record->id_klien ? $this->repo->namaKlien((string) $record->id_klien, $idPerusahaan) : null;
+        $record->nama_proyek = $record->id_proyek ? $this->repo->namaProyek((string) $record->id_proyek, $idPerusahaan) : null;
 
         return $record;
     }
@@ -95,9 +92,9 @@ class FakturService
         return $this->repo->findById($faktur->id_faktur);
     }
 
-    public function update(string $id, array $data): FakturModel
+    public function update(string $id, array $data, ?string $idPerusahaan = null): FakturModel
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (isset($data['nomor_faktur']) && $data['nomor_faktur'] !== $record->nomor_faktur) {
             if ($this->repo->findByNomor($data['nomor_faktur'], $record->id_perusahaan)) {
@@ -124,20 +121,20 @@ class FakturService
         return $this->repo->update($record, $data);
     }
 
-    public function updateStatus(string $id, string $status): FakturModel
+    public function updateStatus(string $id, string $status, ?string $idPerusahaan = null): FakturModel
     {
         if (!in_array($status, self::ALLOWED_STATUSES, true)) {
             abort(422, 'Status tidak valid');
         }
 
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         return $this->repo->update($record, ['status' => $status]);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
         $this->itemRepo->deleteByFaktur($record->id_faktur);
         $this->repo->delete($record);
     }

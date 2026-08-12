@@ -38,9 +38,9 @@ class ProyekService
         ];
     }
 
-    public function listByKlien(string $idKlien, int $page = 1, int $limit = 20, ?string $search = null, ?string $status = null): array
+    public function listByKlien(string $idKlien, string $idPerusahaan, int $page = 1, int $limit = 20, ?string $search = null, ?string $status = null): array
     {
-        $result = $this->repo->paginateByKlien($idKlien, $page, $limit, $search, $status);
+        $result = $this->repo->paginateByKlien($idKlien, $idPerusahaan, $page, $limit, $search, $status);
 
         return [
             'data' => $result->items(),

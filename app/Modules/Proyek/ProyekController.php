@@ -32,10 +32,11 @@ class ProyekController extends Controller
         $search = $request->get('search');
         $status = $request->get('status');
 
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
         if ($request->filled('id_klien')) {
-            $result = $this->service->listByKlien((string) $request->get('id_klien'), $page, $limit, $search, $status);
+            $result = $this->service->listByKlien((string) $request->get('id_klien'), $idPerusahaan, $page, $limit, $search, $status);
         } else {
-            $idPerusahaan = (string) $request->user()->id_perusahaan;
             $result = $this->service->list($idPerusahaan, $page, $limit, $search, $status);
         }
 

@@ -29,10 +29,11 @@ class FakturController extends Controller
         $search = $request->filled('search') ? (string) $request->get('search') : null;
         $status = $request->filled('status') ? (string) $request->get('status') : null;
 
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
         if ($request->filled('id_klien')) {
-            $result = $this->service->listByKlien((string) $request->get('id_klien'), $page, $limit);
+            $result = $this->service->listByKlien((string) $request->get('id_klien'), $idPerusahaan, $page, $limit);
         } else {
-            $idPerusahaan = (string) $request->user()->id_perusahaan;
             $result = $this->service->list($idPerusahaan, $page, $limit, $search, $status);
         }
 
@@ -42,9 +43,10 @@ class FakturController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new FakturResource($this->service->findOrFail($id)));
+        $record = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(new FakturResource($record));
     }
 
     public function store(StoreFakturRequest $request): JsonResponse
@@ -60,19 +62,19 @@ class FakturController extends Controller
 
     public function update(UpdateFakturRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new FakturResource($record), 'Faktur berhasil diperbarui');
     }
 
     public function updateStatus(UpdateStatusFakturRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->updateStatus($id, $request->validated()['status']);
+        $record = $this->service->updateStatus($id, $request->validated()['status'], (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new FakturResource($record), 'Status faktur berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Faktur berhasil dihapus');
     }
 
@@ -82,7 +84,7 @@ class FakturController extends Controller
 
         return Excel::download(
             new FakturDetailExport($faktur),
-            'faktur-' . $faktur->nomor_faktur . '.xlsx'
+            'faktur-' . $this->namaFileAman($faktur->nomor_faktur) . '.xlsx'
         );
     }
 
@@ -98,7 +100,13 @@ class FakturController extends Controller
             'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
         ]);
 
-        return $pdf->download('faktur-' . $faktur->nomor_faktur . '.pdf');
+        return $pdf->download('faktur-' . $this->namaFileAman($faktur->nomor_faktur) . '.pdf');
+    }
+
+    private function namaFileAman(?string $nomor): string
+    {
+        $bersih = preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) $nomor);
+        return trim((string) $bersih, '-') ?: 'faktur';
     }
 
     private function logoBase64(): ?string

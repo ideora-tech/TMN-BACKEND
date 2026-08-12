@@ -594,4 +594,33 @@ class ProyekTest extends TestCase
 
         $this->get("/api/v1/proyek/{$proyekLain->id_proyek}/pdf")->assertStatus(404);
     }
+
+    public function test_index_dengan_id_klien_perusahaan_lain_tidak_bocor(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
+
+        $idKlienLain = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien'      => $idKlienLain,
+            'id_perusahaan' => $idPerusahaanLain,
+            'kode_klien'    => 'KLN-' . Str::random(8),
+            'nama_klien'    => 'Klien Lain',
+            'dibuat_pada'   => now(),
+        ]);
+
+        ProyekModel::create([
+            'id_perusahaan' => $idPerusahaanLain,
+            'id_klien'      => $idKlienLain,
+            'kode_proyek'   => 'PRJ-LAIN',
+            'nama_proyek'   => 'Proyek Lain',
+        ]);
+
+        $res = $this->getJson("/api/v1/proyek?id_klien={$idKlienLain}");
+
+        $res->assertStatus(200);
+        $this->assertSame([], $res->json('data'));
+    }
 }

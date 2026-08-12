@@ -35,10 +35,11 @@ class FakturRepository implements FakturRepositoryInterface
         return $query->paginate($limit, ['*'], 'page', $page);
     }
 
-    public function paginateByKlien(string $idKlien, int $page, int $limit): LengthAwarePaginator
+    public function paginateByKlien(string $idKlien, string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
     {
         return FakturModel::active()
             ->where('id_klien', $idKlien)
+            ->where('id_perusahaan', $idPerusahaan)
             ->orderBy('dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
@@ -48,18 +49,20 @@ class FakturRepository implements FakturRepositoryInterface
         return FakturModel::active()->with('items')->find($id);
     }
 
-    public function namaKlien(string $idKlien): ?string
+    public function namaKlien(string $idKlien, string $idPerusahaan): ?string
     {
         return DB::table('klien')
             ->where('id_klien', $idKlien)
+            ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
             ->value('nama_klien');
     }
 
-    public function namaProyek(string $idProyek): ?string
+    public function namaProyek(string $idProyek, string $idPerusahaan): ?string
     {
         return DB::table('proyek')
             ->where('id_proyek', $idProyek)
+            ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
             ->value('nama_proyek');
     }

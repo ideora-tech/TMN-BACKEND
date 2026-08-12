@@ -113,7 +113,7 @@
                     @foreach ($items as $item)
                         <tr>
                             <td>{{ $item->deskripsi }}</td>
-                            <td class="jumlah">{{ number_format((float) $item->qty, 0, ',', '.') }}</td>
+                            <td class="jumlah">{{ number_format((float) $item->qty, fmod((float) $item->qty, 1) == 0.0 ? 0 : 2, ',', '.') }}</td>
                             <td class="jumlah">{{ $rp($item->harga_satuan) }}</td>
                             <td class="jumlah">{{ $rp($item->subtotal) }}</td>
                         </tr>
