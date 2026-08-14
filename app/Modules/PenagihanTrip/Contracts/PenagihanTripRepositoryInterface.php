@@ -9,4 +9,5 @@ interface PenagihanTripRepositoryInterface
     public function proyekInfo(string $idProyek, string $idPerusahaan): ?object;
     public function tripSiapTagih(string $idPerusahaan, string $idProyek, ?string $dari, ?string $sampai, bool $lock = false): array;
     public function insertFakturTrip(string $idFaktur, string $idTrip): void;
+    public function biayaTagihanUntukTrips(array $idTrips): array;
 }

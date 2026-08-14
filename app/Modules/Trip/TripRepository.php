@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Trip;
 
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
+use App\Support\RecordHelper;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -619,5 +620,66 @@ class TripRepository implements TripRepositoryInterface
         }
 
         return $map;
+    }
+
+    public function salinTitikDropDariPenugasan(string $idPenugasan, string $idTrip): void
+    {
+        $rows = DB::table('titik_drop_penugasan')
+            ->where('id_penugasan', $idPenugasan)
+            ->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['urutan', 'lokasi']);
+
+        foreach ($rows as $row) {
+            DB::table('titik_drop_trip')->insert(RecordHelper::stampCreate([
+                'id_trip' => $idTrip,
+                'urutan'  => (int) $row->urutan,
+                'lokasi'  => $row->lokasi,
+            ], 'id_titik_drop'));
+        }
+    }
+
+    public function syncTitikDropTrip(string $idTrip, array $lokasiList): void
+    {
+        DB::table('titik_drop_trip')
+            ->where('id_trip', $idTrip)->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampDelete());
+        foreach (array_values($lokasiList) as $i => $lokasi) {
+            DB::table('titik_drop_trip')->insert(RecordHelper::stampCreate([
+                'id_trip' => $idTrip,
+                'urutan'  => $i + 1,
+                'lokasi'  => trim((string) $lokasi),
+            ], 'id_titik_drop'));
+        }
+    }
+
+    public function titikDropTripBanyak(array $idTrips): array
+    {
+        if ($idTrips === []) {
+            return [];
+        }
+        return DB::table('titik_drop_trip')
+            ->whereIn('id_trip', $idTrips)->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['id_trip', 'lokasi'])
+            ->groupBy('id_trip')
+            ->map(fn ($g) => $g->pluck('lokasi')->all())
+            ->all();
+    }
+
+    public function titikDropTrip(string $idTrip): array
+    {
+        return $this->titikDropTripBanyak([$idTrip])[$idTrip] ?? [];
+    }
+
+    public function tripPunyaFakturAktif(string $idTrip): bool
+    {
+        return DB::table('faktur_trip as ft')
+            ->join('faktur as f', 'f.id_faktur', '=', 'ft.id_faktur')
+            ->where('ft.id_trip', $idTrip)
+            ->whereNull('ft.dihapus_pada')
+            ->whereNull('f.dihapus_pada')
+            ->where('f.status', '!=', 'batal')
+            ->exists();
     }
 }

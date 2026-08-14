@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Payroll;
 
 use App\Modules\Absensi\AbsensiService;
+use App\Modules\ArusKas\ArusKasService;
 use App\Modules\Payroll\Contracts\PayrollRepositoryInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class PayrollService
     public function __construct(
         private readonly PayrollRepositoryInterface $repo,
         private readonly AbsensiService $absensiService,
+        private readonly ArusKasService $arusKasService,
     ) {}
 
     // ── Pengaturan ───────────────────────────────────────────────
@@ -303,11 +305,15 @@ class PayrollService
             abort(422, 'Belum ada slip — generate dulu sebelum finalisasi');
         }
 
-        return $this->repo->updatePeriode($periode, [
-            'status'            => 'final',
-            'difinalisasi_pada' => now(),
-            'difinalisasi_oleh' => auth()->id(),
-        ]);
+        return DB::transaction(function () use ($periode) {
+            $updated = $this->repo->updatePeriode($periode, [
+                'status'            => 'final',
+                'difinalisasi_pada' => now(),
+                'difinalisasi_oleh' => auth()->id(),
+            ]);
+            $this->arusKasService->buatPengajuanPayrollOtomatis($updated);
+            return $updated;
+        });
     }
 
     public function batalFinalisasi(string $id, string $idPerusahaan): object
@@ -317,11 +323,14 @@ class PayrollService
             abort(422, 'Periode belum final');
         }
 
-        return $this->repo->updatePeriode($periode, [
-            'status'            => 'draft',
-            'difinalisasi_pada' => null,
-            'difinalisasi_oleh' => null,
-        ]);
+        return DB::transaction(function () use ($periode) {
+            $this->arusKasService->batalkanPengajuanPayroll($periode->id_periode);
+            return $this->repo->updatePeriode($periode, [
+                'status'            => 'draft',
+                'difinalisasi_pada' => null,
+                'difinalisasi_oleh' => null,
+            ]);
+        });
     }
 
     // ── PPh21 (metode disetahunkan, tarif progresif UU HPP) ──────

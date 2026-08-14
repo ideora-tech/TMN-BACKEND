@@ -21,9 +21,14 @@ class KonsolidasiKlienService
             abort(404, 'Klien tidak ditemukan');
         }
 
+        $rows      = $this->repo->tripKlien($idPerusahaan, $idKlien, $dari, $sampai, $sumber, $idProyek);
+        $idTrips   = array_map(fn ($r) => (string) $r->id_trip, $rows);
+        $dropMap   = $this->repo->titikDropPerTrip($idTrips);
+        $biayaMap  = $this->repo->biayaTagihanPerTrip($idTrips);
+
         $trips = array_map(
-            fn ($row) => $this->mapBaris($row, $idKlien, $idPerusahaan),
-            $this->repo->tripKlien($idPerusahaan, $idKlien, $dari, $sampai, $sumber, $idProyek)
+            fn ($row) => $this->mapBaris($row, $idKlien, $idPerusahaan, $dropMap, $biayaMap),
+            $rows
         );
 
         $bertarif = array_filter($trips, fn ($t) => $t['tarif'] !== null);
@@ -33,14 +38,14 @@ class KonsolidasiKlienService
             'ringkasan' => [
                 'total_rit'      => count($trips),
                 'total_jarak_km' => array_sum(array_map(fn ($t) => $t['jarak_tempuh_km'] ?? 0, $trips)),
-                'estimasi_nilai' => array_sum(array_map(fn ($t) => $t['tarif']['harga'], $bertarif)),
+                'estimasi_nilai' => array_sum(array_map(fn ($t) => $t['tarif']['harga'] + $t['biaya_tambahan'], $bertarif)),
                 'tanpa_tarif'    => count($trips) - count($bertarif),
             ],
             'trips' => $trips,
         ];
     }
 
-    private function mapBaris(object $row, string $idKlien, string $idPerusahaan): array
+    private function mapBaris(object $row, string $idKlien, string $idPerusahaan, array $dropMap, array $biayaMap): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
 
@@ -74,6 +79,8 @@ class KonsolidasiKlienService
             'jarak_tempuh_km'   => $row->jarak_tempuh_km !== null ? (float) $row->jarak_tempuh_km : null,
             'tarif'             => $tarif,
             'sudah_difakturkan' => (int) $row->sudah_difakturkan === 1,
+            'titik_drop'        => $dropMap[$row->id_trip] ?? [],
+            'biaya_tambahan'    => $biayaMap[$row->id_trip] ?? 0.0,
         ];
     }
 }

@@ -19,6 +19,8 @@ class ProyekModel extends BaseModel
         'nama_proyek',
         'tanggal_mulai',
         'tanggal_selesai',
+        'harga_penawaran',
+        'harga_proyek',
         'status',
         'keterangan',
     ];

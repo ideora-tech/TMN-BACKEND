@@ -19,6 +19,8 @@ class ProyekResource extends JsonResource
             'nama_proyek'     => $this->nama_proyek,
             'tanggal_mulai'   => $this->tanggal_mulai,
             'tanggal_selesai' => $this->tanggal_selesai,
+            'harga_penawaran' => $this->harga_penawaran !== null ? (float) $this->harga_penawaran : null,
+            'harga_proyek'    => $this->harga_proyek !== null ? (float) $this->harga_proyek : null,
             'status'          => $this->status,
             'keterangan'      => $this->keterangan,
             'dibuat_pada'     => $this->dibuat_pada,

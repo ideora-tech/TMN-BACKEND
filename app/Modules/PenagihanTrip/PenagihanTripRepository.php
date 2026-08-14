@@ -113,4 +113,21 @@ class PenagihanTripRepository implements PenagihanTripRepositoryInterface
             'id_trip'   => $idTrip,
         ], 'id_faktur_trip'));
     }
+
+    public function biayaTagihanUntukTrips(array $idTrips): array
+    {
+        if ($idTrips === []) {
+            return [];
+        }
+
+        return DB::table('biaya_tagihan_trip as bt')
+            ->join('laporan_perjalanan as lp', 'lp.id_laporan', '=', 'bt.id_laporan')
+            ->whereIn('lp.id_trip', $idTrips)
+            ->whereNull('bt.dihapus_pada')->whereNull('lp.dihapus_pada')
+            ->orderBy('bt.dibuat_pada')
+            ->get(['lp.id_trip', 'bt.nama_biaya', 'bt.nominal'])
+            ->groupBy('id_trip')
+            ->map(fn ($g) => $g->map(fn ($b) => ['nama_biaya' => $b->nama_biaya, 'nominal' => (float) $b->nominal])->values()->all())
+            ->all();
+    }
 }

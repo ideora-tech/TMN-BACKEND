@@ -12,7 +12,7 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
     public function findByTrip(string $idTrip): ?LaporanPerjalananModel
     {
         return LaporanPerjalananModel::active()
-            ->with(['biayaLain', 'foto'])
+            ->with(['biayaLain', 'biayaTagihan', 'foto'])
             ->where('id_trip', $idTrip)
             ->first();
     }
@@ -20,14 +20,14 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
     public function findById(string $id): ?LaporanPerjalananModel
     {
         return LaporanPerjalananModel::active()
-            ->with(['biayaLain', 'foto'])
+            ->with(['biayaLain', 'biayaTagihan', 'foto'])
             ->find($id);
     }
 
     public function findByIdMilik(string $id, string $idPerusahaan): ?LaporanPerjalananModel
     {
         return LaporanPerjalananModel::active()
-            ->with(['biayaLain', 'foto'])
+            ->with(['biayaLain', 'biayaTagihan', 'foto'])
             ->where('id_perusahaan', $idPerusahaan)
             ->find($id);
     }
@@ -45,7 +45,7 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
 
     public function reload(LaporanPerjalananModel $model): LaporanPerjalananModel
     {
-        return $model->fresh(['biayaLain', 'foto']);
+        return $model->fresh(['biayaLain', 'biayaTagihan', 'foto']);
     }
 
     public function syncBiayaLain(LaporanPerjalananModel $laporan, array $biayaLain): void
@@ -56,6 +56,21 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
 
         foreach ($biayaLain as $item) {
             BiayaLainTripModel::create([
+                'id_laporan' => $laporan->id_laporan,
+                'nama_biaya' => $item['nama_biaya'],
+                'nominal'    => $item['nominal'],
+            ]);
+        }
+    }
+
+    public function syncBiayaTagihan(LaporanPerjalananModel $laporan, array $biayaTagihan): void
+    {
+        BiayaTagihanTripModel::active()
+            ->where('id_laporan', $laporan->id_laporan)
+            ->each(fn (BiayaTagihanTripModel $item) => $item->softDelete());
+
+        foreach ($biayaTagihan as $item) {
+            BiayaTagihanTripModel::create([
                 'id_laporan' => $laporan->id_laporan,
                 'nama_biaya' => $item['nama_biaya'],
                 'nominal'    => $item['nominal'],

@@ -57,30 +57,6 @@ class PembelianSparepartController extends Controller
         return ApiResponse::success(null, 'Pengajuan pembelian berhasil dihapus');
     }
 
-    public function approveManager(Request $request, string $id): JsonResponse
-    {
-        $record = $this->service->approveManager($id, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new PembelianSparepartResource($record), 'Pengajuan disetujui manager');
-    }
-
-    public function approveFinance(Request $request, string $id): JsonResponse
-    {
-        $record = $this->service->approveFinance($id, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new PembelianSparepartResource($record), 'Pengajuan disetujui finance');
-    }
-
-    public function tolak(Request $request, string $id): JsonResponse
-    {
-        $data = $request->validate(['alasan' => ['required', 'string']]);
-        $record = $this->service->tolak(
-            $id,
-            $data['alasan'],
-            (string) $request->user()->kode_peran,
-            (string) $request->user()->id_perusahaan
-        );
-        return ApiResponse::success(new PembelianSparepartResource($record), 'Pengajuan ditolak');
-    }
-
     public function tambahBukti(UploadBuktiPembelianRequest $request, string $id): JsonResponse
     {
         $record = $this->service->tambahBukti($id, $request->file('bukti'), (string) $request->user()->id_perusahaan);
@@ -97,13 +73,6 @@ class PembelianSparepartController extends Controller
     {
         $record = $this->service->realisasi($id, $request->validated(), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new PembelianSparepartResource($record), 'Realisasi pembelian tersimpan, stok diperbarui');
-    }
-
-    public function lunas(Request $request, string $id): JsonResponse
-    {
-        $data = $request->validate(['tanggal_pembayaran' => ['required', 'date']]);
-        $record = $this->service->tandaiLunas($id, $data['tanggal_pembayaran'], (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new PembelianSparepartResource($record), 'Pembelian ditandai lunas');
     }
 
     public function laporan(Request $request): JsonResponse

@@ -35,6 +35,13 @@ class LaporanPerjalananService
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
         $this->tolakBiayaTanggunganVendor($idTrip, $data);
 
+        $hasBiayaTagihan = array_key_exists('biaya_tagihan', $data);
+        $biayaTagihan = $data['biaya_tagihan'] ?? [];
+        unset($data['biaya_tagihan']);
+        if ($hasBiayaTagihan && $this->tripRepo->tripPunyaFakturAktif($idTrip)) {
+            abort(422, 'Trip sudah masuk faktur — biaya tagihan tidak dapat diubah');
+        }
+
         $biayaLain = $data['biaya_lain'] ?? [];
         unset($data['biaya_lain'], $data['foto']);
 
@@ -43,6 +50,9 @@ class LaporanPerjalananService
             'id_perusahaan' => $idPerusahaan,
         ]));
         $this->repo->syncBiayaLain($laporan, $biayaLain);
+        if ($hasBiayaTagihan) {
+            $this->repo->syncBiayaTagihan($laporan, $biayaTagihan);
+        }
         $this->simpanFotoFiles($laporan, $fotoFiles);
 
         return $this->repo->reload($laporan);
@@ -158,6 +168,13 @@ class LaporanPerjalananService
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
         $this->tolakBiayaTanggunganVendor((string) $record->id_trip, $data);
 
+        $hasBiayaTagihan = array_key_exists('biaya_tagihan', $data);
+        $biayaTagihan = $data['biaya_tagihan'] ?? [];
+        unset($data['biaya_tagihan']);
+        if ($hasBiayaTagihan && $this->tripRepo->tripPunyaFakturAktif((string) $record->id_trip)) {
+            abort(422, 'Trip sudah masuk faktur — biaya tagihan tidak dapat diubah');
+        }
+
         $hasBiayaLain = array_key_exists('biaya_lain', $data);
         $biayaLain = $data['biaya_lain'] ?? [];
         unset($data['biaya_lain'], $data['foto']);
@@ -166,6 +183,9 @@ class LaporanPerjalananService
 
         if ($hasBiayaLain) {
             $this->repo->syncBiayaLain($record, $biayaLain);
+        }
+        if ($hasBiayaTagihan) {
+            $this->repo->syncBiayaTagihan($record, $biayaTagihan);
         }
         $this->simpanFotoFiles($record, $fotoFiles);
 

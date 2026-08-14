@@ -80,6 +80,38 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
         return $rows->all();
     }
 
+    public function titikDropPerTrip(array $idTrips): array
+    {
+        if ($idTrips === []) {
+            return [];
+        }
+
+        return DB::table('titik_drop_trip')
+            ->whereIn('id_trip', $idTrips)->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['id_trip', 'lokasi'])
+            ->groupBy('id_trip')
+            ->map(fn ($g) => $g->pluck('lokasi')->all())
+            ->all();
+    }
+
+    public function biayaTagihanPerTrip(array $idTrips): array
+    {
+        if ($idTrips === []) {
+            return [];
+        }
+
+        return DB::table('biaya_tagihan_trip as bt')
+            ->join('laporan_perjalanan as lp', 'lp.id_laporan', '=', 'bt.id_laporan')
+            ->whereIn('lp.id_trip', $idTrips)
+            ->whereNull('bt.dihapus_pada')->whereNull('lp.dihapus_pada')
+            ->groupBy('lp.id_trip')
+            ->selectRaw('lp.id_trip, SUM(bt.nominal) as total')
+            ->pluck('total', 'id_trip')
+            ->map(fn ($v) => (float) $v)
+            ->all();
+    }
+
     /**
      * Trip supir shift: penugasan tanpa id_armada — armada hariannya dari
      * alokasi_armada (konsisten PenagihanTripRepository::isiArmadaAlokasi).

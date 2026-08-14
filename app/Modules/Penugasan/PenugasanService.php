@@ -118,7 +118,15 @@ class PenugasanService
             $data['status'] = $this->sudahAdaSupir($data) ? 'aktif' : 'pending';
         }
 
+        $titikDrop = $data['titik_drop'] ?? null;
+        unset($data['titik_drop']);
+
         $record = $this->repo->create($data);
+
+        if ($titikDrop !== null) {
+            $this->repo->syncTitikDrop((string) $record->id_penugasan, $titikDrop);
+        }
+        $record->titik_drop = $titikDrop ?? [];
 
         if (!empty($record->id_supir)) {
             $this->notifikasiPenugasan($record);
@@ -131,6 +139,10 @@ class PenugasanService
     {
         $record = $this->findOrFail($id);
         $data   = $this->normalizeSumber($data);
+
+        $titikDropDikirim = array_key_exists('titik_drop', $data);
+        $titikDrop = $data['titik_drop'] ?? null;
+        unset($data['titik_drop']);
 
         if ($record->status === 'batal'
             && array_key_exists('status', $data)
@@ -196,6 +208,11 @@ class PenugasanService
         $armadaSebelum = $record->id_armada;
         $supirSebelum  = $record->id_supir;
         $updated = $this->repo->update($record, $data);
+
+        if ($titikDropDikirim) {
+            $this->repo->syncTitikDrop($id, $titikDrop ?? []);
+        }
+        $updated->titik_drop = $this->repo->titikDropUntukBanyak([$id])[$id] ?? [];
 
         // Armada penugasan diubah user → alokasi jadwal ke depan dihitung ulang
         // (penugasan = satu-satunya sumber kepemilikan harian armada).
@@ -382,6 +399,16 @@ class PenugasanService
         if (!empty($data['id_supir_vendor']) && !$this->supirVendorRepo->milikVendor((string) $data['id_supir_vendor'], $kontrak->id_vendor)) {
             abort(422, 'Supir vendor tidak sesuai dengan vendor kontrak');
         }
+    }
+
+    public function titikDropUntuk(string $idPenugasan): array
+    {
+        return $this->repo->titikDropUntukBanyak([$idPenugasan])[$idPenugasan] ?? [];
+    }
+
+    public function titikDropBanyak(array $idPenugasanList): array
+    {
+        return $this->repo->titikDropUntukBanyak($idPenugasanList);
     }
 
     public function delete(string $id): void

@@ -39,6 +39,12 @@ class LaporanPerjalananModel extends BaseModel
             ->whereNull('dihapus_pada');
     }
 
+    public function biayaTagihan(): HasMany
+    {
+        return $this->hasMany(BiayaTagihanTripModel::class, 'id_laporan', 'id_laporan')
+            ->whereNull('dihapus_pada');
+    }
+
     public function foto(): HasMany
     {
         return $this->hasMany(FotoLaporanPerjalananModel::class, 'id_laporan', 'id_laporan')

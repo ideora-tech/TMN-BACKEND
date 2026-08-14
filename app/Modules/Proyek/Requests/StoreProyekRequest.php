@@ -22,6 +22,8 @@ class StoreProyekRequest extends FormRequest
             'nama_proyek'     => ['required', 'string', 'max:200'],
             'tanggal_mulai'   => ['sometimes', 'nullable', 'date'],
             'tanggal_selesai' => ['sometimes', 'nullable', 'date', 'after_or_equal:tanggal_mulai'],
+            'harga_penawaran' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'harga_proyek'    => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'status'          => ['sometimes', 'string', 'in:draft,aktif,selesai,batal'],
             'keterangan'      => ['sometimes', 'nullable', 'string'],
             'id_penawaran'    => ['sometimes', 'nullable', 'string', 'exists:penawaran,id_penawaran,dihapus_pada,NULL'],

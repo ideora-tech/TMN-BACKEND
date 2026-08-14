@@ -33,6 +33,11 @@ class PenugasanController extends Controller
             $result = $this->service->listByPerusahaan((string) $request->user()->id_perusahaan, $page, $limit, $sumber, $status);
         }
 
+        $map = $this->service->titikDropBanyak(array_map(fn ($r) => (string) $r->id_penugasan, [...$result['data']]));
+        foreach ($result['data'] as $row) {
+            $row->titik_drop = $map[$row->id_penugasan] ?? [];
+        }
+
         return ApiResponse::paginated(
             PenugasanResource::collection($result['data']),
             $result['meta']
@@ -41,7 +46,9 @@ class PenugasanController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        return ApiResponse::success(new PenugasanResource($this->service->findOrFail($id)));
+        $record = $this->service->findOrFail($id);
+        $record->titik_drop = $this->service->titikDropUntuk((string) $record->id_penugasan);
+        return ApiResponse::success(new PenugasanResource($record));
     }
 
     public function store(StorePenugasanRequest $request): JsonResponse

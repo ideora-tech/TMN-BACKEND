@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Modules\PembelianSparepart;
 
+use App\Modules\ArusKas\ArusKasService;
 use App\Modules\PembelianSparepart\Contracts\PembelianSparepartRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,10 @@ class PembelianSparepartService
     public const STATUS_DIBELI            = 'dibeli';
     public const STATUS_LUNAS             = 'lunas';
 
-    public function __construct(private readonly PembelianSparepartRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly PembelianSparepartRepositoryInterface $repo,
+        private readonly ArusKasService $arusKasService,
+    ) {}
 
     public function list(string $idPerusahaan, int $page, int $limit, array $filter = []): array
     {
@@ -44,7 +48,26 @@ class PembelianSparepartService
             'url_file'  => PenyimpananBerkas::url($b->url_file),
             'nama_asli' => $b->nama_asli,
         ], $this->repo->listBukti($id));
+        $record->pembayaran = $this->susunDataPembayaran($id, $record);
         return $record;
+    }
+
+    private function susunDataPembayaran(string $idPembelian, object $record): ?array
+    {
+        $pembayaran = $this->repo->dataPembayaranPengajuan($idPembelian);
+        if ($pembayaran === null) {
+            return null;
+        }
+
+        $nominalDitransfer = (float) $pembayaran->nominal_ditransfer;
+        $totalAktual = $record->total_aktual !== null ? (float) $record->total_aktual : null;
+
+        return [
+            'nominal_ditransfer' => $nominalDitransfer,
+            'tanggal_transfer'   => $pembayaran->tanggal_transfer,
+            'total_aktual'       => $totalAktual,
+            'selisih'            => $totalAktual !== null ? $totalAktual - $nominalDitransfer : null,
+        ];
     }
 
     public function create(array $data, string $idPerusahaan): object
@@ -54,27 +77,97 @@ class PembelianSparepartService
             $header['id_perusahaan']   = $idPerusahaan;
             $header['status']          = self::STATUS_DIAJUKAN;
             $header['nomor_pengajuan'] = $this->repo->nomorBerikutnya($idPerusahaan);
+            if ($header['id_perawatan'] !== null) {
+                $header = $this->stampDisetujuiOtomatis($header);
+            }
             $record = $this->repo->createWithItems($header, $items);
-            return $this->findOrFail($record->id_pembelian, $idPerusahaan);
+            $hasil = $this->findOrFail($record->id_pembelian, $idPerusahaan);
+            if ($hasil->id_perawatan === null) {
+                $this->arusKasService->buatPengajuanPembelianOtomatis($hasil, (float) $hasil->total_estimasi);
+            }
+            return $hasil;
         });
     }
 
     public function update(string $id, array $data, string $idPerusahaan): object
     {
         $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN], 'Pengajuan hanya bisa diubah saat status diajukan');
+        $this->pastikanBolehDiubah($record);
         [$header, $items] = $this->susunHeaderItems($data, $idPerusahaan);
+        if ($record->id_perawatan === null && $header['id_perawatan'] !== null) {
+            $header = $this->stampDisetujuiOtomatis($header);
+        } elseif ($record->id_perawatan !== null && $header['id_perawatan'] === null) {
+            $header = $this->stampKembaliDiajukan($header);
+        }
         return DB::transaction(function () use ($record, $header, $items, $idPerusahaan) {
             $this->repo->updateWithItems($record, $header, $items);
-            return $this->findOrFail($record->id_pembelian, $idPerusahaan);
+            $hasil = $this->findOrFail($record->id_pembelian, $idPerusahaan);
+            $this->sinkronArusKasSetelahUpdate($record, $hasil);
+            return $hasil;
         });
+    }
+
+    private function stampDisetujuiOtomatis(array $header): array
+    {
+        $header['status']                 = self::STATUS_DISETUJUI_FINANCE;
+        $header['disetujui_manager_oleh'] = auth()->id();
+        $header['disetujui_manager_pada'] = now();
+        $header['disetujui_finance_oleh'] = auth()->id();
+        $header['disetujui_finance_pada'] = now();
+        return $header;
+    }
+
+    private function stampKembaliDiajukan(array $header): array
+    {
+        $header['status']                 = self::STATUS_DIAJUKAN;
+        $header['disetujui_manager_oleh'] = null;
+        $header['disetujui_manager_pada'] = null;
+        $header['disetujui_finance_oleh'] = null;
+        $header['disetujui_finance_pada'] = null;
+        return $header;
+    }
+
+    private function bolehDiubahAtauDihapus(object $record): bool
+    {
+        return $record->status === self::STATUS_DIAJUKAN
+            || ($record->status === self::STATUS_DISETUJUI_FINANCE && $record->id_perawatan !== null);
+    }
+
+    private function pastikanBolehDiubah(object $record): void
+    {
+        if (!$this->bolehDiubahAtauDihapus($record)) {
+            abort(422, "Pengajuan hanya bisa diubah saat status diajukan (status saat ini: {$record->status})");
+        }
+    }
+
+    private function pastikanBolehDihapus(object $record): void
+    {
+        if (!$this->bolehDiubahAtauDihapus($record)) {
+            abort(422, "Pengajuan hanya bisa dihapus saat status diajukan (status saat ini: {$record->status})");
+        }
+    }
+
+    private function sinkronArusKasSetelahUpdate(object $sebelum, object $sesudah): void
+    {
+        if ($sebelum->id_perawatan === null && $sesudah->id_perawatan !== null) {
+            $this->arusKasService->hapusPengajuanPembelian($sesudah->id_pembelian);
+            return;
+        }
+
+        if ($sesudah->id_perawatan === null) {
+            $this->arusKasService->buatPengajuanPembelianOtomatis($sesudah, (float) $sesudah->total_estimasi);
+            $this->arusKasService->sinkronNominalPengajuanPembelian($sesudah->id_pembelian, (float) $sesudah->total_estimasi);
+        }
     }
 
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN], 'Pengajuan hanya bisa dihapus saat status diajukan');
-        $this->repo->softDelete($record);
+        $this->pastikanBolehDihapus($record);
+        DB::transaction(function () use ($record) {
+            $this->repo->softDelete($record);
+            $this->arusKasService->hapusPengajuanPembelian($record->id_pembelian);
+        });
     }
 
     private function susunHeaderItems(array $data, string $idPerusahaan): array
@@ -113,51 +206,6 @@ class PembelianSparepartService
             'total_estimasi'    => $total,
         ];
         return [$header, $items];
-    }
-
-    public function approveManager(string $id, string $idPerusahaan): object
-    {
-        $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN], 'Pengajuan tidak bisa disetujui manager');
-        $this->repo->updateHeader($record, [
-            'status'                 => self::STATUS_DISETUJUI_MANAGER,
-            'disetujui_manager_oleh' => auth()->id(),
-            'disetujui_manager_pada' => now(),
-        ]);
-        return $this->findOrFail($id, $idPerusahaan);
-    }
-
-    public function approveFinance(string $id, string $idPerusahaan): object
-    {
-        $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DISETUJUI_MANAGER], 'Pengajuan harus disetujui manager terlebih dulu');
-        $this->repo->updateHeader($record, [
-            'status'                 => self::STATUS_DISETUJUI_FINANCE,
-            'disetujui_finance_oleh' => auth()->id(),
-            'disetujui_finance_pada' => now(),
-        ]);
-        return $this->findOrFail($id, $idPerusahaan);
-    }
-
-    public function tolak(string $id, string $alasan, string $kodePeran, string $idPerusahaan): object
-    {
-        $record = $this->findOrFail($id, $idPerusahaan);
-        $bolehManager = in_array($kodePeran, ['MANAGER', 'ADMIN', 'SUPERADMIN'], true);
-        $bolehFinance = in_array($kodePeran, ['KEUANGAN', 'ADMIN', 'SUPERADMIN'], true);
-
-        if ($record->status === self::STATUS_DIAJUKAN && !$bolehManager) {
-            abort(422, 'Pengajuan status diajukan hanya bisa ditolak oleh manager');
-        }
-        if ($record->status === self::STATUS_DISETUJUI_MANAGER && !$bolehFinance) {
-            abort(422, 'Pengajuan status disetujui manager hanya bisa ditolak oleh finance');
-        }
-        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN, self::STATUS_DISETUJUI_MANAGER], 'Pengajuan tidak bisa ditolak');
-
-        $this->repo->updateHeader($record, [
-            'status'         => self::STATUS_DITOLAK,
-            'alasan_ditolak' => $alasan,
-        ]);
-        return $this->findOrFail($id, $idPerusahaan);
     }
 
     private function pastikanStatus(object $record, array $boleh, string $pesan): void
@@ -214,26 +262,17 @@ class PembelianSparepartService
             $this->repo->gantiHargaAktualItems($record->id_pembelian, $hargaPerItem);
             $items = $this->repo->listItems($record->id_pembelian);
             $totalAktual = array_sum(array_map(fn ($i) => ((int) $i->qty) * (float) $i->harga_aktual, $items));
+            $statusRealisasi = $record->tanggal_pembayaran !== null ? self::STATUS_LUNAS : self::STATUS_DIBELI;
             $this->repo->updateHeader($record, [
-                'status'            => self::STATUS_DIBELI,
+                'status'            => $statusRealisasi,
                 'tanggal_pembelian' => $data['tanggal_pembelian'],
                 'total_aktual'      => $totalAktual,
             ]);
             $header = $this->repo->findById($record->id_pembelian);
             $this->repo->tambahStokDanMutasi($header, $items);
+            $this->arusKasService->sinkronNominalPengajuanPembelian($record->id_pembelian, $totalAktual);
             return $this->findOrFail($record->id_pembelian, $idPerusahaan);
         });
-    }
-
-    public function tandaiLunas(string $id, string $tanggalPembayaran, string $idPerusahaan): object
-    {
-        $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DIBELI], 'Hanya pembelian berstatus dibeli yang bisa ditandai lunas');
-        $this->repo->updateHeader($record, [
-            'status'             => self::STATUS_LUNAS,
-            'tanggal_pembayaran' => $tanggalPembayaran,
-        ]);
-        return $this->findOrFail($id, $idPerusahaan);
     }
 
     public function laporan(string $idPerusahaan, ?string $dari, ?string $sampai): array

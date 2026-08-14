@@ -24,6 +24,7 @@ class LaporanPerjalananResource extends JsonResource
             'dibuat_pada'     => $this->dibuat_pada,
             'diubah_pada'     => $this->diubah_pada,
             'biaya_lain'      => BiayaLainTripResource::collection($this->whenLoaded('biayaLain')),
+            'biaya_tagihan'   => BiayaTagihanTripResource::collection($this->whenLoaded('biayaTagihan')),
             'foto'            => FotoLaporanResource::collection($this->whenLoaded('foto')),
         ];
     }

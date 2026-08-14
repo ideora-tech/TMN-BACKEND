@@ -238,4 +238,14 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
     {
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
     }
+
+    public function dataPembayaranPengajuan(string $idPembelian): ?object
+    {
+        return DB::table('pengajuan_pengeluaran')
+            ->whereNull('dihapus_pada')
+            ->where('id_pembelian', $idPembelian)
+            ->where('status', 'ditransfer')
+            ->select(['nominal as nominal_ditransfer', 'tanggal_transfer'])
+            ->first();
+    }
 }

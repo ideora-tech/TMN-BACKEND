@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Trip;
 
+use App\Modules\ArusKas\ArusKasService;
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Cuti\Contracts\CutiRepositoryInterface;
 use App\Modules\AbsensiSupir\Contracts\AbsensiSupirRepositoryInterface;
@@ -35,7 +36,8 @@ class TripService
         private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
         private readonly AlokasiArmadaRepositoryInterface $alokasiRepo,
         private readonly AbsensiSupirRepositoryInterface $absensiRepo,
-        private readonly LaporanOperasionalRepositoryInterface $laporanRepo
+        private readonly LaporanOperasionalRepositoryInterface $laporanRepo,
+        private readonly ArusKasService $arusKasService
     ) {}
 
     /**
@@ -339,7 +341,9 @@ class TripService
             abort(409, 'Trip untuk jadwal ini sudah ada');
         }
 
-        return $this->repo->create($data);
+        $trip = $this->repo->create($data);
+        $this->repo->salinTitikDropDariPenugasan((string) $penugasan->id_penugasan, (string) $trip->id_trip);
+        return $trip;
     }
 
     public function mulaiDariPenugasan(array $data, string $idPerusahaan): TripModel
@@ -394,7 +398,13 @@ class TripService
                 'uang_jalan_alokasi' => $data['uang_jalan_alokasi'] ?? null,
             ]);
 
-            return $this->checkin($trip->id_trip, $idPerusahaan);
+            $this->repo->salinTitikDropDariPenugasan((string) $penugasan->id_penugasan, (string) $trip->id_trip);
+
+            $tripBerjalan = $this->checkin($trip->id_trip, $idPerusahaan);
+
+            $this->arusKasService->buatPengajuanUangJalanOtomatis($tripBerjalan);
+
+            return $tripBerjalan;
         });
     }
 
@@ -615,7 +625,11 @@ class TripService
             abort(422, 'Uang jalan tidak dapat diubah — trip sudah di-settle');
         }
 
-        return $this->repo->update($trip, ['uang_jalan_alokasi' => $alokasi]);
+        $updated = $this->repo->update($trip, ['uang_jalan_alokasi' => $alokasi]);
+
+        $this->arusKasService->sinkronNominalPengajuanTrip($id, $alokasi);
+
+        return $updated;
     }
 
     public function delete(string $id, ?string $idPerusahaan = null): void
@@ -634,6 +648,31 @@ class TripService
         $this->findOrFail($id, $idPerusahaan);
 
         return $this->repo->rekapBiaya($id);
+    }
+
+    public function updateTitikDrop(string $idTrip, array $lokasiList, string $idPerusahaan): TripModel
+    {
+        $trip = $this->findOrFail($idTrip, $idPerusahaan);
+        if ($this->repo->tripPunyaFakturAktif($idTrip)) {
+            abort(422, 'Trip sudah masuk faktur — titik drop tidak dapat diubah');
+        }
+        $this->repo->syncTitikDropTrip($idTrip, $lokasiList);
+        return $trip;
+    }
+
+    public function titikDropTrip(string $idTrip): array
+    {
+        return $this->repo->titikDropTrip($idTrip);
+    }
+
+    public function titikDropTripBanyak(array $idTrips): array
+    {
+        return $this->repo->titikDropTripBanyak($idTrips);
+    }
+
+    public function tripPunyaFakturAktif(string $idTrip): bool
+    {
+        return $this->repo->tripPunyaFakturAktif($idTrip);
     }
 
     public function rekapSupir(string $idPerusahaan, array $filter): Collection

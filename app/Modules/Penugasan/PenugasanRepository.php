@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Penugasan;
 
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
+use App\Support\RecordHelper;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class PenugasanRepository implements PenugasanRepositoryInterface
 {
@@ -152,5 +154,37 @@ class PenugasanRepository implements PenugasanRepositoryInterface
     public function delete(PenugasanModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function syncTitikDrop(string $idPenugasan, array $lokasiList): void
+    {
+        DB::table('titik_drop_penugasan')
+            ->where('id_penugasan', $idPenugasan)
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampDelete());
+
+        foreach (array_values($lokasiList) as $i => $lokasi) {
+            DB::table('titik_drop_penugasan')->insert(RecordHelper::stampCreate([
+                'id_penugasan' => $idPenugasan,
+                'urutan'       => $i + 1,
+                'lokasi'       => trim((string) $lokasi),
+            ], 'id_titik_drop'));
+        }
+    }
+
+    public function titikDropUntukBanyak(array $idPenugasan): array
+    {
+        if ($idPenugasan === []) {
+            return [];
+        }
+
+        return DB::table('titik_drop_penugasan')
+            ->whereIn('id_penugasan', $idPenugasan)
+            ->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['id_penugasan', 'lokasi'])
+            ->groupBy('id_penugasan')
+            ->map(fn ($g) => $g->pluck('lokasi')->all())
+            ->all();
     }
 }

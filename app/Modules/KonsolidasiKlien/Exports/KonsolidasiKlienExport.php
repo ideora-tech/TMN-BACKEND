@@ -33,7 +33,7 @@ class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize,
 
     public function headings(): array
     {
-        return ['No', 'Tanggal', 'Proyek', 'Rute', 'Asal', 'Tujuan', 'Nopol', 'Supir', 'Sumber', 'Jarak (km)', 'Tarif (Rp)', 'Status Tagihan'];
+        return ['No', 'Tanggal', 'Proyek', 'Rute', 'Asal', 'Tujuan', 'Nopol', 'Supir', 'Sumber', 'Jarak (km)', 'Tarif (Rp)', 'Biaya Tambahan (Rp)', 'Total (Rp)', 'Status Tagihan'];
     }
 
     public function array(): array
@@ -44,12 +44,14 @@ class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize,
             trim(($t['kode_proyek'] ?? '') . ' ' . ($t['nama_proyek'] ?? '')) ?: '-',
             $t['rute'] ?? '-',
             $t['asal'] ?? '-',
-            $t['tujuan'] ?? '-',
+            !empty($t['titik_drop']) ? implode(' → ', $t['titik_drop']) : ($t['tujuan'] ?? '-'),
             $t['nopol'] ?? '-',
             $t['supir_nama'] ?? '-',
             ($t['sumber'] ?? 'internal') === 'vendor' ? 'Vendor' : 'Internal',
             $t['jarak_tempuh_km'] ?? 0,
             $t['tarif']['harga'] ?? 0,
+            $t['biaya_tambahan'] ?? 0,
+            ($t['tarif']['harga'] ?? 0) + ($t['biaya_tambahan'] ?? 0),
             $t['sudah_difakturkan'] ? 'Sudah difakturkan' : 'Belum',
         ])->all();
 
@@ -65,6 +67,8 @@ class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize,
             '',
             $this->trips->sum(fn ($t) => $t['jarak_tempuh_km'] ?? 0),
             $this->trips->sum(fn ($t) => $t['tarif']['harga'] ?? 0),
+            $this->trips->sum(fn ($t) => $t['biaya_tambahan'] ?? 0),
+            $this->trips->sum(fn ($t) => ($t['tarif']['harga'] ?? 0) + ($t['biaya_tambahan'] ?? 0)),
             '',
         ];
 

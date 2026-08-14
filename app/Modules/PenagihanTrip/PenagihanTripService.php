@@ -29,10 +29,12 @@ class PenagihanTripService
 
         $rows = $this->repo->tripSiapTagih($idPerusahaan, $idProyek, $dari, $sampai);
 
-        return array_map(fn ($row) => $this->mapBaris($row, $idPerusahaan), $rows);
+        $biayaMap = $this->repo->biayaTagihanUntukTrips(array_map(fn ($row) => (string) $row->id_trip, $rows));
+
+        return array_map(fn ($row) => $this->mapBaris($row, $idPerusahaan, $biayaMap[$row->id_trip] ?? []), $rows);
     }
 
-    private function mapBaris(object $row, string $idPerusahaan): array
+    private function mapBaris(object $row, string $idPerusahaan, array $biayaTagihan = []): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
 
@@ -61,6 +63,8 @@ class PenagihanTripService
             'jarak_tempuh_km' => $row->jarak_tempuh_km !== null ? (float) $row->jarak_tempuh_km : null,
             'tarif'           => $tarif,
             'bisa_ditagih'    => $tarif !== null,
+            'biaya_tagihan'       => $biayaTagihan,
+            'total_biaya_tagihan' => array_sum(array_column($biayaTagihan, 'nominal')),
         ];
     }
 
@@ -97,6 +101,17 @@ class PenagihanTripService
                 ])
                 ->values()
                 ->all();
+
+            $biayaMap = $this->repo->biayaTagihanUntukTrips(array_map(fn ($b) => (string) $b['id_trip'], $terpilih));
+            foreach ($terpilih as $baris) {
+                foreach ($biayaMap[$baris['id_trip']] ?? [] as $biaya) {
+                    $items[] = [
+                        'deskripsi'    => "{$biaya['nama_biaya']} — {$baris['nopol']}, {$baris['tanggal']}",
+                        'qty'          => 1,
+                        'harga_satuan' => $biaya['nominal'],
+                    ];
+                }
+            }
 
             $faktur = $this->fakturService->create([
                 'id_perusahaan'  => $idPerusahaan,

@@ -47,6 +47,11 @@ class TripController extends Controller
             $request->get('sumber')
         );
 
+        $map = $this->service->titikDropTripBanyak(array_map(fn ($r) => (string) $r->id_trip, [...$result['data']]));
+        foreach ($result['data'] as $row) {
+            $row->titik_drop = $map[$row->id_trip] ?? [];
+        }
+
         return ApiResponse::paginated(
             TripResource::collection($result['data']),
             $result['meta']
@@ -157,7 +162,21 @@ class TripController extends Controller
     public function show(Request $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        return ApiResponse::success(new TripResource($this->service->findOrFail($id, $idPerusahaan)));
+        $trip = $this->service->findOrFail($id, $idPerusahaan);
+        $trip->titik_drop        = $this->service->titikDropTrip($id);
+        $trip->sudah_difakturkan = $this->service->tripPunyaFakturAktif($id);
+        return ApiResponse::success(new TripResource($trip));
+    }
+
+    public function updateTitikDrop(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'titik_drop'   => ['present', 'array', 'max:10'],
+            'titik_drop.*' => ['required', 'string', 'max:200'],
+        ]);
+
+        $this->service->updateTitikDrop($id, $validated['titik_drop'], (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(['titik_drop' => $validated['titik_drop']], 'Titik drop diperbarui');
     }
 
     public function store(StoreTripRequest $request): JsonResponse

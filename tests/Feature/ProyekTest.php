@@ -595,6 +595,43 @@ class ProyekTest extends TestCase
         $this->get("/api/v1/proyek/{$proyekLain->id_proyek}/pdf")->assertStatus(404);
     }
 
+    public function test_membuat_dan_mengubah_harga_penawaran_dan_harga_proyek(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+
+        $res = $this->postJson('/api/v1/proyek', [
+            'id_klien'        => $klien->id_klien,
+            'kode_proyek'     => 'PRJ-HARGA',
+            'nama_proyek'     => 'Proyek Harga',
+            'harga_penawaran' => 15000000,
+            'harga_proyek'    => 14000000,
+        ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.harga_penawaran', 15000000)
+            ->assertJsonPath('data.harga_proyek', 14000000);
+
+        $idProyek = $res->json('data.id_proyek');
+
+        $ubah = $this->putJson("/api/v1/proyek/{$idProyek}", ['harga_proyek' => 13500000]);
+        $ubah->assertStatus(200)
+            ->assertJsonPath('data.harga_proyek', 13500000)
+            ->assertJsonPath('data.harga_penawaran', 15000000);
+    }
+
+    public function test_show_proyek_menyertakan_nama_klien(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien  = $this->makeKlien();
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-SHOW');
+
+        $res = $this->getJson("/api/v1/proyek/{$proyek->id_proyek}");
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.nama_klien', 'Klien Test');
+    }
+
     public function test_index_dengan_id_klien_perusahaan_lain_tidak_bocor(): void
     {
         $this->actingAsRole('SUPERADMIN');

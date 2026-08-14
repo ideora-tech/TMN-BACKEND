@@ -73,26 +73,14 @@ class PembelianLaporanTest extends TestCase
         return $id;
     }
 
-    public function test_tandai_lunas(): void
+    public function test_route_lunas_lama_sudah_dihapus(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $id = $this->pembelianDibeli(100000);
 
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/v1/pembelian-sparepart/{$id}/lunas", ['tanggal_pembayaran' => now()->toDateString()])
-            ->assertStatus(200)->assertJsonPath('data.status', 'lunas');
-
-        $this->patchJson("/api/v1/pembelian-sparepart/{$id}/lunas", ['tanggal_pembayaran' => now()->toDateString()])
-            ->assertStatus(422);
-    }
-
-    public function test_lunas_oleh_dispatcher_403(): void
-    {
-        $this->actingAsRole('SUPERADMIN');
-        $id = $this->pembelianDibeli(100000);
-        $this->actingAsRole('DISPATCHER');
-        $this->patchJson("/api/v1/pembelian-sparepart/{$id}/lunas", ['tanggal_pembayaran' => now()->toDateString()])
-            ->assertStatus(403);
+            ->assertStatus(404);
     }
 
     public function test_laporan_hanya_hitung_dibeli_dan_lunas(): void

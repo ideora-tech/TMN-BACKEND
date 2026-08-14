@@ -23,11 +23,14 @@ class StoreLaporanPerjalananRequest extends FormRequest
             'uang_jalan'              => ['sometimes', 'numeric', 'min:0'],
             'uang_tol'                => ['sometimes', 'numeric', 'min:0'],
             'catatan_insiden'         => ['sometimes', 'nullable', 'string'],
-            'biaya_lain'              => ['sometimes', 'array'],
-            'biaya_lain.*.nama_biaya' => ['required_with:biaya_lain', 'string', 'max:100'],
-            'biaya_lain.*.nominal'    => ['required_with:biaya_lain', 'numeric', 'min:0'],
-            'foto'                    => ['sometimes', 'array'],
-            'foto.*'                  => ['file', 'mimes:jpg,jpeg,png', 'max:10240'],
+            'biaya_lain'                  => ['sometimes', 'array'],
+            'biaya_lain.*.nama_biaya'     => ['required_with:biaya_lain', 'string', 'max:100'],
+            'biaya_lain.*.nominal'        => ['required_with:biaya_lain', 'numeric', 'min:0'],
+            'biaya_tagihan'               => ['sometimes', 'array', 'max:10'],
+            'biaya_tagihan.*.nama_biaya'  => ['required_with:biaya_tagihan', 'string', 'max:100'],
+            'biaya_tagihan.*.nominal'     => ['required_with:biaya_tagihan', 'numeric', 'min:0'],
+            'foto'                        => ['sometimes', 'array'],
+            'foto.*'                      => ['file', 'mimes:jpg,jpeg,png', 'max:10240'],
         ];
     }
 }

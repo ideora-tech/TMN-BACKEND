@@ -61,7 +61,6 @@ services:
       NODE_ENV: production
       PORT: 3009
       BACKEND_URL: http://backend:4019
-      NEXTAUTH_URL: http://localhost:3009
       AUTH_SECRET: tmntransport2026secretkey32chars!!
       AUTH_TRUST_HOST: "true"
     depends_on:

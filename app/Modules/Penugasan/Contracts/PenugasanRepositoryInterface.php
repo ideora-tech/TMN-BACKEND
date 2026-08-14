@@ -24,4 +24,6 @@ interface PenugasanRepositoryInterface
     public function create(array $data): PenugasanModel;
     public function update(PenugasanModel $model, array $data): PenugasanModel;
     public function delete(PenugasanModel $model): void;
+    public function syncTitikDrop(string $idPenugasan, array $lokasiList): void;
+    public function titikDropUntukBanyak(array $idPenugasan): array;
 }

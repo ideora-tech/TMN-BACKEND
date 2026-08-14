@@ -308,4 +308,42 @@ class PenagihanTripTest extends TestCase
         $this->assertCount(1, $daftar);
         $this->assertSame($trip->id_trip, $daftar[0]['id_trip']);
     }
+
+    public function test_buat_faktur_menyertakan_item_biaya_tagihan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $this->buatTarif(900000);
+
+        $trip = $this->buatTrip();
+
+        $idLaporan = DB::table('laporan_perjalanan')->where('id_trip', $trip->id_trip)->value('id_laporan');
+        DB::table('biaya_tagihan_trip')->insert([
+            'id_biaya_tagihan' => (string) Str::uuid(), 'id_laporan' => $idLaporan,
+            'nama_biaya' => 'Multidrop', 'nominal' => 150000, 'dibuat_pada' => now(),
+        ]);
+
+        $daftar = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}")->json('data');
+        $baris = collect($daftar)->firstWhere('id_trip', $trip->id_trip);
+        $this->assertSame(150000.0, (float) $baris['total_biaya_tagihan']);
+        $this->assertCount(1, $baris['biaya_tagihan']);
+        $this->assertSame('Multidrop', $baris['biaya_tagihan'][0]['nama_biaya']);
+        $this->assertSame(150000.0, (float) $baris['biaya_tagihan'][0]['nominal']);
+
+        $res = $this->postJson('/api/v1/penagihan-trip/faktur', [
+            'id_proyek'      => $this->proyek->id_proyek,
+            'trip_ids'       => [$trip->id_trip],
+            'tanggal_faktur' => now()->toDateString(),
+        ]);
+
+        $res->assertStatus(201)->assertJsonPath('data.total', 1050000);
+
+        $idFaktur = $res->json('data.id_faktur');
+        $itemBiaya = DB::table('faktur_item')
+            ->where('id_faktur', $idFaktur)
+            ->where('harga_satuan', 150000)
+            ->first();
+        $this->assertNotNull($itemBiaya);
+        $this->assertStringContainsString('Multidrop', $itemBiaya->deskripsi);
+    }
 }

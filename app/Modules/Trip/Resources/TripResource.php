@@ -33,6 +33,8 @@ class TripResource extends JsonResource
             'status_settlement'  => $this->status_settlement ?? 'belum',
             'settlement_pada'    => $this->settlement_pada,
             'catatan_settlement' => $this->catatan_settlement,
+            'titik_drop'         => $this->titik_drop ?? [],
+            'sudah_difakturkan'  => (bool) ($this->sudah_difakturkan ?? false),
             'dibuat_pada'     => $this->dibuat_pada,
             'diubah_pada'     => $this->diubah_pada,
         ];

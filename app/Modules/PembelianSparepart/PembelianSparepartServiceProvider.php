@@ -23,16 +23,8 @@ class PembelianSparepartServiceProvider extends ServiceProvider
                 Route::get('pembelian-sparepart/laporan', [PembelianSparepartController::class, 'laporan']);
                 Route::get('pembelian-sparepart/laporan/export/excel', [PembelianSparepartController::class, 'exportLaporanExcel']);
                 Route::get('pembelian-sparepart/laporan/export/pdf', [PembelianSparepartController::class, 'exportLaporanPdf']);
-                Route::patch('pembelian-sparepart/{id}/approve-manager', [PembelianSparepartController::class, 'approveManager'])
-                    ->middleware('role:SUPERADMIN,ADMIN,MANAGER');
-                Route::patch('pembelian-sparepart/{id}/approve-finance', [PembelianSparepartController::class, 'approveFinance'])
-                    ->middleware('role:SUPERADMIN,ADMIN,KEUANGAN');
-                Route::patch('pembelian-sparepart/{id}/tolak', [PembelianSparepartController::class, 'tolak'])
-                    ->middleware('role:SUPERADMIN,ADMIN,MANAGER,KEUANGAN');
                 Route::patch('pembelian-sparepart/{id}/realisasi', [PembelianSparepartController::class, 'realisasi'])
                     ->middleware('role:SUPERADMIN,ADMIN,DISPATCHER');
-                Route::patch('pembelian-sparepart/{id}/lunas', [PembelianSparepartController::class, 'lunas'])
-                    ->middleware('role:SUPERADMIN,ADMIN,KEUANGAN');
                 Route::post('pembelian-sparepart/{id}/bukti', [PembelianSparepartController::class, 'tambahBukti']);
                 Route::delete('pembelian-sparepart/{id}/bukti/{idBukti}', [PembelianSparepartController::class, 'hapusBukti']);
                 Route::apiResource('pembelian-sparepart', PembelianSparepartController::class)

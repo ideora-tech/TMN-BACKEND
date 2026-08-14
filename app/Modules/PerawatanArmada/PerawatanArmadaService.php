@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\PerawatanArmada;
 
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
+use App\Modules\ArusKas\ArusKasService;
 use App\Modules\IntervalPerawatan\Contracts\IntervalPerawatanRepositoryInterface;
 use App\Modules\PaketPerawatanSparepart\Contracts\PaketPerawatanSparepartRepositoryInterface;
 use App\Modules\PerawatanArmada\Contracts\PerawatanArmadaRepositoryInterface;
@@ -21,6 +22,7 @@ class PerawatanArmadaService
         private readonly ArmadaRepositoryInterface $armadaRepo,
         private readonly IntervalPerawatanRepositoryInterface $intervalRepo,
         private readonly PaketPerawatanSparepartRepositoryInterface $paketRepo,
+        private readonly ArusKasService $arusKasService,
     ) {}
 
     public function listByArmada(string $idArmada, int $page = 1, int $limit = 10): array
@@ -236,7 +238,9 @@ class PerawatanArmadaService
         return DB::transaction(function () use ($idArmada, $data, $items) {
             $record = $this->repo->create(array_merge($data, ['id_armada' => $idArmada]));
             $this->keluarkanStokUntukItems($record->id_perawatan, $items);
-            return $this->findOrFail($record->id_perawatan);
+            $hasil = $this->findOrFail($record->id_perawatan);
+            $this->sinkronArusKas($hasil);
+            return $hasil;
         });
     }
 
@@ -258,8 +262,25 @@ class PerawatanArmadaService
             if ($adaItems) {
                 $this->gantiItemsDenganDelta($record->id_perawatan, $items);
             }
-            return $this->findOrFail($record->id_perawatan);
+            $hasil = $this->findOrFail($record->id_perawatan);
+            $this->sinkronArusKas($hasil);
+            return $hasil;
         });
+    }
+
+    private function sinkronArusKas(object $record): void
+    {
+        if (!in_array($record->status, ['dalam_proses', 'selesai'], true)) {
+            return;
+        }
+
+        $totalBiaya = (float) $record->biaya + array_sum(array_column($record->sparepart, 'subtotal'));
+        if ($totalBiaya <= 0) {
+            return;
+        }
+
+        $this->arusKasService->buatPengajuanPerawatanOtomatis($record, $totalBiaya);
+        $this->arusKasService->sinkronNominalPengajuanPerawatan($record->id_perawatan, $totalBiaya);
     }
 
     public function delete(string $id, string $alasan): void
@@ -277,6 +298,7 @@ class PerawatanArmadaService
             }
             $this->repo->softDeleteLines($record->id_perawatan);
             $this->repo->delete($record);
+            $this->arusKasService->hapusPengajuanPerawatan($record->id_perawatan);
         });
     }
 

@@ -48,7 +48,12 @@ class ProyekController extends Controller
 
     public function show(string $id): JsonResponse
     {
-        return ApiResponse::success(new ProyekResource($this->service->findOrFail($id)));
+        $proyek = $this->service->findOrFail($id);
+
+        $klien = $proyek->id_klien ? $this->klienRepo->findById((string) $proyek->id_klien) : null;
+        $proyek->nama_klien = $klien->nama_klien ?? null;
+
+        return ApiResponse::success(new ProyekResource($proyek));
     }
 
     public function store(StoreProyekRequest $request): JsonResponse

@@ -39,6 +39,7 @@ class PembelianSparepartResource extends JsonResource
             'keterangan'             => $this->keterangan,
             'items'                  => $items,
             'bukti'                  => $this->bukti ?? [],
+            'pembayaran'             => $this->pembayaran ?? null,
             'dibuat_pada'            => $this->dibuat_pada,
         ];
     }
