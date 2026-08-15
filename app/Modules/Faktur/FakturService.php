@@ -50,7 +50,7 @@ class FakturService
     {
         $record = $this->repo->findById($id);
         if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
-            abort(404, 'Faktur tidak ditemukan');
+            abort(404, 'Invoice tidak ditemukan');
         }
         return $record;
     }
@@ -73,7 +73,7 @@ class FakturService
     public function create(array $data): FakturModel
     {
         if ($this->repo->findByNomor($data['nomor_faktur'], $data['id_perusahaan'])) {
-            abort(409, 'Nomor faktur sudah digunakan');
+            abort(409, 'Nomor invoice sudah digunakan');
         }
 
         $items = $data['items'] ?? [];
@@ -89,6 +89,8 @@ class FakturService
             $this->itemRepo->create($item);
         }
 
+        $this->repo->insertStatusLog((string) $faktur->id_faktur, (string) ($data['status'] ?? 'draft'), 'Invoice dibuat');
+
         return $this->repo->findById($faktur->id_faktur);
     }
 
@@ -98,7 +100,7 @@ class FakturService
 
         if (isset($data['nomor_faktur']) && $data['nomor_faktur'] !== $record->nomor_faktur) {
             if ($this->repo->findByNomor($data['nomor_faktur'], $record->id_perusahaan)) {
-                abort(409, 'Nomor faktur sudah digunakan');
+                abort(409, 'Nomor invoice sudah digunakan');
             }
         }
 
@@ -118,7 +120,23 @@ class FakturService
             }
         }
 
-        return $this->repo->update($record, $data);
+        $updated = $this->repo->update($record, $data);
+        $this->repo->insertStatusLog((string) $record->id_faktur, 'diedit', 'Data invoice diubah');
+
+        return $updated;
+    }
+
+    public function denganAudit(FakturModel $record): FakturModel
+    {
+        $nama = $this->repo->namaPengguna(array_values(array_filter([
+            $record->dibuat_oleh,
+            $record->diubah_oleh,
+        ])));
+
+        $record->dibuat_oleh_nama = $record->dibuat_oleh !== null ? ($nama[$record->dibuat_oleh] ?? null) : null;
+        $record->diubah_oleh_nama = $record->diubah_oleh !== null ? ($nama[$record->diubah_oleh] ?? null) : null;
+
+        return $record;
     }
 
     public function updateStatus(string $id, string $status, ?string $idPerusahaan = null): FakturModel
@@ -129,7 +147,35 @@ class FakturService
 
         $record = $this->findOrFail($id, $idPerusahaan);
 
-        return $this->repo->update($record, ['status' => $status]);
+        $updated = $this->repo->update($record, ['status' => $status]);
+        $this->repo->insertStatusLog((string) $record->id_faktur, $status);
+
+        return $updated;
+    }
+
+    public function riwayatStatus(FakturModel $record): array
+    {
+        $rows = $this->repo->listStatusLog((string) $record->id_faktur);
+
+        $adaLogAwal = false;
+        foreach ($rows as $row) {
+            if ($row['status'] === 'draft') {
+                $adaLogAwal = true;
+                break;
+            }
+        }
+
+        if (!$adaLogAwal) {
+            $nama = $this->repo->namaPengguna(array_values(array_filter([$record->dibuat_oleh])));
+            array_unshift($rows, [
+                'status'     => 'draft',
+                'keterangan' => 'Invoice dibuat',
+                'waktu'      => $record->dibuat_pada,
+                'oleh'       => $record->dibuat_oleh !== null ? ($nama[$record->dibuat_oleh] ?? null) : null,
+            ]);
+        }
+
+        return $rows;
     }
 
     public function delete(string $id, ?string $idPerusahaan = null): void

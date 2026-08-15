@@ -10,4 +10,6 @@ interface KonsolidasiKlienRepositoryInterface
     public function tripKlien(string $idPerusahaan, string $idKlien, ?string $dari, ?string $sampai, ?string $sumber = null, ?string $idProyek = null): array;
     public function titikDropPerTrip(array $idTrips): array;
     public function biayaTagihanPerTrip(array $idTrips): array;
+    public function biayaTagihanDetailPerTrip(array $idTrips): array;
+    public function namaJenisKendaraanMap(array $ids): array;
 }

@@ -74,6 +74,7 @@
                     <th>SELESAI</th>
                     <th>PROYEK</th>
                     <th>KODE PROYEK</th>
+                    <th>KLIEN</th>
                     <th>RUTE</th>
                     <th>SUPIR</th>
                     <th>ARMADA</th>
@@ -88,6 +89,7 @@
                     <td>{{ $item->waktu_checkout ? \Illuminate\Support\Carbon::parse($item->waktu_checkout)->format('d/m/Y H:i') : '-' }}</td>
                     <td>{{ $item->nama_proyek ?? '-' }}</td>
                     <td>{{ $item->kode_proyek ?? '-' }}</td>
+                    <td>{{ $item->nama_klien ?? '-' }}</td>
                     <td>{{ $item->rute ?? '-' }}</td>
                     <td>{{ $item->supir_nama ?? '-' }}</td>
                     <td>{{ $item->armada_nopol ?? '-' }}</td>
@@ -95,7 +97,7 @@
                     <td>{{ ucfirst((string) $item->status) }}</td>
                 </tr>
                 @empty
-                <tr><td colspan="9" class="ket" style="text-align:center">Belum ada trip pada periode ini</td></tr>
+                <tr><td colspan="10" class="ket" style="text-align:center">Belum ada trip pada periode ini</td></tr>
                 @endforelse
             </tbody>
         </table>

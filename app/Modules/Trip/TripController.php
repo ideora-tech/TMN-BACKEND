@@ -163,8 +163,9 @@ class TripController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $trip = $this->service->findOrFail($id, $idPerusahaan);
-        $trip->titik_drop        = $this->service->titikDropTrip($id);
-        $trip->sudah_difakturkan = $this->service->tripPunyaFakturAktif($id);
+        $trip->titik_drop           = $this->service->titikDropTrip($id);
+        $trip->sudah_difakturkan    = $this->service->tripPunyaFakturAktif($id);
+        $trip->pengajuan_uang_jalan = $this->service->infoPengajuanUangJalan($id);
         return ApiResponse::success(new TripResource($trip));
     }
 
@@ -254,39 +255,6 @@ class TripController extends Controller
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $data = $this->service->rekapBiaya($id, $idPerusahaan);
         return ApiResponse::success($data, 'Rekap biaya berhasil dimuat');
-    }
-
-    public function settlementIndex(Request $request): JsonResponse
-    {
-        $idPerusahaan = (string) $request->user()->id_perusahaan;
-
-        $result = $this->service->settlementList(
-            $idPerusahaan,
-            (int) $request->get('page', 1),
-            (int) $request->get('limit', 10),
-            $request->get('id_supir'),
-            $request->get('status_settlement'),
-            $request->get('tanggal_dari'),
-            $request->get('tanggal_sampai'),
-            $request->get('search'),
-        );
-
-        return ApiResponse::paginated($result['data'], $result['meta']);
-    }
-
-    public function tandaiLunas(Request $request, string $id): JsonResponse
-    {
-        $request->validate(['catatan' => ['sometimes', 'nullable', 'string']]);
-        $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $record = $this->service->tandaiLunas($id, $idPerusahaan, $request->get('catatan'));
-        return ApiResponse::success(new TripResource($record), 'Settlement trip berhasil ditandai lunas');
-    }
-
-    public function batalkanLunas(Request $request, string $id): JsonResponse
-    {
-        $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $record = $this->service->batalkanLunas($id, $idPerusahaan);
-        return ApiResponse::success(new TripResource($record), 'Status lunas settlement dibatalkan');
     }
 
     public function updateUangJalan(Request $request, string $id): JsonResponse

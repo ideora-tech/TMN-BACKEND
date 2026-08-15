@@ -19,15 +19,10 @@ class TripModel extends BaseModel
         'status',
         'catatan',
         'uang_jalan_alokasi',
-        'status_settlement',
-        'settlement_pada',
-        'settlement_oleh',
-        'catatan_settlement',
     ];
 
     protected $casts = [
-        'waktu_checkin'   => 'datetime',
-        'waktu_checkout'  => 'datetime',
-        'settlement_pada' => 'datetime',
+        'waktu_checkin'  => 'datetime',
+        'waktu_checkout' => 'datetime',
     ];
 }

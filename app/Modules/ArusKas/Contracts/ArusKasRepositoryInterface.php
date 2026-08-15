@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\ArusKas\Contracts;
 
+use App\Modules\ArusKas\PemasukanModel;
 use App\Modules\ArusKas\PengajuanPengeluaranModel;
 use Illuminate\Support\Collection;
 
@@ -17,6 +18,7 @@ interface ArusKasRepositoryInterface
     public function nomorPengajuanBerikutnya(string $idPerusahaan): string;
     public function rekap(string $idPerusahaan, string $dari, string $sampai): Collection;
     public function findPengajuanByTrip(string $idTrip): ?PengajuanPengeluaranModel;
+    public function namaPengguna(array $ids): array;
     public function dataTripUntukPengajuan(string $idTrip): ?object;
     public function findPengajuanByPerawatan(string $idPerawatan): ?PengajuanPengeluaranModel;
     public function dataPerawatanUntukPengajuan(string $idPerawatan): ?object;
@@ -29,4 +31,10 @@ interface ArusKasRepositoryInterface
     public function sinkronPembelianUangMuka(string $idPembelian, string $tanggalTransfer): void;
     public function findPengajuanByPeriode(string $idPeriode): ?PengajuanPengeluaranModel;
     public function dataPeriodeUntukPengajuan(string $idPeriode): ?object;
+    public function findPemasukanById(string $id): ?PemasukanModel;
+    public function createPemasukan(array $data): PemasukanModel;
+    public function updatePemasukan(PemasukanModel $model, array $data): PemasukanModel;
+    public function deletePemasukan(PemasukanModel $model): void;
+    public function nomorPemasukanBerikutnya(string $idPerusahaan): string;
+    public function listPemasukanGabungan(string $idPerusahaan, string $dari, string $sampai): Collection;
 }

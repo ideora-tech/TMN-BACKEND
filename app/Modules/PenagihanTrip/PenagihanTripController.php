@@ -40,10 +40,11 @@ class PenagihanTripController extends Controller
             'trip_ids.*'     => ['required', 'string', 'max:36'],
             'tanggal_faktur' => ['required', 'date'],
             'jatuh_tempo'    => ['sometimes', 'nullable', 'date', 'after_or_equal:tanggal_faktur'],
+            'keterangan'     => ['sometimes', 'nullable', 'string', 'max:300'],
         ]);
 
         $faktur = $this->service->buatDraftFaktur($validated, (string) $request->user()->id_perusahaan);
 
-        return ApiResponse::success(new FakturResource($faktur), 'Draft faktur berhasil dibuat', 201);
+        return ApiResponse::success(new FakturResource($faktur), 'Draft invoice berhasil dibuat', 201);
     }
 }

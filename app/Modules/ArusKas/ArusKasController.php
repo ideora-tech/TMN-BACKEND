@@ -6,10 +6,14 @@ namespace App\Modules\ArusKas;
 
 use App\Helpers\ApiResponse;
 use App\Modules\ArusKas\Exports\ArusKasExport;
+use App\Modules\ArusKas\Requests\StorePemasukanRequest;
 use App\Modules\ArusKas\Requests\StorePengajuanRequest;
 use App\Modules\ArusKas\Requests\TolakPengajuanRequest;
 use App\Modules\ArusKas\Requests\TransferPengajuanRequest;
+use App\Modules\ArusKas\Requests\UpdatePemasukanRequest;
 use App\Modules\ArusKas\Requests\UpdatePengajuanRequest;
+use App\Modules\ArusKas\Resources\PemasukanGabunganResource;
+use App\Modules\ArusKas\Resources\PemasukanResource;
 use App\Modules\ArusKas\Resources\PengajuanPengeluaranResource;
 use App\Modules\ArusKas\Resources\TransaksiArusKasResource;
 use Illuminate\Http\JsonResponse;
@@ -126,5 +130,44 @@ class ArusKasController extends Controller
             (string) $request->user()->id_perusahaan
         );
         return ApiResponse::success(new PengajuanPengeluaranResource($record), 'Pengajuan pengeluaran berhasil ditransfer');
+    }
+
+    public function storePemasukan(StorePemasukanRequest $request): JsonResponse
+    {
+        $record = $this->service->createPemasukan(
+            $request->safe()->except('bukti'),
+            (string) $request->user()->id_perusahaan,
+            $request->file('bukti')
+        );
+        return ApiResponse::success(new PemasukanResource($record), 'Pemasukan berhasil dicatat', 201);
+    }
+
+    public function updatePemasukan(UpdatePemasukanRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->updatePemasukan(
+            $id,
+            $request->safe()->except('bukti'),
+            (string) $request->user()->id_perusahaan,
+            $request->file('bukti')
+        );
+        return ApiResponse::success(new PemasukanResource($record), 'Pemasukan berhasil diperbarui');
+    }
+
+    public function destroyPemasukan(Request $request, string $id): JsonResponse
+    {
+        $this->service->deletePemasukan($id, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(null, 'Pemasukan berhasil dihapus');
+    }
+
+    public function indexPemasukan(Request $request): JsonResponse
+    {
+        $data = $this->service->listPemasukan(
+            (string) $request->user()->id_perusahaan,
+            $request->get('dari'),
+            $request->get('sampai'),
+            $request->get('jenis'),
+            $request->get('kategori'),
+        );
+        return ApiResponse::success(PemasukanGabunganResource::collection(collect($data)));
     }
 }

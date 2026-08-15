@@ -59,9 +59,53 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         return $prefix . str_pad((string) $urut, 4, '0', STR_PAD_LEFT);
     }
 
+    public function findPemasukanById(string $id): ?PemasukanModel
+    {
+        return PemasukanModel::active()->find($id);
+    }
+
+    public function createPemasukan(array $data): PemasukanModel
+    {
+        return PemasukanModel::create($data);
+    }
+
+    public function updatePemasukan(PemasukanModel $model, array $data): PemasukanModel
+    {
+        $model->update($data);
+        return $model->fresh();
+    }
+
+    public function deletePemasukan(PemasukanModel $model): void
+    {
+        $model->softDelete();
+    }
+
+    public function nomorPemasukanBerikutnya(string $idPerusahaan): string
+    {
+        $prefix = 'PM-' . now()->format('Ym') . '-';
+        $terakhir = PemasukanModel::where('id_perusahaan', $idPerusahaan)
+            ->where('nomor_pemasukan', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->max('nomor_pemasukan');
+        $urut = $terakhir ? ((int) substr($terakhir, -4)) + 1 : 1;
+        return $prefix . str_pad((string) $urut, 4, '0', STR_PAD_LEFT);
+    }
+
     public function findPengajuanByTrip(string $idTrip): ?PengajuanPengeluaranModel
     {
         return PengajuanPengeluaranModel::active()->where('id_trip', $idTrip)->first();
+    }
+
+    public function namaPengguna(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::table('pengguna')
+            ->whereIn('id_pengguna', $ids)
+            ->pluck('username', 'id_pengguna')
+            ->all();
     }
 
     public function dataTripUntukPengajuan(string $idTrip): ?object
@@ -217,12 +261,53 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         ];
     }
 
+    public function listPemasukanGabungan(string $idPerusahaan, string $dari, string $sampai): Collection
+    {
+        $tanggal = 'COALESCE(faktur.tanggal_faktur, DATE(faktur.dibuat_pada))';
+
+        $invoice = DB::table('faktur')
+            ->whereNull('faktur.dihapus_pada')
+            ->where('faktur.id_perusahaan', $idPerusahaan)
+            ->where('faktur.status', '!=', 'batal')
+            ->whereRaw("{$tanggal} BETWEEN ? AND ?", [$dari, $sampai])
+            ->selectRaw("
+                'invoice' as jenis,
+                faktur.id_faktur as id,
+                faktur.nomor_faktur as nomor,
+                NULL as kategori,
+                {$tanggal} as tanggal,
+                faktur.total as nominal,
+                NULL as sumber_dana,
+                NULL as keterangan,
+                NULL as url_bukti
+            ");
+
+        $manual = DB::table('pemasukan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereBetween('tanggal', [$dari, $sampai])
+            ->selectRaw("
+                'manual' as jenis,
+                id_pemasukan as id,
+                nomor_pemasukan as nomor,
+                kategori as kategori,
+                tanggal as tanggal,
+                nominal as nominal,
+                sumber_dana as sumber_dana,
+                keterangan as keterangan,
+                url_bukti as url_bukti
+            ");
+
+        return $invoice->unionAll($manual)->orderByDesc('tanggal')->orderByDesc('nomor')->get();
+    }
+
     public function rekap(string $idPerusahaan, string $dari, string $sampai): Collection
     {
         $queries = [
             $this->queryFaktur($idPerusahaan, $dari, $sampai),
             $this->queryPengajuanPengeluaran($idPerusahaan, $dari, $sampai),
             $this->queryPembayaranVendor($idPerusahaan, $dari, $sampai),
+            $this->queryPemasukanManual($idPerusahaan, $dari, $sampai),
         ];
 
         $utama = array_shift($queries);
@@ -293,6 +378,25 @@ class ArusKasRepository implements ArusKasRepositoryInterface
                 invoice_vendor.nomor_invoice as label,
                 pembayaran_vendor.catatan as keterangan,
                 pembayaran_vendor.url_bukti as url_bukti
+            ");
+    }
+
+    private function queryPemasukanManual(string $idPerusahaan, string $dari, string $sampai): Builder
+    {
+        return DB::table('pemasukan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereBetween('tanggal', [$dari, $sampai])
+            ->selectRaw("
+                tanggal as tanggal,
+                'masuk' as arah,
+                'pemasukan_manual' as sumber,
+                kategori as kategori,
+                nominal as nominal,
+                id_pemasukan as id_referensi,
+                nomor_pemasukan as label,
+                keterangan as keterangan,
+                url_bukti as url_bukti
             ");
     }
 

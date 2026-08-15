@@ -29,7 +29,6 @@ class TripServiceProvider extends ServiceProvider
                 Route::get('trip/jadwal-saya', [TripController::class, 'jadwalSaya']);
                 Route::post('trip/mulai-saya', [TripController::class, 'mulaiSaya']);
                 Route::get('trip/ringkasan-proyek', [TripController::class, 'ringkasanProyek']);
-                Route::get('trip/settlement', [TripController::class, 'settlementIndex']);
                 Route::get('trip/rekap-supir/export/excel', [TripController::class, 'exportRekapSupirExcel']);
                 Route::get('trip/rekap-supir/export/pdf', [TripController::class, 'exportRekapSupirPdf']);
                 Route::get('trip/riwayat/export/excel', [TripController::class, 'exportRiwayatExcel']);
@@ -43,8 +42,6 @@ class TripServiceProvider extends ServiceProvider
                 Route::post('trip/{id}/batalkan', [TripController::class, 'batalkan']);
                 Route::put('trip/{id}/titik-drop', [TripController::class, 'updateTitikDrop']);
                 Route::get('trip/{id}/rekap-biaya', [TripController::class, 'rekapBiaya']);
-                Route::post('trip/{id}/settlement/lunas', [TripController::class, 'tandaiLunas']);
-                Route::post('trip/{id}/settlement/batal', [TripController::class, 'batalkanLunas']);
                 Route::put('trip/{id}/uang-jalan', [TripController::class, 'updateUangJalan']);
             });
     }

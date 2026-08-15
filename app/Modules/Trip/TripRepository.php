@@ -378,59 +378,6 @@ class TripRepository implements TripRepositoryInterface
         $model->softDelete();
     }
 
-    public function paginateSettlement(string $idPerusahaan, int $page, int $limit, ?string $idSupir = null, ?string $statusSettlement = null, ?string $tanggalDari = null, ?string $tanggalSampai = null, ?string $search = null): LengthAwarePaginator
-    {
-        $biayaLain = DB::table('biaya_lain_trip as bl')
-            ->join('laporan_perjalanan as lp2', 'bl.id_laporan', '=', 'lp2.id_laporan')
-            ->whereNull('bl.dihapus_pada')
-            ->whereNull('lp2.dihapus_pada')
-            ->groupBy('lp2.id_trip')
-            ->select('lp2.id_trip', DB::raw('SUM(bl.nominal) as total_biaya_lain'));
-
-        return DB::table('trip')
-            ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
-            ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
-            ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
-            ->leftJoin('supir as s', 'p.id_supir', '=', 's.id_supir')
-            ->leftJoin('supir_vendor as sv', 'p.id_supir_vendor', '=', 'sv.id_supir_vendor')
-            ->leftJoin('armada as a', 'p.id_armada', '=', 'a.id_armada')
-            ->leftJoin('armada_vendor as av', 'p.id_armada_vendor', '=', 'av.id_armada_vendor')
-            ->leftJoin('laporan_perjalanan as lp', function ($join) {
-                $join->on('lp.id_trip', '=', 'trip.id_trip')->whereNull('lp.dihapus_pada');
-            })
-            ->leftJoinSub($biayaLain, 'bl', 'bl.id_trip', '=', 'trip.id_trip')
-            ->where('pr.id_perusahaan', $idPerusahaan)
-            ->whereNull('trip.dihapus_pada')
-            ->whereNull('pr.dihapus_pada')
-            ->whereNull('p.dihapus_pada')
-            ->whereNull('jk.dihapus_pada')
-            ->where('trip.status', 'selesai')
-            ->when($idSupir, fn ($q, $v) => $q->where('p.id_supir', $v))
-            ->when($statusSettlement, fn ($q, $v) => $q->where('trip.status_settlement', $v))
-            ->when($tanggalDari, fn ($q, $v) => $q->whereDate('jk.waktu_berangkat', '>=', $v))
-            ->when($tanggalSampai, fn ($q, $v) => $q->whereDate('jk.waktu_berangkat', '<=', $v))
-            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
-                $q2->where('s.nama', 'like', "%{$search}%")
-                    ->orWhere('sv.nama', 'like', "%{$search}%")
-                    ->orWhere('a.nopol', 'like', "%{$search}%")
-                    ->orWhere('av.nopol', 'like', "%{$search}%")
-                    ->orWhere('jk.rute', 'like', "%{$search}%")
-                    ->orWhere('pr.nama_proyek', 'like', "%{$search}%");
-            }))
-            ->select(
-                'trip.id_trip', 'trip.uang_jalan_alokasi', 'trip.status_settlement',
-                'trip.settlement_pada', 'trip.catatan_settlement', 'trip.waktu_checkout',
-                'jk.rute', 'jk.waktu_berangkat',
-                'pr.nama_proyek', 'pr.kode_proyek',
-                DB::raw('COALESCE(s.nama, sv.nama) as supir_nama'),
-                DB::raw('COALESCE(a.nopol, av.nopol) as armada_nopol'),
-                DB::raw('COALESCE(lp.biaya_bbm, 0) + COALESCE(lp.uang_jalan, 0) + COALESCE(lp.uang_tol, 0) + COALESCE(bl.total_biaya_lain, 0) as total_realisasi'),
-                DB::raw('CASE WHEN lp.id_laporan IS NULL THEN 0 ELSE 1 END as ada_laporan'),
-            )
-            ->orderBy('jk.waktu_berangkat', 'desc')
-            ->paginate($limit, ['*'], 'page', $page);
-    }
-
     public function rekapBiaya(string $idTrip): array
     {
         $laporan = DB::table('laporan_perjalanan')

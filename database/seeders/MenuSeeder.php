@@ -79,7 +79,7 @@ class MenuSeeder extends Seeder
             ['id_menu' => $ids['penugasan_vendor'], 'nama_menu' => 'Penugasan Vendor', 'path' => '/penugasan-vendor', 'id_menu_induk' => $ids['vendor_grup'], 'icon' => 'clipboard',  'urutan' => 5],
             ['id_menu' => $ids['evaluasi_vendor'],  'nama_menu' => 'Evaluasi Vendor',  'path' => '/evaluasi-vendor',  'id_menu_induk' => $ids['vendor_grup'], 'icon' => 'notepad',    'urutan' => 6],
             ['id_menu' => $ids['keuangan'],     'nama_menu' => 'Keuangan',     'path' => null,             'id_menu_induk' => null,              'icon' => 'receipt',    'urutan' => 6],
-            ['id_menu' => $ids['faktur'],       'nama_menu' => 'Faktur',       'path' => '/faktur',        'id_menu_induk' => $ids['keuangan'],   'icon' => 'receipt',    'urutan' => 1],
+            ['id_menu' => $ids['faktur'],       'nama_menu' => 'Invoice',      'path' => '/faktur',        'id_menu_induk' => $ids['keuangan'],   'icon' => 'receipt',    'urutan' => 1],
             ['id_menu' => $ids['invoice_vendor'],  'nama_menu' => 'Invoice Vendor',  'path' => '/invoice-vendor',  'id_menu_induk' => $ids['keuangan'],     'icon' => 'receipt',          'urutan' => 4],
             // Pengaturan
             ['id_menu' => $ids['pengaturan'],      'nama_menu' => 'Pengaturan',      'path' => null,               'id_menu_induk' => null,                  'icon' => 'settings',         'urutan' => 7],

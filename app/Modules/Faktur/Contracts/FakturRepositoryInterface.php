@@ -20,4 +20,7 @@ interface FakturRepositoryInterface
     public function create(array $data): FakturModel;
     public function update(FakturModel $model, array $data): FakturModel;
     public function delete(FakturModel $model): void;
+    public function namaPengguna(array $ids): array;
+    public function insertStatusLog(string $idFaktur, string $status, ?string $keterangan = null): void;
+    public function listStatusLog(string $idFaktur): array;
 }

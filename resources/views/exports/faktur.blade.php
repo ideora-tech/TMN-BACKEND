@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Faktur</title>
+    <title>Invoice</title>
     <style>
         @page { margin: 0; }
         body { font-family: sans-serif; font-size: 11px; color: #1f2937; margin: 0; }
@@ -73,16 +73,16 @@
 
     <div class="konten">
         <div class="judul">
-            <h1>FAKTUR</h1>
+            <h1>INVOICE</h1>
             <div class="garis"></div>
         </div>
         <p class="periode">{{ $f->nomor_faktur }}</p>
 
         <table class="info">
             <tr>
-                <td class="label">No. Faktur</td><td class="titik">:</td>
+                <td class="label">No. Invoice</td><td class="titik">:</td>
                 <td><strong>{{ $f->nomor_faktur }}</strong></td>
-                <td class="label">Tanggal Faktur</td><td class="titik">:</td>
+                <td class="label">Tanggal Invoice</td><td class="titik">:</td>
                 <td>{{ $tgl($f->tanggal_faktur) }}</td>
             </tr>
             <tr>
@@ -134,7 +134,7 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Tagihan sesuai faktur {{ $f->nomor_faktur }}</td>
+                        <td>Tagihan sesuai invoice {{ $f->nomor_faktur }}</td>
                         <td class="jumlah">{{ $rp($f->total) }}</td>
                     </tr>
                     <tr class="subtotal">

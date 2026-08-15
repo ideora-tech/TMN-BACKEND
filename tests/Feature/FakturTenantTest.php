@@ -95,10 +95,10 @@ class FakturTenantTest extends TestCase
 
         $resExcel = $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/excel");
         $resExcel->assertStatus(200);
-        $this->assertStringContainsString('faktur-001-INV-TMN-VIII-2026.xlsx', $resExcel->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('invoice-001-INV-TMN-VIII-2026.xlsx', $resExcel->headers->get('Content-Disposition'));
 
         $resPdf = $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/pdf");
         $resPdf->assertStatus(200);
-        $this->assertStringContainsString('faktur-001-INV-TMN-VIII-2026.pdf', $resPdf->headers->get('Content-Disposition'));
+        $this->assertStringContainsString('invoice-001-INV-TMN-VIII-2026.pdf', $resPdf->headers->get('Content-Disposition'));
     }
 }

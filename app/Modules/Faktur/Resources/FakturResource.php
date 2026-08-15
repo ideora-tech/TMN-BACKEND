@@ -22,6 +22,9 @@ class FakturResource extends JsonResource
             'jatuh_tempo'    => $this->jatuh_tempo?->toDateString(),
             'dibuat_pada'    => $this->dibuat_pada,
             'diubah_pada'    => $this->diubah_pada,
+            'dibuat_oleh_nama' => $this->dibuat_oleh_nama ?? null,
+            'diubah_oleh_nama' => $this->diubah_oleh_nama ?? null,
+            'riwayat_status'   => $this->riwayat_status ?? null,
             'items'          => $this->whenLoaded('items', function () {
                 return $this->items->map(fn($item) => [
                     'id_faktur_item' => $item->id_faktur_item,

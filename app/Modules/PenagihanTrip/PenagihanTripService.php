@@ -83,7 +83,7 @@ class PenagihanTripService
             foreach (array_unique($data['trip_ids']) as $idTrip) {
                 $row = $siapTagih->get($idTrip);
                 if ($row === null) {
-                    abort(422, "Trip {$idTrip} tidak valid atau sudah difakturkan");
+                    abort(422, "Trip {$idTrip} tidak valid atau sudah masuk invoice");
                 }
                 $baris = $this->mapBaris($row, $idPerusahaan);
                 if ($baris['tarif'] === null) {
@@ -92,26 +92,23 @@ class PenagihanTripService
                 $terpilih[] = $baris;
             }
 
-            $items = collect($terpilih)
-                ->groupBy(fn ($b) => $b['id_rute'] . '|' . $b['tarif']['harga'])
-                ->map(fn ($grup) => [
-                    'deskripsi'    => "Rute {$grup[0]['rute']} — {$grup->count()} rit",
-                    'qty'          => $grup->count(),
-                    'harga_satuan' => $grup[0]['tarif']['harga'],
-                ])
-                ->values()
-                ->all();
-
             $biayaMap = $this->repo->biayaTagihanUntukTrips(array_map(fn ($b) => (string) $b['id_trip'], $terpilih));
-            foreach ($terpilih as $baris) {
-                foreach ($biayaMap[$baris['id_trip']] ?? [] as $biaya) {
-                    $items[] = [
-                        'deskripsi'    => "{$biaya['nama_biaya']} — {$baris['nopol']}, {$baris['tanggal']}",
-                        'qty'          => 1,
-                        'harga_satuan' => $biaya['nominal'],
-                    ];
-                }
+            $totalBiaya = 0.0;
+            foreach ($biayaMap as $daftarBiaya) {
+                $totalBiaya += array_sum(array_column($daftarBiaya, 'nominal'));
             }
+            $totalTarif = array_sum(array_map(fn ($b) => (float) $b['tarif']['harga'], $terpilih));
+
+            $deskripsi = trim((string) ($data['keterangan'] ?? ''));
+            if ($deskripsi === '') {
+                $deskripsi = 'Jasa angkutan ' . $proyek->nama_proyek . ' — ' . count($terpilih) . ' rit';
+            }
+
+            $items = [[
+                'deskripsi'    => $deskripsi,
+                'qty'          => 1,
+                'harga_satuan' => $totalTarif + $totalBiaya,
+            ]];
 
             $faktur = $this->fakturService->create([
                 'id_perusahaan'  => $idPerusahaan,

@@ -544,86 +544,9 @@ class TripService
         });
     }
 
-    public function settlementList(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idSupir = null, ?string $statusSettlement = null, ?string $tanggalDari = null, ?string $tanggalSampai = null, ?string $search = null): array
-    {
-        $result = $this->repo->paginateSettlement($idPerusahaan, $page, $limit, $idSupir, $statusSettlement, $tanggalDari, $tanggalSampai, $search);
-
-        $data = collect($result->items())->map(function ($row) {
-            $alokasi   = $row->uang_jalan_alokasi !== null ? (float) $row->uang_jalan_alokasi : null;
-            $realisasi = (float) $row->total_realisasi;
-
-            return [
-                'id_trip'            => $row->id_trip,
-                'rute'               => $row->rute,
-                'waktu_berangkat'    => $row->waktu_berangkat,
-                'waktu_checkout'     => $row->waktu_checkout,
-                'nama_proyek'        => $row->nama_proyek,
-                'kode_proyek'        => $row->kode_proyek,
-                'supir_nama'         => $row->supir_nama,
-                'armada_nopol'       => $row->armada_nopol,
-                'uang_jalan_alokasi' => $alokasi,
-                'total_realisasi'    => $realisasi,
-                'selisih'            => $alokasi !== null ? $alokasi - $realisasi : null,
-                'ada_laporan'        => (bool) $row->ada_laporan,
-                'status_settlement'  => $row->status_settlement,
-                'settlement_pada'    => $row->settlement_pada,
-                'catatan_settlement' => $row->catatan_settlement,
-            ];
-        })->values()->toArray();
-
-        return [
-            'data' => $data,
-            'meta' => [
-                'page'       => $result->currentPage(),
-                'limit'      => $result->perPage(),
-                'total'      => $result->total(),
-                'totalPages' => $result->lastPage(),
-            ],
-        ];
-    }
-
-    public function tandaiLunas(string $id, string $idPerusahaan, ?string $catatan = null): TripModel
-    {
-        $trip = $this->findOrFail($id, $idPerusahaan);
-
-        if ($trip->status !== 'selesai') {
-            abort(422, 'Hanya trip yang sudah selesai yang dapat di-settle');
-        }
-        if ($trip->status_settlement === 'lunas') {
-            abort(422, 'Trip sudah ditandai lunas');
-        }
-
-        return $this->repo->update($trip, [
-            'status_settlement'  => 'lunas',
-            'settlement_pada'    => now(),
-            'settlement_oleh'    => auth()->id(),
-            'catatan_settlement' => $catatan,
-        ]);
-    }
-
-    public function batalkanLunas(string $id, string $idPerusahaan): TripModel
-    {
-        $trip = $this->findOrFail($id, $idPerusahaan);
-
-        if ($trip->status_settlement !== 'lunas') {
-            abort(422, 'Trip belum berstatus lunas');
-        }
-
-        return $this->repo->update($trip, [
-            'status_settlement'  => 'belum',
-            'settlement_pada'    => null,
-            'settlement_oleh'    => null,
-            'catatan_settlement' => null,
-        ]);
-    }
-
     public function updateUangJalan(string $id, string $idPerusahaan, ?float $alokasi): TripModel
     {
         $trip = $this->findOrFail($id, $idPerusahaan);
-
-        if ($trip->status_settlement === 'lunas') {
-            abort(422, 'Uang jalan tidak dapat diubah — trip sudah di-settle');
-        }
 
         $updated = $this->repo->update($trip, ['uang_jalan_alokasi' => $alokasi]);
 
@@ -654,7 +577,7 @@ class TripService
     {
         $trip = $this->findOrFail($idTrip, $idPerusahaan);
         if ($this->repo->tripPunyaFakturAktif($idTrip)) {
-            abort(422, 'Trip sudah masuk faktur — titik drop tidak dapat diubah');
+            abort(422, 'Trip sudah masuk invoice — titik drop tidak dapat diubah');
         }
         $this->repo->syncTitikDropTrip($idTrip, $lokasiList);
         return $trip;
@@ -673,6 +596,11 @@ class TripService
     public function tripPunyaFakturAktif(string $idTrip): bool
     {
         return $this->repo->tripPunyaFakturAktif($idTrip);
+    }
+
+    public function infoPengajuanUangJalan(string $idTrip): ?array
+    {
+        return $this->arusKasService->infoPengajuanTrip($idTrip);
     }
 
     public function rekapSupir(string $idPerusahaan, array $filter): Collection

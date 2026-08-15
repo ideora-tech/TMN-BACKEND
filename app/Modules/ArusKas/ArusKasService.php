@@ -22,6 +22,72 @@ class ArusKasService
 
     public function __construct(private readonly ArusKasRepositoryInterface $repo) {}
 
+    public function infoPengajuanTrip(string $idTrip): ?array
+    {
+        $record = $this->repo->findPengajuanByTrip($idTrip);
+        if ($record === null) {
+            return null;
+        }
+
+        $namaMap = $this->repo->namaPengguna(array_values(array_filter([
+            $record->dibuat_oleh,
+            $record->dicek_oleh,
+            $record->disetujui_oleh,
+            $record->ditransfer_oleh,
+        ])));
+
+        $riwayat = [[
+            'status'     => self::STATUS_DIAJUKAN,
+            'waktu'      => $record->dibuat_pada,
+            'oleh'       => $record->dibuat_oleh !== null ? ($namaMap[$record->dibuat_oleh] ?? null) : null,
+            'keterangan' => $record->keterangan,
+        ]];
+
+        if ($record->dicek_pada !== null) {
+            $riwayat[] = [
+                'status'     => self::STATUS_DICEK,
+                'waktu'      => $record->dicek_pada,
+                'oleh'       => $record->dicek_oleh !== null ? ($namaMap[$record->dicek_oleh] ?? null) : null,
+                'keterangan' => null,
+            ];
+        }
+
+        if ($record->disetujui_pada !== null) {
+            $riwayat[] = [
+                'status'     => self::STATUS_DISETUJUI,
+                'waktu'      => $record->disetujui_pada,
+                'oleh'       => $record->disetujui_oleh !== null ? ($namaMap[$record->disetujui_oleh] ?? null) : null,
+                'keterangan' => null,
+            ];
+        }
+
+        if ($record->status === self::STATUS_DITOLAK) {
+            $riwayat[] = [
+                'status'     => self::STATUS_DITOLAK,
+                'waktu'      => $record->diubah_pada,
+                'oleh'       => null,
+                'keterangan' => $record->alasan_ditolak,
+            ];
+        }
+
+        if ($record->ditransfer_pada !== null) {
+            $riwayat[] = [
+                'status'     => self::STATUS_DITRANSFER,
+                'waktu'      => $record->ditransfer_pada,
+                'oleh'       => $record->ditransfer_oleh !== null ? ($namaMap[$record->ditransfer_oleh] ?? null) : null,
+                'keterangan' => $record->tanggal_transfer !== null ? 'Tanggal transfer ' . $record->tanggal_transfer : null,
+            ];
+        }
+
+        return [
+            'id_pengajuan'    => $record->id_pengajuan,
+            'nomor_pengajuan' => $record->nomor_pengajuan,
+            'status'          => $record->status,
+            'nominal'         => (float) $record->nominal,
+            'riwayat'         => $riwayat,
+        ];
+    }
+
     public function listPengajuan(string $idPerusahaan, ?string $status = null): array
     {
         return $this->repo->listPengajuanByPerusahaan($idPerusahaan, $status)->all();
@@ -145,6 +211,55 @@ class ArusKasService
             }
             return $updated;
         });
+    }
+
+    public function findPemasukanOrFail(string $id, string $idPerusahaan): PemasukanModel
+    {
+        $record = $this->repo->findPemasukanById($id);
+        if ($record === null || $record->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Pemasukan tidak ditemukan');
+        }
+        return $record;
+    }
+
+    public function createPemasukan(array $data, string $idPerusahaan, ?UploadedFile $bukti): PemasukanModel
+    {
+        return DB::transaction(function () use ($data, $idPerusahaan, $bukti) {
+            $data['id_perusahaan']   = $idPerusahaan;
+            $data['nomor_pemasukan'] = $this->repo->nomorPemasukanBerikutnya($idPerusahaan);
+            if ($bukti !== null) {
+                $data['url_bukti'] = PenyimpananBerkas::simpan($bukti, 'bukti-kas');
+            }
+            return $this->repo->createPemasukan($data);
+        });
+    }
+
+    public function updatePemasukan(string $id, array $data, string $idPerusahaan, ?UploadedFile $bukti): PemasukanModel
+    {
+        $record = $this->findPemasukanOrFail($id, $idPerusahaan);
+        if ($bukti !== null) {
+            $data['url_bukti'] = PenyimpananBerkas::simpan($bukti, 'bukti-kas');
+        }
+        return $this->repo->updatePemasukan($record, $data);
+    }
+
+    public function deletePemasukan(string $id, string $idPerusahaan): void
+    {
+        $this->repo->deletePemasukan($this->findPemasukanOrFail($id, $idPerusahaan));
+    }
+
+    public function listPemasukan(string $idPerusahaan, ?string $dari, ?string $sampai, ?string $jenis, ?string $kategori): array
+    {
+        $dari   = $dari ?: now()->startOfMonth()->toDateString();
+        $sampai = $sampai ?: now()->endOfMonth()->toDateString();
+
+        $this->validasiRentang($dari, $sampai);
+
+        return $this->repo->listPemasukanGabungan($idPerusahaan, $dari, $sampai)
+            ->when($jenis, fn (Collection $c, string $v) => $c->where('jenis', $v))
+            ->when($kategori, fn (Collection $c, string $v) => $c->where('kategori', $v))
+            ->values()
+            ->all();
     }
 
     public function buatPengajuanUangJalanOtomatis(TripModel $trip): void

@@ -45,7 +45,7 @@ class RiwayatTripSheet implements FromCollection, WithHeadings, WithMapping, Sho
 
     public function headings(): array
     {
-        return ['Berangkat', 'Selesai', 'Proyek', 'Kode Proyek', 'Rute', 'Supir', 'Armada', 'Sumber', 'Status'];
+        return ['Berangkat', 'Selesai', 'Proyek', 'Kode Proyek', 'Klien', 'Rute', 'Supir', 'Armada', 'Sumber', 'Status'];
     }
 
     public function map($row): array
@@ -55,6 +55,7 @@ class RiwayatTripSheet implements FromCollection, WithHeadings, WithMapping, Sho
             $row->waktu_checkout ? date('d/m/Y H:i', strtotime((string) $row->waktu_checkout)) : '-',
             $row->nama_proyek ?? '-',
             $row->kode_proyek ?? '-',
+            $row->nama_klien ?? '-',
             $row->rute ?? '-',
             $row->supir_nama ?? '-',
             $row->armada_nopol ?? '-',

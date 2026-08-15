@@ -248,7 +248,11 @@ class PenagihanTripTest extends TestCase
         $idFaktur = $res->json('data.id_faktur');
         $this->assertDatabaseHas('faktur_trip', ['id_faktur' => $idFaktur, 'id_trip' => $trip1->id_trip]);
         $this->assertDatabaseHas('faktur_trip', ['id_faktur' => $idFaktur, 'id_trip' => $trip2->id_trip]);
-        $this->assertDatabaseHas('faktur_item', ['id_faktur' => $idFaktur, 'qty' => 2, 'harga_satuan' => 1500000]);
+        $this->assertSame(1, DB::table('faktur_item')->where('id_faktur', $idFaktur)->count());
+        $item = DB::table('faktur_item')->where('id_faktur', $idFaktur)->first();
+        $this->assertSame(1, (int) $item->qty);
+        $this->assertSame(3000000.0, (float) $item->harga_satuan);
+        $this->assertStringContainsString('2 rit', $item->deskripsi);
 
         $daftar = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $this->assertCount(0, $daftar->json('data'));
@@ -334,16 +338,15 @@ class PenagihanTripTest extends TestCase
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
+            'keterangan'     => 'Jasa Angkutan Unit Dedicated Project Astro Cibitung Periode Juli 2026',
         ]);
 
         $res->assertStatus(201)->assertJsonPath('data.total', 1050000);
 
         $idFaktur = $res->json('data.id_faktur');
-        $itemBiaya = DB::table('faktur_item')
-            ->where('id_faktur', $idFaktur)
-            ->where('harga_satuan', 150000)
-            ->first();
-        $this->assertNotNull($itemBiaya);
-        $this->assertStringContainsString('Multidrop', $itemBiaya->deskripsi);
+        $this->assertSame(1, DB::table('faktur_item')->where('id_faktur', $idFaktur)->count());
+        $item = DB::table('faktur_item')->where('id_faktur', $idFaktur)->first();
+        $this->assertSame(1050000.0, (float) $item->harga_satuan);
+        $this->assertSame('Jasa Angkutan Unit Dedicated Project Astro Cibitung Periode Juli 2026', $item->deskripsi);
     }
 }

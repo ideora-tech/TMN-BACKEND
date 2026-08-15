@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Faktur;
 
 use App\Modules\Faktur\Contracts\FakturRepositoryInterface;
+use App\Support\RecordHelper;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -107,5 +108,38 @@ class FakturRepository implements FakturRepositoryInterface
     public function delete(FakturModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function namaPengguna(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::table('pengguna')
+            ->whereIn('id_pengguna', $ids)
+            ->pluck('username', 'id_pengguna')
+            ->all();
+    }
+
+    public function insertStatusLog(string $idFaktur, string $status, ?string $keterangan = null): void
+    {
+        DB::table('faktur_status_log')->insert(RecordHelper::stampCreate([
+            'id_faktur'  => $idFaktur,
+            'status'     => $status,
+            'keterangan' => $keterangan,
+        ], 'id_log'));
+    }
+
+    public function listStatusLog(string $idFaktur): array
+    {
+        return DB::table('faktur_status_log as l')
+            ->leftJoin('pengguna as u', 'u.id_pengguna', '=', 'l.dibuat_oleh')
+            ->where('l.id_faktur', $idFaktur)
+            ->whereNull('l.dihapus_pada')
+            ->orderBy('l.dibuat_pada')
+            ->get(['l.status', 'l.keterangan', 'l.dibuat_pada as waktu', 'u.username as oleh'])
+            ->map(fn ($r) => (array) $r)
+            ->all();
     }
 }

@@ -30,7 +30,12 @@ class ArusKasServiceProvider extends ServiceProvider
                 Route::put('arus-kas/pengajuan/{id}', [ArusKasController::class, 'updatePengajuan']);
                 Route::delete('arus-kas/pengajuan/{id}', [ArusKasController::class, 'destroyPengajuan']);
 
+                Route::get('arus-kas/pemasukan', [ArusKasController::class, 'indexPemasukan']);
+
                 Route::middleware('role:SUPERADMIN,KEUANGAN')->group(function () {
+                    Route::post('arus-kas/pemasukan', [ArusKasController::class, 'storePemasukan']);
+                    Route::put('arus-kas/pemasukan/{id}', [ArusKasController::class, 'updatePemasukan']);
+                    Route::delete('arus-kas/pemasukan/{id}', [ArusKasController::class, 'destroyPemasukan']);
                     Route::patch('arus-kas/pengajuan/{id}/cek', [ArusKasController::class, 'cekPengajuan']);
                     Route::patch('arus-kas/pengajuan/{id}/transfer', [ArusKasController::class, 'transferPengajuan']);
                 });

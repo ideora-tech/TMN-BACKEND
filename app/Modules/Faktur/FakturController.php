@@ -46,7 +46,8 @@ class FakturController extends Controller
     public function show(Request $request, string $id): JsonResponse
     {
         $record = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new FakturResource($record));
+        $record->riwayat_status = $this->service->riwayatStatus($record);
+        return ApiResponse::success(new FakturResource($this->service->denganAudit($record)));
     }
 
     public function store(StoreFakturRequest $request): JsonResponse
@@ -57,25 +58,27 @@ class FakturController extends Controller
         );
 
         $record = $this->service->create($data);
-        return ApiResponse::success(new FakturResource($record), 'Faktur berhasil dibuat', 201);
+        return ApiResponse::success(new FakturResource($record), 'Invoice berhasil dibuat', 201);
     }
 
     public function update(UpdateFakturRequest $request, string $id): JsonResponse
     {
         $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new FakturResource($record), 'Faktur berhasil diperbarui');
+        $record->riwayat_status = $this->service->riwayatStatus($record);
+        return ApiResponse::success(new FakturResource($this->service->denganAudit($record)), 'Invoice berhasil diperbarui');
     }
 
     public function updateStatus(UpdateStatusFakturRequest $request, string $id): JsonResponse
     {
         $record = $this->service->updateStatus($id, $request->validated()['status'], (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new FakturResource($record), 'Status faktur berhasil diperbarui');
+        $record->riwayat_status = $this->service->riwayatStatus($record);
+        return ApiResponse::success(new FakturResource($this->service->denganAudit($record)), 'Status invoice berhasil diperbarui');
     }
 
     public function destroy(Request $request, string $id): JsonResponse
     {
         $this->service->delete($id, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(null, 'Faktur berhasil dihapus');
+        return ApiResponse::success(null, 'Invoice berhasil dihapus');
     }
 
     public function exportExcel(Request $request, string $id): BinaryFileResponse
@@ -84,7 +87,7 @@ class FakturController extends Controller
 
         return Excel::download(
             new FakturDetailExport($faktur),
-            'faktur-' . $this->namaFileAman($faktur->nomor_faktur) . '.xlsx'
+            'invoice-' . $this->namaFileAman($faktur->nomor_faktur) . '.xlsx'
         );
     }
 
@@ -100,13 +103,13 @@ class FakturController extends Controller
             'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
         ]);
 
-        return $pdf->download('faktur-' . $this->namaFileAman($faktur->nomor_faktur) . '.pdf');
+        return $pdf->download('invoice-' . $this->namaFileAman($faktur->nomor_faktur) . '.pdf');
     }
 
     private function namaFileAman(?string $nomor): string
     {
         $bersih = preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) $nomor);
-        return trim((string) $bersih, '-') ?: 'faktur';
+        return trim((string) $bersih, '-') ?: 'invoice';
     }
 
     private function logoBase64(): ?string

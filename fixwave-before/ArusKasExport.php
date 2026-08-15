@@ -21,7 +21,6 @@ class ArusKasExport implements FromCollection, WithHeadings, WithMapping, Should
         'faktur'                => 'Invoice',
         'pengajuan_pengeluaran' => 'Pengajuan Pengeluaran',
         'pembayaran_vendor'     => 'Pembayaran Vendor',
-        'pemasukan_manual'      => 'Pemasukan Manual',
         'payroll_periode'       => 'Payroll',
         'pembelian_sparepart'   => 'Pembelian Sparepart',
     ];

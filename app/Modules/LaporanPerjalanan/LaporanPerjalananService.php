@@ -39,7 +39,7 @@ class LaporanPerjalananService
         $biayaTagihan = $data['biaya_tagihan'] ?? [];
         unset($data['biaya_tagihan']);
         if ($hasBiayaTagihan && $this->tripRepo->tripPunyaFakturAktif($idTrip)) {
-            abort(422, 'Trip sudah masuk faktur — biaya tagihan tidak dapat diubah');
+            abort(422, 'Trip sudah masuk invoice — biaya tagihan tidak dapat diubah');
         }
 
         $biayaLain = $data['biaya_lain'] ?? [];
@@ -172,7 +172,7 @@ class LaporanPerjalananService
         $biayaTagihan = $data['biaya_tagihan'] ?? [];
         unset($data['biaya_tagihan']);
         if ($hasBiayaTagihan && $this->tripRepo->tripPunyaFakturAktif((string) $record->id_trip)) {
-            abort(422, 'Trip sudah masuk faktur — biaya tagihan tidak dapat diubah');
+            abort(422, 'Trip sudah masuk invoice — biaya tagihan tidak dapat diubah');
         }
 
         $hasBiayaLain = array_key_exists('biaya_lain', $data);

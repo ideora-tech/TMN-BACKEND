@@ -128,7 +128,7 @@ class BiayaTagihanTripTest extends TestCase
         ]);
     }
 
-    public function test_biaya_tagihan_tidak_mempengaruhi_total_realisasi_settlement(): void
+    public function test_biaya_tagihan_tidak_mempengaruhi_total_realisasi(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
@@ -140,12 +140,10 @@ class BiayaTagihanTripTest extends TestCase
             ],
         ])->assertStatus(201);
 
-        $res = $this->getJson('/api/v1/trip/settlement');
+        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
 
         $res->assertStatus(200);
-        $data = $res->json('data');
-        $this->assertCount(1, $data);
-        $this->assertEquals(100000, $data[0]['total_realisasi']);
+        $this->assertEquals(100000, $res->json('data.total_keseluruhan'));
     }
 
     public function test_biaya_tagihan_ditolak_bila_sudah_difakturkan(): void

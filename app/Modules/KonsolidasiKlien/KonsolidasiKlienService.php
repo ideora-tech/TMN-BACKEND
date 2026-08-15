@@ -25,9 +25,14 @@ class KonsolidasiKlienService
         $idTrips   = array_map(fn ($r) => (string) $r->id_trip, $rows);
         $dropMap   = $this->repo->titikDropPerTrip($idTrips);
         $biayaMap  = $this->repo->biayaTagihanPerTrip($idTrips);
+        $biayaDetailMap = $this->repo->biayaTagihanDetailPerTrip($idTrips);
+        $jenisMap  = $this->repo->namaJenisKendaraanMap(array_values(array_unique(array_filter(array_map(
+            fn ($r) => $r->id_jenis_kendaraan ?? $r->id_jenis_kendaraan_vendor ?? null,
+            $rows
+        )))));
 
         $trips = array_map(
-            fn ($row) => $this->mapBaris($row, $idKlien, $idPerusahaan, $dropMap, $biayaMap),
+            fn ($row) => $this->mapBaris($row, $idKlien, $idPerusahaan, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap),
             $rows
         );
 
@@ -45,7 +50,7 @@ class KonsolidasiKlienService
         ];
     }
 
-    private function mapBaris(object $row, string $idKlien, string $idPerusahaan, array $dropMap, array $biayaMap): array
+    private function mapBaris(object $row, string $idKlien, string $idPerusahaan, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
 
@@ -81,6 +86,8 @@ class KonsolidasiKlienService
             'sudah_difakturkan' => (int) $row->sudah_difakturkan === 1,
             'titik_drop'        => $dropMap[$row->id_trip] ?? [],
             'biaya_tambahan'    => $biayaMap[$row->id_trip] ?? 0.0,
+            'biaya_tagihan'     => $biayaDetailMap[$row->id_trip] ?? [],
+            'jenis_kendaraan'   => $idJenisKendaraan !== null ? ($jenisMap[$idJenisKendaraan] ?? null) : null,
         ];
     }
 }

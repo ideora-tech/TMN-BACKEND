@@ -20,7 +20,7 @@ class FakturDetailExport implements FromCollection, WithHeadings, ShouldAutoSize
 
     public function judulLaporan(): string
     {
-        return 'FAKTUR ' . $this->faktur->nomor_faktur;
+        return 'INVOICE ' . $this->faktur->nomor_faktur;
     }
 
     public function subjudulLaporan(): string
@@ -48,7 +48,7 @@ class FakturDetailExport implements FromCollection, WithHeadings, ShouldAutoSize
         ]);
 
         if ($rows->isEmpty()) {
-            $rows->push([1, 'Tagihan sesuai faktur ' . $this->faktur->nomor_faktur, 1, (float) $this->faktur->total, (float) $this->faktur->total]);
+            $rows->push([1, 'Tagihan sesuai invoice ' . $this->faktur->nomor_faktur, 1, (float) $this->faktur->total, (float) $this->faktur->total]);
         }
 
         $rows->push(['', 'TOTAL', '', '', (float) $this->faktur->total]);
