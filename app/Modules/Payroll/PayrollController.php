@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Payroll;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Payroll\Exports\PayrollTemplateExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class PayrollController extends Controller
@@ -87,11 +91,36 @@ class PayrollController extends Controller
         return ApiResponse::success($hasil, "Slip gaji berhasil dibuat ({$hasil['dibuat']} karyawan)");
     }
 
+    public function downloadTemplate(Request $request, string $id): BinaryFileResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $data = $this->service->templateImport($id, $idPerusahaan);
+
+        return Excel::download(
+            new PayrollTemplateExport($data['rows']),
+            'template-gaji-' . Str::slug($data['nama']) . '.xlsx',
+        );
+    }
+
+    public function importExcel(Request $request, string $id): JsonResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls', 'max:5120']]);
+
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $hasil = $this->service->importExcel($id, $idPerusahaan, $request->file('file'));
+        return ApiResponse::success($hasil, "Import gaji selesai diproses ({$hasil['berhasil']} slip)");
+    }
+
     public function updateSlip(Request $request, string $id): JsonResponse
     {
         $validated = $request->validate([
             'tunjangan_lain'       => ['sometimes', 'numeric', 'min:0'],
             'keterangan_tunjangan' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'uang_makan'           => ['sometimes', 'numeric', 'min:0'],
+            'uang_makan_mingguan'  => ['sometimes', 'numeric', 'min:0'],
+            'kasbon'               => ['sometimes', 'numeric', 'min:0'],
+            'uang_jalan_terpakai'  => ['sometimes', 'numeric', 'min:0'],
+            'tilangan'             => ['sometimes', 'numeric', 'min:0'],
             'potongan_lain'        => ['sometimes', 'numeric', 'min:0'],
             'keterangan_potongan'  => ['sometimes', 'nullable', 'string', 'max:255'],
             'pph21'                => ['sometimes', 'numeric', 'min:0'],

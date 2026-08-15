@@ -98,6 +98,14 @@
                 <td class="label">Rekening</td><td class="titik">:</td>
                 <td>{{ $slip->nama_bank ? ($slip->nama_bank . ' ' . $slip->nomor_rekening) : '-' }}</td>
             </tr>
+            @if ($slip->proyek || $slip->absen_masuk)
+                <tr>
+                    <td class="label">Proyek</td><td class="titik">:</td>
+                    <td>{{ $slip->proyek ?? '-' }}@if ($slip->tipe_truck) <span class="ket">({{ $slip->tipe_truck }})</span>@endif</td>
+                    <td class="label">Absen Masuk</td><td class="titik">:</td>
+                    <td>{{ $slip->absen_masuk ?? '-' }}</td>
+                </tr>
+            @endif
         </table>
 
         <table class="rincian">
@@ -111,6 +119,9 @@
                         <td>Upah Lembur <span class="ket">({{ $jamLembur }}j {{ $menitLembur }}m)</span></td>
                         <td class="jumlah">{{ $rp($slip->upah_lembur) }}</td>
                     </tr>
+                @endif
+                @if ((float) $slip->uang_makan > 0)
+                    <tr><td>Uang Makan</td><td class="jumlah">{{ $rp($slip->uang_makan) }}</td></tr>
                 @endif
                 @if ((float) $slip->tunjangan_lain > 0)
                     <tr>
@@ -141,6 +152,18 @@
                 @endif
                 @if ((float) $slip->pph21 > 0)
                     <tr><td>PPh 21</td><td class="jumlah">{{ $rp($slip->pph21) }}</td></tr>
+                @endif
+                @if ((float) $slip->uang_makan_mingguan > 0)
+                    <tr><td>Uang Makan Mingguan</td><td class="jumlah">{{ $rp($slip->uang_makan_mingguan) }}</td></tr>
+                @endif
+                @if ((float) $slip->kasbon > 0)
+                    <tr><td>Kasbon</td><td class="jumlah">{{ $rp($slip->kasbon) }}</td></tr>
+                @endif
+                @if ((float) $slip->uang_jalan_terpakai > 0)
+                    <tr><td>Uang Jalan Terpakai</td><td class="jumlah">{{ $rp($slip->uang_jalan_terpakai) }}</td></tr>
+                @endif
+                @if ((float) $slip->tilangan > 0)
+                    <tr><td>Tilangan</td><td class="jumlah">{{ $rp($slip->tilangan) }}</td></tr>
                 @endif
                 @if ((float) $slip->potongan_lain > 0)
                     <tr>

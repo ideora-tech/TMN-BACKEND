@@ -129,17 +129,13 @@ class ArusKasPengajuanTest extends TestCase
     public function test_alur_transisi_lengkap_sampai_ditransfer(): void
     {
         $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
         $id = $this->buatPengajuan();
 
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'dicek');
-
-        $this->actingAsRole('MANAGER');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/setujui")
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
-        $this->actingAsRole('KEUANGAN');
         Storage::fake('public');
         $res = $this->patch("/api/v1/arus-kas/pengajuan/{$id}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
@@ -152,7 +148,7 @@ class ArusKasPengajuanTest extends TestCase
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
         $this->assertNotNull($row->dicek_oleh);
         $this->assertNotNull($row->dicek_pada);
-        $this->assertNotNull($row->disetujui_oleh);
+        $this->assertNull($row->disetujui_oleh);
         $this->assertNotNull($row->disetujui_pada);
         $this->assertNotNull($row->ditransfer_oleh);
         $this->assertNotNull($row->ditransfer_pada);
@@ -206,7 +202,7 @@ class ArusKasPengajuanTest extends TestCase
             ->assertStatus(409);
 
         $this->actingAsRole('MANAGER');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/setujui")->assertStatus(409);
+        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])->assertStatus(409);
 
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->update(['status' => 'ditolak']);
         $this->actingAsRole('KEUANGAN');
@@ -225,14 +221,23 @@ class ArusKasPengajuanTest extends TestCase
         $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(403);
     }
 
-    public function test_guard_peran_setujui_dan_tolak_hanya_manager(): void
+    public function test_approval_oleh_bukan_approver_403_tolak_lama_tetap_dibatasi_role_manager(): void
     {
-        $this->actingAsRole('SUPERADMIN');
+        $superadmin = $this->actingAsRole('SUPERADMIN');
+        DB::table('approver_keuangan')->insert([
+            'id_approver'   => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'tipe'          => 'pengguna',
+            'id_pengguna'   => $superadmin->id_pengguna,
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
         $id = $this->buatPengajuan();
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/setujui")->assertStatus(403);
+        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])->assertStatus(403);
         $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/tolak", ['alasan' => 'x'])->assertStatus(403);
     }
 

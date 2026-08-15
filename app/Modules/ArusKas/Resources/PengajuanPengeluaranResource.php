@@ -37,6 +37,9 @@ class PengajuanPengeluaranResource extends JsonResource
             'url_bukti'         => PenyimpananBerkas::url($this->url_bukti),
             'dibuat_pada'       => $this->dibuat_pada,
             'diubah_pada'       => $this->diubah_pada,
+            'approval'          => $this->approval ?? [],
+            'approval_progress' => $this->approval_progress ?? null,
+            'bisa_approve'      => (bool) ($this->bisa_approve ?? false),
         ];
     }
 }

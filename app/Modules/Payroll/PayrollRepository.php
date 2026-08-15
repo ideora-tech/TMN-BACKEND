@@ -119,6 +119,41 @@ class PayrollRepository implements PayrollRepositoryInterface
             ->first();
     }
 
+    public function findSlipByPeriodeKaryawan(string $idPeriode, string $idKaryawan): ?object
+    {
+        return DB::table('payroll_slip')
+            ->whereNull('dihapus_pada')
+            ->where('id_periode', $idPeriode)
+            ->where('id_karyawan', $idKaryawan)
+            ->first();
+    }
+
+    public function semuaKaryawan(string $idPerusahaan): array
+    {
+        return DB::table('karyawan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->select('id_karyawan', 'nama_karyawan')
+            ->get()
+            ->all();
+    }
+
+    public function karyawanUntukTemplate(string $idPerusahaan): array
+    {
+        return DB::table('karyawan as k')
+            ->leftJoin('jabatan as j', 'k.id_jabatan', '=', 'j.id_jabatan')
+            ->whereNull('k.dihapus_pada')
+            ->where('k.id_perusahaan', $idPerusahaan)
+            ->where('k.aktif', 1)
+            ->select(
+                'k.id_karyawan', 'k.nama_karyawan', 'k.status_kepegawaian',
+                'k.nama_bank', 'k.nomor_rekening', 'k.gaji_pokok', 'j.nama_jabatan',
+            )
+            ->orderBy('k.nama_karyawan')
+            ->get()
+            ->all();
+    }
+
     public function getPerusahaan(string $idPerusahaan): ?object
     {
         return DB::table('perusahaan')

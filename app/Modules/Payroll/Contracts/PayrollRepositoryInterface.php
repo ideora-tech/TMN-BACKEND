@@ -20,6 +20,12 @@ interface PayrollRepositoryInterface
 
     public function slipByPeriode(string $idPeriode): array;
     public function findSlipById(string $id): ?object;
+    public function findSlipByPeriodeKaryawan(string $idPeriode, string $idKaryawan): ?object;
+
+    /** @return array<int, object{id_karyawan: string, nama_karyawan: string}> */
+    public function semuaKaryawan(string $idPerusahaan): array;
+
+    public function karyawanUntukTemplate(string $idPerusahaan): array;
     public function getPerusahaan(string $idPerusahaan): ?object;
     public function createSlip(array $data): object;
     public function updateSlip(object $record, array $data): object;

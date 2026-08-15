@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\ArusKas;
 
 use App\Helpers\ApiResponse;
-use App\Modules\ArusKas\Exports\ArusKasExport;
+use App\Modules\ArusKas\Exports\ArusKasWorkbookExport;
+use App\Modules\ArusKas\Requests\ProsesApprovalRequest;
 use App\Modules\ArusKas\Requests\StorePemasukanRequest;
 use App\Modules\ArusKas\Requests\StorePengajuanRequest;
 use App\Modules\ArusKas\Requests\TolakPengajuanRequest;
@@ -44,19 +45,15 @@ class ArusKasController extends Controller
 
     public function exportExcel(Request $request): BinaryFileResponse
     {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
         $dari   = $request->get('dari') ?: now()->startOfMonth()->toDateString();
         $sampai = $request->get('sampai') ?: now()->endOfMonth()->toDateString();
 
-        $hasil = $this->service->rekap(
-            (string) $request->user()->id_perusahaan,
-            $dari,
-            $sampai,
-            $request->get('arah'),
-            $request->get('sumber'),
-        );
+        $hasil   = $this->service->rekap($idPerusahaan, $dari, $sampai, $request->get('arah'), $request->get('sumber'));
+        $laporan = $this->service->laporanPsak($idPerusahaan, $dari, $sampai);
 
         return Excel::download(
-            new ArusKasExport($hasil['transaksi'], $dari, $sampai),
+            new ArusKasWorkbookExport($laporan, $hasil['transaksi'], $this->service->namaPerusahaan($idPerusahaan), $dari, $sampai),
             'arus-kas-' . date('Ymd') . '.xlsx'
         );
     }
@@ -67,12 +64,14 @@ class ArusKasController extends Controller
             (string) $request->user()->id_perusahaan,
             $request->get('status')
         );
+        $this->service->lampirkanApprovalBanyak($data, (string) $request->user()->id_pengguna);
         return ApiResponse::success(PengajuanPengeluaranResource::collection($data));
     }
 
     public function showPengajuan(Request $request, string $id): JsonResponse
     {
         $record = $this->service->findPengajuanOrFail($id, (string) $request->user()->id_perusahaan);
+        $this->service->lampirkanApproval($record, (string) $request->user()->id_pengguna);
         return ApiResponse::success(new PengajuanPengeluaranResource($record));
     }
 
@@ -106,13 +105,24 @@ class ArusKasController extends Controller
     public function cekPengajuan(Request $request, string $id): JsonResponse
     {
         $record = $this->service->cek($id, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new PengajuanPengeluaranResource($record), 'Pengajuan ditandai sudah dicek');
+        $pesan = match ($record->status) {
+            ArusKasService::STATUS_DISETUJUI         => 'Pengajuan disetujui otomatis (di bawah batas approval)',
+            ArusKasService::STATUS_MENUNGGU_APPROVAL => 'Pengajuan menunggu approval',
+            default                                   => 'Pengajuan ditandai sudah dicek',
+        };
+        return ApiResponse::success(new PengajuanPengeluaranResource($record), $pesan);
     }
 
-    public function setujuiPengajuan(Request $request, string $id): JsonResponse
+    public function prosesApprovalPengajuan(ProsesApprovalRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->setujui($id, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new PengajuanPengeluaranResource($record), 'Pengajuan disetujui');
+        $hasil = $this->service->prosesApproval(
+            $id,
+            (string) $request->validated('keputusan'),
+            $request->validated('catatan'),
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->id_perusahaan
+        );
+        return ApiResponse::success(new PengajuanPengeluaranResource($hasil['record']), $hasil['pesan']);
     }
 
     public function tolakPengajuan(TolakPengajuanRequest $request, string $id): JsonResponse
@@ -169,5 +179,45 @@ class ArusKasController extends Controller
             $request->get('kategori'),
         );
         return ApiResponse::success(PemasukanGabunganResource::collection(collect($data)));
+    }
+
+    public function indexApprover(Request $request): JsonResponse
+    {
+        $data = $this->service->listApprover((string) $request->user()->id_perusahaan);
+        return ApiResponse::success($data);
+    }
+
+    public function storeApprover(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'tipe'        => ['required', 'in:jabatan,pengguna'],
+            'id_jabatan'  => ['required_if:tipe,jabatan', 'nullable', 'string'],
+            'id_pengguna' => ['required_if:tipe,pengguna', 'nullable', 'string'],
+        ]);
+
+        $this->service->tambahApprover($validated, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(null, 'Approver berhasil ditambahkan', 201);
+    }
+
+    public function destroyApprover(Request $request, string $id): JsonResponse
+    {
+        $this->service->hapusApprover($id, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(null, 'Approver berhasil dihapus');
+    }
+
+    public function showPengaturanApproval(Request $request): JsonResponse
+    {
+        $batas = $this->service->batasApproval((string) $request->user()->id_perusahaan);
+        return ApiResponse::success(['batas' => $batas]);
+    }
+
+    public function updatePengaturanApproval(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'batas' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $this->service->setBatasApproval((string) $request->user()->id_perusahaan, (float) $validated['batas']);
+        return ApiResponse::success(['batas' => (float) $validated['batas']], 'Batas approval berhasil diperbarui');
     }
 }

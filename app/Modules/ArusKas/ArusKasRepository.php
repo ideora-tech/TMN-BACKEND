@@ -301,6 +301,137 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         return $invoice->unionAll($manual)->orderByDesc('tanggal')->orderByDesc('nomor')->get();
     }
 
+    public function listApprover(string $idPerusahaan): array
+    {
+        return DB::table('approver_keuangan as ak')
+            ->leftJoin('jabatan as j', function ($join) use ($idPerusahaan) {
+                $join->on('j.id_jabatan', '=', 'ak.id_jabatan')
+                    ->where('j.id_perusahaan', $idPerusahaan);
+            })
+            ->leftJoin('pengguna as p', function ($join) use ($idPerusahaan) {
+                $join->on('p.id_pengguna', '=', 'ak.id_pengguna')
+                    ->where('p.id_perusahaan', $idPerusahaan);
+            })
+            ->where('ak.id_perusahaan', $idPerusahaan)
+            ->whereNull('ak.dihapus_pada')
+            ->orderBy('ak.dibuat_pada')
+            ->selectRaw('ak.*, COALESCE(j.nama_jabatan, p.username) as nama')
+            ->get()
+            ->map(fn ($row) => (array) $row)
+            ->all();
+    }
+
+    public function insertApprover(array $data): void
+    {
+        DB::table('approver_keuangan')->insert(RecordHelper::stampCreate($data, 'id_approver'));
+    }
+
+    public function softDeleteApprover(string $id, string $idPerusahaan): bool
+    {
+        $jumlah = DB::table('approver_keuangan')
+            ->where('id_approver', $id)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampDelete());
+
+        return $jumlah > 0;
+    }
+
+    public function adaApproverAktif(string $idPerusahaan, string $tipe, ?string $idRef): bool
+    {
+        $kolom = $tipe === 'jabatan' ? 'id_jabatan' : 'id_pengguna';
+
+        return DB::table('approver_keuangan')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('tipe', $tipe)
+            ->where($kolom, $idRef)
+            ->where('aktif', 1)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
+    public function getPengaturan(string $idPerusahaan, string $kunci): ?string
+    {
+        $nilai = DB::table('pengaturan')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('kunci', $kunci)
+            ->whereNull('dihapus_pada')
+            ->value('nilai');
+
+        return $nilai !== null ? (string) $nilai : null;
+    }
+
+    public function setPengaturan(string $idPerusahaan, string $kunci, string $nilai): void
+    {
+        $existing = DB::table('pengaturan')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('kunci', $kunci)
+            ->whereNull('dihapus_pada')
+            ->first();
+
+        if ($existing === null) {
+            DB::table('pengaturan')->insert(RecordHelper::stampCreate([
+                'id_perusahaan' => $idPerusahaan,
+                'kunci'         => $kunci,
+                'nilai'         => $nilai,
+            ], 'id_pengaturan'));
+            return;
+        }
+
+        DB::table('pengaturan')
+            ->where('id_pengaturan', $existing->id_pengaturan)
+            ->update(RecordHelper::stampUpdate(['nilai' => $nilai]));
+    }
+
+    public function resolusiApprover(string $idPerusahaan): array
+    {
+        $dariPengguna = DB::table('approver_keuangan as ak')
+            ->join('pengguna as p', 'p.id_pengguna', '=', 'ak.id_pengguna')
+            ->where('ak.id_perusahaan', $idPerusahaan)
+            ->where('ak.tipe', 'pengguna')
+            ->where('ak.aktif', 1)
+            ->whereNull('ak.dihapus_pada')
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->where('p.aktif', 1)
+            ->whereNull('p.dihapus_pada')
+            ->pluck('p.id_pengguna');
+
+        $dariJabatan = DB::table('approver_keuangan as ak')
+            ->join('karyawan as k', 'k.id_jabatan', '=', 'ak.id_jabatan')
+            ->join('pengguna as p', 'p.id_karyawan', '=', 'k.id_karyawan')
+            ->where('ak.id_perusahaan', $idPerusahaan)
+            ->where('ak.tipe', 'jabatan')
+            ->where('ak.aktif', 1)
+            ->whereNull('ak.dihapus_pada')
+            ->where('k.id_perusahaan', $idPerusahaan)
+            ->where('k.aktif', 1)
+            ->whereNull('k.dihapus_pada')
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->where('p.aktif', 1)
+            ->whereNull('p.dihapus_pada')
+            ->pluck('p.id_pengguna');
+
+        return $dariPengguna->merge($dariJabatan)->unique()->values()->all();
+    }
+
+    public function jabatanMilik(string $idJabatan, string $idPerusahaan): bool
+    {
+        return DB::table('jabatan')
+            ->where('id_jabatan', $idJabatan)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
+    public function penggunaMilik(string $idPengguna, string $idPerusahaan): bool
+    {
+        return DB::table('pengguna')
+            ->where('id_pengguna', $idPengguna)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
     public function rekap(string $idPerusahaan, string $dari, string $sampai): Collection
     {
         $queries = [
@@ -400,4 +531,125 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ");
     }
 
+    public function saldoKasSebelum(string $idPerusahaan, string $sebelumTanggal): float
+    {
+        $tanggalFaktur = 'COALESCE(faktur.tanggal_faktur, DATE(faktur.dibuat_pada))';
+
+        $masukFaktur = (float) DB::table('faktur')
+            ->whereNull('faktur.dihapus_pada')
+            ->where('faktur.id_perusahaan', $idPerusahaan)
+            ->where('faktur.status', '!=', 'batal')
+            ->whereRaw("{$tanggalFaktur} < ?", [$sebelumTanggal])
+            ->sum('faktur.total');
+
+        $masukPemasukan = (float) DB::table('pemasukan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('tanggal', '<', $sebelumTanggal)
+            ->sum('nominal');
+
+        $keluarPengajuan = (float) DB::table('pengajuan_pengeluaran')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', 'ditransfer')
+            ->where('tanggal_transfer', '<', $sebelumTanggal)
+            ->sum('nominal');
+
+        $keluarVendor = (float) DB::table('pembayaran_vendor')
+            ->join('invoice_vendor', 'invoice_vendor.id_invoice_vendor', '=', 'pembayaran_vendor.id_invoice_vendor')
+            ->whereNull('pembayaran_vendor.dihapus_pada')
+            ->whereNull('invoice_vendor.dihapus_pada')
+            ->where('invoice_vendor.id_perusahaan', $idPerusahaan)
+            ->where('pembayaran_vendor.tanggal_bayar', '<', $sebelumTanggal)
+            ->sum('pembayaran_vendor.nominal');
+
+        return $masukFaktur + $masukPemasukan - $keluarPengajuan - $keluarVendor;
+    }
+
+    public function namaPerusahaan(string $idPerusahaan): ?string
+    {
+        $nama = DB::table('perusahaan')->whereNull('dihapus_pada')->where('id_perusahaan', $idPerusahaan)->value('nama');
+        return $nama !== null ? (string) $nama : null;
+    }
+
+    public function insertApprovalRows(string $idPengajuan, array $idPenggunaList): void
+    {
+        if ($idPenggunaList === []) {
+            return;
+        }
+
+        $rows = array_map(fn ($idPengguna) => RecordHelper::stampCreate([
+            'id_pengajuan' => $idPengajuan,
+            'id_pengguna'  => $idPengguna,
+            'status'       => 'menunggu',
+        ], 'id_approval'), $idPenggunaList);
+
+        DB::table('pengajuan_approval')->insert($rows);
+    }
+
+    public function listApproval(string $idPengajuan): array
+    {
+        return DB::table('pengajuan_approval as pa')
+            ->leftJoin('pengguna as p', 'p.id_pengguna', '=', 'pa.id_pengguna')
+            ->where('pa.id_pengajuan', $idPengajuan)
+            ->whereNull('pa.dihapus_pada')
+            ->orderBy('pa.dibuat_pada')
+            ->selectRaw('pa.*, p.username as nama')
+            ->get()
+            ->map(fn ($row) => (array) $row)
+            ->all();
+    }
+
+    public function listApprovalBanyak(array $idPengajuanList): array
+    {
+        if ($idPengajuanList === []) {
+            return [];
+        }
+
+        return DB::table('pengajuan_approval as pa')
+            ->leftJoin('pengguna as p', 'p.id_pengguna', '=', 'pa.id_pengguna')
+            ->whereIn('pa.id_pengajuan', $idPengajuanList)
+            ->whereNull('pa.dihapus_pada')
+            ->orderBy('pa.dibuat_pada')
+            ->selectRaw('pa.*, p.username as nama')
+            ->get()
+            ->map(fn ($row) => (array) $row)
+            ->groupBy('id_pengajuan')
+            ->map(fn ($rows) => $rows->values()->all())
+            ->all();
+    }
+
+    public function findApprovalMenunggu(string $idPengajuan, string $idPengguna): ?object
+    {
+        return DB::table('pengajuan_approval')
+            ->where('id_pengajuan', $idPengajuan)
+            ->where('id_pengguna', $idPengguna)
+            ->where('status', 'menunggu')
+            ->whereNull('dihapus_pada')
+            ->first();
+    }
+
+    public function findPengajuanForUpdate(string $id): ?PengajuanPengeluaranModel
+    {
+        return PengajuanPengeluaranModel::active()->lockForUpdate()->find($id);
+    }
+
+    public function updateApprovalRowJikaMenunggu(string $idApproval, array $data): int
+    {
+        return DB::table('pengajuan_approval')
+            ->where('id_approval', $idApproval)
+            ->where('status', 'menunggu')
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampUpdate($data));
+    }
+
+    public function hitungApprovalMenunggu(string $idPengajuan): int
+    {
+        return DB::table('pengajuan_approval')
+            ->where('id_pengajuan', $idPengajuan)
+            ->where('status', 'menunggu')
+            ->whereNull('dihapus_pada')
+            ->lockForUpdate()
+            ->count();
+    }
 }

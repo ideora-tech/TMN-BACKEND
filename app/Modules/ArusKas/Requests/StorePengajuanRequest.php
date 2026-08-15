@@ -17,7 +17,7 @@ class StorePengajuanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kategori'          => ['required', 'string', Rule::in(['uang_jalan', 'legalitas', 'perawatan', 'sparepart', 'penggajian', 'lainnya'])],
+            'kategori'          => ['required', 'string', Rule::in(['uang_jalan', 'legalitas', 'perawatan', 'sparepart', 'penggajian', 'pembelian_aset', 'pembayaran_pinjaman', 'lainnya'])],
             'nominal'           => ['required', 'numeric', 'min:0.01'],
             'tanggal_pengajuan' => ['required', 'date'],
             'penerima'          => ['required', 'string', 'max:150'],

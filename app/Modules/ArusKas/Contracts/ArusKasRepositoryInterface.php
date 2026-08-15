@@ -37,4 +37,22 @@ interface ArusKasRepositoryInterface
     public function deletePemasukan(PemasukanModel $model): void;
     public function nomorPemasukanBerikutnya(string $idPerusahaan): string;
     public function listPemasukanGabungan(string $idPerusahaan, string $dari, string $sampai): Collection;
+    public function listApprover(string $idPerusahaan): array;
+    public function insertApprover(array $data): void;
+    public function softDeleteApprover(string $id, string $idPerusahaan): bool;
+    public function adaApproverAktif(string $idPerusahaan, string $tipe, ?string $idRef): bool;
+    public function getPengaturan(string $idPerusahaan, string $kunci): ?string;
+    public function setPengaturan(string $idPerusahaan, string $kunci, string $nilai): void;
+    public function resolusiApprover(string $idPerusahaan): array;
+    public function jabatanMilik(string $idJabatan, string $idPerusahaan): bool;
+    public function penggunaMilik(string $idPengguna, string $idPerusahaan): bool;
+    public function saldoKasSebelum(string $idPerusahaan, string $sebelumTanggal): float;
+    public function namaPerusahaan(string $idPerusahaan): ?string;
+    public function insertApprovalRows(string $idPengajuan, array $idPenggunaList): void;
+    public function listApproval(string $idPengajuan): array;
+    public function listApprovalBanyak(array $idPengajuanList): array;
+    public function findApprovalMenunggu(string $idPengajuan, string $idPengguna): ?object;
+    public function findPengajuanForUpdate(string $id): ?PengajuanPengeluaranModel;
+    public function updateApprovalRowJikaMenunggu(string $idApproval, array $data): int;
+    public function hitungApprovalMenunggu(string $idPengajuan): int;
 }

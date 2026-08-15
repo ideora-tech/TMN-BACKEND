@@ -129,12 +129,13 @@ class ArusKasPayrollTest extends TestCase
     public function test_batal_finalisasi_setelah_ditransfer_dikembalikan_409_dan_periode_tetap_final(): void
     {
         $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
         $idPeriode = $this->siapkanPeriodeDenganSlip('2026-08', [5000000]);
         $this->postJson("/api/v1/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(200);
         $idPengajuan = $this->pengajuanAktifPeriode($idPeriode)->id_pengajuan;
 
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")->assertStatus(200);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/setujui")->assertStatus(200);
+        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
         $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => '2026-08-20',
         ])->assertStatus(200);
@@ -153,6 +154,7 @@ class ArusKasPayrollTest extends TestCase
     public function test_rekap_payroll_bukan_lagi_sumber_langsung_pengajuan_penggajian_ditransfer_muncul(): void
     {
         $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
         $idPeriode = $this->siapkanPeriodeDenganSlip('2026-08', [5000000]);
         $this->postJson("/api/v1/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(200);
         $pengajuan = $this->pengajuanAktifPeriode($idPeriode);
@@ -162,8 +164,8 @@ class ArusKasPayrollTest extends TestCase
         $this->assertCount(0, collect($rekapSebelum->json('data.transaksi'))->where('sumber', 'payroll_periode'));
         $this->assertCount(0, collect($rekapSebelum->json('data.transaksi'))->where('kategori', 'penggajian'));
 
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/cek")->assertStatus(200);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/setujui")->assertStatus(200);
+        $this->patchJson("/api/v1/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
         $this->patchJson("/api/v1/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/transfer", [
             'tanggal_transfer' => '2026-08-20',
         ])->assertStatus(200);

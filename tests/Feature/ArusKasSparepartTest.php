@@ -204,16 +204,15 @@ class ArusKasSparepartTest extends TestCase
     private function ajukanSampaiDisetujui(): array
     {
         $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
         $create = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian());
         $idPembelian = $create->json('data.id_pembelian');
         $items = $create->json('data.items');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")->assertStatus(200);
-
-        $this->actingAsRole('MANAGER');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/setujui")->assertStatus(200);
+        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         return [$idPembelian, $items, $idPengajuan];
     }

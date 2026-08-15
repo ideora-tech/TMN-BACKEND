@@ -7,8 +7,11 @@ namespace App\Modules\Payroll;
 use App\Modules\Absensi\AbsensiService;
 use App\Modules\ArusKas\ArusKasService;
 use App\Modules\Payroll\Contracts\PayrollRepositoryInterface;
+use App\Modules\Payroll\Imports\PayrollImport;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PayrollService
 {
@@ -240,6 +243,238 @@ class PayrollService
         });
     }
 
+    // ── Import Excel ─────────────────────────────────────────────
+
+    private const KOLOM_IMPORT = [
+        'NAMA'                => 'nama',
+        'PROJECT'             => 'proyek',
+        'TYPE TRUCK'          => 'tipe_truck',
+        'ABSEN MASUK'         => 'absen_masuk',
+        'GAJI POKOK'          => 'gaji_pokok',
+        'UANG MAKAN'          => 'uang_makan',
+        'TUNJANGAN'           => 'tunjangan_lain',
+        'GAJI PRORATE'        => 'gaji_prorate',
+        'UANG MAKAN MINGGUAN' => 'uang_makan_mingguan',
+        'KASBON'              => 'kasbon',
+        'UJ TERPAKAI'         => 'uang_jalan_terpakai',
+        'TILANGAN'            => 'tilangan',
+        'KETERANGAN'          => 'keterangan',
+        'CATATAN'             => 'catatan',
+    ];
+
+    /**
+     * Import slip gaji dari file Excel (format lembar "GAJI DRIVER"). Header boleh
+     * berada di baris mana pun (dicari baris yang memuat NAMA + GAJI POKOK) dan urutan
+     * kolom bebas. Karyawan dicocokkan berdasarkan nama ternormalisasi; baris tanpa
+     * nama (baris kosong / baris total) dilewati tanpa dihitung. Mode "sebagian masuk
+     * + laporan gagal": slip karyawan yang cocok ditimpa, yang belum ada dibuat baru,
+     * sedangkan nilai BPJS/PPh21/lembur/potongan absen hasil generate dipertahankan.
+     * JUMLAH GAJI dan TOTAL GAJI dari file diabaikan — total dihitung ulang sistem.
+     *
+     * @return array{berhasil: int, gagal: array<int, array{baris: int, nama: string, alasan: string}>}
+     */
+    public function importExcel(string $id, string $idPerusahaan, UploadedFile $file): array
+    {
+        $periode = $this->periodeOrFail($id, $idPerusahaan);
+        if ($periode->status === 'final') {
+            abort(422, 'Periode sudah final — tidak dapat import');
+        }
+
+        $rows = Excel::toArray(new PayrollImport(), $file)[0] ?? [];
+
+        [$barisHeader, $kolom] = $this->cariHeaderImport($rows);
+        if ($barisHeader === null) {
+            abort(422, 'Kolom NAMA dan GAJI POKOK tidak ditemukan di file — pastikan format sesuai lembar gaji');
+        }
+
+        $petaKaryawan = [];
+        foreach ($this->repo->semuaKaryawan($idPerusahaan) as $k) {
+            $petaKaryawan[$this->normalisasiNama($k->nama_karyawan)][] = $k->id_karyawan;
+        }
+
+        $frekuensiNama = [];
+        foreach ($rows as $index => $row) {
+            if ($index <= $barisHeader) continue;
+            $nama = $this->teksSel($row[$kolom['nama']] ?? null);
+            if ($nama !== null) {
+                $kunci = $this->normalisasiNama($nama);
+                $frekuensiNama[$kunci] = ($frekuensiNama[$kunci] ?? 0) + 1;
+            }
+        }
+
+        $berhasil = 0;
+        $gagal = [];
+
+        foreach ($rows as $index => $row) {
+            if ($index <= $barisHeader) continue;
+
+            $baris = $index + 1;
+            $ambil = fn (string $field) => array_key_exists($field, $kolom) ? ($row[$kolom[$field]] ?? null) : null;
+
+            $nama = $this->teksSel($ambil('nama'));
+            if ($nama === null) continue;
+
+            $kunci = $this->normalisasiNama($nama);
+            if (($frekuensiNama[$kunci] ?? 0) > 1) {
+                $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Nama duplikat di dalam file'];
+                continue;
+            }
+
+            $kandidat = $petaKaryawan[$kunci] ?? [];
+            if ($kandidat === []) {
+                $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Karyawan tidak ditemukan di master'];
+                continue;
+            }
+            if (count($kandidat) > 1) {
+                $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Nama cocok dengan lebih dari satu karyawan — rapikan master dulu'];
+                continue;
+            }
+            $idKaryawan = $kandidat[0];
+
+            $gajiPokokPenuh = $this->angkaSel($ambil('gaji_pokok'));
+            $gajiProrate    = $this->angkaSel($ambil('gaji_prorate'));
+            $gajiPokok      = $gajiProrate > 0 ? $gajiProrate : $gajiPokokPenuh;
+
+            $catatanParts = array_filter([
+                $this->teksSel($ambil('keterangan')),
+                $this->teksSel($ambil('catatan')),
+                $gajiProrate > 0
+                    ? sprintf('Gaji prorata dari Excel (gaji penuh Rp %s)', number_format($gajiPokokPenuh, 0, ',', '.'))
+                    : null,
+            ]);
+
+            $dataImport = [
+                'gaji_pokok'          => $gajiPokok,
+                'uang_makan'          => $this->angkaSel($ambil('uang_makan')),
+                'tunjangan_lain'      => $this->angkaSel($ambil('tunjangan_lain')),
+                'uang_makan_mingguan' => $this->angkaSel($ambil('uang_makan_mingguan')),
+                'kasbon'              => $this->angkaSel($ambil('kasbon')),
+                'uang_jalan_terpakai' => $this->angkaSel($ambil('uang_jalan_terpakai')),
+                'tilangan'            => $this->angkaSel($ambil('tilangan')),
+                'proyek'              => $this->teksSel($ambil('proyek')),
+                'tipe_truck'          => $this->teksSel($ambil('tipe_truck')),
+                'absen_masuk'         => $this->teksSel($ambil('absen_masuk')),
+                'catatan'             => $catatanParts !== [] ? implode(' | ', $catatanParts) : null,
+            ];
+
+            $slipAda = $this->repo->findSlipByPeriodeKaryawan($periode->id_periode, $idKaryawan);
+
+            $bruto = $dataImport['gaji_pokok'] + (float) ($slipAda->upah_lembur ?? 0)
+                + $dataImport['tunjangan_lain'] + $dataImport['uang_makan'];
+            $totalPotongan = (float) ($slipAda->potongan_absen ?? 0)
+                + (float) ($slipAda->potongan_bpjs_kesehatan ?? 0)
+                + (float) ($slipAda->potongan_bpjs_tk ?? 0)
+                + (float) ($slipAda->pph21 ?? 0)
+                + (float) ($slipAda->potongan_lain ?? 0)
+                + $dataImport['uang_makan_mingguan'] + $dataImport['kasbon']
+                + $dataImport['uang_jalan_terpakai'] + $dataImport['tilangan'];
+
+            $dataImport['total_bruto']    = $bruto;
+            $dataImport['total_potongan'] = $totalPotongan;
+            $dataImport['gaji_bersih']    = $bruto - $totalPotongan;
+
+            if ($slipAda !== null) {
+                $this->repo->updateSlip($slipAda, $dataImport);
+            } else {
+                $this->repo->createSlip(array_merge($dataImport, [
+                    'id_periode'    => $periode->id_periode,
+                    'id_perusahaan' => $periode->id_perusahaan,
+                    'id_karyawan'   => $idKaryawan,
+                ]));
+            }
+            $berhasil++;
+        }
+
+        return ['berhasil' => $berhasil, 'gagal' => $gagal];
+    }
+
+    /**
+     * Baris template import: seluruh karyawan aktif dengan data identitas terisi;
+     * bila periode sudah punya slip, komponen gaji ikut terisi dari slip (round-trip
+     * edit: unduh → ubah → upload balik). JUMLAH GAJI & TOTAL GAJI berupa formula.
+     *
+     * @return array{nama: string, rows: array<int, array<int, mixed>>}
+     */
+    public function templateImport(string $id, string $idPerusahaan): array
+    {
+        $periode = $this->periodeOrFail($id, $idPerusahaan);
+
+        $slipMap = collect($this->repo->slipByPeriode($periode->id_periode))->keyBy('id_karyawan');
+
+        $rows = [];
+        $no = 1;
+        foreach ($this->repo->karyawanUntukTemplate($idPerusahaan) as $k) {
+            $slip = $slipMap->get($k->id_karyawan);
+            $r = count($rows) + 2;
+
+            $rows[] = [
+                $no++,
+                $k->nama_karyawan,
+                $slip->proyek ?? null,
+                $slip->tipe_truck ?? null,
+                $k->nama_jabatan,
+                $k->status_kepegawaian,
+                $k->nama_bank,
+                $k->nomor_rekening,
+                $slip->absen_masuk ?? 'Full',
+                $slip !== null ? (float) $slip->gaji_pokok : (float) $k->gaji_pokok,
+                (float) ($slip->uang_makan ?? 0),
+                (float) ($slip->tunjangan_lain ?? 0),
+                "=J{$r}+K{$r}+L{$r}",
+                0,
+                (float) ($slip->uang_makan_mingguan ?? 0),
+                (float) ($slip->kasbon ?? 0),
+                (float) ($slip->uang_jalan_terpakai ?? 0),
+                (float) ($slip->tilangan ?? 0),
+                "=IF(N{$r}>0,N{$r},M{$r})-O{$r}-P{$r}-Q{$r}-R{$r}",
+                null,
+                $slip->catatan ?? null,
+            ];
+        }
+
+        return ['nama' => (string) $periode->nama, 'rows' => $rows];
+    }
+
+    /** @return array{0: ?int, 1: array<string, int>} indeks baris header + peta field => indeks kolom */
+    private function cariHeaderImport(array $rows): array
+    {
+        foreach ($rows as $index => $row) {
+            $kolom = [];
+            foreach ($row as $posisi => $sel) {
+                $label = $this->teksSel($sel);
+                if ($label === null) continue;
+                $label = mb_strtoupper($label);
+                if (isset(self::KOLOM_IMPORT[$label]) && !isset($kolom[self::KOLOM_IMPORT[$label]])) {
+                    $kolom[self::KOLOM_IMPORT[$label]] = $posisi;
+                }
+            }
+            if (isset($kolom['nama'], $kolom['gaji_pokok'])) {
+                return [$index, $kolom];
+            }
+        }
+
+        return [null, []];
+    }
+
+    private function normalisasiNama(string $nama): string
+    {
+        return mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $nama)));
+    }
+
+    private function teksSel(mixed $nilai): ?string
+    {
+        if ($nilai === null) return null;
+        $teks = trim((string) preg_replace('/\s+/u', ' ', (string) $nilai));
+        return $teks === '' ? null : $teks;
+    }
+
+    private function angkaSel(mixed $nilai): float
+    {
+        if (is_numeric($nilai)) return round((float) $nilai, 2);
+        $teks = str_replace(' ', '', trim((string) $nilai));
+        return is_numeric($teks) ? round((float) $teks, 2) : 0.0;
+    }
+
     // ── Slip ─────────────────────────────────────────────────────
 
     public function updateSlip(string $idSlip, string $idPerusahaan, array $data): object
@@ -256,17 +491,28 @@ class PayrollService
 
         $nilai = fn (string $k, $default) => array_key_exists($k, $data) ? (float) $data[$k] : (float) $default;
 
-        $tunjangan = $nilai('tunjangan_lain', $slip->tunjangan_lain);
-        $potLain   = $nilai('potongan_lain', $slip->potongan_lain);
-        $pph21     = $nilai('pph21', $slip->pph21);
+        $tunjangan  = $nilai('tunjangan_lain', $slip->tunjangan_lain);
+        $uangMakan  = $nilai('uang_makan', $slip->uang_makan);
+        $umMingguan = $nilai('uang_makan_mingguan', $slip->uang_makan_mingguan);
+        $kasbon     = $nilai('kasbon', $slip->kasbon);
+        $ujTerpakai = $nilai('uang_jalan_terpakai', $slip->uang_jalan_terpakai);
+        $tilangan   = $nilai('tilangan', $slip->tilangan);
+        $potLain    = $nilai('potongan_lain', $slip->potongan_lain);
+        $pph21      = $nilai('pph21', $slip->pph21);
 
-        $bruto = (float) $slip->gaji_pokok + (float) $slip->upah_lembur + $tunjangan;
+        $bruto = (float) $slip->gaji_pokok + (float) $slip->upah_lembur + $tunjangan + $uangMakan;
         $totalPotongan = (float) $slip->potongan_absen + (float) $slip->potongan_bpjs_kesehatan
-            + (float) $slip->potongan_bpjs_tk + $pph21 + $potLain;
+            + (float) $slip->potongan_bpjs_tk + $pph21 + $potLain
+            + $umMingguan + $kasbon + $ujTerpakai + $tilangan;
 
         return $this->repo->updateSlip($slip, [
             'tunjangan_lain'       => $tunjangan,
             'keterangan_tunjangan' => $data['keterangan_tunjangan'] ?? $slip->keterangan_tunjangan,
+            'uang_makan'           => $uangMakan,
+            'uang_makan_mingguan'  => $umMingguan,
+            'kasbon'               => $kasbon,
+            'uang_jalan_terpakai'  => $ujTerpakai,
+            'tilangan'             => $tilangan,
             'potongan_lain'        => $potLain,
             'keterangan_potongan'  => $data['keterangan_potongan'] ?? $slip->keterangan_potongan,
             'pph21'                => $pph21,

@@ -17,7 +17,7 @@ class UpdatePengajuanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kategori'          => ['sometimes', 'string', Rule::in(['uang_jalan', 'legalitas', 'perawatan', 'sparepart', 'penggajian', 'lainnya'])],
+            'kategori'          => ['sometimes', 'string', Rule::in(['uang_jalan', 'legalitas', 'perawatan', 'sparepart', 'penggajian', 'pembelian_aset', 'pembayaran_pinjaman', 'lainnya'])],
             'nominal'           => ['sometimes', 'numeric', 'min:0.01'],
             'tanggal_pengajuan' => ['sometimes', 'date'],
             'penerima'          => ['sometimes', 'string', 'max:150'],

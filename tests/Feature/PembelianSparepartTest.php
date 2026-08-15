@@ -237,16 +237,15 @@ class PembelianSparepartTest extends TestCase
     {
         Storage::fake('public');
         $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
         $create = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPengajuan());
         $idPembelian = $create->json('data.id_pembelian');
         $items = $create->json('data.items');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")->assertStatus(200);
-
-        $this->actingAsRole('MANAGER');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/setujui")->assertStatus(200);
+        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $rowSetelahSetuju = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
         $this->assertSame('disetujui_finance', $rowSetelahSetuju->status);
@@ -323,17 +322,16 @@ class PembelianSparepartTest extends TestCase
     private function ajukanSampaiTransferUangMuka(): array
     {
         $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
         $create = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPengajuan());
         $idPembelian = $create->json('data.id_pembelian');
         $items = $create->json('data.items');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")->assertStatus(200);
-        $this->actingAsRole('MANAGER');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/setujui")->assertStatus(200);
+        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
-        $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->toDateString();
         $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => $tanggalTransfer,

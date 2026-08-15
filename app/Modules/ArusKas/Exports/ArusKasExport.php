@@ -34,7 +34,7 @@ class ArusKasExport implements FromCollection, WithHeadings, WithMapping, Should
 
     public function title(): string
     {
-        return 'Arus Kas';
+        return 'Rincian Transaksi';
     }
 
     public function judulLaporan(): string

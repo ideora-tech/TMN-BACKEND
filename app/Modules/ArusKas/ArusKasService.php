@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\ArusKas;
 
 use App\Modules\ArusKas\Contracts\ArusKasRepositoryInterface;
+use App\Modules\Notifikasi\NotifikasiService;
 use App\Modules\Trip\TripModel;
 use App\Support\PenyimpananBerkas;
 use Carbon\Carbon;
@@ -14,13 +15,19 @@ use Illuminate\Support\Facades\DB;
 
 class ArusKasService
 {
-    public const STATUS_DIAJUKAN   = 'diajukan';
-    public const STATUS_DICEK      = 'dicek';
-    public const STATUS_DISETUJUI  = 'disetujui';
-    public const STATUS_DITOLAK    = 'ditolak';
-    public const STATUS_DITRANSFER = 'ditransfer';
+    public const STATUS_DIAJUKAN          = 'diajukan';
+    public const STATUS_DICEK             = 'dicek';
+    public const STATUS_MENUNGGU_APPROVAL = 'menunggu_approval';
+    public const STATUS_DISETUJUI         = 'disetujui';
+    public const STATUS_DITOLAK           = 'ditolak';
+    public const STATUS_DITRANSFER        = 'ditransfer';
 
-    public function __construct(private readonly ArusKasRepositoryInterface $repo) {}
+    public const KUNCI_BATAS_APPROVAL = 'batas_approval_keuangan';
+
+    public function __construct(
+        private readonly ArusKasRepositoryInterface $repo,
+        private readonly NotifikasiService $notifikasiService,
+    ) {}
 
     public function infoPengajuanTrip(string $idTrip): ?array
     {
@@ -41,6 +48,7 @@ class ArusKasService
             'waktu'      => $record->dibuat_pada,
             'oleh'       => $record->dibuat_oleh !== null ? ($namaMap[$record->dibuat_oleh] ?? null) : null,
             'keterangan' => $record->keterangan,
+            '_urutan'    => 0,
         ]];
 
         if ($record->dicek_pada !== null) {
@@ -49,6 +57,20 @@ class ArusKasService
                 'waktu'      => $record->dicek_pada,
                 'oleh'       => $record->dicek_oleh !== null ? ($namaMap[$record->dicek_oleh] ?? null) : null,
                 'keterangan' => null,
+                '_urutan'    => 1,
+            ];
+        }
+
+        foreach ($this->repo->listApproval((string) $record->id_pengajuan) as $baris) {
+            if ($baris['waktu_aksi'] === null) {
+                continue;
+            }
+            $riwayat[] = [
+                'status'     => $baris['status'],
+                'waktu'      => $baris['waktu_aksi'],
+                'oleh'       => $baris['nama'],
+                'keterangan' => $baris['catatan'],
+                '_urutan'    => 2,
             ];
         }
 
@@ -58,6 +80,7 @@ class ArusKasService
                 'waktu'      => $record->disetujui_pada,
                 'oleh'       => $record->disetujui_oleh !== null ? ($namaMap[$record->disetujui_oleh] ?? null) : null,
                 'keterangan' => null,
+                '_urutan'    => 3,
             ];
         }
 
@@ -67,6 +90,7 @@ class ArusKasService
                 'waktu'      => $record->diubah_pada,
                 'oleh'       => null,
                 'keterangan' => $record->alasan_ditolak,
+                '_urutan'    => 3,
             ];
         }
 
@@ -76,8 +100,19 @@ class ArusKasService
                 'waktu'      => $record->ditransfer_pada,
                 'oleh'       => $record->ditransfer_oleh !== null ? ($namaMap[$record->ditransfer_oleh] ?? null) : null,
                 'keterangan' => $record->tanggal_transfer !== null ? 'Tanggal transfer ' . $record->tanggal_transfer : null,
+                '_urutan'    => 4,
             ];
         }
+
+        usort($riwayat, function (array $a, array $b) {
+            $bandingWaktu = strcmp((string) $a['waktu'], (string) $b['waktu']);
+            return $bandingWaktu !== 0 ? $bandingWaktu : $a['_urutan'] <=> $b['_urutan'];
+        });
+
+        $riwayat = array_map(function (array $entri) {
+            unset($entri['_urutan']);
+            return $entri;
+        }, $riwayat);
 
         return [
             'id_pengajuan'    => $record->id_pengajuan,
@@ -86,6 +121,42 @@ class ArusKasService
             'nominal'         => (float) $record->nominal,
             'riwayat'         => $riwayat,
         ];
+    }
+
+    public function lampirkanApproval(object $record, string $idPenggunaLogin): void
+    {
+        $this->setAtributApproval($record, $this->repo->listApproval((string) $record->id_pengajuan), $idPenggunaLogin);
+    }
+
+    public function lampirkanApprovalBanyak(iterable $records, string $idPenggunaLogin): void
+    {
+        $records = is_array($records) ? $records : iterator_to_array($records);
+        $idPengajuanList = array_values(array_unique(array_map(fn ($record) => (string) $record->id_pengajuan, $records)));
+        $approvalMap = $this->repo->listApprovalBanyak($idPengajuanList);
+
+        foreach ($records as $record) {
+            $approval = $approvalMap[(string) $record->id_pengajuan] ?? [];
+            $this->setAtributApproval($record, $approval, $idPenggunaLogin);
+        }
+    }
+
+    private function setAtributApproval(object $record, array $approvalMentah, string $idPenggunaLogin): void
+    {
+        $approval = array_map(fn (array $baris) => [
+            'id_pengguna' => $baris['id_pengguna'],
+            'nama'        => $baris['nama'],
+            'status'      => $baris['status'],
+            'catatan'     => $baris['catatan'],
+            'waktu_aksi'  => $baris['waktu_aksi'],
+        ], $approvalMentah);
+
+        $record->approval          = $approval;
+        $record->approval_progress = $approval === [] ? null : [
+            'disetujui' => count(array_filter($approval, fn (array $baris) => $baris['status'] === 'disetujui')),
+            'total'     => count($approval),
+        ];
+        $record->bisa_approve = $record->status === self::STATUS_MENUNGGU_APPROVAL
+            && collect($approval)->contains(fn (array $baris) => $baris['id_pengguna'] === $idPenggunaLogin && $baris['status'] === 'menunggu');
     }
 
     public function listPengajuan(string $idPerusahaan, ?string $status = null): array
@@ -136,28 +207,149 @@ class ArusKasService
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
         $this->pastikanStatus($record, [self::STATUS_DIAJUKAN], 'Pengajuan tidak bisa dicek dari status saat ini');
-        return $this->repo->updatePengajuan($record, [
-            'status'     => self::STATUS_DICEK,
-            'dicek_oleh' => auth()->id(),
-            'dicek_pada' => now(),
-        ]);
+
+        return DB::transaction(function () use ($id, $idPerusahaan) {
+            $terkunci = $this->repo->findPengajuanForUpdate($id);
+            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Pengajuan pengeluaran tidak ditemukan');
+            }
+            $this->pastikanStatus($terkunci, [self::STATUS_DIAJUKAN], 'Pengajuan tidak bisa dicek dari status saat ini');
+
+            $dicek = $this->repo->updatePengajuan($terkunci, [
+                'status'     => self::STATUS_DICEK,
+                'dicek_oleh' => auth()->id(),
+                'dicek_pada' => now(),
+            ]);
+            return $this->masukTahapApproval($dicek);
+        });
     }
 
-    public function setujui(string $id, string $idPerusahaan): PengajuanPengeluaranModel
+    private function masukTahapApproval(PengajuanPengeluaranModel $record): PengajuanPengeluaranModel
+    {
+        $batas = $this->batasApproval((string) $record->id_perusahaan);
+        if ((float) $record->nominal < $batas) {
+            $updated = $this->repo->updatePengajuan($record, ['status' => self::STATUS_DISETUJUI, 'disetujui_pada' => now()]);
+            $this->jalankanHookSetujui($updated);
+            return $updated;
+        }
+
+        $approvers = $this->repo->resolusiApprover((string) $record->id_perusahaan);
+        if ($approvers === []) {
+            abort(422, 'Approver keuangan belum dikonfigurasi — atur di Pengaturan → Approval Keuangan');
+        }
+
+        $this->repo->insertApprovalRows((string) $record->id_pengajuan, $approvers);
+        $updated = $this->repo->updatePengajuan($record, ['status' => self::STATUS_MENUNGGU_APPROVAL]);
+        foreach ($approvers as $idPengguna) {
+            $this->notifikasiService->buatDanKirim([
+                'id_perusahaan' => $record->id_perusahaan,
+                'id_pengguna'   => $idPengguna,
+                'judul'         => "Pengajuan {$record->nomor_pengajuan} menunggu approval Anda",
+                'isi'           => 'Nominal Rp ' . number_format((float) $record->nominal, 0, ',', '.') . " — {$record->penerima} ({$record->kategori})",
+                'tipe'          => 'approval_keuangan',
+                'referensi_id'   => $record->id_pengajuan,
+                'referensi_tipe' => 'pengajuan_pengeluaran',
+                'dibaca'         => 0,
+            ]);
+        }
+        return $updated;
+    }
+
+    private function jalankanHookSetujui(PengajuanPengeluaranModel $record): void
+    {
+        if ($record->id_pembelian !== null) {
+            $this->repo->sinkronPembelianSetujui($record->id_pembelian);
+        }
+    }
+
+    private function jalankanHookTolak(PengajuanPengeluaranModel $record, string $alasan): void
+    {
+        if ($record->id_pembelian !== null) {
+            $this->repo->sinkronPembelianTolak($record->id_pembelian, $alasan);
+        }
+    }
+
+    public function prosesApproval(string $id, string $keputusan, ?string $catatan, string $idPengguna, string $idPerusahaan): array
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DICEK], 'Pengajuan tidak bisa disetujui dari status saat ini');
 
-        return DB::transaction(function () use ($record) {
-            $updated = $this->repo->updatePengajuan($record, [
+        if ($record->status === self::STATUS_DICEK) {
+            $record = DB::transaction(function () use ($id, $idPerusahaan) {
+                $terkunci = $this->repo->findPengajuanForUpdate($id);
+                if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                    abort(404, 'Pengajuan pengeluaran tidak ditemukan');
+                }
+                if ($terkunci->status !== self::STATUS_DICEK) {
+                    return $terkunci;
+                }
+                return $this->masukTahapApproval($terkunci);
+            });
+            if ($record->status === self::STATUS_DISETUJUI) {
+                return [
+                    'record' => $record,
+                    'pesan'  => 'Pengajuan ini otomatis disetujui (nominal di bawah batas approval) — keputusan Anda tidak diperlukan',
+                ];
+            }
+        }
+
+        $this->pastikanStatus($record, [self::STATUS_MENUNGGU_APPROVAL], 'Pengajuan tidak bisa diproses approval dari status saat ini');
+
+        $idPengajuan = (string) $record->id_pengajuan;
+        $barisMenunggu = $this->repo->findApprovalMenunggu($idPengajuan, $idPengguna);
+        if ($barisMenunggu === null) {
+            $sudahBerpartisipasi = collect($this->repo->listApproval($idPengajuan))
+                ->contains(fn (array $baris) => $baris['id_pengguna'] === $idPengguna);
+            if ($sudahBerpartisipasi) {
+                abort(409, 'Anda sudah memberikan keputusan');
+            }
+            abort(403, 'Anda bukan approver pengajuan ini');
+        }
+
+        return DB::transaction(function () use ($id, $idPerusahaan, $keputusan, $catatan, $idPengguna, $barisMenunggu, $idPengajuan) {
+            $terkunci = $this->repo->findPengajuanForUpdate($id);
+            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Pengajuan pengeluaran tidak ditemukan');
+            }
+            $this->pastikanStatus($terkunci, [self::STATUS_MENUNGGU_APPROVAL], 'Pengajuan tidak bisa diproses approval dari status saat ini');
+
+            if ($keputusan === 'tolak') {
+                $terupdate = $this->repo->updateApprovalRowJikaMenunggu((string) $barisMenunggu->id_approval, [
+                    'status'     => 'ditolak',
+                    'catatan'    => $catatan,
+                    'waktu_aksi' => now(),
+                ]);
+                if ($terupdate === 0) {
+                    abort(409, 'Keputusan sudah diproses');
+                }
+                $updated = $this->repo->updatePengajuan($terkunci, [
+                    'status'         => self::STATUS_DITOLAK,
+                    'alasan_ditolak' => $catatan,
+                ]);
+                $this->jalankanHookTolak($updated, (string) $catatan);
+                return ['record' => $updated, 'pesan' => 'Pengajuan ditolak'];
+            }
+
+            $terupdate = $this->repo->updateApprovalRowJikaMenunggu((string) $barisMenunggu->id_approval, [
+                'status'     => 'disetujui',
+                'waktu_aksi' => now(),
+            ]);
+            if ($terupdate === 0) {
+                abort(409, 'Keputusan sudah diproses');
+            }
+
+            $sisaMenunggu = $this->repo->hitungApprovalMenunggu($idPengajuan);
+
+            if ($sisaMenunggu > 0) {
+                return ['record' => $terkunci, 'pesan' => 'Persetujuan Anda tersimpan, menunggu approver lain'];
+            }
+
+            $updated = $this->repo->updatePengajuan($terkunci, [
                 'status'         => self::STATUS_DISETUJUI,
-                'disetujui_oleh' => auth()->id(),
+                'disetujui_oleh' => $idPengguna,
                 'disetujui_pada' => now(),
             ]);
-            if ($record->id_pembelian !== null) {
-                $this->repo->sinkronPembelianSetujui($record->id_pembelian);
-            }
-            return $updated;
+            $this->jalankanHookSetujui($updated);
+            return ['record' => $updated, 'pesan' => 'Pengajuan disetujui'];
         });
     }
 
@@ -171,9 +363,7 @@ class ArusKasService
                 'status'         => self::STATUS_DITOLAK,
                 'alasan_ditolak' => $alasan,
             ]);
-            if ($record->id_pembelian !== null) {
-                $this->repo->sinkronPembelianTolak($record->id_pembelian, $alasan);
-            }
+            $this->jalankanHookTolak($updated, $alasan);
             return $updated;
         });
     }
@@ -481,6 +671,112 @@ class ArusKasService
         ];
     }
 
+    public function laporanPsak(string $idPerusahaan, ?string $dari, ?string $sampai): array
+    {
+        $dari   = $dari ?: now()->startOfMonth()->toDateString();
+        $sampai = $sampai ?: now()->endOfMonth()->toDateString();
+
+        $this->validasiRentang($dari, $sampai);
+
+        $b = [
+            'op_pelanggan' => 0.0, 'op_pengembalian' => 0.0, 'op_masuk_lain' => 0.0,
+            'op_uang_jalan' => 0.0, 'op_perawatan' => 0.0, 'op_sparepart' => 0.0,
+            'op_legalitas' => 0.0, 'op_gaji' => 0.0, 'op_vendor' => 0.0, 'op_keluar_lain' => 0.0,
+            'inv_jual_aset' => 0.0, 'inv_beli_aset' => 0.0,
+            'dana_modal' => 0.0, 'dana_bayar_pinjaman' => 0.0,
+        ];
+
+        foreach ($this->repo->rekap($idPerusahaan, $dari, $sampai) as $r) {
+            $nominal = (float) $r->nominal;
+            if ($r->arah === 'masuk') {
+                if ($r->sumber === 'faktur') {
+                    $b['op_pelanggan'] += $nominal;
+                    continue;
+                }
+                match ($r->kategori) {
+                    'pendapatan_jasa'   => $b['op_pelanggan'] += $nominal,
+                    'pengembalian_dana' => $b['op_pengembalian'] += $nominal,
+                    'penjualan_aset'    => $b['inv_jual_aset'] += $nominal,
+                    'modal_pinjaman'    => $b['dana_modal'] += $nominal,
+                    default             => $b['op_masuk_lain'] += $nominal,
+                };
+                continue;
+            }
+            if ($r->sumber === 'pembayaran_vendor') {
+                $b['op_vendor'] += $nominal;
+                continue;
+            }
+            match ($r->kategori) {
+                'uang_jalan'          => $b['op_uang_jalan'] += $nominal,
+                'perawatan'           => $b['op_perawatan'] += $nominal,
+                'sparepart'           => $b['op_sparepart'] += $nominal,
+                'legalitas'           => $b['op_legalitas'] += $nominal,
+                'penggajian'          => $b['op_gaji'] += $nominal,
+                'pembelian_aset'      => $b['inv_beli_aset'] += $nominal,
+                'pembayaran_pinjaman' => $b['dana_bayar_pinjaman'] += $nominal,
+                default               => $b['op_keluar_lain'] += $nominal,
+            };
+        }
+
+        $kelompok = [
+            [
+                'judul'          => 'ARUS KAS DARI AKTIVITAS OPERASI',
+                'subtotal_label' => 'Kas Bersih dari Aktivitas Operasi',
+                'baris' => [
+                    ['label' => 'Penerimaan dari pelanggan',      'arah' => 'masuk',  'nominal' => $b['op_pelanggan']],
+                    ['label' => 'Penerimaan pengembalian dana',   'arah' => 'masuk',  'nominal' => $b['op_pengembalian']],
+                    ['label' => 'Penerimaan operasional lainnya', 'arah' => 'masuk',  'nominal' => $b['op_masuk_lain']],
+                    ['label' => 'Pembayaran uang jalan',          'arah' => 'keluar', 'nominal' => $b['op_uang_jalan']],
+                    ['label' => 'Pembayaran perawatan armada',    'arah' => 'keluar', 'nominal' => $b['op_perawatan']],
+                    ['label' => 'Pembayaran sparepart',           'arah' => 'keluar', 'nominal' => $b['op_sparepart']],
+                    ['label' => 'Pembayaran legalitas',           'arah' => 'keluar', 'nominal' => $b['op_legalitas']],
+                    ['label' => 'Pembayaran gaji karyawan',       'arah' => 'keluar', 'nominal' => $b['op_gaji']],
+                    ['label' => 'Pembayaran ke vendor',           'arah' => 'keluar', 'nominal' => $b['op_vendor']],
+                    ['label' => 'Pembayaran operasional lainnya', 'arah' => 'keluar', 'nominal' => $b['op_keluar_lain']],
+                ],
+            ],
+            [
+                'judul'          => 'ARUS KAS DARI AKTIVITAS INVESTASI',
+                'subtotal_label' => 'Kas Bersih dari Aktivitas Investasi',
+                'baris' => [
+                    ['label' => 'Penerimaan penjualan aset', 'arah' => 'masuk',  'nominal' => $b['inv_jual_aset']],
+                    ['label' => 'Pembayaran pembelian aset', 'arah' => 'keluar', 'nominal' => $b['inv_beli_aset']],
+                ],
+            ],
+            [
+                'judul'          => 'ARUS KAS DARI AKTIVITAS PENDANAAN',
+                'subtotal_label' => 'Kas Bersih dari Aktivitas Pendanaan',
+                'baris' => [
+                    ['label' => 'Penerimaan modal/pinjaman', 'arah' => 'masuk',  'nominal' => $b['dana_modal']],
+                    ['label' => 'Pembayaran pinjaman',       'arah' => 'keluar', 'nominal' => $b['dana_bayar_pinjaman']],
+                ],
+            ],
+        ];
+
+        foreach ($kelompok as $i => $k) {
+            $kelompok[$i]['subtotal'] = array_reduce(
+                $k['baris'],
+                fn (float $acc, array $baris) => $acc + ($baris['arah'] === 'masuk' ? $baris['nominal'] : -$baris['nominal']),
+                0.0
+            );
+        }
+
+        $kenaikan  = (float) array_sum(array_column($kelompok, 'subtotal'));
+        $saldoAwal = $this->repo->saldoKasSebelum($idPerusahaan, $dari);
+
+        return [
+            'kelompok'        => $kelompok,
+            'kenaikan_bersih' => $kenaikan,
+            'saldo_awal'      => $saldoAwal,
+            'saldo_akhir'     => $saldoAwal + $kenaikan,
+        ];
+    }
+
+    public function namaPerusahaan(string $idPerusahaan): string
+    {
+        return $this->repo->namaPerusahaan($idPerusahaan) ?? '';
+    }
+
     private function validasiRentang(string $dari, string $sampai): void
     {
         $mulai = Carbon::parse($dari);
@@ -504,5 +800,55 @@ class ArusKasService
             'total_pengeluaran' => $pengeluaran,
             'netto'             => $pemasukan - $pengeluaran,
         ];
+    }
+
+    public function listApprover(string $idPerusahaan): array
+    {
+        return $this->repo->listApprover($idPerusahaan);
+    }
+
+    public function tambahApprover(array $data, string $idPerusahaan): void
+    {
+        $idRef = $data['tipe'] === 'jabatan' ? ($data['id_jabatan'] ?? null) : ($data['id_pengguna'] ?? null);
+
+        if ($data['tipe'] === 'jabatan') {
+            if (!$this->repo->jabatanMilik((string) $idRef, $idPerusahaan)) {
+                abort(404, 'Jabatan tidak ditemukan');
+            }
+        } else {
+            if (!$this->repo->penggunaMilik((string) $idRef, $idPerusahaan)) {
+                abort(404, 'Pengguna tidak ditemukan');
+            }
+        }
+
+        if ($this->repo->adaApproverAktif($idPerusahaan, $data['tipe'], $idRef)) {
+            abort(409, 'Approver sudah terdaftar');
+        }
+
+        $this->repo->insertApprover([
+            'id_perusahaan' => $idPerusahaan,
+            'tipe'          => $data['tipe'],
+            'id_jabatan'    => $data['id_jabatan'] ?? null,
+            'id_pengguna'   => $data['id_pengguna'] ?? null,
+            'aktif'         => 1,
+        ]);
+    }
+
+    public function hapusApprover(string $id, string $idPerusahaan): void
+    {
+        if (!$this->repo->softDeleteApprover($id, $idPerusahaan)) {
+            abort(404, 'Approver tidak ditemukan');
+        }
+    }
+
+    public function batasApproval(string $idPerusahaan): float
+    {
+        $nilai = $this->repo->getPengaturan($idPerusahaan, self::KUNCI_BATAS_APPROVAL);
+        return $nilai !== null ? (float) $nilai : 0.0;
+    }
+
+    public function setBatasApproval(string $idPerusahaan, float $batas): void
+    {
+        $this->repo->setPengaturan($idPerusahaan, self::KUNCI_BATAS_APPROVAL, (string) $batas);
     }
 }

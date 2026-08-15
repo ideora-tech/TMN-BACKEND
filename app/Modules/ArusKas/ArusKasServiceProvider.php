@@ -29,6 +29,7 @@ class ArusKasServiceProvider extends ServiceProvider
                 Route::post('arus-kas/pengajuan', [ArusKasController::class, 'storePengajuan']);
                 Route::put('arus-kas/pengajuan/{id}', [ArusKasController::class, 'updatePengajuan']);
                 Route::delete('arus-kas/pengajuan/{id}', [ArusKasController::class, 'destroyPengajuan']);
+                Route::patch('arus-kas/pengajuan/{id}/approval', [ArusKasController::class, 'prosesApprovalPengajuan']);
 
                 Route::get('arus-kas/pemasukan', [ArusKasController::class, 'indexPemasukan']);
 
@@ -41,8 +42,15 @@ class ArusKasServiceProvider extends ServiceProvider
                 });
 
                 Route::middleware('role:SUPERADMIN,MANAGER')->group(function () {
-                    Route::patch('arus-kas/pengajuan/{id}/setujui', [ArusKasController::class, 'setujuiPengajuan']);
                     Route::patch('arus-kas/pengajuan/{id}/tolak', [ArusKasController::class, 'tolakPengajuan']);
+                });
+
+                Route::middleware('role:SUPERADMIN,ADMIN')->group(function () {
+                    Route::get('arus-kas/approver', [ArusKasController::class, 'indexApprover']);
+                    Route::post('arus-kas/approver', [ArusKasController::class, 'storeApprover']);
+                    Route::delete('arus-kas/approver/{id}', [ArusKasController::class, 'destroyApprover']);
+                    Route::get('arus-kas/pengaturan-approval', [ArusKasController::class, 'showPengaturanApproval']);
+                    Route::put('arus-kas/pengaturan-approval', [ArusKasController::class, 'updatePengaturanApproval']);
                 });
             });
     }
