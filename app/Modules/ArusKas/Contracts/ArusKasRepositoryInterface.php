@@ -49,6 +49,7 @@ interface ArusKasRepositoryInterface
     public function saldoKasSebelum(string $idPerusahaan, string $sebelumTanggal): float;
     public function namaPerusahaan(string $idPerusahaan): ?string;
     public function insertApprovalRows(string $idPengajuan, array $idPenggunaList): void;
+    public function voidApprovalRows(string $idPengajuan): void;
     public function listApproval(string $idPengajuan): array;
     public function listApprovalBanyak(array $idPengajuanList): array;
     public function findApprovalMenunggu(string $idPengajuan, string $idPengguna): ?object;

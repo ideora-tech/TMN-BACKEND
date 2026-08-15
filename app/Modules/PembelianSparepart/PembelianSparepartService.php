@@ -65,6 +65,7 @@ class PembelianSparepartService
         return [
             'nominal_ditransfer' => $nominalDitransfer,
             'tanggal_transfer'   => $pembayaran->tanggal_transfer,
+            'url_bukti'          => PenyimpananBerkas::url($pembayaran->url_bukti),
             'total_aktual'       => $totalAktual,
             'selisih'            => $totalAktual !== null ? $totalAktual - $nominalDitransfer : null,
         ];

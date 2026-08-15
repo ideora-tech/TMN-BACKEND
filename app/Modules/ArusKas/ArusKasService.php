@@ -255,6 +255,30 @@ class ArusKasService
         return $updated;
     }
 
+    private function resetSnapshotApproval(PengajuanPengeluaranModel $record, float $nominalLama): void
+    {
+        $this->repo->voidApprovalRows((string) $record->id_pengajuan);
+
+        $approvers = $this->repo->resolusiApprover((string) $record->id_perusahaan);
+        if ($approvers === []) {
+            abort(422, 'Approver keuangan belum dikonfigurasi — atur di Pengaturan → Approval Keuangan');
+        }
+
+        $this->repo->insertApprovalRows((string) $record->id_pengajuan, $approvers);
+        foreach ($approvers as $idPengguna) {
+            $this->notifikasiService->buatDanKirim([
+                'id_perusahaan'  => $record->id_perusahaan,
+                'id_pengguna'    => $idPengguna,
+                'judul'          => "Pengajuan {$record->nomor_pengajuan} perlu approval ulang",
+                'isi'            => 'Nominal berubah dari Rp ' . number_format($nominalLama, 0, ',', '.') . ' menjadi Rp ' . number_format((float) $record->nominal, 0, ',', '.'),
+                'tipe'           => 'approval_keuangan',
+                'referensi_id'   => $record->id_pengajuan,
+                'referensi_tipe' => 'pengajuan_pengeluaran',
+                'dibaca'         => 0,
+            ]);
+        }
+    }
+
     private function jalankanHookSetujui(PengajuanPengeluaranModel $record): void
     {
         if ($record->id_pembelian !== null) {
@@ -373,15 +397,21 @@ class ArusKasService
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
         $this->pastikanStatus($record, [self::STATUS_DISETUJUI], 'Pengajuan hanya bisa ditransfer setelah disetujui');
 
-        $statusPembelian = null;
-        if ($record->id_pembelian !== null) {
-            $statusPembelian = $this->repo->statusPembelian($record->id_pembelian);
-            if (!in_array($statusPembelian, ['disetujui_finance', 'dibeli'], true)) {
-                abort(409, 'Pembelian sparepart belum disetujui finance (status saat ini: ' . ($statusPembelian ?? 'tidak ditemukan') . '), transfer tidak bisa dilakukan');
+        return DB::transaction(function () use ($id, $idPerusahaan, $tanggalTransfer, $bukti) {
+            $terkunci = $this->repo->findPengajuanForUpdate($id);
+            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Pengajuan pengeluaran tidak ditemukan');
             }
-        }
+            $this->pastikanStatus($terkunci, [self::STATUS_DISETUJUI], 'Pengajuan hanya bisa ditransfer setelah disetujui');
 
-        return DB::transaction(function () use ($record, $tanggalTransfer, $bukti, $statusPembelian) {
+            $statusPembelian = null;
+            if ($terkunci->id_pembelian !== null) {
+                $statusPembelian = $this->repo->statusPembelian($terkunci->id_pembelian);
+                if (!in_array($statusPembelian, ['disetujui_finance', 'dibeli'], true)) {
+                    abort(409, 'Pembelian sparepart belum disetujui finance (status saat ini: ' . ($statusPembelian ?? 'tidak ditemukan') . '), transfer tidak bisa dilakukan');
+                }
+            }
+
             $data = [
                 'status'           => self::STATUS_DITRANSFER,
                 'tanggal_transfer' => $tanggalTransfer,
@@ -391,12 +421,12 @@ class ArusKasService
             if ($bukti !== null) {
                 $data['url_bukti'] = PenyimpananBerkas::simpan($bukti, 'bukti-kas');
             }
-            $updated = $this->repo->updatePengajuan($record, $data);
-            if ($record->id_pembelian !== null) {
+            $updated = $this->repo->updatePengajuan($terkunci, $data);
+            if ($terkunci->id_pembelian !== null) {
                 if ($statusPembelian === 'dibeli') {
-                    $this->repo->sinkronPembelianLunas($record->id_pembelian, $tanggalTransfer);
+                    $this->repo->sinkronPembelianLunas($terkunci->id_pembelian, $tanggalTransfer);
                 } else {
-                    $this->repo->sinkronPembelianUangMuka($record->id_pembelian, $tanggalTransfer);
+                    $this->repo->sinkronPembelianUangMuka($terkunci->id_pembelian, $tanggalTransfer);
                 }
             }
             return $updated;
@@ -586,11 +616,46 @@ class ArusKasService
         }
 
         $record = $this->repo->findPengajuanByPembelian($idPembelian);
-        if ($record === null || !in_array($record->status, [self::STATUS_DIAJUKAN, self::STATUS_DISETUJUI], true)) {
+        if ($record === null || in_array($record->status, [self::STATUS_DITRANSFER, self::STATUS_DITOLAK], true)) {
             return;
         }
 
-        $this->repo->updatePengajuan($record, ['nominal' => $nominal]);
+        DB::transaction(function () use ($record, $nominal) {
+            $terkunci = $this->repo->findPengajuanForUpdate((string) $record->id_pengajuan);
+            if ($terkunci === null || in_array($terkunci->status, [self::STATUS_DITRANSFER, self::STATUS_DITOLAK], true)) {
+                return;
+            }
+
+            $nominalLama = round((float) $terkunci->nominal, 2);
+            $nominalBaru = round($nominal, 2);
+            if ($nominalBaru === $nominalLama) {
+                return;
+            }
+
+            $diperbarui = $this->repo->updatePengajuan($terkunci, ['nominal' => $nominal]);
+
+            if ($nominalBaru < $nominalLama) {
+                return;
+            }
+
+            if ($diperbarui->status === self::STATUS_MENUNGGU_APPROVAL) {
+                $this->resetSnapshotApproval($diperbarui, $nominalLama);
+                return;
+            }
+
+            if ($diperbarui->status === self::STATUS_DISETUJUI) {
+                $batas = $this->batasApproval((string) $diperbarui->id_perusahaan);
+                if ($nominal < $batas) {
+                    return;
+                }
+                $dikembalikan = $this->repo->updatePengajuan($diperbarui, [
+                    'status'         => self::STATUS_MENUNGGU_APPROVAL,
+                    'disetujui_oleh' => null,
+                    'disetujui_pada' => null,
+                ]);
+                $this->resetSnapshotApproval($dikembalikan, $nominalLama);
+            }
+        });
     }
 
     public function hapusPengajuanPembelian(string $idPembelian): void

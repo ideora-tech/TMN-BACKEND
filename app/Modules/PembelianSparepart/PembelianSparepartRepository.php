@@ -245,7 +245,7 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
             ->whereNull('dihapus_pada')
             ->where('id_pembelian', $idPembelian)
             ->where('status', 'ditransfer')
-            ->select(['nominal as nominal_ditransfer', 'tanggal_transfer'])
+            ->select(['nominal as nominal_ditransfer', 'tanggal_transfer', 'url_bukti'])
             ->first();
     }
 }

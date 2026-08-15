@@ -191,6 +191,7 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         DB::table('pembelian_sparepart')
             ->whereNull('dihapus_pada')
             ->where('id_pembelian', $idPembelian)
+            ->whereNotIn('status', ['dibeli', 'lunas'])
             ->update(RecordHelper::stampUpdate([
                 'status'                 => 'disetujui_finance',
                 'disetujui_manager_oleh' => auth()->id(),
@@ -205,6 +206,7 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         DB::table('pembelian_sparepart')
             ->whereNull('dihapus_pada')
             ->where('id_pembelian', $idPembelian)
+            ->whereNotIn('status', ['dibeli', 'lunas'])
             ->update(RecordHelper::stampUpdate([
                 'status'         => 'ditolak',
                 'alasan_ditolak' => $alasan,
@@ -585,6 +587,14 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         ], 'id_approval'), $idPenggunaList);
 
         DB::table('pengajuan_approval')->insert($rows);
+    }
+
+    public function voidApprovalRows(string $idPengajuan): void
+    {
+        DB::table('pengajuan_approval')
+            ->where('id_pengajuan', $idPengajuan)
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampDelete());
     }
 
     public function listApproval(string $idPengajuan): array
