@@ -52,6 +52,11 @@ class PembelianSparepartService
         return $record;
     }
 
+    public function infoPengajuanKeuangan(string $idPembelian): ?array
+    {
+        return $this->arusKasService->infoPengajuanPembelian($idPembelian);
+    }
+
     private function susunDataPembayaran(string $idPembelian, object $record): ?array
     {
         $pembayaran = $this->repo->dataPembayaranPengajuan($idPembelian);

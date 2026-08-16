@@ -36,6 +36,7 @@ class PembelianSparepartController extends Controller
     public function show(Request $request, string $id): JsonResponse
     {
         $record = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
+        $record->pengajuan_keuangan = $this->service->infoPengajuanKeuangan($id);
         return ApiResponse::success(new PembelianSparepartResource($record));
     }
 

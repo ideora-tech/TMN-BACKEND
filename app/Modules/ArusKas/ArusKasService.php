@@ -35,7 +35,20 @@ class ArusKasService
         if ($record === null) {
             return null;
         }
+        return $this->susunInfoPengajuan($record);
+    }
 
+    public function infoPengajuanPembelian(string $idPembelian): ?array
+    {
+        $record = $this->repo->findPengajuanByPembelian($idPembelian);
+        if ($record === null) {
+            return null;
+        }
+        return $this->susunInfoPengajuan($record);
+    }
+
+    private function susunInfoPengajuan(PengajuanPengeluaranModel $record): array
+    {
         $namaMap = $this->repo->namaPengguna(array_values(array_filter([
             $record->dibuat_oleh,
             $record->dicek_oleh,
