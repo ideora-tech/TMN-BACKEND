@@ -37,26 +37,9 @@ class MenuController extends Controller
 
     public function tree(): JsonResponse
     {
-        $kodePeran = auth()->user()?->kode_peran;
-        $data = $this->service->tree($kodePeran);
+        $user = auth()->user();
+        $data = $this->service->tree($user?->kode_peran, $user?->id_perusahaan !== null ? (string) $user->id_perusahaan : null);
         return ApiResponse::success(MenuResource::collection($data));
-    }
-
-    public function aksesPeran(): JsonResponse
-    {
-        return ApiResponse::success($this->service->aksesPeran());
-    }
-
-    public function simpanAksesPeran(Request $request, string $kodePeran): JsonResponse
-    {
-        $data = $request->validate([
-            'id_menu'   => ['present', 'array'],
-            'id_menu.*' => ['string', 'exists:menu,id_menu'],
-        ]);
-
-        $this->service->simpanAksesPeran($kodePeran, $data['id_menu']);
-
-        return ApiResponse::success(null, 'Akses menu peran berhasil disimpan');
     }
 
     public function show(string $id): JsonResponse

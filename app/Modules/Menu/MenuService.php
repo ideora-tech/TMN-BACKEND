@@ -15,32 +15,9 @@ class MenuService
         return $this->repo->allAktif();
     }
 
-    public function tree(?string $kodePeran = null): array
+    public function tree(?string $kodePeran = null, ?string $idPerusahaan = null): array
     {
-        return $this->repo->tree($kodePeran);
-    }
-
-    public function aksesPeran(): array
-    {
-        return array_map(fn ($m) => [
-            'id_menu'       => $m->id_menu,
-            'nama_menu'     => $m->nama_menu,
-            'path'          => $m->path,
-            'id_menu_induk' => $m->id_menu_induk,
-            'urutan'        => (int) $m->urutan,
-            'aktif'         => (bool) $m->aktif,
-            'kode_peran'    => $m->perans->pluck('kode_peran')->map(fn ($k) => strtoupper($k))->values()->all(),
-        ], $this->repo->allWithPerans());
-    }
-
-    public function simpanAksesPeran(string $kodePeran, array $idMenuTampil): void
-    {
-        $semuaKode = $this->repo->semuaKodePeran();
-        if (!in_array(strtoupper($kodePeran), $semuaKode, true)) {
-            abort(404, 'Peran tidak ditemukan');
-        }
-
-        $this->repo->sinkronAksesPeran($kodePeran, $idMenuTampil, $semuaKode);
+        return $this->repo->tree($kodePeran, $idPerusahaan);
     }
 
     public function list(int $page = 1, int $limit = 10, ?string $search = null): array
@@ -69,13 +46,27 @@ class MenuService
 
     public function create(array $data): MenuModel
     {
+        if (!empty($data['id_menu_induk'])) {
+            $this->guardIndukGrup($data['id_menu_induk']);
+        }
         return $this->repo->create($data);
     }
 
     public function update(string $id, array $data): MenuModel
     {
         $record = $this->findOrFail($id);
+        if (array_key_exists('id_menu_induk', $data) && $data['id_menu_induk'] !== null) {
+            $this->guardIndukGrup($data['id_menu_induk']);
+        }
         return $this->repo->update($record, $data);
+    }
+
+    private function guardIndukGrup(string $idInduk): void
+    {
+        $induk = $this->repo->findById($idInduk);
+        if ($induk !== null && $induk->path !== null) {
+            abort(422, 'Menu induk harus berupa grup (tanpa path)');
+        }
     }
 
     public function delete(string $id): void

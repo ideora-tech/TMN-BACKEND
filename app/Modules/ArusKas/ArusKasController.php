@@ -68,6 +68,25 @@ class ArusKasController extends Controller
         return ApiResponse::success(PengajuanPengeluaranResource::collection($data));
     }
 
+    public function menungguApprovalSaya(Request $request): JsonResponse
+    {
+        $hasil = $this->service->menungguApprovalSaya(
+            (string) $request->user()->id_perusahaan,
+            (string) $request->user()->id_pengguna,
+        );
+
+        return ApiResponse::success([
+            'pengajuan' => PengajuanPengeluaranResource::collection($hasil['pengajuan']),
+            'ringkasan' => $hasil['ringkasan'],
+        ]);
+    }
+
+    public function riwayatPengajuan(Request $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success($this->service->infoPengajuanById($id, $idPerusahaan));
+    }
+
     public function showPengajuan(Request $request, string $id): JsonResponse
     {
         $record = $this->service->findPengajuanOrFail($id, (string) $request->user()->id_perusahaan);

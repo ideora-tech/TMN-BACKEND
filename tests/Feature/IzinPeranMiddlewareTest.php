@@ -146,6 +146,57 @@ class IzinPeranMiddlewareTest extends TestCase
         ]);
     }
 
+    // ── T2: /home harus tetap punya izin lihat walau tanpa baris menu_peran ────
+
+    public function test_izin_peran_seeder_memberi_izin_lihat_home_untuk_semua_peran_non_superadmin(): void
+    {
+        $this->seed(\Database\Seeders\PeranSeeder::class);
+        $this->seed(\Database\Seeders\MenuSeeder::class);
+        $this->seed(\Database\Seeders\IzinPeranSeeder::class);
+
+        $idMenuHome = DB::table('menu')->where('path', '/home')->value('id_menu');
+        $this->assertNotNull($idMenuHome);
+
+        $peranNonSuperadmin = DB::table('peran')
+            ->whereRaw('UPPER(kode_peran) != ?', ['SUPERADMIN'])
+            ->pluck('kode_peran');
+
+        $this->assertNotEmpty($peranNonSuperadmin);
+
+        foreach ($peranNonSuperadmin as $kodePeran) {
+            $this->assertDatabaseHas('izin_peran', [
+                'id_menu'       => $idMenuHome,
+                'kode_peran'    => strtoupper($kodePeran),
+                'aksi'          => 'lihat',
+                'diizinkan'     => 1,
+                'id_perusahaan' => null,
+            ]);
+        }
+
+        $this->assertDatabaseMissing('izin_peran', [
+            'id_menu'    => $idMenuHome,
+            'kode_peran' => 'SUPERADMIN',
+        ]);
+    }
+
+    public function test_izin_peran_seeder_idempoten_untuk_izin_home(): void
+    {
+        $this->seed(\Database\Seeders\PeranSeeder::class);
+        $this->seed(\Database\Seeders\MenuSeeder::class);
+        $this->seed(\Database\Seeders\IzinPeranSeeder::class);
+        $this->seed(\Database\Seeders\IzinPeranSeeder::class);
+
+        $idMenuHome = DB::table('menu')->where('path', '/home')->value('id_menu');
+
+        $jumlah = DB::table('izin_peran')
+            ->where('id_menu', $idMenuHome)
+            ->where('kode_peran', 'ADMIN')
+            ->where('aksi', 'lihat')
+            ->count();
+
+        $this->assertSame(1, $jumlah);
+    }
+
     // ── I1: deny-precedence per perusahaan pada izin_peran ──────────────────────
 
     public function test_izin_company_specific_revoke_menang_atas_izin_global(): void

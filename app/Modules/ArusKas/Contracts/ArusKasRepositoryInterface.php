@@ -12,6 +12,7 @@ interface ArusKasRepositoryInterface
 {
     public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null): Collection;
     public function findPengajuanById(string $id): ?PengajuanPengeluaranModel;
+    public function listMenungguApprovalSaya(string $idPerusahaan, string $idPengguna): Collection;
     public function createPengajuan(array $data): PengajuanPengeluaranModel;
     public function updatePengajuan(PengajuanPengeluaranModel $model, array $data): PengajuanPengeluaranModel;
     public function deletePengajuan(PengajuanPengeluaranModel $model): void;

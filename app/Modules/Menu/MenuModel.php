@@ -32,10 +32,4 @@ class MenuModel extends BaseModel
     {
         return $this->belongsTo(MenuModel::class, 'id_menu_induk', 'id_menu');
     }
-
-    // Role yang boleh akses menu ini
-    public function perans(): HasMany
-    {
-        return $this->hasMany(MenuPeran::class, 'id_menu', 'id_menu');
-    }
 }

@@ -32,6 +32,25 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         return PengajuanPengeluaranModel::active()->find($id);
     }
 
+    public function listMenungguApprovalSaya(string $idPerusahaan, string $idPengguna): Collection
+    {
+        return PengajuanPengeluaranModel::active()
+            ->select('pengajuan_pengeluaran.*')
+            ->addSelect(['id_armada_perawatan' => DB::table('perawatan_armada')
+                ->select('id_armada')
+                ->whereColumn('perawatan_armada.id_perawatan', 'pengajuan_pengeluaran.id_perawatan')
+                ->limit(1)])
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', 'menunggu_approval')
+            ->whereExists(fn ($q) => $q->from('pengajuan_approval as pa')
+                ->whereColumn('pa.id_pengajuan', 'pengajuan_pengeluaran.id_pengajuan')
+                ->where('pa.id_pengguna', $idPengguna)
+                ->where('pa.status', 'menunggu')
+                ->whereNull('pa.dihapus_pada'))
+            ->orderBy('dibuat_pada')
+            ->get();
+    }
+
     public function createPengajuan(array $data): PengajuanPengeluaranModel
     {
         return PengajuanPengeluaranModel::create($data);

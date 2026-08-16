@@ -155,6 +155,26 @@ class ArusKasService
         ];
     }
 
+    public function infoPengajuanById(string $id, string $idPerusahaan): array
+    {
+        $record = $this->findPengajuanOrFail($id, $idPerusahaan);
+        return $this->susunInfoPengajuan($record);
+    }
+
+    public function menungguApprovalSaya(string $idPerusahaan, string $idPengguna): array
+    {
+        $records = $this->repo->listMenungguApprovalSaya($idPerusahaan, $idPengguna);
+        $this->lampirkanApprovalBanyak($records, $idPengguna);
+
+        return [
+            'pengajuan' => $records,
+            'ringkasan' => [
+                'jumlah'        => $records->count(),
+                'total_nominal' => (float) $records->sum('nominal'),
+            ],
+        ];
+    }
+
     public function lampirkanApproval(object $record, string $idPenggunaLogin): void
     {
         $this->setAtributApproval($record, $this->repo->listApproval((string) $record->id_pengajuan), $idPenggunaLogin);

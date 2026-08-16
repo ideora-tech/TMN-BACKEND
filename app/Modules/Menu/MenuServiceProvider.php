@@ -27,8 +27,6 @@ class MenuServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN'])
             ->group(function () {
-                Route::get('menu/akses-peran', [MenuController::class, 'aksesPeran']);
-                Route::put('menu/akses-peran/{kodePeran}', [MenuController::class, 'simpanAksesPeran']);
                 Route::apiResource('menu', MenuController::class)
                     ->parameters(['menu' => 'id']);
             });

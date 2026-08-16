@@ -131,6 +131,42 @@ class IzinPeranSeeder extends Seeder
             }
         }
 
+        $idMenuHome = DB::table('menu')->where('path', '/home')->value('id_menu');
+
+        if ($idMenuHome !== null) {
+            $peranNonSuperadmin = DB::table('peran')
+                ->whereNull('dihapus_pada')
+                ->pluck('kode_peran')
+                ->map(fn ($k) => strtoupper((string) $k))
+                ->unique()
+                ->reject(fn ($k) => $k === 'SUPERADMIN');
+
+            foreach ($peranNonSuperadmin as $kodePeran) {
+                $exists = DB::table('izin_peran')
+                    ->where('id_menu', $idMenuHome)
+                    ->where('kode_peran', $kodePeran)
+                    ->where('aksi', 'lihat')
+                    ->whereNull('id_perusahaan')
+                    ->exists();
+
+                if ($exists) {
+                    continue;
+                }
+
+                DB::table('izin_peran')->insertOrIgnore([
+                    'id_izin'       => (string) Str::uuid(),
+                    'id_perusahaan' => null,
+                    'kode_peran'    => $kodePeran,
+                    'id_menu'       => $idMenuHome,
+                    'aksi'          => 'lihat',
+                    'diizinkan'     => 1,
+                    'dibuat_pada'   => $now,
+                ]);
+            }
+        } else {
+            $this->command?->warn("IzinPeranSeeder: menu path '/home' tidak ditemukan — izin lihat dashboard TIDAK terpasang");
+        }
+
         // Izin eksplisit per role — dibuat langsung di izin_peran, TANPA menyentuh
         // menu_peran, supaya menu tersebut tetap tidak tampil di sidebar web untuk role ini.
         foreach (self::IZIN_EKSPLISIT as [$kodePeran, $path, $aksiList]) {
