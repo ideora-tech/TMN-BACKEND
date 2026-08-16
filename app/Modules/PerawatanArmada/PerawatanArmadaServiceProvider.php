@@ -29,6 +29,7 @@ class PerawatanArmadaServiceProvider extends ServiceProvider
                 Route::get('armada/{idArmada}/perawatan/export/pdf', [PerawatanArmadaController::class, 'exportUnitPdf']);
                 Route::get('armada/{idArmada}/prediksi-perawatan', [PerawatanArmadaController::class, 'prediksiPerawatan']);
                 Route::get('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'indexByArmada']);
+                Route::get('armada/{idArmada}/perawatan/{id}/pengajuan', [PerawatanArmadaController::class, 'infoPengajuan']);
                 Route::get('armada/{idArmada}/perawatan/{id}', [PerawatanArmadaController::class, 'show']);
                 Route::post('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'store']);
                 Route::post('armada/{idArmada}/perawatan/{id}/bukti', [PerawatanArmadaController::class, 'storeBukti']);

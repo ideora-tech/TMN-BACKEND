@@ -192,6 +192,37 @@ class PayrollTest extends TestCase
         $this->assertEquals(705000, $slip['potongan_bpjs_tk']);
     }
 
+    public function test_ptkp_default_dan_bisa_dikustomisasi_dari_pengaturan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $resDefault = $this->getJson('/api/v1/payroll/pengaturan');
+        $resDefault->assertStatus(200);
+        $this->assertEquals(54000000.0, $resDefault->json('data.ptkp_dasar'));
+        $this->assertEquals(4500000.0, $resDefault->json('data.ptkp_tambahan'));
+
+        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload([
+            'ptkp_dasar'    => 36000000,
+            'ptkp_tambahan' => 3000000,
+        ]))->assertStatus(200);
+
+        $resSetelah = $this->getJson('/api/v1/payroll/pengaturan');
+        $this->assertEquals(36000000.0, $resSetelah->json('data.ptkp_dasar'));
+        $this->assertEquals(3000000.0, $resSetelah->json('data.ptkp_tambahan'));
+
+        // Gaji 5jt K/1: neto tahunan = (5jt − 250rb) × 12 = 57jt
+        // PTKP custom K/1 = 36jt + (2 × 3jt) = 42jt → PKP 15jt → 5% = 750rb/thn = 62.500/bln
+        $this->makeKaryawan('Pandu Ptkp', 'NIK-PAY-PTKP', 5000000, [
+            'status_ptkp' => 'K/1',
+        ]);
+
+        $idPeriode = $this->buatPeriode();
+        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+
+        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $this->assertEquals(62500, $slip['pph21']);
+    }
+
     public function test_override_bpjs_per_karyawan_menang_atas_pengaturan_perusahaan(): void
     {
         $this->actingAsRole('SUPERADMIN');

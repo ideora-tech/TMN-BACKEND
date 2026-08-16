@@ -30,6 +30,7 @@ class PayrollServiceProvider extends ServiceProvider
                 Route::get('payroll/periode/{id}', [PayrollController::class, 'showPeriode']);
                 Route::delete('payroll/periode/{id}', [PayrollController::class, 'destroyPeriode']);
                 Route::post('payroll/periode/{id}/generate', [PayrollController::class, 'generate']);
+                Route::get('payroll/periode/{id}/pengajuan', [PayrollController::class, 'infoPengajuan']);
                 Route::get('payroll/periode/{id}/import/template', [PayrollController::class, 'downloadTemplate']);
                 Route::post('payroll/periode/{id}/import', [PayrollController::class, 'importExcel']);
                 Route::post('payroll/periode/{id}/finalisasi', [PayrollController::class, 'finalisasi']);

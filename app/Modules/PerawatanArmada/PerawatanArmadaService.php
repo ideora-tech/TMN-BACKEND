@@ -176,6 +176,12 @@ class PerawatanArmadaService
         return $this->repo->getPerusahaan($idPerusahaan);
     }
 
+    public function infoPengajuan(string $id): ?array
+    {
+        $this->findOrFail($id);
+        return $this->arusKasService->infoPengajuanPerawatan($id);
+    }
+
     public function findOrFail(string $id): object
     {
         $record = $this->repo->findById($id);

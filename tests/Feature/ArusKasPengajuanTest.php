@@ -148,7 +148,7 @@ class ArusKasPengajuanTest extends TestCase
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
         $this->assertNotNull($row->dicek_oleh);
         $this->assertNotNull($row->dicek_pada);
-        $this->assertNull($row->disetujui_oleh);
+        $this->assertSame($row->dicek_oleh, $row->disetujui_oleh);
         $this->assertNotNull($row->disetujui_pada);
         $this->assertNotNull($row->ditransfer_oleh);
         $this->assertNotNull($row->ditransfer_pada);

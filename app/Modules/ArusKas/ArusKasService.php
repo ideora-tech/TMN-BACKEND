@@ -47,6 +47,24 @@ class ArusKasService
         return $this->susunInfoPengajuan($record);
     }
 
+    public function infoPengajuanPerawatan(string $idPerawatan): ?array
+    {
+        $record = $this->repo->findPengajuanByPerawatan($idPerawatan);
+        if ($record === null) {
+            return null;
+        }
+        return $this->susunInfoPengajuan($record);
+    }
+
+    public function infoPengajuanPeriode(string $idPeriode): ?array
+    {
+        $record = $this->repo->findPengajuanByPeriode($idPeriode);
+        if ($record === null) {
+            return null;
+        }
+        return $this->susunInfoPengajuan($record);
+    }
+
     private function susunInfoPengajuan(PengajuanPengeluaranModel $record): array
     {
         $namaMap = $this->repo->namaPengguna(array_values(array_filter([
@@ -54,6 +72,7 @@ class ArusKasService
             $record->dicek_oleh,
             $record->disetujui_oleh,
             $record->ditransfer_oleh,
+            $record->diubah_oleh,
         ])));
 
         $riwayat = [[
@@ -101,7 +120,7 @@ class ArusKasService
             $riwayat[] = [
                 'status'     => self::STATUS_DITOLAK,
                 'waktu'      => $record->diubah_pada,
-                'oleh'       => null,
+                'oleh'       => $record->diubah_oleh !== null ? ($namaMap[$record->diubah_oleh] ?? null) : null,
                 'keterangan' => $record->alasan_ditolak,
                 '_urutan'    => 3,
             ];
@@ -241,7 +260,11 @@ class ArusKasService
     {
         $batas = $this->batasApproval((string) $record->id_perusahaan);
         if ((float) $record->nominal < $batas) {
-            $updated = $this->repo->updatePengajuan($record, ['status' => self::STATUS_DISETUJUI, 'disetujui_pada' => now()]);
+            $updated = $this->repo->updatePengajuan($record, [
+                'status'          => self::STATUS_DISETUJUI,
+                'disetujui_oleh'  => auth()->id(),
+                'disetujui_pada'  => now(),
+            ]);
             $this->jalankanHookSetujui($updated);
             return $updated;
         }

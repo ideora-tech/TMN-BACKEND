@@ -34,6 +34,8 @@ class PayrollController extends Controller
             'persen_bpjs_jht'            => ['required', 'numeric', 'min:0', 'max:100'],
             'persen_bpjs_jp'             => ['required', 'numeric', 'min:0', 'max:100'],
             'plafon_gaji_bpjs_kesehatan' => ['required', 'numeric', 'min:0'],
+            'ptkp_dasar'                 => ['sometimes', 'numeric', 'min:0'],
+            'ptkp_tambahan'              => ['sometimes', 'numeric', 'min:0'],
         ]);
 
         $idPerusahaan = (string) $request->user()->id_perusahaan;
@@ -89,6 +91,12 @@ class PayrollController extends Controller
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $hasil = $this->service->generateSlip($id, $idPerusahaan);
         return ApiResponse::success($hasil, "Slip gaji berhasil dibuat ({$hasil['dibuat']} karyawan)");
+    }
+
+    public function infoPengajuan(Request $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success($this->service->infoPengajuan($id, $idPerusahaan));
     }
 
     public function downloadTemplate(Request $request, string $id): BinaryFileResponse

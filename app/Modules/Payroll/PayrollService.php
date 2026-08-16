@@ -43,6 +43,8 @@ class PayrollService
             'persen_bpjs_jht'            => $row ? (float) $row->persen_bpjs_jht : 2.0,
             'persen_bpjs_jp'             => $row ? (float) $row->persen_bpjs_jp : 1.0,
             'plafon_gaji_bpjs_kesehatan' => $row ? (float) $row->plafon_gaji_bpjs_kesehatan : 12000000.0,
+            'ptkp_dasar'                 => $row ? (float) ($row->ptkp_dasar ?? self::PTKP_DASAR) : (float) self::PTKP_DASAR,
+            'ptkp_tambahan'              => $row ? (float) ($row->ptkp_tambahan ?? self::PTKP_TAMBAHAN) : (float) self::PTKP_TAMBAHAN,
         ];
     }
 
@@ -120,6 +122,12 @@ class PayrollService
             'ringkasan' => $this->repo->ringkasanPeriode($id),
             'slips'     => $this->repo->slipByPeriode($id),
         ];
+    }
+
+    public function infoPengajuan(string $id, string $idPerusahaan): ?array
+    {
+        $periode = $this->periodeOrFail($id, $idPerusahaan);
+        return $this->arusKasService->infoPengajuanPeriode($periode->id_periode);
     }
 
     public function hapusPeriode(string $id, string $idPerusahaan): void
@@ -211,7 +219,7 @@ class PayrollService
                     : 0.0;
 
                 $bruto = $gajiPokok + $upahLembur + $tunjangan;
-                $pph21 = $this->hitungPph21Bulanan($bruto, $r['status_ptkp']);
+                $pph21 = $this->hitungPph21Bulanan($bruto, $r['status_ptkp'], $pengaturan['ptkp_dasar'], $pengaturan['ptkp_tambahan']);
 
                 $totalPotongan = $potonganAbsen + $bpjsKes + $bpjsTk + $pph21;
 
@@ -581,12 +589,12 @@ class PayrollService
 
     // ── PPh21 (metode disetahunkan, tarif progresif UU HPP) ──────
 
-    public function hitungPph21Bulanan(float $brutoBulanan, ?string $statusPtkp): float
+    public function hitungPph21Bulanan(float $brutoBulanan, ?string $statusPtkp, ?float $ptkpDasar = null, ?float $ptkpTambahan = null): float
     {
         $biayaJabatan = min($brutoBulanan * 0.05, 500000);
         $netoTahunan  = ($brutoBulanan - $biayaJabatan) * 12;
 
-        $ptkp = $this->nilaiPtkp($statusPtkp);
+        $ptkp = $this->nilaiPtkp($statusPtkp, $ptkpDasar ?? (float) self::PTKP_DASAR, $ptkpTambahan ?? (float) self::PTKP_TAMBAHAN);
         $pkp  = max(0, $netoTahunan - $ptkp);
         $pkp  = floor($pkp / 1000) * 1000;
 
@@ -612,16 +620,16 @@ class PayrollService
         return round($pajak / 12, 2);
     }
 
-    private function nilaiPtkp(?string $statusPtkp): float
+    private function nilaiPtkp(?string $statusPtkp, float $dasar, float $tambahan): float
     {
         if ($statusPtkp === null || !preg_match('/^(TK|K)\/([0-3])$/', $statusPtkp, $m)) {
-            return self::PTKP_DASAR; // default TK/0
+            return $dasar; // default TK/0
         }
 
         $kawin     = $m[1] === 'K' ? 1 : 0;
         $tanggungan = (int) $m[2];
 
-        return self::PTKP_DASAR + (($kawin + $tanggungan) * self::PTKP_TAMBAHAN);
+        return $dasar + (($kawin + $tanggungan) * $tambahan);
     }
 
     private function tanggalId(Carbon $tanggal): string

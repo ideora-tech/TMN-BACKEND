@@ -64,6 +64,11 @@ class PerawatanArmadaController extends Controller
         return ApiResponse::success(new PerawatanArmadaResource($this->service->findOrFail($id)));
     }
 
+    public function infoPengajuan(string $idArmada, string $id): JsonResponse
+    {
+        return ApiResponse::success($this->service->infoPengajuan($id));
+    }
+
     public function store(StorePerawatanArmadaRequest $request, string $idArmada): JsonResponse
     {
         $record = $this->service->create($idArmada, $request->validated());
