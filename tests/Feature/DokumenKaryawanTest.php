@@ -146,4 +146,113 @@ class DokumenKaryawanTest extends TestCase
 
         $res->assertStatus(422)->assertJsonValidationErrors(['file']);
     }
+
+    private function makeSupir(string $idKaryawan, string $tglKadaluarsa = '2026-07-31'): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('supir')->insert([
+            'id_supir'           => $id,
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'id_karyawan'        => $idKaryawan,
+            'nama'               => 'Supir Sinkron',
+            'no_sim'             => 'SIM-001',
+            'jenis_sim'          => 'B2',
+            'tgl_kadaluarsa_sim' => $tglKadaluarsa,
+            'status'             => 'aktif',
+            'dibuat_pada'        => now(),
+        ]);
+        return $id;
+    }
+
+    private function tglSimSupir(string $idSupir): ?string
+    {
+        $nilai = DB::table('supir')->where('id_supir', $idSupir)->value('tgl_kadaluarsa_sim');
+        return $nilai !== null ? substr((string) $nilai, 0, 10) : null;
+    }
+
+    public function test_upload_dokumen_sim_sinkron_tgl_kadaluarsa_supir(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan();
+        $idSupir  = $this->makeSupir($karyawan->id_karyawan);
+
+        $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
+            'jenis_dokumen'  => 'SIM',
+            'nomor'          => '12345678',
+            'berlaku_sampai' => '2030-08-07',
+        ])->assertStatus(201);
+
+        $this->assertSame('2030-08-07', $this->tglSimSupir($idSupir));
+    }
+
+    public function test_dokumen_sim_lama_tidak_menurunkan_tgl_kadaluarsa_supir(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan();
+        $idSupir  = $this->makeSupir($karyawan->id_karyawan);
+        $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2030-08-07');
+
+        $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
+            'jenis_dokumen'  => 'SIM',
+            'berlaku_sampai' => '2027-01-01',
+        ])->assertStatus(201);
+
+        $this->assertSame('2030-08-07', $this->tglSimSupir($idSupir));
+    }
+
+    public function test_hapus_dokumen_sim_terbaru_fallback_ke_sim_sebelumnya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan();
+        $idSupir  = $this->makeSupir($karyawan->id_karyawan);
+        $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2028-05-01');
+        $baru = $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2030-08-07');
+
+        $this->deleteJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen/{$baru->id_dokumen_karyawan}")
+            ->assertStatus(200);
+
+        $this->assertSame('2028-05-01', $this->tglSimSupir($idSupir));
+    }
+
+    public function test_dokumen_non_sim_tidak_mengubah_tgl_kadaluarsa_supir(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan();
+        $idSupir  = $this->makeSupir($karyawan->id_karyawan);
+
+        $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
+            'jenis_dokumen'  => 'KTP',
+            'berlaku_sampai' => '2031-01-01',
+        ])->assertStatus(201);
+
+        $this->assertSame('2026-07-31', $this->tglSimSupir($idSupir));
+    }
+
+    public function test_migrasi_data_fix_sinkron_sim_dari_dokumen_lama(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan();
+        $idSupir  = $this->makeSupir($karyawan->id_karyawan, '2026-07-31');
+        $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2030-08-07');
+
+        $migration = require database_path('migrations/2026_08_17_100001_sinkron_tgl_kadaluarsa_sim_dari_dokumen.php');
+        $migration->up();
+
+        $this->assertSame('2030-08-07', $this->tglSimSupir($idSupir));
+    }
+
+    public function test_update_tanggal_dokumen_sim_ikut_sinkron_ke_supir(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $karyawan = $this->makeKaryawan();
+        $idSupir  = $this->makeSupir($karyawan->id_karyawan);
+        $dok = $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2029-03-01');
+
+        $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen/{$dok->id_dokumen_karyawan}", [
+            'jenis_dokumen'  => 'SIM',
+            'berlaku_sampai' => '2031-03-01',
+        ])->assertStatus(200);
+
+        $this->assertSame('2031-03-01', $this->tglSimSupir($idSupir));
+    }
 }

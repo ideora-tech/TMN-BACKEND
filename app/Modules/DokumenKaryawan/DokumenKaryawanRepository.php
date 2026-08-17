@@ -81,4 +81,23 @@ class DokumenKaryawanRepository implements DokumenKaryawanRepositoryInterface
             ->where('id_dokumen_karyawan', $record->id_dokumen_karyawan)
             ->update(RecordHelper::stampDelete());
     }
+
+    public function maxBerlakuSimAktif(string $idKaryawan): ?string
+    {
+        $nilai = DB::table('dokumen_karyawan')
+            ->where('id_karyawan', $idKaryawan)
+            ->whereRaw("UPPER(jenis_dokumen) = 'SIM'")
+            ->whereNull('dihapus_pada')
+            ->whereNotNull('berlaku_sampai')
+            ->max('berlaku_sampai');
+        return $nilai !== null ? (string) $nilai : null;
+    }
+
+    public function sinkronKadaluarsaSimSupir(string $idKaryawan, string $tanggal): void
+    {
+        DB::table('supir')
+            ->where('id_karyawan', $idKaryawan)
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampUpdate(['tgl_kadaluarsa_sim' => $tanggal]));
+    }
 }

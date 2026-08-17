@@ -46,7 +46,9 @@ class DokumenKaryawanService
         }
         unset($data['file']);
 
-        return $this->repo->create(array_merge($data, ['id_karyawan' => $idKaryawan]));
+        $record = $this->repo->create(array_merge($data, ['id_karyawan' => $idKaryawan]));
+        $this->sinkronSimSupir($idKaryawan);
+        return $record;
     }
 
     public function update(string $id, string $idPerusahaan, array $data, ?UploadedFile $file = null): object
@@ -58,13 +60,24 @@ class DokumenKaryawanService
         }
         unset($data['file']);
 
-        return $this->repo->update($record, $data);
+        $updated = $this->repo->update($record, $data);
+        $this->sinkronSimSupir((string) $record->id_karyawan);
+        return $updated;
     }
 
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
         $this->repo->delete($record);
+        $this->sinkronSimSupir((string) $record->id_karyawan);
+    }
+
+    private function sinkronSimSupir(string $idKaryawan): void
+    {
+        $maks = $this->repo->maxBerlakuSimAktif($idKaryawan);
+        if ($maks !== null) {
+            $this->repo->sinkronKadaluarsaSimSupir($idKaryawan, $maks);
+        }
     }
 
     private function findOrFail(string $id, string $idPerusahaan): object

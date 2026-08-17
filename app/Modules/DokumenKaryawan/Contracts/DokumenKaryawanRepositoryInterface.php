@@ -14,4 +14,6 @@ interface DokumenKaryawanRepositoryInterface
     public function create(array $data): object;
     public function update(object $record, array $data): object;
     public function delete(object $record): void;
+    public function maxBerlakuSimAktif(string $idKaryawan): ?string;
+    public function sinkronKadaluarsaSimSupir(string $idKaryawan, string $tanggal): void;
 }
