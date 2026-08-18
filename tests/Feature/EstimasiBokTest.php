@@ -88,7 +88,7 @@ class EstimasiBokTest extends TestCase
 
         // bok/km = 10jt/5000 + 10000/5 + 500 + 500 = 2000+2000+500+500 = 5000
         // pokok  = 5000*100 + tol 100000 = 600000 ; saran = 660000 (margin 10%)
-        $res = $this->getJson("/api/v1/tarif-rute/estimasi-bok?id_rute={$idRute}&id_jenis_kendaraan={$idJenis}&estimasi_tol=100000");
+        $res = $this->getJson("/api/v1/rute/estimasi-bok?id_rute={$idRute}&id_jenis_kendaraan={$idJenis}&estimasi_tol=100000");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.bok_per_km', 5000)
@@ -107,7 +107,7 @@ class EstimasiBokTest extends TestCase
         $idJenis = $this->makeJenisKendaraan();
         $this->makeParameterBok($idJenis, $this->makeJenisBbmDenganHarga(10000));
 
-        $res = $this->getJson("/api/v1/tarif-rute/estimasi-bok?id_rute={$idRute}&id_jenis_kendaraan={$idJenis}");
+        $res = $this->getJson("/api/v1/rute/estimasi-bok?id_rute={$idRute}&id_jenis_kendaraan={$idJenis}");
 
         $res->assertStatus(200)->assertJsonPath('data.harga_pokok', 500000);
     }
@@ -116,7 +116,7 @@ class EstimasiBokTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/tarif-rute/estimasi-bok?id_rute=' . $this->makeRute()
+        $res = $this->getJson('/api/v1/rute/estimasi-bok?id_rute=' . $this->makeRute()
             . '&id_jenis_kendaraan=' . $this->makeJenisKendaraan());
 
         $res->assertStatus(200)->assertJsonPath('data', null);
@@ -129,7 +129,7 @@ class EstimasiBokTest extends TestCase
         $idJenis = $this->makeJenisKendaraan();
         $this->makeParameterBok($idJenis, $this->makeJenisBbmDenganHarga());
 
-        $res = $this->getJson("/api/v1/tarif-rute/estimasi-bok?id_rute={$idRute}&id_jenis_kendaraan={$idJenis}");
+        $res = $this->getJson("/api/v1/rute/estimasi-bok?id_rute={$idRute}&id_jenis_kendaraan={$idJenis}");
 
         $res->assertStatus(200)->assertJsonPath('data', null);
     }
@@ -149,7 +149,7 @@ class EstimasiBokTest extends TestCase
         ]);
         $this->makeParameterBok($idJenis, $idBbm);
 
-        $res = $this->getJson("/api/v1/tarif-rute/estimasi-bok?id_rute={$idRute}&id_jenis_kendaraan={$idJenis}");
+        $res = $this->getJson("/api/v1/rute/estimasi-bok?id_rute={$idRute}&id_jenis_kendaraan={$idJenis}");
 
         $res->assertStatus(200)->assertJsonPath('data', null);
     }
@@ -160,7 +160,7 @@ class EstimasiBokTest extends TestCase
         $lain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $lain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
 
-        $res = $this->getJson('/api/v1/tarif-rute/estimasi-bok?id_rute=' . $this->makeRute(100.0, $lain)
+        $res = $this->getJson('/api/v1/rute/estimasi-bok?id_rute=' . $this->makeRute(100.0, $lain)
             . '&id_jenis_kendaraan=' . $this->makeJenisKendaraan());
 
         $res->assertStatus(404);

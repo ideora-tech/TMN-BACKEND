@@ -16,10 +16,6 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
         return ProyekRuteModel::active()
             ->leftJoin('rute', 'rute.id_rute', '=', 'proyek_rute.id_rute')
             ->leftJoin('jenis_kendaraan', 'jenis_kendaraan.id_jenis_kendaraan', '=', 'proyek_rute.id_jenis_kendaraan')
-            ->leftJoin('tarif_rute', function ($join) {
-                $join->on('tarif_rute.id_tarif_rute', '=', 'proyek_rute.id_tarif_rute')
-                    ->whereNull('tarif_rute.dihapus_pada');
-            })
             ->select(
                 'proyek_rute.*',
                 'rute.kode_rute',
@@ -27,11 +23,6 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
                 'rute.asal',
                 'rute.tujuan',
                 'jenis_kendaraan.nama_jenis',
-                'tarif_rute.harga as uang_jalan',
-                'tarif_rute.estimasi_tol',
-                'tarif_rute.estimasi_bbm',
-                'tarif_rute.estimasi_uang_jalan',
-                'tarif_rute.estimasi_biaya_lain',
             );
     }
 
@@ -77,6 +68,78 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
             ->where('id_perusahaan', $idPerusahaan)
             ->where('id_jenis_kendaraan', $id)
             ->first();
+    }
+
+    public function existsDuplikat(string $idProyek, string $idRute, ?string $idJenisKendaraan, ?string $excludeId = null): bool
+    {
+        $query = ProyekRuteModel::active()
+            ->where('id_proyek', $idProyek)
+            ->where('id_rute', $idRute);
+
+        if ($idJenisKendaraan === null) {
+            $query->whereNull('id_jenis_kendaraan');
+        } else {
+            $query->where('id_jenis_kendaraan', $idJenisKendaraan);
+        }
+
+        if ($excludeId !== null) {
+            $query->where('id_proyek_rute', '!=', $excludeId);
+        }
+
+        return $query->exists();
+    }
+
+    public function findHarga(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?object
+    {
+        if ($idJenisKendaraan !== null) {
+            $baris = ProyekRuteModel::active()
+                ->where('id_proyek', $idProyek)
+                ->where('id_rute', $idRute)
+                ->where('id_jenis_kendaraan', $idJenisKendaraan)
+                ->first();
+
+            if ($baris !== null) {
+                return $baris;
+            }
+        }
+
+        return ProyekRuteModel::active()
+            ->where('id_proyek', $idProyek)
+            ->where('id_rute', $idRute)
+            ->whereNull('id_jenis_kendaraan')
+            ->first();
+    }
+
+    public function adaPenawaranDisetujui(string $idProyek): bool
+    {
+        return DB::table('penawaran')
+            ->where('id_proyek', $idProyek)
+            ->where('status', 'disetujui')
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
+    public function tipeHargaProyek(string $idProyek): ?string
+    {
+        return DB::table('proyek')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek', $idProyek)
+            ->value('tipe_harga');
+    }
+
+    public function findBarisTepat(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?ProyekRuteModel
+    {
+        $query = ProyekRuteModel::active()
+            ->where('id_proyek', $idProyek)
+            ->where('id_rute', $idRute);
+
+        if ($idJenisKendaraan === null) {
+            $query->whereNull('id_jenis_kendaraan');
+        } else {
+            $query->where('id_jenis_kendaraan', $idJenisKendaraan);
+        }
+
+        return $query->first();
     }
 
     public function create(array $data): ProyekRuteModel

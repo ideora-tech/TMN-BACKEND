@@ -170,4 +170,142 @@ class PenawaranItemTest extends TestCase
 
         $res->assertStatus(422)->assertJsonValidationErrors(['items.0.harga_satuan']);
     }
+
+    public function test_store_borongan_tanpa_harga_satuan_berhasil(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/v1/penawaran', array_merge(
+            $this->payloadPenawaran([
+                [
+                    'id_rute'            => $this->makeRute(),
+                    'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+                ],
+            ]),
+            ['tipe_harga' => 'borongan']
+        ));
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.tipe_harga', 'borongan')
+            ->assertJsonPath('data.items.0.harga_satuan', null);
+        $this->assertEquals(0, $res->json('data.items.0.subtotal'));
+    }
+
+    public function test_store_borongan_dengan_nilai_penawaran_tidak_tertimpa(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/v1/penawaran', array_merge(
+            $this->payloadPenawaran([
+                [
+                    'id_rute'            => $this->makeRute(),
+                    'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+                ],
+            ]),
+            ['tipe_harga' => 'borongan', 'nilai_penawaran' => 50000000]
+        ));
+
+        $res->assertStatus(201)->assertJsonPath('data.nilai_penawaran', 50000000);
+    }
+
+    public function test_store_per_rit_dengan_tipe_harga_eksplisit_tetap_wajib_harga_satuan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/v1/penawaran', array_merge(
+            $this->payloadPenawaran([
+                [
+                    'id_rute'            => $this->makeRute(),
+                    'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+                ],
+            ]),
+            ['tipe_harga' => 'per_rit']
+        ));
+
+        $res->assertStatus(422)->assertJsonValidationErrors(['items.0.harga_satuan']);
+    }
+
+    public function test_store_item_duplikat_rute_dan_jenis_sama_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idRute  = $this->makeRute();
+        $idJenis = $this->makeJenisKendaraan();
+
+        $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+            ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 500000],
+            ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000],
+        ]));
+
+        $res->assertStatus(422)
+            ->assertJsonPath('message', 'Terdapat rute duplikat dalam item penawaran');
+        $this->assertDatabaseCount('penawaran_item', 0);
+    }
+
+    public function test_store_item_rute_sama_jenis_kendaraan_berbeda_bukan_duplikat(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idRute = $this->makeRute();
+
+        $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+            ['id_rute' => $idRute, 'id_jenis_kendaraan' => $this->makeJenisKendaraan(), 'harga_satuan' => 500000],
+            ['id_rute' => $idRute, 'id_jenis_kendaraan' => $this->makeJenisKendaraan(), 'harga_satuan' => 600000],
+        ]));
+
+        $res->assertStatus(201);
+        $this->assertDatabaseCount('penawaran_item', 2);
+    }
+
+    public function test_update_item_duplikat_rute_dan_jenis_sama_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $id = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+            [
+                'id_rute'            => $this->makeRute(),
+                'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+                'harga_satuan'       => 750000,
+            ],
+        ]))->json('data.id_penawaran');
+
+        $idRute  = $this->makeRute();
+        $idJenis = $this->makeJenisKendaraan();
+
+        $res = $this->putJson("/api/v1/penawaran/{$id}", [
+            'items' => [
+                ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 500000],
+                ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000],
+            ],
+        ]);
+
+        $res->assertStatus(422)
+            ->assertJsonPath('message', 'Terdapat rute duplikat dalam item penawaran');
+        $this->assertSame(1, DB::table('penawaran_item')->whereNull('dihapus_pada')->count());
+    }
+
+    public function test_update_borongan_kirim_items_tanpa_tipe_harga_tetap_diterima(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $id = $this->postJson('/api/v1/penawaran', array_merge(
+            $this->payloadPenawaran([
+                [
+                    'id_rute'            => $this->makeRute(),
+                    'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+                ],
+            ]),
+            ['tipe_harga' => 'borongan']
+        ))->json('data.id_penawaran');
+
+        $res = $this->putJson("/api/v1/penawaran/{$id}", [
+            'items' => [
+                [
+                    'id_rute'            => $this->makeRute(),
+                    'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+                ],
+            ],
+        ]);
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.tipe_harga', 'borongan')
+            ->assertJsonPath('data.items.0.harga_satuan', null);
+    }
 }

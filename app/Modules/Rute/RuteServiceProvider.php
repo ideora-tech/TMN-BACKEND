@@ -13,6 +13,8 @@ class RuteServiceProvider extends ServiceProvider {
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum', 'izin:rute'])
             ->group(function () {
+                Route::get('rute/estimasi-bok', [RuteController::class, 'estimasiBok']);
+
                 Route::apiResource('rute', RuteController::class)
                     ->parameters(['rute' => 'id']);
             });

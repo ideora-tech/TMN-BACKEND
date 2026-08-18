@@ -17,9 +17,12 @@ class ProyekRuteModel extends BaseModel
         'id_proyek',
         'id_rute',
         'id_jenis_kendaraan',
-        'id_tarif_rute',
         'harga_penawaran',
         'estimasi_ritase',
+        'uang_jalan',
+        'estimasi_tol',
+        'estimasi_bbm',
+        'estimasi_biaya_lain',
         'keterangan',
     ];
 

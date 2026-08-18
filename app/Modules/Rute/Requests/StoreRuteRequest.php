@@ -6,7 +6,7 @@ class StoreRuteRequest extends FormRequest {
     public function authorize(): bool { return true; }
     public function rules(): array {
         return [
-            'kode_rute'             => 'required|string|max:50',
+            'kode_rute'             => 'sometimes|nullable|string|max:50',
             'nama_rute'             => 'required|string|max:200',
             'asal'                  => 'sometimes|nullable|string|max:200',
             'tujuan'                => 'sometimes|nullable|string|max:200',

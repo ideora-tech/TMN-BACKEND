@@ -8,14 +8,14 @@ use App\Modules\Faktur\Contracts\FakturRepositoryInterface;
 use App\Modules\Faktur\FakturModel;
 use App\Modules\Faktur\FakturService;
 use App\Modules\PenagihanTrip\Contracts\PenagihanTripRepositoryInterface;
-use App\Modules\TarifRute\TarifRuteService;
+use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
 class PenagihanTripService
 {
     public function __construct(
         private readonly PenagihanTripRepositoryInterface $repo,
-        private readonly TarifRuteService $tarifRuteService,
+        private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
         private readonly FakturService $fakturService,
         private readonly FakturRepositoryInterface $fakturRepo,
     ) {}
@@ -31,24 +31,23 @@ class PenagihanTripService
 
         $biayaMap = $this->repo->biayaTagihanUntukTrips(array_map(fn ($row) => (string) $row->id_trip, $rows));
 
-        return array_map(fn ($row) => $this->mapBaris($row, $idPerusahaan, $biayaMap[$row->id_trip] ?? []), $rows);
+        return array_map(fn ($row) => $this->mapBaris($row, $biayaMap[$row->id_trip] ?? []), $rows);
     }
 
-    private function mapBaris(object $row, string $idPerusahaan, array $biayaTagihan = []): array
+    private function mapBaris(object $row, array $biayaTagihan = []): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
+        $borongan = ($row->tipe_harga ?? 'per_rit') === 'borongan';
 
         $tarif = null;
-        if ($row->id_rute !== null && $idJenisKendaraan !== null) {
-            $t = $this->tarifRuteService->resolusi(
-                $idPerusahaan,
+        if (!$borongan && $row->id_rute !== null) {
+            $baris = $this->proyekRuteRepo->findHarga(
+                (string) $row->id_proyek,
                 (string) $row->id_rute,
-                (string) $idJenisKendaraan,
-                $row->id_klien !== null ? (string) $row->id_klien : null,
-                (string) $row->tanggal,
+                $idJenisKendaraan !== null ? (string) $idJenisKendaraan : null,
             );
-            if ($t !== null) {
-                $tarif = ['id_tarif_rute' => $t->id_tarif_rute, 'harga' => (float) $t->harga];
+            if ($baris !== null && $baris->harga_penawaran !== null) {
+                $tarif = ['harga' => (float) $baris->harga_penawaran];
             }
         }
 
@@ -62,7 +61,8 @@ class PenagihanTripService
             'sumber'          => $row->sumber ?? 'internal',
             'jarak_tempuh_km' => $row->jarak_tempuh_km !== null ? (float) $row->jarak_tempuh_km : null,
             'tarif'           => $tarif,
-            'bisa_ditagih'    => $tarif !== null,
+            'borongan'        => $borongan,
+            'bisa_ditagih'    => $tarif !== null && !$borongan,
             'biaya_tagihan'       => $biayaTagihan,
             'total_biaya_tagihan' => array_sum(array_column($biayaTagihan, 'nominal')),
         ];
@@ -85,9 +85,12 @@ class PenagihanTripService
                 if ($row === null) {
                     abort(422, "Trip {$idTrip} tidak valid atau sudah masuk invoice");
                 }
-                $baris = $this->mapBaris($row, $idPerusahaan);
+                $baris = $this->mapBaris($row);
+                if ($baris['borongan']) {
+                    abort(422, 'Trip proyek borongan difakturkan dari halaman proyek');
+                }
                 if ($baris['tarif'] === null) {
-                    abort(422, "Trip {$idTrip}: tarif rute belum diatur");
+                    abort(422, 'Tarif belum diatur di rute proyek');
                 }
                 $terpilih[] = $baris;
             }

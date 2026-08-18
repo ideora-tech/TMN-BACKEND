@@ -42,23 +42,33 @@ class KonsolidasiKlienTest extends TestCase
             'asal' => 'Jakarta', 'tujuan' => 'Semarang',
             'aktif' => 1, 'dibuat_pada' => now(),
         ]);
-
-        DB::table('tarif_rute')->insert([
-            'id_tarif_rute' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_rute' => $this->idRute, 'id_jenis_kendaraan' => $this->idJenisKendaraan,
-            'id_klien' => null, 'harga' => 1000000,
-            'tanggal_mulai' => now()->subMonth()->toDateString(), 'aktif' => 1, 'dibuat_pada' => now(),
-        ]);
     }
 
-    private function buatProyek(): ProyekModel
+    private function buatProyek(string $tipeHarga = 'per_rit'): ProyekModel
     {
         return ProyekModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
             'id_klien'      => $this->idKlien,
             'kode_proyek'   => 'PRJ-' . Str::random(8),
             'nama_proyek'   => 'Proyek Konsolidasi Klien',
+            'tipe_harga'    => $tipeHarga,
         ]);
+    }
+
+    private function buatProyekRute(string $idProyek, string $idRute, ?string $idJenisKendaraan, ?float $harga): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('proyek_rute')->insert([
+            'id_proyek_rute'     => $id,
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'id_proyek'          => $idProyek,
+            'id_rute'            => $idRute,
+            'id_jenis_kendaraan' => $idJenisKendaraan,
+            'harga_penawaran'    => $harga,
+            'estimasi_ritase'    => 1,
+            'dibuat_pada'        => now(),
+        ]);
+        return $id;
     }
 
     private function buatTripUnitOnlyDenganAlokasiInternal(string $idProyek): TripModel
@@ -92,12 +102,8 @@ class KonsolidasiKlienTest extends TestCase
             'id_jenis_kendaraan' => $idJenisLain, 'id_perusahaan' => self::PERUSAHAAN_ID,
             'kode_jenis' => 'JK-LAIN', 'nama_jenis' => 'CDD', 'dibuat_pada' => now(),
         ]);
-        DB::table('tarif_rute')->insert([
-            'id_tarif_rute' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_rute' => $this->idRute, 'id_jenis_kendaraan' => $idJenisLain,
-            'id_klien' => null, 'harga' => 500000,
-            'tanggal_mulai' => now()->subMonth()->toDateString(), 'aktif' => 1, 'dibuat_pada' => now(),
-        ]);
+        $this->buatProyekRute($idProyek, $this->idRute, $this->idJenisKendaraan, 1000000);
+        $this->buatProyekRute($idProyek, $this->idRute, $idJenisLain, 500000);
 
         $idArmadaInternal = (string) Str::uuid();
         DB::table('armada')->insert([
@@ -181,6 +187,8 @@ class KonsolidasiKlienTest extends TestCase
 
         $proyekA = $this->buatProyek();
         $proyekB = $this->buatProyek();
+        $this->buatProyekRute($proyekA->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
+        $this->buatProyekRute($proyekB->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
         $this->buatTrip($proyekA->id_proyek, true, 120);
         $this->buatTrip($proyekB->id_proyek, true, 80);
         $tanpaTarif = $this->buatTrip($proyekB->id_proyek, false, 50);
@@ -232,6 +240,7 @@ class KonsolidasiKlienTest extends TestCase
         $this->siapkanMaster();
 
         $proyek = $this->buatProyek();
+        $this->buatProyekRute($proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
         $trip = $this->buatTrip($proyek->id_proyek);
 
         $this->postJson('/api/v1/penagihan-trip/faktur', [
@@ -289,6 +298,7 @@ class KonsolidasiKlienTest extends TestCase
         $this->siapkanMaster();
 
         $proyek = $this->buatProyek();
+        $this->buatProyekRute($proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
         $trip = $this->buatTrip($proyek->id_proyek, true, 120);
 
         DB::table('titik_drop_trip')->insert([
@@ -313,5 +323,68 @@ class KonsolidasiKlienTest extends TestCase
             ->assertJsonPath('data.trips.0.titik_drop', ['JLB', 'MRY'])
             ->assertJsonPath('data.trips.0.biaya_tambahan', 150000)
             ->assertJsonPath('data.ringkasan.estimasi_nilai', 1150000);
+    }
+
+    public function test_harga_fallback_baris_jenis_kendaraan_null_dipakai_saat_tidak_ada_baris_spesifik(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyek = $this->buatProyek();
+        $this->buatProyekRute($proyek->id_proyek, $this->idRute, null, 800000);
+        $trip = $this->buatTrip($proyek->id_proyek, true, 120);
+
+        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res->assertStatus(200);
+
+        $baris = collect($res->json('data.trips'))->firstWhere('id_trip', $trip->id_trip);
+        $this->assertSame(800000.0, (float) $baris['tarif']['harga']);
+        $this->assertFalse($baris['borongan']);
+    }
+
+    public function test_rute_tidak_terdaftar_di_proyek_rute_dihitung_tanpa_tarif(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyek = $this->buatProyek();
+        $trip = $this->buatTrip($proyek->id_proyek, true, 120);
+
+        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res->assertStatus(200)->assertJsonPath('data.ringkasan.tanpa_tarif', 1);
+
+        $baris = collect($res->json('data.trips'))->firstWhere('id_trip', $trip->id_trip);
+        $this->assertNull($baris['tarif']);
+        $this->assertFalse($baris['borongan']);
+    }
+
+    public function test_proyek_borongan_ditag_borongan_dan_tidak_dihitung_tanpa_tarif(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyekBorongan = $this->buatProyek('borongan');
+        $tripBorongan = $this->buatTrip($proyekBorongan->id_proyek, true, 200);
+        $idLaporanBorongan = DB::table('laporan_perjalanan')->where('id_trip', $tripBorongan->id_trip)->value('id_laporan');
+        DB::table('biaya_tagihan_trip')->insert([
+            'id_biaya_tagihan' => (string) Str::uuid(), 'id_laporan' => $idLaporanBorongan,
+            'nama_biaya' => 'Bongkar Muat', 'nominal' => 75000, 'dibuat_pada' => now(),
+        ]);
+
+        $proyekPerRit = $this->buatProyek();
+        $this->buatProyekRute($proyekPerRit->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
+        $tripPerRit = $this->buatTrip($proyekPerRit->id_proyek, true, 100);
+
+        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res->assertStatus(200)
+            ->assertJsonPath('data.ringkasan.total_rit', 2)
+            ->assertJsonPath('data.ringkasan.tanpa_tarif', 0)
+            ->assertJsonPath('data.ringkasan.estimasi_nilai', 1000000);
+
+        $data = collect($res->json('data.trips'))->keyBy('id_trip');
+        $this->assertTrue($data[$tripBorongan->id_trip]['borongan']);
+        $this->assertNull($data[$tripBorongan->id_trip]['tarif']);
+        $this->assertSame(75000.0, (float) $data[$tripBorongan->id_trip]['biaya_tambahan']);
+        $this->assertFalse($data[$tripPerRit->id_trip]['borongan']);
     }
 }

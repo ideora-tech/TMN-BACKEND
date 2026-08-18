@@ -17,7 +17,6 @@ class PenawaranItemModel extends BaseModel
         'id_penawaran',
         'id_rute',
         'id_jenis_kendaraan',
-        'id_tarif_rute',
         'harga_satuan',
         'estimasi_ritase',
         'subtotal',

@@ -40,7 +40,6 @@ class RuteLokasiTest extends TestCase
         $tujuan = $this->makeLokasi(self::PERUSAHAAN_ID, 'Gudang Cikarang');
 
         $res = $this->postJson('/api/v1/rute', [
-            'kode_rute'         => 'RUT-LOK-1',
             'nama_rute'         => 'Rute Priok-Cikarang',
             'id_lokasi_asal'    => $asal->id_lokasi,
             'id_lokasi_tujuan'  => $tujuan->id_lokasi,
@@ -53,7 +52,7 @@ class RuteLokasiTest extends TestCase
             ->assertJsonPath('data.id_lokasi_tujuan', $tujuan->id_lokasi);
 
         $this->assertDatabaseHas('rute', [
-            'kode_rute'        => 'RUT-LOK-1',
+            'kode_rute'        => 'RT-0001',
             'asal'             => 'Pelabuhan Tanjung Priok',
             'tujuan'           => 'Gudang Cikarang',
             'id_lokasi_asal'   => $asal->id_lokasi,

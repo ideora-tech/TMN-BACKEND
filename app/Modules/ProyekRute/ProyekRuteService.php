@@ -18,7 +18,16 @@ class ProyekRuteService
 
     public function create(string $idProyek, array $data, string $idPerusahaan): ProyekRuteModel
     {
+        if ($this->hargaTerkunci($idProyek)) {
+            abort(422, 'Harga terkunci — ubah lewat penawaran revisi');
+        }
+
         $this->pastikanRuteJenisValid($data, $idPerusahaan);
+
+        $idJenisKendaraan = $data['id_jenis_kendaraan'] ?? null;
+        if ($this->repo->existsDuplikat($idProyek, $data['id_rute'], $idJenisKendaraan)) {
+            abort(409, 'Rute dengan jenis kendaraan ini sudah terdaftar di proyek');
+        }
 
         $record = $this->repo->create(array_merge($data, [
             'id_perusahaan' => $idPerusahaan,
@@ -35,7 +44,17 @@ class ProyekRuteService
             abort(404, 'Rute proyek tidak ditemukan');
         }
 
+        if ($this->adaPerubahanHarga($record, $data) && $this->hargaTerkunci($idProyek)) {
+            abort(422, 'Harga terkunci — ubah lewat penawaran revisi');
+        }
+
         $this->pastikanRuteJenisValid($data, $idPerusahaan);
+
+        $idRute = $data['id_rute'] ?? $record->id_rute;
+        $idJenisKendaraan = array_key_exists('id_jenis_kendaraan', $data) ? $data['id_jenis_kendaraan'] : $record->id_jenis_kendaraan;
+        if ($this->repo->existsDuplikat($idProyek, $idRute, $idJenisKendaraan, $id)) {
+            abort(409, 'Rute dengan jenis kendaraan ini sudah terdaftar di proyek');
+        }
 
         $this->repo->update($record, $data);
 
@@ -49,6 +68,32 @@ class ProyekRuteService
             abort(404, 'Rute proyek tidak ditemukan');
         }
         $this->repo->delete($record);
+    }
+
+    private function hargaTerkunci(string $idProyek): bool
+    {
+        $tipeHarga = $this->repo->tipeHargaProyek($idProyek) ?? 'per_rit';
+        return $tipeHarga === 'per_rit' && $this->repo->adaPenawaranDisetujui($idProyek);
+    }
+
+    private function adaPerubahanHarga(ProyekRuteModel $record, array $data): bool
+    {
+        if (array_key_exists('harga_penawaran', $data)) {
+            $baru = $data['harga_penawaran'];
+            $lama = $record->harga_penawaran;
+            if (($baru === null) !== ($lama === null)) {
+                return true;
+            }
+            if ($baru !== null && (float) $baru !== (float) $lama) {
+                return true;
+            }
+        }
+
+        if (array_key_exists('estimasi_ritase', $data) && (int) $data['estimasi_ritase'] !== (int) $record->estimasi_ritase) {
+            return true;
+        }
+
+        return false;
     }
 
     private function pastikanRuteJenisValid(array $data, string $idPerusahaan): void

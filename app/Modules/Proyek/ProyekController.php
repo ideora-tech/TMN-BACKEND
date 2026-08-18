@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Proyek;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Faktur\Resources\FakturResource;
 use App\Modules\Klien\Contracts\KlienRepositoryInterface;
+use App\Modules\Penawaran\Resources\PenawaranResource;
+use App\Modules\Proyek\Requests\StoreFakturBoronganRequest;
+use App\Modules\Proyek\Requests\StorePenawaranRevisiRequest;
 use App\Modules\Proyek\Requests\StoreProyekRequest;
 use App\Modules\Proyek\Requests\UpdateProyekRequest;
 use App\Modules\Proyek\Requests\UpdateStatusProyekRequest;
@@ -52,6 +56,7 @@ class ProyekController extends Controller
 
         $klien = $proyek->id_klien ? $this->klienRepo->findById((string) $proyek->id_klien) : null;
         $proyek->nama_klien = $klien->nama_klien ?? null;
+        $proyek->realisasi  = $this->service->ringkasanRealisasi($proyek);
 
         return ApiResponse::success(new ProyekResource($proyek));
     }
@@ -84,6 +89,20 @@ class ProyekController extends Controller
     {
         $this->service->delete($id);
         return ApiResponse::success(null, 'Proyek berhasil dihapus');
+    }
+
+    public function buatPenawaranRevisi(StorePenawaranRevisiRequest $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->buatPenawaranRevisi($id, $request->validated(), $idPerusahaan);
+        return ApiResponse::success(new PenawaranResource($record), 'Penawaran revisi berhasil dibuat', 201);
+    }
+
+    public function buatFakturBorongan(StoreFakturBoronganRequest $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->buatFakturBorongan($id, $request->validated(), $idPerusahaan);
+        return ApiResponse::success(new FakturResource($record), 'Faktur berhasil dibuat', 201);
     }
 
     public function exportPdf(Request $request, string $id): Response

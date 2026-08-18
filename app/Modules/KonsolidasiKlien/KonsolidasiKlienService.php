@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\KonsolidasiKlien;
 
 use App\Modules\KonsolidasiKlien\Contracts\KonsolidasiKlienRepositoryInterface;
-use App\Modules\TarifRute\TarifRuteService;
+use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 
 class KonsolidasiKlienService
 {
     public function __construct(
         private readonly KonsolidasiKlienRepositoryInterface $repo,
-        private readonly TarifRuteService $tarifRuteService,
+        private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
     ) {}
 
     public function rekap(string $idKlien, string $idPerusahaan, ?string $dari, ?string $sampai, ?string $sumber = null, ?string $idProyek = null): array
@@ -32,11 +32,12 @@ class KonsolidasiKlienService
         )))));
 
         $trips = array_map(
-            fn ($row) => $this->mapBaris($row, $idKlien, $idPerusahaan, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap),
+            fn ($row) => $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap),
             $rows
         );
 
         $bertarif = array_filter($trips, fn ($t) => $t['tarif'] !== null);
+        $borongan = array_filter($trips, fn ($t) => $t['borongan'] === true);
 
         return [
             'klien'     => ['id_klien' => $klien->id_klien, 'nama_klien' => $klien->nama_klien],
@@ -44,27 +45,26 @@ class KonsolidasiKlienService
                 'total_rit'      => count($trips),
                 'total_jarak_km' => array_sum(array_map(fn ($t) => $t['jarak_tempuh_km'] ?? 0, $trips)),
                 'estimasi_nilai' => array_sum(array_map(fn ($t) => $t['tarif']['harga'] + $t['biaya_tambahan'], $bertarif)),
-                'tanpa_tarif'    => count($trips) - count($bertarif),
+                'tanpa_tarif'    => count($trips) - count($bertarif) - count($borongan),
             ],
             'trips' => $trips,
         ];
     }
 
-    private function mapBaris(object $row, string $idKlien, string $idPerusahaan, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap): array
+    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
+        $borongan = ($row->tipe_harga ?? 'per_rit') === 'borongan';
 
         $tarif = null;
-        if ($row->id_rute !== null && $idJenisKendaraan !== null) {
-            $t = $this->tarifRuteService->resolusi(
-                $idPerusahaan,
+        if (!$borongan && $row->id_rute !== null) {
+            $baris = $this->proyekRuteRepo->findHarga(
+                (string) $row->id_proyek,
                 (string) $row->id_rute,
-                (string) $idJenisKendaraan,
-                $idKlien,
-                (string) $row->tanggal,
+                $idJenisKendaraan !== null ? (string) $idJenisKendaraan : null,
             );
-            if ($t !== null) {
-                $tarif = ['id_tarif_rute' => $t->id_tarif_rute, 'harga' => (float) $t->harga];
+            if ($baris !== null && $baris->harga_penawaran !== null) {
+                $tarif = ['harga' => (float) $baris->harga_penawaran];
             }
         }
 
@@ -83,6 +83,7 @@ class KonsolidasiKlienService
             'sumber'            => $row->sumber ?? 'internal',
             'jarak_tempuh_km'   => $row->jarak_tempuh_km !== null ? (float) $row->jarak_tempuh_km : null,
             'tarif'             => $tarif,
+            'borongan'          => $borongan,
             'sudah_difakturkan' => (int) $row->sudah_difakturkan === 1,
             'titik_drop'        => $dropMap[$row->id_trip] ?? [],
             'biaya_tambahan'    => $biayaMap[$row->id_trip] ?? 0.0,

@@ -64,6 +64,7 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
                 'lp.jarak_tempuh_km',
                 'pr.kode_proyek',
                 'pr.nama_proyek',
+                'pr.tipe_harga',
             ])
             ->selectRaw("(case when exists (
                 select 1 from faktur_trip ft

@@ -22,6 +22,8 @@ class ProyekServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:project'])
             ->group(function () {
                 Route::get('proyek/{id}/pdf', [ProyekController::class, 'exportPdf']);
+                Route::post('proyek/{id}/penawaran-revisi', [ProyekController::class, 'buatPenawaranRevisi']);
+                Route::post('proyek/{id}/faktur-borongan', [ProyekController::class, 'buatFakturBorongan']);
 
                 Route::apiResource('proyek', ProyekController::class)
                     ->parameters(['proyek' => 'id']);

@@ -19,10 +19,12 @@ class PenawaranModel extends BaseModel
         'judul',
         'nilai_penawaran',
         'status',
+        'tipe_harga',
         'tanggal_penawaran',
         'tanggal_berlaku',
         'catatan',
         'id_proyek',
+        'id_penawaran_induk',
         'aktif',
     ];
 }

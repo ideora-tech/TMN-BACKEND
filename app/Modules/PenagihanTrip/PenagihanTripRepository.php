@@ -68,6 +68,8 @@ class PenagihanTripRepository implements PenagihanTripRepositoryInterface
                 'sv.nama as nama_supir_vendor',
                 'lp.jarak_tempuh_km',
                 'pr.id_klien',
+                'pr.id_proyek',
+                'pr.tipe_harga',
             ])
             ->get();
 

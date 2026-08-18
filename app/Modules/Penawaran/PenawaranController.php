@@ -42,9 +42,10 @@ class PenawaranController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new PenawaranResource($this->service->findOrFail($id)));
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success(new PenawaranResource($this->service->findOrFail($id, $idPerusahaan)));
     }
 
     public function store(StorePenawaranRequest $request): JsonResponse
@@ -65,25 +66,22 @@ class PenawaranController extends Controller
         return ApiResponse::success(new PenawaranResource($record), 'Penawaran berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Penawaran berhasil dihapus');
     }
 
     public function updateStatus(UpdateStatusPenawaranRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->updateStatus($id, $request->validated()['status']);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->updateStatus($id, $request->validated()['status'], $idPerusahaan);
         return ApiResponse::success(new PenawaranResource($record), 'Status penawaran berhasil diperbarui');
     }
 
     public function exportPdf(Request $request, string $id): Response
     {
-        $penawaran = $this->service->findOrFail($id);
-
-        if ($penawaran->id_perusahaan !== (string) $request->user()->id_perusahaan) {
-            abort(404, 'Penawaran tidak ditemukan');
-        }
+        $penawaran = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
 
         $klien = $penawaran->id_klien ? $this->klienRepo->findById($penawaran->id_klien) : null;
 

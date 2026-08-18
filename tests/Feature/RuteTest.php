@@ -39,29 +39,48 @@ class RuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/rute', [
-            'kode_rute' => 'RUT-BARU',
             'nama_rute' => 'Jakarta - Bandung',
         ]);
 
         $res->assertStatus(201)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.nama_rute', 'Jakarta - Bandung')
+            ->assertJsonPath('data.kode_rute', 'RT-0001')
             ->assertJsonPath('data.aktif', true);
 
-        $this->assertDatabaseHas('rute', ['kode_rute' => 'RUT-BARU', 'id_perusahaan' => self::PERUSAHAAN_ID]);
+        $this->assertDatabaseHas('rute', ['kode_rute' => 'RT-0001', 'id_perusahaan' => self::PERUSAHAAN_ID]);
     }
 
-    public function test_menolak_kode_rute_duplikat(): void
+    public function test_kode_rute_dari_input_diabaikan_pakai_kode_otomatis(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->makeRute(self::PERUSAHAAN_ID, 'RUT-DUP');
 
         $res = $this->postJson('/api/v1/rute', [
-            'kode_rute' => 'RUT-DUP',
+            'kode_rute' => 'MANUAL-999',
+            'nama_rute' => 'Jakarta - Bekasi',
+        ]);
+
+        $res->assertStatus(201)->assertJsonPath('data.kode_rute', 'RT-0001');
+        $this->assertDatabaseMissing('rute', ['kode_rute' => 'MANUAL-999']);
+    }
+
+    public function test_menolak_saat_kode_otomatis_bentrok_dengan_data_existing(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->makeRute(self::PERUSAHAAN_ID, 'RT-0001');
+
+        $res = $this->postJson('/api/v1/rute', [
             'nama_rute' => 'Duplikat',
         ]);
 
         $res->assertStatus(409);
+    }
+
+    public function test_endpoint_modul_lama_yang_dihapus_mengembalikan_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $this->getJson('/api/v1/tarif-rute')->assertStatus(404);
     }
 
     public function test_list_rute_hanya_menampilkan_milik_perusahaan_sendiri(): void

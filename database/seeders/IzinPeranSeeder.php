@@ -21,7 +21,6 @@ class IzinPeranSeeder extends Seeder
     private const IZIN_EKSPLISIT = [
         ['ADMIN', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['ADMIN', '/jadwal', ['lihat', 'tambah', 'ubah', 'hapus']],
-        ['ADMIN', '/tarif-rute', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['DISPATCHER', '/jadwal', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['MANAGER', '/jadwal', ['lihat']],
         ['SUPIR', '/trip', ['lihat', 'tambah', 'ubah', 'hapus']],
@@ -29,7 +28,6 @@ class IzinPeranSeeder extends Seeder
         ['SUPIR', '/supir', ['lihat']],
         ['SUPIR', '/penugasan', ['lihat']],
         ['DISPATCHER', '/project', ['lihat']],
-        ['DISPATCHER', '/tarif-rute', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['DISPATCHER', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['DISPATCHER', '/karyawan', ['lihat']],
         ['DISPATCHER', '/jenis-kendaraan', ['lihat']],
@@ -41,7 +39,6 @@ class IzinPeranSeeder extends Seeder
         ['SALES', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['SALES', '/rute', ['lihat']],
         ['SALES', '/jenis-kendaraan', ['lihat']],
-        ['SALES', '/tarif-rute', ['lihat', 'tambah']],
         ['SALES', '/parameter-bok', ['lihat']],
         ['SALES', '/armada', ['lihat']],
         ['SALES', '/supir', ['lihat']],

@@ -17,4 +17,16 @@ interface ProyekRepositoryInterface
     public function update(ProyekModel $model, array $data): ProyekModel;
     public function delete(ProyekModel $model): void;
     public function getPerusahaan(string $idPerusahaan): ?object;
+
+    /** Baris proyek terkunci (lockForUpdate) untuk guard yang butuh baca-lalu-tulis konsisten. */
+    public function findByIdForUpdate(string $id): ?object;
+
+    /** Σ total faktur proyek berstatus selain batal. */
+    public function totalFakturProyek(string $idProyek): float;
+
+    /** Baris trip selesai proyek (id_trip, id_rute, id_jenis_kendaraan efektif, id_laporan) untuk hitung total_rit & realisasi per rit. */
+    public function tripSelesaiUntukRealisasi(string $idProyek): array;
+
+    /** Σ nominal biaya_tagihan_trip untuk kumpulan id_laporan. */
+    public function totalBiayaTagihanUntukLaporan(array $idLaporans): float;
 }

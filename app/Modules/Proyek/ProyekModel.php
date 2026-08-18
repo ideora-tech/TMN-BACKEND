@@ -22,6 +22,7 @@ class ProyekModel extends BaseModel
         'harga_penawaran',
         'harga_proyek',
         'status',
+        'tipe_harga',
         'keterangan',
     ];
 }

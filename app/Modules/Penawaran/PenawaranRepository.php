@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Penawaran;
 
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
+use App\Support\RecordHelper;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -45,6 +46,28 @@ class PenawaranRepository implements PenawaranRepositoryInterface
         return PenawaranModel::active()->find($id);
     }
 
+    public function findForUpdate(string $id): ?PenawaranModel
+    {
+        return PenawaranModel::active()->lockForUpdate()->find($id);
+    }
+
+    public function penawaranPertamaProyek(string $idProyek): ?PenawaranModel
+    {
+        return PenawaranModel::active()
+            ->where('id_proyek', $idProyek)
+            ->orderBy('dibuat_pada', 'asc')
+            ->first();
+    }
+
+    public function adaRevisiBerjalan(string $idProyek): bool
+    {
+        return PenawaranModel::active()
+            ->where('id_proyek', $idProyek)
+            ->whereNotNull('id_penawaran_induk')
+            ->whereIn('status', ['draft', 'terkirim', 'negosiasi'])
+            ->exists();
+    }
+
     public function findByNomor(string $idPerusahaan, string $nomor, ?string $excludeId = null): ?PenawaranModel
     {
         $query = PenawaranModel::active()
@@ -67,6 +90,14 @@ class PenawaranRepository implements PenawaranRepositoryInterface
     {
         $model->update($data);
         return $model->fresh();
+    }
+
+    public function tautkanProyekJikaBelum(string $idPenawaran, string $idProyek): int
+    {
+        return PenawaranModel::active()
+            ->where('id_penawaran', $idPenawaran)
+            ->whereNull('id_proyek')
+            ->update(RecordHelper::stampUpdate(['id_proyek' => $idProyek]));
     }
 
     public function delete(PenawaranModel $model): void

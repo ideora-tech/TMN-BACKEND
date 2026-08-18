@@ -49,4 +49,26 @@ class RuteController extends Controller {
         $this->service->delete($id);
         return ApiResponse::success(null, 'Rute berhasil dihapus');
     }
+
+    public function estimasiBok(Request $request): JsonResponse {
+        $request->validate([
+            'id_rute'            => ['required', 'string', 'max:36'],
+            'id_jenis_kendaraan' => ['required', 'string', 'max:36'],
+            'estimasi_tol'       => ['sometimes', 'nullable', 'numeric', 'min:0'],
+        ]);
+
+        $idPerusahaan = $request->user()->id_perusahaan;
+        if (!$idPerusahaan) {
+            return ApiResponse::error('Pengguna tidak terhubung ke perusahaan', null, 403);
+        }
+
+        $estimasi = $this->service->estimasiBok(
+            $idPerusahaan,
+            (string) $request->query('id_rute'),
+            (string) $request->query('id_jenis_kendaraan'),
+            $request->query('estimasi_tol') !== null ? (float) $request->query('estimasi_tol') : null,
+        );
+
+        return ApiResponse::success($estimasi);
+    }
 }

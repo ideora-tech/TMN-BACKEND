@@ -20,11 +20,19 @@ interface PenawaranRepositoryInterface
 
     public function findById(string $id): ?PenawaranModel;
 
+    public function findForUpdate(string $id): ?PenawaranModel;
+
+    public function penawaranPertamaProyek(string $idProyek): ?PenawaranModel;
+
+    public function adaRevisiBerjalan(string $idProyek): bool;
+
     public function findByNomor(string $idPerusahaan, string $nomor, ?string $excludeId = null): ?PenawaranModel;
 
     public function create(array $data): PenawaranModel;
 
     public function update(PenawaranModel $model, array $data): PenawaranModel;
+
+    public function tautkanProyekJikaBelum(string $idPenawaran, string $idProyek): int;
 
     public function delete(PenawaranModel $model): void;
 

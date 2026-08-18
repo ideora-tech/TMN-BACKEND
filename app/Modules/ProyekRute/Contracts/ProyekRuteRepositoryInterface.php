@@ -24,6 +24,20 @@ interface ProyekRuteRepositoryInterface
 
     public function jenisKendaraanMilik(string $id, string $idPerusahaan): ?object;
 
+    public function existsDuplikat(string $idProyek, string $idRute, ?string $idJenisKendaraan, ?string $excludeId = null): bool;
+
+    /**
+     * Lookup harga trip: baris jenis kendaraan cocok menang; bila tidak ada
+     * dan $idJenisKendaraan diisi, fallback baris id_jenis_kendaraan NULL.
+     */
+    public function findHarga(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?object;
+
+    public function adaPenawaranDisetujui(string $idProyek): bool;
+
+    public function tipeHargaProyek(string $idProyek): ?string;
+
+    public function findBarisTepat(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?ProyekRuteModel;
+
     public function create(array $data): ProyekRuteModel;
 
     public function update(ProyekRuteModel $model, array $data): ProyekRuteModel;
