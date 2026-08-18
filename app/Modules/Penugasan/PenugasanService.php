@@ -81,6 +81,12 @@ class PenugasanService
         ];
     }
 
+    /** Unit vendor unit_only siap-pakai untuk digabung ke dropdown Armada di Penugasan Operasional. */
+    public function opsiArmadaVendor(string $idPerusahaan): array
+    {
+        return $this->armadaVendorRepo->listOpsiUnitOnly($idPerusahaan);
+    }
+
     public function findOrFail(string $id): PenugasanModel
     {
         $record = $this->repo->findById($id);

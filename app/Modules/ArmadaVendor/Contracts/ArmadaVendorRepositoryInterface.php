@@ -14,6 +14,9 @@ interface ArmadaVendorRepositoryInterface
     public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
     public function jenisKendaraanMilikPerusahaan(string $idJenisKendaraan, string $idPerusahaan): bool;
     public function milikVendor(string $id, string $idVendor): bool;
+
+    /** @return array<int, array{id_armada_vendor: string, id_kontrak_vendor: string, nopol: string, merk: ?string, jenis: ?string, id_vendor: string, nama_vendor: string}> */
+    public function listOpsiUnitOnly(string $idPerusahaan): array;
     public function create(array $data): ArmadaVendorModel;
     public function update(ArmadaVendorModel $model, array $data): ArmadaVendorModel;
     public function delete(ArmadaVendorModel $model): void;

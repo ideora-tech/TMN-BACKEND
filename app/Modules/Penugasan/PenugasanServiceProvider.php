@@ -21,6 +21,7 @@ class PenugasanServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum', 'izin:penugasan'])
             ->group(function () {
+                Route::get('penugasan/opsi-armada-vendor', [PenugasanController::class, 'opsiArmadaVendor']);
                 Route::apiResource('penugasan', PenugasanController::class)
                     ->parameters(['penugasan' => 'id']);
             });

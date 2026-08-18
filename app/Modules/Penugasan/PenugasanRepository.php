@@ -41,7 +41,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
     {
         return PenugasanModel::active()
             ->where('id_proyek', $idProyek)
-            ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
+            ->when($sumber, fn ($q, $v) => $this->terapkanFilterSumber($q, $v))
             ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
             ->orderBy('dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
@@ -53,7 +53,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return PenugasanModel::active()
             ->with(['proyek', 'armada'])
             ->whereHas('proyek', fn ($q) => $q->where('id_perusahaan', $idPerusahaan)->whereNull('dihapus_pada'))
-            ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
+            ->when($sumber, fn ($q, $v) => $this->terapkanFilterSumber($q, $v))
             ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
             ->orderBy('tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
@@ -63,7 +63,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
     {
         return PenugasanModel::active()
             ->where('id_armada', $idArmada)
-            ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
+            ->when($sumber, fn ($q, $v) => $this->terapkanFilterSumber($q, $v))
             ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
             ->orderBy('tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
@@ -74,10 +74,31 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return PenugasanModel::active()
             ->with(['proyek', 'armada'])
             ->where('id_supir', $idSupir)
-            ->when($sumber, fn ($q) => $q->where('sumber', $sumber))
+            ->when($sumber, fn ($q, $v) => $this->terapkanFilterSumber($q, $v))
             ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
             ->orderBy('tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    /**
+     * `sumber=operasional` adalah filter gabungan khusus untuk daftar Penugasan
+     * Operasional: internal + vendor bermekanisme unit_only (id_supir_vendor kosong
+     * membedakannya dari unit_driver/full yang tetap hanya tampil di Penugasan Vendor).
+     * Nilai lain ('internal'/'vendor') tetap exact-match seperti sebelumnya.
+     */
+    private function terapkanFilterSumber($query, string $sumber): void
+    {
+        if ($sumber === 'operasional') {
+            $query->where(function ($q) {
+                $q->where('sumber', 'internal')
+                    ->orWhere(function ($q2) {
+                        $q2->where('sumber', 'vendor')->whereNull('id_supir_vendor');
+                    });
+            });
+            return;
+        }
+
+        $query->where('sumber', $sumber);
     }
 
     public function countSelesaiByProyek(string $idProyek): int

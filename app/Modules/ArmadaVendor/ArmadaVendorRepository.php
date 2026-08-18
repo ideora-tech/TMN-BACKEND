@@ -65,6 +65,53 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
             ->exists();
     }
 
+    /**
+     * Unit vendor yang tersedia untuk dipilih di Penugasan Operasional — hanya unit
+     * aktif milik vendor yang punya kontrak bermekanisme 'unit_only' (vendor hanya
+     * menyewakan unit, supirnya tetap internal). id_kontrak_vendor diresolusi otomatis
+     * di sini (kontrak terbaru per unit) supaya form Operasional tidak perlu meminta
+     * dispatcher memilih kontrak secara manual.
+     */
+    public function listOpsiUnitOnly(string $idPerusahaan): array
+    {
+        $rows = ArmadaVendorModel::active()
+            ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->join('kontrak_vendor', function ($join) use ($idPerusahaan) {
+                $join->on('kontrak_vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+                    ->where('kontrak_vendor.mekanisme', '=', 'unit_only')
+                    ->where('kontrak_vendor.id_perusahaan', '=', $idPerusahaan)
+                    ->whereNull('kontrak_vendor.dihapus_pada');
+            })
+            ->where('vendor.id_perusahaan', $idPerusahaan)
+            ->where('armada_vendor.aktif', 1)
+            ->whereNull('vendor.dihapus_pada')
+            ->select(
+                'armada_vendor.id_armada_vendor', 'armada_vendor.nopol', 'armada_vendor.merk', 'armada_vendor.jenis',
+                'armada_vendor.id_vendor', 'vendor.nama_vendor', 'kontrak_vendor.id_kontrak_vendor',
+            )
+            ->orderBy('armada_vendor.nopol')
+            ->orderByDesc('kontrak_vendor.dibuat_pada')
+            ->get();
+
+        $result = [];
+        foreach ($rows as $row) {
+            if (isset($result[$row->id_armada_vendor])) {
+                continue;
+            }
+            $result[$row->id_armada_vendor] = [
+                'id_armada_vendor'  => $row->id_armada_vendor,
+                'id_kontrak_vendor' => $row->id_kontrak_vendor,
+                'nopol'             => $row->nopol,
+                'merk'              => $row->merk,
+                'jenis'             => $row->jenis,
+                'id_vendor'         => $row->id_vendor,
+                'nama_vendor'       => $row->nama_vendor,
+            ];
+        }
+
+        return array_values($result);
+    }
+
     public function create(array $data): ArmadaVendorModel
     {
         return ArmadaVendorModel::create($data);

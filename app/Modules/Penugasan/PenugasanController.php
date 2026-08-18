@@ -16,6 +16,12 @@ class PenugasanController extends Controller
 {
     public function __construct(private readonly PenugasanService $service) {}
 
+    public function opsiArmadaVendor(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success($this->service->opsiArmadaVendor($idPerusahaan));
+    }
+
     public function index(Request $request): JsonResponse
     {
         $page   = (int) $request->get('page', 1);
