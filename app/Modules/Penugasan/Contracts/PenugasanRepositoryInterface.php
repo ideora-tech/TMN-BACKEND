@@ -20,6 +20,7 @@ interface PenugasanRepositoryInterface
     public function findById(string $id): ?PenugasanModel;
     public function hasConflict(string $idKaryawan, string $tanggalTugas, ?string $excludeId = null): bool;
     public function existsAktifUntukSupirProyek(string $idProyek, string $idSupir, ?string $excludeId = null): bool;
+    public function findAktifUntukSupirDiProyek(string $idSupir, string $idProyek): ?PenugasanModel;
     public function adaKonflikAktorPadaTanggal(string $kolomAktor, string $idAktor, string $tanggalTugas, ?string $excludeId = null): bool;
     public function create(array $data): PenugasanModel;
     public function update(PenugasanModel $model, array $data): PenugasanModel;

@@ -47,7 +47,7 @@ class PenagihanTripService
                 $idJenisKendaraan !== null ? (string) $idJenisKendaraan : null,
             );
             if ($baris !== null && $baris->harga_penawaran !== null) {
-                $tarif = ['harga' => (float) $baris->harga_penawaran];
+                $tarif = ['harga' => (float) $baris->harga_penawaran, 'perkiraan' => (bool) ($baris->tarif_perkiraan ?? false)];
             }
         }
 

@@ -134,6 +134,59 @@ class JadwalShiftTest extends TestCase
         $this->assertNull($data[$supirKosong]['id_trip']);
     }
 
+    public function test_list_menyertakan_semua_trip_saat_lebih_dari_satu_rit_di_hari_yang_sama(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $supir = $this->makeSupir('Wawan Dua Rit');
+        $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $shift = $this->makeShift();
+
+        $this->postJson('/api/v1/jadwal-shift', [
+            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
+            'tanggal' => '2026-07-20', 'supir' => [$supir],
+        ])->assertJsonPath('data.sukses', 1);
+
+        $jadwalRit1 = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => '2026-07-20 07:00:00',
+        ]);
+        $trip1 = TripModel::create([
+            'id_jadwal'      => $jadwalRit1->id_jadwal,
+            'status'         => 'selesai',
+            'waktu_checkin'  => '2026-07-20 07:05:00',
+            'waktu_checkout' => '2026-07-20 10:00:00',
+        ]);
+
+        $jadwalRit2 = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => '2026-07-20 11:00:00',
+        ]);
+        $trip2 = TripModel::create([
+            'id_jadwal'     => $jadwalRit2->id_jadwal,
+            'status'        => 'berjalan',
+            'waktu_checkin' => '2026-07-20 11:05:00',
+        ]);
+
+        $list = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyek->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
+        $list->assertStatus(200);
+        $baris = collect($list->json('data'))->firstWhere('id_supir', $supir);
+
+        // Trip yang berjalan tetap jadi "utama" (kompatibilitas tombol Batal Trip/Selesaikan).
+        $this->assertSame('berjalan', $baris['status_trip']);
+        $this->assertSame($trip2->id_trip, $baris['id_trip']);
+
+        // Tapi kedua rit tetap kelihatan lewat daftar trips, tidak ada yang hilang.
+        $this->assertCount(2, $baris['trips']);
+        $idTripDiDaftar = collect($baris['trips'])->pluck('id_trip')->all();
+        $this->assertContains($trip1->id_trip, $idTripDiDaftar);
+        $this->assertContains($trip2->id_trip, $idTripDiDaftar);
+        $statusRit1 = collect($baris['trips'])->firstWhere('id_trip', $trip1->id_trip)['status'];
+        $statusRit2 = collect($baris['trips'])->firstWhere('id_trip', $trip2->id_trip)['status'];
+        $this->assertSame('selesai', $statusRit1);
+        $this->assertSame('berjalan', $statusRit2);
+    }
+
     public function test_status_trip_tidak_bocor_dari_proyek_lain(): void
     {
         $this->actingAsRole('SUPERADMIN');

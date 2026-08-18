@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\AlokasiArmada;
 
 use App\Modules\AlokasiArmada\Contracts\AlokasiArmadaRepositoryInterface;
+use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
 
 class AlokasiArmadaService
 {
-    public function __construct(private readonly AlokasiArmadaRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly AlokasiArmadaRepositoryInterface $repo,
+        private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
+    ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $dari = null, ?string $sampai = null, ?string $search = null, ?string $idArmada = null, ?string $idProyek = null): array
     {
@@ -36,6 +40,27 @@ class AlokasiArmadaService
      */
     public function alokasikan(string $idSupir, string $tanggal, string $idProyek): void
     {
+        $override = $this->jadwalShiftRepo->findOverrideAktif($idSupir, $idProyek, $tanggal);
+        if ($override !== null && $override->id_armada_override !== null) {
+            $ada = $this->repo->findAktifBySupirTanggal($idSupir, $tanggal);
+            if ($ada !== null && (string) $ada->id_armada === (string) $override->id_armada_override && $ada->sumber === 'override_manual') {
+                return;
+            }
+            if ($ada !== null) {
+                $this->repo->softDeleteById($ada->id_alokasi);
+            }
+            $this->repo->create([
+                'tanggal'         => $tanggal,
+                'id_proyek'       => $idProyek,
+                'id_supir'        => $idSupir,
+                'id_armada'       => $override->id_armada_override,
+                'id_pemilik_asal' => null,
+                'sumber'          => 'override_manual',
+                'keterangan'      => null,
+            ]);
+            return;
+        }
+
         $ada = $this->repo->findAktifBySupirTanggal($idSupir, $tanggal);
 
         $penugasan = $this->repo->penugasanAktifSupirProyek($idSupir, $idProyek);

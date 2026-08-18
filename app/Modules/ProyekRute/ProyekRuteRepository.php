@@ -89,6 +89,17 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
         return $query->exists();
     }
 
+    /**
+     * Penugasan sengaja fleksibel — ops boleh assign armada jenis apa saja,
+     * tidak wajib cocok dengan yang ada di penawaran/rate card. Resolusi tarif
+     * 3 lapis: (1) cocok persis rute+jenis kendaraan, (2) baris "semua jenis"
+     * (id_jenis_kendaraan NULL), (3) fallback tarif termurah di rute itu —
+     * supaya trip tidak macet tak bisa ditagih hanya karena jenis armada beda,
+     * nilainya tetap aman untuk klien (tidak pernah lebih mahal dari yang
+     * disepakati di rute itu), dan masih bisa dikoreksi manual lewat Edit
+     * Invoice sebelum draft dikirim. `tarif_perkiraan` ditandai true khusus
+     * lapis fallback termurah, supaya pemanggil bisa kasih peringatan ke user.
+     */
     public function findHarga(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?object
     {
         if ($idJenisKendaraan !== null) {
@@ -99,15 +110,34 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
                 ->first();
 
             if ($baris !== null) {
+                $baris->tarif_perkiraan = false;
                 return $baris;
             }
         }
 
-        return ProyekRuteModel::active()
+        $baris = ProyekRuteModel::active()
             ->where('id_proyek', $idProyek)
             ->where('id_rute', $idRute)
             ->whereNull('id_jenis_kendaraan')
             ->first();
+
+        if ($baris !== null) {
+            $baris->tarif_perkiraan = false;
+            return $baris;
+        }
+
+        $baris = ProyekRuteModel::active()
+            ->where('id_proyek', $idProyek)
+            ->where('id_rute', $idRute)
+            ->whereNotNull('harga_penawaran')
+            ->orderBy('harga_penawaran')
+            ->first();
+
+        if ($baris !== null) {
+            $baris->tarif_perkiraan = true;
+        }
+
+        return $baris;
     }
 
     public function adaPenawaranDisetujui(string $idProyek): bool

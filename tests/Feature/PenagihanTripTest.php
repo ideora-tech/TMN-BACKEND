@@ -109,6 +109,46 @@ class PenagihanTripTest extends TestCase
         return $trip;
     }
 
+    private function buatTripJenisLain(string $idJenisKendaraan, ?string $idRute = null): TripModel
+    {
+        $idArmada = (string) Str::uuid();
+        DB::table('armada')->insert([
+            'id_armada' => $idArmada, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol' => 'B ' . random_int(1000, 9999) . ' PT', 'merk' => 'Hino',
+            'id_jenis_kendaraan' => $idJenisKendaraan, 'dibuat_pada' => now(),
+        ]);
+
+        $idSupir = (string) Str::uuid();
+        DB::table('supir')->insert([
+            'id_supir' => $idSupir, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama' => 'Supir Tagih ' . Str::random(4), 'status' => 'aktif', 'dibuat_pada' => now(),
+        ]);
+
+        $penugasan = PenugasanModel::create([
+            'id_proyek' => $this->proyek->id_proyek,
+            'id_armada' => $idArmada,
+            'id_supir'  => $idSupir,
+        ]);
+
+        $jadwal = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'id_rute'         => $idRute ?? $this->idRute,
+            'waktu_berangkat' => now()->subDay(),
+        ]);
+
+        $trip = TripModel::create([
+            'id_jadwal' => $jadwal->id_jadwal,
+            'status'    => 'selesai',
+        ]);
+
+        DB::table('laporan_perjalanan')->insert([
+            'id_laporan' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_trip' => $trip->id_trip, 'jarak_tempuh_km' => 750, 'dibuat_pada' => now(),
+        ]);
+
+        return $trip;
+    }
+
     private function buatTripArmadaVendor(): TripModel
     {
         $idVendor = \App\Modules\Vendor\VendorModel::create([
@@ -245,6 +285,59 @@ class PenagihanTripTest extends TestCase
 
         $this->assertSame(1300000.0, (float) $baris['tarif']['harga']);
         $this->assertTrue($baris['bisa_ditagih']);
+        $this->assertFalse($baris['tarif']['perkiraan']);
+    }
+
+    public function test_harga_fallback_termurah_dipakai_saat_jenis_kendaraan_tidak_cocok_baris_manapun(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $idJenisPickup = (string) Str::uuid();
+        DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $idJenisPickup, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_jenis' => 'JK-' . Str::random(6), 'nama_jenis' => 'Pickup', 'dibuat_pada' => now(),
+        ]);
+        $idJenisColtDiesel = (string) Str::uuid();
+        DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $idJenisColtDiesel, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_jenis' => 'JK-' . Str::random(6), 'nama_jenis' => 'Colt Diesel', 'dibuat_pada' => now(),
+        ]);
+
+        // Rate card rute ini cuma punya tarif untuk Tronton & Pickup — tidak ada baris "semua jenis".
+        $this->buatProyekRute($this->proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1500000);
+        $this->buatProyekRute($this->proyek->id_proyek, $this->idRute, $idJenisPickup, 800000);
+
+        // Ops assign armada Colt Diesel — tidak cocok baris manapun.
+        $trip = $this->buatTripJenisLain($idJenisColtDiesel);
+
+        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $res->assertStatus(200);
+        $baris = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
+
+        $this->assertTrue($baris['bisa_ditagih']);
+        $this->assertSame(800000.0, (float) $baris['tarif']['harga']);
+        $this->assertTrue($baris['tarif']['perkiraan']);
+
+        // Tidak lagi macet — draft faktur berhasil dibuat pakai tarif termurah itu.
+        $this->postJson('/api/v1/penagihan-trip/faktur', [
+            'id_proyek'      => $this->proyek->id_proyek,
+            'trip_ids'       => [$trip->id_trip],
+            'tanggal_faktur' => now()->toDateString(),
+        ])->assertStatus(201)->assertJsonPath('data.total', 800000);
+    }
+
+    public function test_harga_tarif_perkiraan_false_saat_cocok_persis_atau_fallback_semua_jenis(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $this->buatProyekRute($this->proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1400000);
+
+        $tripCocokPersis = $this->buatTrip();
+
+        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $baris = collect($res->json('data'))->firstWhere('id_trip', $tripCocokPersis->id_trip);
+        $this->assertFalse($baris['tarif']['perkiraan']);
     }
 
     public function test_generate_draft_faktur_dari_trip(): void

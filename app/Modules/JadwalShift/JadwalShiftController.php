@@ -86,13 +86,13 @@ class JadwalShiftController extends Controller
 
     public function update(UpdateJadwalShiftRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->updateShift($id, (string) $request->validated()['id_shift']);
+        $record = $this->service->updateShift($id, $request->validated(), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new JadwalShiftResource($record), 'Jadwal shift berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Jadwal shift berhasil dihapus');
     }
 

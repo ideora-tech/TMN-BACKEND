@@ -143,6 +143,15 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return $query->exists();
     }
 
+    public function findAktifUntukSupirDiProyek(string $idSupir, string $idProyek): ?PenugasanModel
+    {
+        return PenugasanModel::where('id_supir', $idSupir)
+            ->where('id_proyek', $idProyek)
+            ->whereIn('status', ['pending', 'aktif'])
+            ->whereNull('dihapus_pada')
+            ->first();
+    }
+
     public function adaKonflikAktorPadaTanggal(string $kolomAktor, string $idAktor, string $tanggalTugas, ?string $excludeId = null): bool
     {
         if (!in_array($kolomAktor, ['id_armada_vendor', 'id_supir_vendor', 'id_supir'], true)) {

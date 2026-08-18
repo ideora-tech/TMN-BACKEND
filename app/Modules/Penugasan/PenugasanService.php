@@ -6,6 +6,7 @@ namespace App\Modules\Penugasan;
 
 use App\Modules\Armada\ArmadaModel;
 use App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface;
+use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
 use App\Modules\KontrakVendor\Contracts\KontrakVendorRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
 use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
@@ -19,6 +20,7 @@ class PenugasanService
         private readonly ArmadaVendorRepositoryInterface $armadaVendorRepo,
         private readonly SupirVendorRepositoryInterface $supirVendorRepo,
         private readonly TripRepositoryInterface $tripRepo,
+        private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
     ) {}
 
     public function list(string $idProyek, int $page = 1, int $limit = 10, ?string $sumber = null, ?string $status = null): array
@@ -96,6 +98,11 @@ class PenugasanService
         return $record;
     }
 
+    public function findAktifUntukSupirDiProyek(string $idSupir, string $idProyek): ?PenugasanModel
+    {
+        return $this->repo->findAktifUntukSupirDiProyek($idSupir, $idProyek);
+    }
+
     public function create(array $data, string $idPerusahaan): PenugasanModel
     {
         $data = $this->normalizeSumber($data);
@@ -122,6 +129,10 @@ class PenugasanService
 
         if (($data['status'] ?? 'pending') === 'pending') {
             $data['status'] = $this->sudahAdaSupir($data) ? 'aktif' : 'pending';
+        }
+
+        if (!empty($data['id_supir'])) {
+            $this->bersihkanJadwalOrphanUntukSupirBaru((string) $data['id_proyek'], (string) $data['id_supir']);
         }
 
         $titikDrop = $data['titik_drop'] ?? null;
@@ -236,9 +247,67 @@ class PenugasanService
             && !empty($updated->id_supir)
             && $updated->id_supir !== $supirSebelum) {
             $this->notifikasiPenugasan($updated);
+
+            if (!empty($supirSebelum)) {
+                $this->pindahkanJadwalKeSupirBaru(
+                    (string) $updated->id_proyek,
+                    (string) $supirSebelum,
+                    (string) $updated->id_supir,
+                );
+            }
         }
 
         return $updated;
+    }
+
+    /**
+     * Supir penugasan diganti → jadwal shift mulai hari ini (papan jadwal)
+     * ikut dipindah kepemilikannya ke supir baru, alih-alih jadi nyangkut tak
+     * terlihat (baris papan diambil dari penugasan aktif, bukan jadwal_shift
+     * langsung). Jadwal sebelum hari ini dibiarkan milik supir lama sebagai
+     * riwayat. Tanggal yang bentrok dengan jadwal supir baru di proyek lain
+     * dilewati otomatis oleh repository (aturan 1 shift/hari global).
+     */
+    private function pindahkanJadwalKeSupirBaru(string $idProyek, string $supirLama, string $supirBaru): void
+    {
+        $hasil = $this->jadwalShiftRepo->pindahkanKepemilikan($idProyek, $supirLama, $supirBaru, now()->toDateString());
+
+        if ($hasil['dipindah'] === []) {
+            return;
+        }
+
+        $alokasiService = app(\App\Modules\AlokasiArmada\AlokasiArmadaService::class);
+        foreach ($hasil['dipindah'] as $tanggal) {
+            $alokasiService->hapusUntukJadwal($supirLama, $tanggal);
+        }
+        $alokasiService->hitungUlangRentang($idProyek, min($hasil['dipindah']), max($hasil['dipindah']));
+    }
+
+    /**
+     * Penugasan baru dibuat untuk supir yang mulai hari ini masih punya
+     * jadwal_shift nyangkut dari penugasan lain (sumber apa pun) di proyek
+     * yang sama yang sudah selesai/batal — jadwal itu dihapus supaya papan
+     * bersih dan ops bisa assign shift dari nol untuk penugasan baru ini,
+     * tanpa kejegal aturan 1-shift/hari atau kewarisan supir/armada pengganti
+     * lama. Kalau masih ada penugasan aktif LAIN buat supir+proyek ini (mis.
+     * unit_only vendor yang belum ditutup), jadwal yang ada memang masih
+     * valid buat penugasan itu — dibiarkan.
+     */
+    private function bersihkanJadwalOrphanUntukSupirBaru(string $idProyek, string $idSupir): void
+    {
+        if ($this->repo->findAktifUntukSupirDiProyek($idSupir, $idProyek) !== null) {
+            return;
+        }
+
+        $tanggalTerhapus = $this->jadwalShiftRepo->hapusOrphanUntukSupirProyek($idProyek, $idSupir, now()->toDateString());
+        if ($tanggalTerhapus === []) {
+            return;
+        }
+
+        $alokasiService = app(\App\Modules\AlokasiArmada\AlokasiArmadaService::class);
+        foreach ($tanggalTerhapus as $tanggal) {
+            $alokasiService->hapusUntukJadwal($idSupir, $tanggal);
+        }
     }
 
     private function notifikasiPenugasan(PenugasanModel $record): void

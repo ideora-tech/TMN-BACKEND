@@ -524,14 +524,16 @@ class TripRepository implements TripRepositoryInterface
     }
 
     /**
-     * Status trip per (supir, tanggal) UNTUK SATU PROYEK — dipakai Papan Jadwal
+     * Trip per (supir, tanggal) UNTUK SATU PROYEK — dipakai Papan Jadwal
      * supaya sel jadwal bisa ditandai "sedang jalan"/"selesai". Sengaja
      * di-scope ke id_proyek supaya trip supir yang sama di proyek lain tidak
      * ikut menandai sel proyek ini. 'belum_mulai' dianggap 'berjalan' (armada
-     * sudah dikunci); 'berjalan' menang atas 'selesai' bila ada lebih dari
-     * satu trip di tanggal yang sama.
+     * sudah dikunci). Satu supir bisa punya LEBIH DARI SATU trip di tanggal
+     * yang sama (lebih dari 1 rit sehari) — semuanya dikembalikan, diurutkan
+     * dari yang paling lama dibuat, supaya pemanggil bisa tampilkan semuanya
+     * alih-alih cuma satu.
      *
-     * @return array<string, array{status: 'berjalan'|'selesai', id_trip: string}> kunci "idSupir|tanggal"
+     * @return array<string, array{status: 'berjalan'|'selesai', id_trip: string}[]> kunci "idSupir|tanggal"
      */
     public function statusTripPerSupirTanggal(string $idProyek, array $idSupirList, string $dari, string $sampai): array
     {
@@ -549,6 +551,7 @@ class TripRepository implements TripRepositoryInterface
             ->whereIn('p.id_supir', $idSupirList)
             ->whereIn('t.status', ['belum_mulai', 'berjalan', 'selesai'])
             ->select('p.id_supir', 't.id_trip', 't.status', 't.waktu_checkin', 't.waktu_checkout', 't.dibuat_pada')
+            ->orderBy('t.dibuat_pada')
             ->get();
 
         $map = [];
@@ -561,9 +564,7 @@ class TripRepository implements TripRepositoryInterface
             $kunci = $row->id_supir . '|' . $tanggal;
             $statusSaatIni = in_array($row->status, ['belum_mulai', 'berjalan'], true) ? 'berjalan' : 'selesai';
 
-            if ($statusSaatIni === 'berjalan' || !isset($map[$kunci])) {
-                $map[$kunci] = ['status' => $statusSaatIni, 'id_trip' => $row->id_trip];
-            }
+            $map[$kunci][] = ['status' => $statusSaatIni, 'id_trip' => $row->id_trip];
         }
 
         return $map;
