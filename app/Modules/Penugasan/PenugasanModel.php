@@ -20,6 +20,7 @@ class PenugasanModel extends BaseModel
         'id_armada',
         'id_supir',
         'id_karyawan',
+        'id_rute',
         'tanggal_tugas',
         'status',
         'estimasi_biaya',

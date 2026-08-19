@@ -174,7 +174,46 @@ class JadwalShiftService
             'tanggal'     => $tanggal,
             'nama_proyek' => $this->repo->namaProyek($idProyek) ?? 'JADWAL SHIFT SUPIR',
             'periode'     => $periode,
+            'jadwal'      => $this->jadwalPerSupirUntukTemplate($idProyek, $dari, $sampai),
         ];
+    }
+
+    /**
+     * Jadwal yang sudah ada per supir dalam rentang tanggal, buat pre-fill
+     * template — supaya download ulang tidak reset ke kosong. Satu baris
+     * template cuma menampung satu nama shift, jadi kalau supir punya lebih
+     * dari satu jenis shift di rentang ini dipilih yang paling sering dipakai;
+     * tanggal shift lain dibiarkan kosong (aman — import lewati sel kosong).
+     *
+     * @return array<string, array{shift_nama: string, tanggal: array<string, bool>}>
+     */
+    private function jadwalPerSupirUntukTemplate(string $idProyek, string $dari, string $sampai): array
+    {
+        $rows = $this->repo->listByProyek($idProyek, $dari, $sampai);
+
+        $perSupir = [];
+        foreach ($rows as $row) {
+            $idSupir = (string) $row->id_supir;
+            $perSupir[$idSupir]['hitungShift'][$row->shift_nama] = ($perSupir[$idSupir]['hitungShift'][$row->shift_nama] ?? 0) + 1;
+            $perSupir[$idSupir]['baris'][] = $row;
+        }
+
+        $hasil = [];
+        foreach ($perSupir as $idSupir => $data) {
+            arsort($data['hitungShift']);
+            $shiftUtama = (string) array_key_first($data['hitungShift']);
+
+            $tanggalMap = [];
+            foreach ($data['baris'] as $row) {
+                if ($row->shift_nama === $shiftUtama) {
+                    $tanggalMap[(string) $row->tanggal] = true;
+                }
+            }
+
+            $hasil[$idSupir] = ['shift_nama' => $shiftUtama, 'tanggal' => $tanggalMap];
+        }
+
+        return $hasil;
     }
 
     /**

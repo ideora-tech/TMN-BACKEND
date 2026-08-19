@@ -19,25 +19,29 @@ class JadwalShiftTemplateExport implements FromArray, WithColumnWidths, WithEven
     /**
      * @param array<int, object> $supirList
      * @param array<int, string> $tanggalList
+     * @param array<string, array{shift_nama: string, tanggal: array<string, bool>}> $jadwalPerSupir
      */
     public function __construct(
         private readonly array $supirList,
         private readonly array $tanggalList,
         private readonly string $namaProyek,
         private readonly string $periode,
+        private readonly array $jadwalPerSupir = [],
     ) {}
 
     public function array(): array
     {
         $header = array_merge(['No SIM', 'Nama Supir', 'Shift'], $this->tanggalList);
 
-        $rows = array_map(
-            fn ($s) => array_merge(
-                [$s->no_sim, $s->nama, ''],
-                array_fill(0, count($this->tanggalList), '')
-            ),
-            $this->supirList
-        );
+        $rows = array_map(function ($s) {
+            $jadwal = $this->jadwalPerSupir[(string) $s->id_supir] ?? null;
+            $tanggalTerjadwal = $jadwal['tanggal'] ?? [];
+
+            return array_merge(
+                [$s->no_sim, $s->nama, $jadwal['shift_nama'] ?? ''],
+                array_map(fn ($tgl) => ($tanggalTerjadwal[$tgl] ?? false) ? 'H' : '', $this->tanggalList)
+            );
+        }, $this->supirList);
 
         return array_merge([$header], $rows);
     }

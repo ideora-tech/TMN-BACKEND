@@ -270,6 +270,54 @@ class JadwalShiftImportTest extends TestCase
         $this->assertSame('No SIM', trim((string) $rows[2][0]));
     }
 
+    public function test_template_prefill_jadwal_yang_sudah_ada(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $idShiftPagi = $this->makeShiftNamed('Pagi');
+        $idSupirTerjadwal = $this->makeSupir('Supir Terjadwal', 'SIM-PREFILL-1');
+        $idSupirKosong = $this->makeSupir('Supir Kosong', 'SIM-PREFILL-2');
+        foreach ([$idSupirTerjadwal, $idSupirKosong] as $idSupir) {
+            PenugasanModel::create([
+                'id_perusahaan' => self::PERUSAHAAN_ID,
+                'id_proyek'     => $proyek->id_proyek,
+                'id_supir'      => $idSupir,
+                'status'        => 'aktif',
+                'tanggal_tugas' => '2026-08-05',
+            ]);
+        }
+        $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupirTerjadwal, '2026-08-05');
+        $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupirTerjadwal, '2026-08-07');
+
+        $res = $this->get("/api/v1/jadwal-shift/import/template?id_proyek={$proyek->id_proyek}&dari=2026-08-01&sampai=2026-08-31");
+        $res->assertStatus(200);
+
+        $path = tempnam(sys_get_temp_dir(), 'tpl') . '.xlsx';
+        copy($res->baseResponse->getFile()->getPathname(), $path);
+        $file = new UploadedFile($path, 'template.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+        $rows = \Maatwebsite\Excel\Facades\Excel::toArray(new \App\Modules\JadwalShift\Imports\JadwalShiftImport(), $file)[0];
+
+        $header = array_map(function ($v) {
+            if (!is_numeric($v)) {
+                return trim((string) $v);
+            }
+            return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $v)->format('Y-m-d');
+        }, $rows[2]);
+        $kolomTgl5 = array_search('2026-08-05', $header, true);
+        $kolomTgl7 = array_search('2026-08-07', $header, true);
+        $kolomTgl6 = array_search('2026-08-06', $header, true);
+
+        $baris = collect($rows)->first(fn ($r) => trim((string) ($r[0] ?? '')) === 'SIM-PREFILL-1');
+        $this->assertSame('Pagi', trim((string) $baris[2]));
+        $this->assertSame('H', trim((string) $baris[$kolomTgl5]));
+        $this->assertSame('H', trim((string) $baris[$kolomTgl7]));
+        $this->assertSame('', trim((string) $baris[$kolomTgl6]));
+
+        $barisKosong = collect($rows)->first(fn ($r) => trim((string) ($r[0] ?? '')) === 'SIM-PREFILL-2');
+        $this->assertSame('', trim((string) $barisKosong[2]));
+        $this->assertSame('', trim((string) $barisKosong[$kolomTgl5]));
+    }
+
     public function test_import_baris_bermasalah_dilaporkan_tanpa_menggagalkan_lainnya(): void
     {
         $this->actingAsRole('SUPERADMIN');
