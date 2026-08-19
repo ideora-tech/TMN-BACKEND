@@ -57,10 +57,26 @@ class FakturService
 
     public function untukCetak(string $id, string $idPerusahaan): FakturModel
     {
-        $record = $this->findOrFail($id, $idPerusahaan);
+        return $this->denganReferensi($this->findOrFail($id, $idPerusahaan));
+    }
+
+    /**
+     * Lengkapi faktur dengan nama proyek/klien dan referensi penawaran yang
+     * jadi dasar harganya — jejak audit "tarif invoice ini dari kesepakatan
+     * mana" untuk halaman detail maupun cetakan PDF/Excel.
+     */
+    public function denganReferensi(FakturModel $record): FakturModel
+    {
+        $idPerusahaan = (string) $record->id_perusahaan;
 
         $record->nama_klien  = $record->id_klien ? $this->repo->namaKlien((string) $record->id_klien, $idPerusahaan) : null;
         $record->nama_proyek = $record->id_proyek ? $this->repo->namaProyek((string) $record->id_proyek, $idPerusahaan) : null;
+
+        $penawaran = $record->id_penawaran
+            ? $this->repo->infoPenawaran((string) $record->id_penawaran, $idPerusahaan)
+            : null;
+        $record->nomor_penawaran = $penawaran->nomor_penawaran ?? null;
+        $record->nilai_penawaran = isset($penawaran->nilai_penawaran) ? (float) $penawaran->nilai_penawaran : null;
 
         return $record;
     }

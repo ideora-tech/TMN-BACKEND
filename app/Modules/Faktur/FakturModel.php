@@ -17,6 +17,7 @@ class FakturModel extends BaseModel
         'id_perusahaan',
         'id_proyek',
         'id_klien',
+        'id_penawaran',
         'nomor_faktur',
         'total',
         'status',

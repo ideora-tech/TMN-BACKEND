@@ -373,6 +373,77 @@ class PenagihanTripTest extends TestCase
         $this->assertCount(0, $daftar->json('data'));
     }
 
+    public function test_draft_faktur_menyimpan_referensi_penawaran_disetujui_proyek(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $this->buatProyekRute($this->proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1500000);
+
+        $idPenawaranLama = (string) Str::uuid();
+        DB::table('penawaran')->insert([
+            'id_penawaran' => $idPenawaranLama, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien' => $this->idKlien, 'id_proyek' => $this->proyek->id_proyek,
+            'nomor_penawaran' => 'PNW-' . Str::random(8), 'judul' => 'Penawaran Awal',
+            'nilai_penawaran' => 10000000,
+            'status' => 'disetujui', 'tipe_harga' => 'per_rit',
+            'dibuat_pada' => now()->subDay(),
+        ]);
+        $idRevisiDisetujui = (string) Str::uuid();
+        DB::table('penawaran')->insert([
+            'id_penawaran' => $idRevisiDisetujui, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien' => $this->idKlien, 'id_proyek' => $this->proyek->id_proyek,
+            'nomor_penawaran' => 'PNW-' . Str::random(8), 'judul' => 'Penawaran Revisi',
+            'nilai_penawaran' => 15000000,
+            'status' => 'disetujui', 'tipe_harga' => 'per_rit',
+            'id_penawaran_induk' => $idPenawaranLama, 'dibuat_pada' => now(),
+        ]);
+
+        $trip = $this->buatTrip();
+
+        $res = $this->postJson('/api/v1/penagihan-trip/faktur', [
+            'id_proyek'      => $this->proyek->id_proyek,
+            'trip_ids'       => [$trip->id_trip],
+            'tanggal_faktur' => now()->toDateString(),
+        ]);
+        $res->assertStatus(201);
+
+        // Faktur merefer ke penawaran disetujui TERBARU (revisi menang atas penawaran awal).
+        $this->assertDatabaseHas('faktur', [
+            'id_faktur'    => $res->json('data.id_faktur'),
+            'id_penawaran' => $idRevisiDisetujui,
+        ]);
+
+        // Detail faktur mengembalikan nomor & nilai penawaran + nama proyek/klien.
+        $detail = $this->getJson('/api/v1/faktur/' . $res->json('data.id_faktur'));
+        $detail->assertStatus(200)
+            ->assertJsonPath('data.id_penawaran', $idRevisiDisetujui)
+            ->assertJsonPath('data.nama_proyek', 'Proyek Penagihan')
+            ->assertJsonPath('data.nama_klien', 'Klien Penagihan');
+        $this->assertNotNull($detail->json('data.nomor_penawaran'));
+        $this->assertSame(15000000.0, (float) $detail->json('data.nilai_penawaran'));
+    }
+
+    public function test_draft_faktur_tanpa_penawaran_disetujui_id_penawaran_null(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $this->buatProyekRute($this->proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1500000);
+
+        $trip = $this->buatTrip();
+
+        $res = $this->postJson('/api/v1/penagihan-trip/faktur', [
+            'id_proyek'      => $this->proyek->id_proyek,
+            'trip_ids'       => [$trip->id_trip],
+            'tanggal_faktur' => now()->toDateString(),
+        ]);
+        $res->assertStatus(201);
+
+        $this->assertDatabaseHas('faktur', [
+            'id_faktur'    => $res->json('data.id_faktur'),
+            'id_penawaran' => null,
+        ]);
+    }
+
     public function test_generate_menolak_trip_tanpa_tarif_atau_sudah_difakturkan(): void
     {
         $this->actingAsRole('SUPERADMIN');

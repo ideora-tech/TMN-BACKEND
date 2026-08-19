@@ -68,6 +68,15 @@ class FakturRepository implements FakturRepositoryInterface
             ->value('nama_proyek');
     }
 
+    public function infoPenawaran(string $idPenawaran, string $idPerusahaan): ?object
+    {
+        return DB::table('penawaran')
+            ->where('id_penawaran', $idPenawaran)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->first(['id_penawaran', 'nomor_penawaran', 'nilai_penawaran', 'tipe_harga', 'status']);
+    }
+
     public function getPerusahaan(string $idPerusahaan): ?object
     {
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();

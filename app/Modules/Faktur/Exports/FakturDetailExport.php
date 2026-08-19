@@ -27,7 +27,7 @@ class FakturDetailExport implements FromCollection, WithHeadings, ShouldAutoSize
     {
         $tgl = fn ($v) => $v ? $v->format('d/m/Y') : '-';
 
-        return sprintf(
+        $info = sprintf(
             'Klien: %s | Proyek: %s | Tanggal: %s | Jatuh Tempo: %s | Status: %s',
             $this->faktur->nama_klien ?? '-',
             $this->faktur->nama_proyek ?? '-',
@@ -35,6 +35,12 @@ class FakturDetailExport implements FromCollection, WithHeadings, ShouldAutoSize
             $tgl($this->faktur->jatuh_tempo),
             strtoupper((string) $this->faktur->status),
         );
+
+        if (!empty($this->faktur->nomor_penawaran)) {
+            $info .= ' | Ref. Penawaran: ' . $this->faktur->nomor_penawaran;
+        }
+
+        return $info;
     }
 
     public function collection(): Collection

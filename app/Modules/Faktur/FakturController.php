@@ -47,7 +47,7 @@ class FakturController extends Controller
     {
         $record = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
-        return ApiResponse::success(new FakturResource($this->service->denganAudit($record)));
+        return ApiResponse::success(new FakturResource($this->service->denganReferensi($this->service->denganAudit($record))));
     }
 
     public function store(StoreFakturRequest $request): JsonResponse
@@ -65,14 +65,14 @@ class FakturController extends Controller
     {
         $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
-        return ApiResponse::success(new FakturResource($this->service->denganAudit($record)), 'Invoice berhasil diperbarui');
+        return ApiResponse::success(new FakturResource($this->service->denganReferensi($this->service->denganAudit($record))), 'Invoice berhasil diperbarui');
     }
 
     public function updateStatus(UpdateStatusFakturRequest $request, string $id): JsonResponse
     {
         $record = $this->service->updateStatus($id, $request->validated()['status'], (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
-        return ApiResponse::success(new FakturResource($this->service->denganAudit($record)), 'Status invoice berhasil diperbarui');
+        return ApiResponse::success(new FakturResource($this->service->denganReferensi($this->service->denganAudit($record))), 'Status invoice berhasil diperbarui');
     }
 
     public function destroy(Request $request, string $id): JsonResponse

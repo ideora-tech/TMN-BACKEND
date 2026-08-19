@@ -14,6 +14,7 @@ interface FakturRepositoryInterface
     public function findById(string $id): ?FakturModel;
     public function namaKlien(string $idKlien, string $idPerusahaan): ?string;
     public function namaProyek(string $idProyek, string $idPerusahaan): ?string;
+    public function infoPenawaran(string $idPenawaran, string $idPerusahaan): ?object;
     public function getPerusahaan(string $idPerusahaan): ?object;
     public function findByNomor(string $nomor, string $idPerusahaan): ?FakturModel;
     public function nomorBerikutnya(string $idPerusahaan): string;

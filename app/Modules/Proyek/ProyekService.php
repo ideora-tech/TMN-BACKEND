@@ -264,11 +264,14 @@ class ProyekService
                 abort(422, 'Total faktur melebihi nilai kontrak — sisa Rp ' . number_format(floor($sisa), 0, ',', '.'));
             }
 
+            $penawaran = $this->penawaranRepo->penawaranDisetujuiTerbaruProyek($idProyek);
+
             return $this->fakturService->create([
                 'id_perusahaan'  => $idPerusahaan,
                 'nomor_faktur'   => $this->fakturRepo->nomorBerikutnya($idPerusahaan),
                 'id_proyek'      => $proyek->id_proyek,
                 'id_klien'       => $proyek->id_klien,
+                'id_penawaran'   => $penawaran?->id_penawaran,
                 'status'         => 'draft',
                 'tanggal_faktur' => $data['tanggal_faktur'],
                 'jatuh_tempo'    => $data['jatuh_tempo'] ?? null,

@@ -8,6 +8,7 @@ use App\Modules\Faktur\Contracts\FakturRepositoryInterface;
 use App\Modules\Faktur\FakturModel;
 use App\Modules\Faktur\FakturService;
 use App\Modules\PenagihanTrip\Contracts\PenagihanTripRepositoryInterface;
+use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
@@ -18,6 +19,7 @@ class PenagihanTripService
         private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
         private readonly FakturService $fakturService,
         private readonly FakturRepositoryInterface $fakturRepo,
+        private readonly PenawaranRepositoryInterface $penawaranRepo,
     ) {}
 
     public function daftar(string $idProyek, string $idPerusahaan, ?string $dari, ?string $sampai): array
@@ -113,11 +115,14 @@ class PenagihanTripService
                 'harga_satuan' => $totalTarif + $totalBiaya,
             ]];
 
+            $penawaran = $this->penawaranRepo->penawaranDisetujuiTerbaruProyek((string) $proyek->id_proyek);
+
             $faktur = $this->fakturService->create([
                 'id_perusahaan'  => $idPerusahaan,
                 'nomor_faktur'   => $this->fakturRepo->nomorBerikutnya($idPerusahaan),
                 'id_proyek'      => $proyek->id_proyek,
                 'id_klien'       => $proyek->id_klien,
+                'id_penawaran'   => $penawaran?->id_penawaran,
                 'status'         => 'draft',
                 'tanggal_faktur' => $data['tanggal_faktur'],
                 'jatuh_tempo'    => $data['jatuh_tempo'] ?? null,

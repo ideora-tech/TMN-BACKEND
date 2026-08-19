@@ -24,6 +24,8 @@ interface PenawaranRepositoryInterface
 
     public function penawaranPertamaProyek(string $idProyek): ?PenawaranModel;
 
+    public function penawaranDisetujuiTerbaruProyek(string $idProyek): ?PenawaranModel;
+
     public function adaRevisiBerjalan(string $idProyek): bool;
 
     public function findByNomor(string $idPerusahaan, string $nomor, ?string $excludeId = null): ?PenawaranModel;

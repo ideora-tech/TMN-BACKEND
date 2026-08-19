@@ -59,6 +59,21 @@ class PenawaranRepository implements PenawaranRepositoryInterface
             ->first();
     }
 
+    /**
+     * Penawaran disetujui paling baru milik proyek — dasar harga yang berlaku
+     * saat ini (revisi disetujui menang atas penawaran awal). Dipakai sebagai
+     * referensi di faktur: mencatat kesepakatan mana yang menjustifikasi
+     * tarif invoice.
+     */
+    public function penawaranDisetujuiTerbaruProyek(string $idProyek): ?PenawaranModel
+    {
+        return PenawaranModel::active()
+            ->where('id_proyek', $idProyek)
+            ->where('status', 'disetujui')
+            ->orderBy('dibuat_pada', 'desc')
+            ->first();
+    }
+
     public function adaRevisiBerjalan(string $idProyek): bool
     {
         return PenawaranModel::active()

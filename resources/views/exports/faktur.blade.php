@@ -97,6 +97,12 @@
                 <td class="label">Status</td><td class="titik">:</td>
                 <td>{{ strtoupper((string) $f->status) }}</td>
             </tr>
+            @if (!empty($f->nomor_penawaran))
+                <tr>
+                    <td class="label">Ref. Penawaran</td><td class="titik">:</td>
+                    <td colspan="4">{{ $f->nomor_penawaran }}</td>
+                </tr>
+            @endif
         </table>
 
         @if (count($items) > 0)
