@@ -6,10 +6,8 @@ namespace Tests\Feature;
 
 use App\Models\Pengguna;
 use App\Modules\Armada\ArmadaModel;
-use App\Modules\ArusKas\ArusKasService;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
-use App\Modules\Trip\TripModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -135,68 +133,17 @@ class ArusKasOtomatisTest extends TestCase
         return (string) $res->json('data.id_trip');
     }
 
-    public function test_mulai_trip_dengan_uang_jalan_membuat_pengajuan_otomatis(): void
+    public function test_mulai_trip_dengan_uang_jalan_tidak_lagi_membuat_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
         $idTrip = $this->mulaiTripDenganUangJalan(500000, 'Budi Uang Jalan');
 
-        $this->assertSame(1, DB::table('pengajuan_pengeluaran')->where('id_trip', $idTrip)->count());
-
-        $this->assertDatabaseHas('pengajuan_pengeluaran', [
-            'id_trip'  => $idTrip,
-            'kategori' => 'uang_jalan',
-            'nominal'  => 500000,
-            'penerima' => 'Budi Uang Jalan',
-            'status'   => 'diajukan',
-        ]);
-
-        $row = DB::table('pengajuan_pengeluaran')->where('id_trip', $idTrip)->first();
-        $this->assertNotNull($row->nomor_pengajuan);
-        $this->assertNotNull($row->keterangan);
-
-        $resPengajuan = $this->getJson("/api/v1/arus-kas/pengajuan/{$row->id_pengajuan}");
-        $resPengajuan->assertStatus(200)->assertJsonPath('data.id_trip', $idTrip);
-    }
-
-    public function test_mulai_trip_tanpa_uang_jalan_tidak_membuat_pengajuan(): void
-    {
-        $this->actingAsRole('SUPERADMIN');
-        $penugasan = $this->makePenugasan();
-
-        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
-        $res->assertStatus(201);
-
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
+        $this->assertDatabaseHas('trip', ['id_trip' => $idTrip, 'uang_jalan_alokasi' => 500000]);
     }
 
-    public function test_mulai_saya_tanpa_uang_jalan_tidak_membuat_pengajuan(): void
-    {
-        $ctx = $this->actingAsSupir();
-        $this->absenHadir($ctx->id_supir);
-
-        $proyek = ProyekModel::create([
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_klien'      => $this->makeKlien(),
-            'kode_proyek'   => 'PRJ-' . Str::random(8),
-            'nama_proyek'   => 'Proyek Mulai Saya',
-        ]);
-        $penugasan = PenugasanModel::create([
-            'id_proyek' => $proyek->id_proyek,
-            'id_supir'  => $ctx->id_supir,
-            'status'    => 'aktif',
-        ]);
-
-        $res = $this->postJson('/api/v1/trip/mulai-saya', [
-            'id_penugasan'       => $penugasan->id_penugasan,
-            'uang_jalan_alokasi' => 500000,
-        ]);
-        $res->assertStatus(201);
-
-        $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
-    }
-
-    public function test_update_uang_jalan_sinkron_nominal_saat_masih_diajukan(): void
+    public function test_update_uang_jalan_tetap_jalan_tanpa_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idTrip = $this->mulaiTripDenganUangJalan(500000);
@@ -204,40 +151,7 @@ class ArusKasOtomatisTest extends TestCase
         $this->putJson("/api/v1/trip/{$idTrip}/uang-jalan", ['uang_jalan_alokasi' => 750000])
             ->assertStatus(200);
 
-        $this->assertDatabaseHas('pengajuan_pengeluaran', [
-            'id_trip' => $idTrip,
-            'nominal' => 750000,
-            'status'  => 'diajukan',
-        ]);
-    }
-
-    public function test_update_uang_jalan_tidak_mengubah_nominal_setelah_pengajuan_dicek(): void
-    {
-        $this->actingAsRole('SUPERADMIN');
-        $idTrip = $this->mulaiTripDenganUangJalan(500000);
-
-        DB::table('pengajuan_pengeluaran')->where('id_trip', $idTrip)->update(['status' => 'dicek']);
-
-        $this->putJson("/api/v1/trip/{$idTrip}/uang-jalan", ['uang_jalan_alokasi' => 900000])
-            ->assertStatus(200);
-
-        $this->assertDatabaseHas('pengajuan_pengeluaran', [
-            'id_trip' => $idTrip,
-            'nominal' => 500000,
-            'status'  => 'dicek',
-        ]);
-    }
-
-    public function test_dedup_pengajuan_uang_jalan_per_trip(): void
-    {
-        $this->actingAsRole('SUPERADMIN');
-        $idTrip = $this->mulaiTripDenganUangJalan(500000);
-
-        $this->assertSame(1, DB::table('pengajuan_pengeluaran')->where('id_trip', $idTrip)->count());
-
-        $trip = TripModel::find($idTrip);
-        app(ArusKasService::class)->buatPengajuanUangJalanOtomatis($trip);
-
-        $this->assertSame(1, DB::table('pengajuan_pengeluaran')->where('id_trip', $idTrip)->count());
+        $this->assertDatabaseHas('trip', ['id_trip' => $idTrip, 'uang_jalan_alokasi' => 750000]);
+        $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
     }
 }

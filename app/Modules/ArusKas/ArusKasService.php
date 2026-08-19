@@ -6,7 +6,6 @@ namespace App\Modules\ArusKas;
 
 use App\Modules\ArusKas\Contracts\ArusKasRepositoryInterface;
 use App\Modules\Notifikasi\NotifikasiService;
-use App\Modules\Trip\TripModel;
 use App\Support\PenyimpananBerkas;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
@@ -31,7 +30,8 @@ class ArusKasService
 
     public function infoPengajuanTrip(string $idTrip): ?array
     {
-        $record = $this->repo->findPengajuanByTrip($idTrip);
+        $record = $this->repo->findPengajuanByTrip($idTrip)
+            ?? $this->repo->findPengajuanPeriodeUntukTrip($idTrip);
         if ($record === null) {
             return null;
         }
@@ -152,6 +152,12 @@ class ArusKasService
             'status'          => $record->status,
             'nominal'         => (float) $record->nominal,
             'riwayat'         => $riwayat,
+            'periode'         => $record->periode_dari !== null ? [
+                'dari'           => $record->periode_dari,
+                'sampai'         => $record->periode_sampai,
+                'tarif_per_hari' => (float) $record->tarif_per_hari,
+                'jumlah_hari'    => (int) round((float) $record->nominal / (float) $record->tarif_per_hari),
+            ] : null,
         ];
     }
 
@@ -253,6 +259,27 @@ class ArusKasService
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
         $this->pastikanStatus($record, [self::STATUS_DIAJUKAN], 'Pengajuan hanya bisa dihapus saat status diajukan');
         $this->repo->deletePengajuan($record);
+        $this->repo->unlinkJadwalPengajuan($id);
+    }
+
+    public function sinkronPengajuanJadwal(string $idPengajuan): void
+    {
+        $record = $this->repo->findPengajuanById($idPengajuan);
+        if ($record === null || $record->status !== self::STATUS_DIAJUKAN) {
+            return;
+        }
+
+        $hari = $this->repo->hitungHariJadwalPengajuan($idPengajuan);
+        if ((int) $hari->jumlah === 0) {
+            $this->repo->deletePengajuan($record);
+            return;
+        }
+
+        $this->repo->updatePengajuan($record, [
+            'nominal'        => (float) $record->tarif_per_hari * (int) $hari->jumlah,
+            'periode_dari'   => $hari->dari,
+            'periode_sampai' => $hari->sampai,
+        ]);
     }
 
     public function cek(string $id, string $idPerusahaan): PengajuanPengeluaranModel
@@ -538,47 +565,46 @@ class ArusKasService
             ->all();
     }
 
-    public function buatPengajuanUangJalanOtomatis(TripModel $trip): void
+    public function buatPengajuanUangJalanJadwal(string $idProyek, string $idSupir, array $tanggalList): array
     {
-        if ($trip->uang_jalan_alokasi === null || (float) $trip->uang_jalan_alokasi <= 0) {
-            return;
-        }
-        if ($this->repo->findPengajuanByTrip($trip->id_trip) !== null) {
-            return;
-        }
-
-        $data = $this->repo->dataTripUntukPengajuan($trip->id_trip);
-        if ($data === null) {
-            return;
+        sort($tanggalList);
+        $info = $this->repo->tarifUangJalanSupir($idProyek, $idSupir);
+        if ($info === null) {
+            $nama = $this->repo->namaSupir($idSupir) ?? 'Supir';
+            return ['pengajuan' => null, 'peringatan' => "Supir {$nama}: tarif uang jalan tidak ditemukan — pengajuan tidak dibuat"];
         }
 
-        $idPerusahaan = (string) $data->id_perusahaan;
+        $tarif        = (float) $info->uang_jalan;
+        $jumlah       = count($tanggalList);
+        $dari         = $tanggalList[0];
+        $sampai       = $tanggalList[$jumlah - 1];
+        $idPerusahaan = (string) $info->id_perusahaan;
 
-        $this->repo->createPengajuan([
+        $pengajuan = $this->repo->createPengajuan([
             'id_perusahaan'     => $idPerusahaan,
-            'id_trip'           => $trip->id_trip,
+            'id_supir'          => $idSupir,
+            'id_proyek'         => $idProyek,
+            'periode_dari'      => $dari,
+            'periode_sampai'    => $sampai,
+            'tarif_per_hari'    => $tarif,
             'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
             'kategori'          => 'uang_jalan',
-            'nominal'           => (float) $trip->uang_jalan_alokasi,
+            'nominal'           => $tarif * $jumlah,
             'tanggal_pengajuan' => now()->toDateString(),
-            'penerima'          => $data->penerima !== null && $data->penerima !== '' ? $data->penerima : '-',
-            'keterangan'        => $data->keterangan,
+            'penerima'          => (string) $info->nama_supir,
+            'keterangan'        => sprintf(
+                'Uang jalan %s — %s (%s–%s, Rp %s/hari × %d hari)',
+                $info->nama_supir,
+                $info->nama_proyek,
+                Carbon::parse($dari)->format('d/m'),
+                Carbon::parse($sampai)->format('d/m'),
+                number_format($tarif, 0, ',', '.'),
+                $jumlah,
+            ),
             'status'            => self::STATUS_DIAJUKAN,
         ]);
-    }
 
-    public function sinkronNominalPengajuanTrip(string $idTrip, float|null $nominal): void
-    {
-        if ($nominal === null) {
-            return;
-        }
-
-        $record = $this->repo->findPengajuanByTrip($idTrip);
-        if ($record === null || $record->status !== self::STATUS_DIAJUKAN) {
-            return;
-        }
-
-        $this->repo->updatePengajuan($record, ['nominal' => $nominal]);
+        return ['pengajuan' => $pengajuan, 'peringatan' => null];
     }
 
     public function buatPengajuanPerawatanOtomatis(object $perawatan, float $totalBiaya): void

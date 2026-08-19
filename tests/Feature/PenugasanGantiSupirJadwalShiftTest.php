@@ -55,6 +55,26 @@ class PenugasanGantiSupirJadwalShiftTest extends TestCase
         return $id;
     }
 
+    private function makeRute(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('rute')->insert([
+            'id_rute' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_rute' => 'RT-' . Str::random(6), 'nama_rute' => 'Jakarta - Bandung',
+            'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
+    private function makeProyekRute(string $idProyek, string $idRute, float $uangJalan): void
+    {
+        DB::table('proyek_rute')->insert([
+            'id_proyek_rute' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_proyek' => $idProyek, 'id_rute' => $idRute,
+            'uang_jalan' => $uangJalan, 'dibuat_pada' => now(),
+        ]);
+    }
+
     private function makeJadwalShift(string $idProyek, string $idSupir, string $idShift, string $tanggal): string
     {
         $id = (string) Str::uuid();
@@ -222,5 +242,79 @@ class PenugasanGantiSupirJadwalShiftTest extends TestCase
 
         // Penugasan vendor unit_only tadi masih aktif — jadwal yang ada memang masih valid, tidak boleh dihapus.
         $this->assertDatabaseHas('jadwal_shift', ['id_jadwal_shift' => $jadwalHariIni, 'dihapus_pada' => null]);
+    }
+
+    public function test_penugasan_baru_meresync_pengajuan_uang_jalan_dari_jadwal_orphan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute   = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, 100000.0);
+        $supir  = $this->makeSupir('Orphan Resync');
+        $shift  = $this->makeShift();
+
+        $idPenugasanLama = $this->postJson('/api/v1/penugasan', [
+            'id_proyek' => $proyek->id_proyek, 'id_supir' => $supir, 'id_rute' => $rute, 'status' => 'aktif',
+        ])->json('data.id_penugasan');
+
+        $hariIni = now()->toDateString();
+        $besok   = now()->addDay()->toDateString();
+
+        $this->postJson('/api/v1/jadwal-shift', [
+            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
+            'tanggal' => $hariIni, 'tanggal_sampai' => $besok, 'supir' => [$supir],
+        ])->assertStatus(200);
+
+        $idPengajuan = (string) DB::table('pengajuan_pengeluaran')->where('id_supir', $supir)->value('id_pengajuan');
+        $this->assertNotNull($idPengajuan);
+        $this->assertDatabaseHas('pengajuan_pengeluaran', ['id_pengajuan' => $idPengajuan, 'nominal' => 200000]);
+
+        $this->putJson("/api/v1/penugasan/{$idPenugasanLama}", ['status' => 'selesai'])
+            ->assertStatus(200);
+
+        // Penugasan baru untuk supir yang sama, proyek yang sama — jadwal orphan (hari ini & besok)
+        // dibersihkan, pengajuan yang linknya lenyap harus ikut disinkronkan (kehabisan hari → dihapus).
+        $this->postJson('/api/v1/penugasan', [
+            'id_proyek' => $proyek->id_proyek, 'id_supir' => $supir, 'id_rute' => $rute, 'status' => 'aktif',
+        ])->assertStatus(201);
+
+        $this->assertNotNull(DB::table('pengajuan_pengeluaran')
+            ->where('id_pengajuan', $idPengajuan)->value('dihapus_pada'));
+    }
+
+    public function test_ganti_supir_meresync_pengajuan_uang_jalan_lama_dan_melepas_link_baru(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute   = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, 100000.0);
+        $supirA = $this->makeSupir('Supir A Ganti');
+        $supirB = $this->makeSupir('Supir B Ganti');
+        $shift  = $this->makeShift();
+
+        $idPenugasan = $this->postJson('/api/v1/penugasan', [
+            'id_proyek' => $proyek->id_proyek, 'id_supir' => $supirA, 'id_rute' => $rute, 'status' => 'aktif',
+        ])->json('data.id_penugasan');
+
+        $hariIni = now()->toDateString();
+        $lusa    = now()->addDays(2)->toDateString();
+
+        $this->postJson('/api/v1/jadwal-shift', [
+            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
+            'tanggal' => $hariIni, 'tanggal_sampai' => $lusa, 'supir' => [$supirA],
+        ])->assertStatus(200);
+
+        $idPengajuanA = (string) DB::table('pengajuan_pengeluaran')->where('id_supir', $supirA)->value('id_pengajuan');
+        $this->assertNotNull($idPengajuanA);
+        $this->assertDatabaseHas('pengajuan_pengeluaran', ['id_pengajuan' => $idPengajuanA, 'nominal' => 300000]);
+
+        $this->putJson("/api/v1/penugasan/{$idPenugasan}", ['id_supir' => $supirB])
+            ->assertStatus(200);
+
+        $this->assertSame(3, DB::table('jadwal_shift')
+            ->where('id_supir', $supirB)->whereNull('id_pengajuan')->whereNull('dihapus_pada')->count());
+
+        $this->assertNotNull(DB::table('pengajuan_pengeluaran')
+            ->where('id_pengajuan', $idPengajuanA)->value('dihapus_pada'));
     }
 }

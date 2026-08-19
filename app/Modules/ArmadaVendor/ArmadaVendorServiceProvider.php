@@ -21,6 +21,8 @@ class ArmadaVendorServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum', 'izin:vendor'])
             ->group(function () {
+                Route::get('armada-vendor/import/template', [ArmadaVendorController::class, 'downloadTemplate']);
+                Route::post('armada-vendor/import', [ArmadaVendorController::class, 'import']);
                 Route::apiResource('armada-vendor', ArmadaVendorController::class)
                     ->parameters(['armada-vendor' => 'id']);
             });

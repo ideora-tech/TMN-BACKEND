@@ -5,16 +5,33 @@ declare(strict_types=1);
 namespace App\Modules\SupirVendor;
 
 use App\Helpers\ApiResponse;
+use App\Modules\SupirVendor\Exports\SupirVendorTemplateExport;
+use App\Modules\SupirVendor\Requests\ImportSupirVendorRequest;
 use App\Modules\SupirVendor\Requests\StoreSupirVendorRequest;
 use App\Modules\SupirVendor\Requests\UpdateSupirVendorRequest;
 use App\Modules\SupirVendor\Resources\SupirVendorResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SupirVendorController extends Controller
 {
     public function __construct(private readonly SupirVendorService $service) {}
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        return Excel::download(new SupirVendorTemplateExport(), 'template-import-supir-vendor.xlsx');
+    }
+
+    public function import(ImportSupirVendorRequest $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $result = $this->service->import($request->file('file'), $idPerusahaan);
+
+        return ApiResponse::success($result, 'Import supir vendor selesai diproses');
+    }
 
     public function index(Request $request): JsonResponse
     {

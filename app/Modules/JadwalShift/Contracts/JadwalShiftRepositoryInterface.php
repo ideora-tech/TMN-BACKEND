@@ -23,6 +23,9 @@ interface JadwalShiftRepositoryInterface
     public function create(array $data): object;
     public function updateShift(object $record, array $data): object;
     public function delete(object $record): void;
+    /** @return array{dipindah: string[], dilewati: string[], id_pengajuan: string[]} */
     public function pindahkanKepemilikan(string $idProyek, string $supirLama, string $supirBaru, string $dariTanggal): array;
+    /** @return array{tanggal: string[], id_pengajuan: string[]} */
     public function hapusOrphanUntukSupirProyek(string $idProyek, string $idSupir, string $dariTanggal): array;
+    public function tandaiPengajuan(string $idProyek, string $idSupir, array $tanggalList, string $idPengajuan): void;
 }

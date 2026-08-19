@@ -14,6 +14,7 @@ class JadwalShiftService
         private readonly \App\Modules\AlokasiArmada\AlokasiArmadaService $alokasiService,
         private readonly \App\Modules\Trip\Contracts\TripRepositoryInterface $tripRepo,
         private readonly \App\Modules\Cuti\Contracts\CutiRepositoryInterface $cutiRepo,
+        private readonly \App\Modules\ArusKas\ArusKasService $arusKasService,
     ) {}
 
     public function list(string $idProyek, string $idPerusahaan, ?string $dari, ?string $sampai): array
@@ -107,6 +108,7 @@ class JadwalShiftService
             $sukses = 0;
             $gagal  = [];
             $terjadwal = [];
+            $hariBaru = [];
 
             foreach (array_unique($data['supir']) as $idSupir) {
                 if (!$this->repo->supirPunyaPenugasan($data['id_proyek'], $idSupir)) {
@@ -134,6 +136,7 @@ class JadwalShiftService
                         'tanggal'   => $tanggal,
                     ]);
                     $terjadwal[] = ['id_supir' => $idSupir, 'tanggal' => $tanggal];
+                    $hariBaru[$idSupir][] = $tanggal;
                     $sukses++;
                 }
             }
@@ -144,8 +147,25 @@ class JadwalShiftService
             // di batch ini, atau baru bebas) ikut ter-update otomatis.
             $this->hitungUlangUntukTerjadwal($terjadwal, $data['id_proyek']);
 
-            return ['sukses' => $sukses, 'gagal' => $gagal];
+            $peringatan = $this->prosesPengajuanUangJalan($hariBaru, $data['id_proyek']);
+
+            return ['sukses' => $sukses, 'gagal' => $gagal, 'peringatan' => $peringatan];
         });
+    }
+
+    /** @param array<string, array<int, string>> $hariBaru */
+    private function prosesPengajuanUangJalan(array $hariBaru, string $idProyek): array
+    {
+        $peringatan = [];
+        foreach ($hariBaru as $idSupir => $tanggalList) {
+            $hasil = $this->arusKasService->buatPengajuanUangJalanJadwal($idProyek, (string) $idSupir, $tanggalList);
+            if ($hasil['peringatan'] !== null) {
+                $peringatan[] = $hasil['peringatan'];
+                continue;
+            }
+            $this->repo->tandaiPengajuan($idProyek, (string) $idSupir, $tanggalList, (string) $hasil['pengajuan']->id_pengajuan);
+        }
+        return $peringatan;
     }
 
     public function templateData(string $idProyek, string $idPerusahaan, string $dari, string $sampai): array
@@ -262,6 +282,7 @@ class JadwalShiftService
             $ditimpa   = [];
             $gagal     = [];
             $terjadwal = [];
+            $hariBaru  = [];
 
             foreach (array_slice($rows, $barisHeader + 1, null, true) as $idx => $row) {
                 $barisKe   = $idx + 1;
@@ -336,10 +357,11 @@ class JadwalShiftService
                         $this->repo->delete($ada);
                         $this->alokasiService->hapusUntukJadwal((string) $supir->id_supir, $tanggal);
                         $this->repo->create([
-                            'id_proyek' => $idProyek,
-                            'id_shift'  => $shift->id_shift,
-                            'id_supir'  => $supir->id_supir,
-                            'tanggal'   => $tanggal,
+                            'id_proyek'     => $idProyek,
+                            'id_shift'      => $shift->id_shift,
+                            'id_supir'      => $supir->id_supir,
+                            'tanggal'       => $tanggal,
+                            'id_pengajuan'  => $ada->id_pengajuan ?? null,
                         ]);
                         $ditimpa[]   = ['baris' => $barisKe, 'no_sim' => $noSim, 'tanggal' => $tanggal, 'shift_lama' => $ada->shift_nama, 'shift_baru' => $shift->nama];
                         $terjadwal[] = ['id_supir' => (string) $supir->id_supir, 'tanggal' => $tanggal];
@@ -353,13 +375,16 @@ class JadwalShiftService
                         'tanggal'   => $tanggal,
                     ]);
                     $terjadwal[] = ['id_supir' => (string) $supir->id_supir, 'tanggal' => $tanggal];
+                    $hariBaru[(string) $supir->id_supir][] = $tanggal;
                     $sukses++;
                 }
             }
 
             $this->hitungUlangUntukTerjadwal($terjadwal, $idProyek);
 
-            return ['sukses' => $sukses, 'ditimpa' => $ditimpa, 'gagal' => $gagal];
+            $peringatan = $this->prosesPengajuanUangJalan($hariBaru, $idProyek);
+
+            return ['sukses' => $sukses, 'ditimpa' => $ditimpa, 'gagal' => $gagal, 'peringatan' => $peringatan];
         });
     }
 
@@ -487,6 +512,11 @@ class JadwalShiftService
         $tanggal  = (string) $record->tanggal;
 
         $this->repo->delete($record);
+
+        if (!empty($record->id_pengajuan)) {
+            $this->arusKasService->sinkronPengajuanJadwal((string) $record->id_pengajuan);
+        }
+
         $this->alokasiService->hapusUntukJadwal((string) $record->id_supir, $tanggal);
 
         // Armada yang tadi dipakai supir ini bisa jadi kandidat pinjaman baru

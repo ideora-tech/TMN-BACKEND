@@ -57,4 +57,9 @@ interface ArusKasRepositoryInterface
     public function findPengajuanForUpdate(string $id): ?PengajuanPengeluaranModel;
     public function updateApprovalRowJikaMenunggu(string $idApproval, array $data): int;
     public function hitungApprovalMenunggu(string $idPengajuan): int;
+    public function tarifUangJalanSupir(string $idProyek, string $idSupir): ?object;
+    public function namaSupir(string $idSupir): ?string;
+    public function hitungHariJadwalPengajuan(string $idPengajuan): object;
+    public function unlinkJadwalPengajuan(string $idPengajuan): void;
+    public function findPengajuanPeriodeUntukTrip(string $idTrip): ?PengajuanPengeluaranModel;
 }

@@ -21,6 +21,8 @@ class VendorServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum', 'izin:vendor'])
             ->group(function () {
+                Route::get('vendor/import/template', [VendorController::class, 'downloadTemplate']);
+                Route::post('vendor/import', [VendorController::class, 'import']);
                 Route::apiResource('vendor', VendorController::class)
                     ->parameters(['vendor' => 'id']);
             });

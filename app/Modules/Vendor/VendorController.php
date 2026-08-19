@@ -5,16 +5,33 @@ declare(strict_types=1);
 namespace App\Modules\Vendor;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Vendor\Exports\VendorTemplateExport;
+use App\Modules\Vendor\Requests\ImportVendorRequest;
 use App\Modules\Vendor\Requests\StoreVendorRequest;
 use App\Modules\Vendor\Requests\UpdateVendorRequest;
 use App\Modules\Vendor\Resources\VendorResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class VendorController extends Controller
 {
     public function __construct(private readonly VendorService $service) {}
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        return Excel::download(new VendorTemplateExport(), 'template-import-vendor.xlsx');
+    }
+
+    public function import(ImportVendorRequest $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $result = $this->service->import($request->file('file'), $idPerusahaan);
+
+        return ApiResponse::success($result, 'Import vendor selesai diproses');
+    }
 
     public function index(Request $request): JsonResponse
     {

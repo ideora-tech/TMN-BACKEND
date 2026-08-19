@@ -65,6 +65,38 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
             ->exists();
     }
 
+    public function findIdVendorByKode(string $kodeVendor, string $idPerusahaan): ?string
+    {
+        $id = DB::table('vendor')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->whereRaw('UPPER(TRIM(kode_vendor)) = ?', [mb_strtoupper(trim($kodeVendor))])
+            ->value('id_vendor');
+
+        return $id !== null ? (string) $id : null;
+    }
+
+    public function findIdJenisKendaraanByNama(string $namaJenis, string $idPerusahaan): ?string
+    {
+        $id = DB::table('jenis_kendaraan')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->whereRaw('UPPER(TRIM(nama_jenis)) = ?', [mb_strtoupper(trim($namaJenis))])
+            ->value('id_jenis_kendaraan');
+
+        return $id !== null ? (string) $id : null;
+    }
+
+    public function nopolTerdaftar(string $nopol, string $idPerusahaan): bool
+    {
+        return ArmadaVendorModel::active()
+            ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->where('vendor.id_perusahaan', $idPerusahaan)
+            ->whereNull('vendor.dihapus_pada')
+            ->whereRaw('UPPER(TRIM(armada_vendor.nopol)) = ?', [mb_strtoupper(trim($nopol))])
+            ->exists();
+    }
+
     /**
      * Unit vendor yang tersedia untuk dipilih di Penugasan Operasional — hanya unit
      * aktif milik vendor yang punya kontrak bermekanisme 'unit_only' (vendor hanya

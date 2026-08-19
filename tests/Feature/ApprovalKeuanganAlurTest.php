@@ -646,7 +646,8 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->tambahApproverPengguna($idApprover2);
 
         $idTrip = $this->mulaiTripDenganUangJalan(500000);
-        $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_trip', $idTrip)->value('id_pengajuan');
+        $idPengajuan = $this->buatPengajuan(['nominal' => 500000]);
+        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['id_trip' => $idTrip]);
 
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
@@ -679,7 +680,8 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->tambahApproverPengguna($idApprover2);
 
         $idTrip = $this->mulaiTripDenganUangJalan(500000);
-        $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_trip', $idTrip)->value('id_pengajuan');
+        $idPengajuan = $this->buatPengajuan(['nominal' => 500000]);
+        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['id_trip' => $idTrip]);
 
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")

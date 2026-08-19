@@ -21,6 +21,8 @@ class SupirVendorServiceProvider extends ServiceProvider
         Route::prefix('api/v1')
             ->middleware(['api', 'auth:sanctum', 'izin:vendor'])
             ->group(function () {
+                Route::get('supir-vendor/import/template', [SupirVendorController::class, 'downloadTemplate']);
+                Route::post('supir-vendor/import', [SupirVendorController::class, 'import']);
                 Route::apiResource('supir-vendor', SupirVendorController::class)
                     ->parameters(['supir-vendor' => 'id']);
             });

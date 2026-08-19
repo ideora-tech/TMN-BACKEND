@@ -14,6 +14,7 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
         'jadwal_shift.id_jadwal_shift', 'jadwal_shift.id_proyek', 'jadwal_shift.id_shift',
         'jadwal_shift.id_supir', 'jadwal_shift.tanggal',
         'jadwal_shift.id_supir_pengganti', 'jadwal_shift.id_armada_override',
+        'jadwal_shift.id_pengajuan',
     ];
 
     private const JOINED = [
@@ -241,7 +242,7 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
      * jadwal supir baru di proyek lain dilewati — aturan 1 shift/hari
      * GLOBAL tetap berlaku.
      *
-     * @return array{dipindah: string[], dilewati: string[]}
+     * @return array{dipindah: string[], dilewati: string[], id_pengajuan: string[]}
      */
     public function pindahkanKepemilikan(string $idProyek, string $supirLama, string $supirBaru, string $dariTanggal): array
     {
@@ -250,10 +251,11 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             ->where('id_proyek', $idProyek)
             ->where('id_supir', $supirLama)
             ->where('tanggal', '>=', $dariTanggal)
-            ->get(['id_jadwal_shift', 'tanggal']);
+            ->get(['id_jadwal_shift', 'tanggal', 'id_pengajuan']);
 
         $dipindah = [];
         $dilewati = [];
+        $idPengajuanList = [];
 
         foreach ($rows as $row) {
             $bentrok = DB::table('jadwal_shift')
@@ -269,11 +271,18 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
 
             DB::table('jadwal_shift')
                 ->where('id_jadwal_shift', $row->id_jadwal_shift)
-                ->update(RecordHelper::stampUpdate(['id_supir' => $supirBaru]));
+                ->update(RecordHelper::stampUpdate(['id_supir' => $supirBaru, 'id_pengajuan' => null]));
             $dipindah[] = (string) $row->tanggal;
+            if ($row->id_pengajuan !== null) {
+                $idPengajuanList[] = (string) $row->id_pengajuan;
+            }
         }
 
-        return ['dipindah' => $dipindah, 'dilewati' => $dilewati];
+        return [
+            'dipindah'     => $dipindah,
+            'dilewati'     => $dilewati,
+            'id_pengajuan' => array_values(array_unique($idPengajuanList)),
+        ];
     }
 
     /**
@@ -285,7 +294,7 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
      * penugasan yang sudah tidak berlaku. Pemanggil wajib pastikan dulu tidak
      * ada penugasan aktif lain (sumber apa pun) yang masih butuh jadwal ini.
      *
-     * @return string[] tanggal yang dihapus (unik)
+     * @return array{tanggal: string[], id_pengajuan: string[]}
      */
     public function hapusOrphanUntukSupirProyek(string $idProyek, string $idSupir, string $dariTanggal): array
     {
@@ -294,16 +303,30 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             ->where('id_proyek', $idProyek)
             ->where('id_supir', $idSupir)
             ->where('tanggal', '>=', $dariTanggal)
-            ->get(['id_jadwal_shift', 'tanggal']);
+            ->get(['id_jadwal_shift', 'tanggal', 'id_pengajuan']);
 
         if ($rows->isEmpty()) {
-            return [];
+            return ['tanggal' => [], 'id_pengajuan' => []];
         }
 
         DB::table('jadwal_shift')
             ->whereIn('id_jadwal_shift', $rows->pluck('id_jadwal_shift'))
             ->update(RecordHelper::stampDelete());
 
-        return $rows->pluck('tanggal')->map(fn ($t) => (string) $t)->unique()->values()->all();
+        return [
+            'tanggal'      => $rows->pluck('tanggal')->map(fn ($t) => (string) $t)->unique()->values()->all(),
+            'id_pengajuan' => $rows->pluck('id_pengajuan')->filter()->unique()->map(fn ($id) => (string) $id)->values()->all(),
+        ];
+    }
+
+    public function tandaiPengajuan(string $idProyek, string $idSupir, array $tanggalList, string $idPengajuan): void
+    {
+        DB::table('jadwal_shift')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek', $idProyek)
+            ->where('id_supir', $idSupir)
+            ->whereIn('tanggal', $tanggalList)
+            ->whereNull('id_pengajuan')
+            ->update(['id_pengajuan' => $idPengajuan]);
     }
 }

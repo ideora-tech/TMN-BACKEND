@@ -13,6 +13,8 @@ interface SupirVendorRepositoryInterface
     public function findByIdMilikPerusahaan(string $id, string $idPerusahaan): ?SupirVendorModel;
     public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
     public function milikVendor(string $id, string $idVendor): bool;
+    public function findIdVendorByKode(string $kodeVendor, string $idPerusahaan): ?string;
+    public function noSimTerdaftar(string $noSim, string $idPerusahaan): bool;
     public function create(array $data): SupirVendorModel;
     public function update(SupirVendorModel $model, array $data): SupirVendorModel;
     public function delete(SupirVendorModel $model): void;

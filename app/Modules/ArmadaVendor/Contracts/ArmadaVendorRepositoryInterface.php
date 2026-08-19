@@ -14,6 +14,9 @@ interface ArmadaVendorRepositoryInterface
     public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
     public function jenisKendaraanMilikPerusahaan(string $idJenisKendaraan, string $idPerusahaan): bool;
     public function milikVendor(string $id, string $idVendor): bool;
+    public function findIdVendorByKode(string $kodeVendor, string $idPerusahaan): ?string;
+    public function findIdJenisKendaraanByNama(string $namaJenis, string $idPerusahaan): ?string;
+    public function nopolTerdaftar(string $nopol, string $idPerusahaan): bool;
 
     /** @return array<int, array{id_armada_vendor: string, id_kontrak_vendor: string, nopol: string, merk: ?string, jenis: ?string, id_vendor: string, nama_vendor: string}> */
     public function listOpsiUnitOnly(string $idPerusahaan): array;

@@ -459,8 +459,6 @@ class TripService
                 $this->penugasanService->update($penugasanBaruUntukDitutup, ['status' => 'selesai'], $idPerusahaan);
             }
 
-            $this->arusKasService->buatPengajuanUangJalanOtomatis($tripBerjalan);
-
             return $tripBerjalan;
         });
     }
@@ -606,8 +604,6 @@ class TripService
         $trip = $this->findOrFail($id, $idPerusahaan);
 
         $updated = $this->repo->update($trip, ['uang_jalan_alokasi' => $alokasi]);
-
-        $this->arusKasService->sinkronNominalPengajuanTrip($id, $alokasi);
 
         return $updated;
     }

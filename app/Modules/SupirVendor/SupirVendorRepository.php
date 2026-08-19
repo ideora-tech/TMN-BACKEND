@@ -54,6 +54,27 @@ class SupirVendorRepository implements SupirVendorRepositoryInterface
             ->exists();
     }
 
+    public function findIdVendorByKode(string $kodeVendor, string $idPerusahaan): ?string
+    {
+        $id = DB::table('vendor')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->whereRaw('UPPER(TRIM(kode_vendor)) = ?', [mb_strtoupper(trim($kodeVendor))])
+            ->value('id_vendor');
+
+        return $id !== null ? (string) $id : null;
+    }
+
+    public function noSimTerdaftar(string $noSim, string $idPerusahaan): bool
+    {
+        return SupirVendorModel::active()
+            ->join('vendor', 'vendor.id_vendor', '=', 'supir_vendor.id_vendor')
+            ->where('vendor.id_perusahaan', $idPerusahaan)
+            ->whereNull('vendor.dihapus_pada')
+            ->whereRaw('UPPER(TRIM(supir_vendor.no_sim)) = ?', [mb_strtoupper(trim($noSim))])
+            ->exists();
+    }
+
     public function create(array $data): SupirVendorModel
     {
         return SupirVendorModel::create($data);

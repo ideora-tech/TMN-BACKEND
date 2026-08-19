@@ -6,6 +6,7 @@ namespace App\Modules\Penugasan;
 
 use App\Modules\Armada\ArmadaModel;
 use App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface;
+use App\Modules\ArusKas\ArusKasService;
 use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
 use App\Modules\KontrakVendor\Contracts\KontrakVendorRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
@@ -21,6 +22,7 @@ class PenugasanService
         private readonly SupirVendorRepositoryInterface $supirVendorRepo,
         private readonly TripRepositoryInterface $tripRepo,
         private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
+        private readonly ArusKasService $arusKasService,
     ) {}
 
     public function list(string $idProyek, int $page = 1, int $limit = 10, ?string $sumber = null, ?string $status = null): array
@@ -281,6 +283,10 @@ class PenugasanService
             $alokasiService->hapusUntukJadwal($supirLama, $tanggal);
         }
         $alokasiService->hitungUlangRentang($idProyek, min($hasil['dipindah']), max($hasil['dipindah']));
+
+        foreach ($hasil['id_pengajuan'] as $idPengajuan) {
+            $this->arusKasService->sinkronPengajuanJadwal($idPengajuan);
+        }
     }
 
     /**
@@ -299,14 +305,18 @@ class PenugasanService
             return;
         }
 
-        $tanggalTerhapus = $this->jadwalShiftRepo->hapusOrphanUntukSupirProyek($idProyek, $idSupir, now()->toDateString());
-        if ($tanggalTerhapus === []) {
+        $hasil = $this->jadwalShiftRepo->hapusOrphanUntukSupirProyek($idProyek, $idSupir, now()->toDateString());
+        if ($hasil['tanggal'] === []) {
             return;
         }
 
         $alokasiService = app(\App\Modules\AlokasiArmada\AlokasiArmadaService::class);
-        foreach ($tanggalTerhapus as $tanggal) {
+        foreach ($hasil['tanggal'] as $tanggal) {
             $alokasiService->hapusUntukJadwal($idSupir, $tanggal);
+        }
+
+        foreach ($hasil['id_pengajuan'] as $idPengajuan) {
+            $this->arusKasService->sinkronPengajuanJadwal($idPengajuan);
         }
     }
 

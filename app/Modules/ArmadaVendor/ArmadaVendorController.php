@@ -5,16 +5,33 @@ declare(strict_types=1);
 namespace App\Modules\ArmadaVendor;
 
 use App\Helpers\ApiResponse;
+use App\Modules\ArmadaVendor\Exports\ArmadaVendorTemplateExport;
+use App\Modules\ArmadaVendor\Requests\ImportArmadaVendorRequest;
 use App\Modules\ArmadaVendor\Requests\StoreArmadaVendorRequest;
 use App\Modules\ArmadaVendor\Requests\UpdateArmadaVendorRequest;
 use App\Modules\ArmadaVendor\Resources\ArmadaVendorResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ArmadaVendorController extends Controller
 {
     public function __construct(private readonly ArmadaVendorService $service) {}
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        return Excel::download(new ArmadaVendorTemplateExport(), 'template-import-armada-vendor.xlsx');
+    }
+
+    public function import(ImportArmadaVendorRequest $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $result = $this->service->import($request->file('file'), $idPerusahaan);
+
+        return ApiResponse::success($result, 'Import armada vendor selesai diproses');
+    }
 
     public function index(Request $request): JsonResponse
     {

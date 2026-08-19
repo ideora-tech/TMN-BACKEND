@@ -681,4 +681,75 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->lockForUpdate()
             ->count();
     }
+
+    public function tarifUangJalanSupir(string $idProyek, string $idSupir): ?object
+    {
+        return DB::table('penugasan as p')
+            ->join('supir as s', 's.id_supir', '=', 'p.id_supir')
+            ->join('proyek as pr', 'pr.id_proyek', '=', 'p.id_proyek')
+            ->leftJoin('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->join('proyek_rute as prt', function ($join) {
+                $join->on('prt.id_proyek', '=', 'p.id_proyek')
+                     ->on('prt.id_rute', '=', 'p.id_rute');
+            })
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('prt.dihapus_pada')
+            ->where('p.id_proyek', $idProyek)
+            ->where('p.id_supir', $idSupir)
+            ->whereIn('p.status', ['pending', 'aktif'])
+            ->whereNotNull('prt.uang_jalan')
+            ->orderByRaw('CASE WHEN a.id_jenis_kendaraan IS NOT NULL AND prt.id_jenis_kendaraan = a.id_jenis_kendaraan THEN 0 ELSE 1 END')
+            ->orderBy('prt.dibuat_pada')
+            ->select('prt.uang_jalan', 's.nama as nama_supir', 'pr.nama_proyek', 'pr.id_perusahaan')
+            ->first();
+    }
+
+    public function namaSupir(string $idSupir): ?string
+    {
+        $nama = DB::table('supir')->where('id_supir', $idSupir)->value('nama');
+        return $nama !== null ? (string) $nama : null;
+    }
+
+    public function hitungHariJadwalPengajuan(string $idPengajuan): object
+    {
+        return DB::table('jadwal_shift')
+            ->whereNull('dihapus_pada')
+            ->where('id_pengajuan', $idPengajuan)
+            ->selectRaw('COUNT(*) as jumlah, MIN(tanggal) as dari, MAX(tanggal) as sampai')
+            ->first();
+    }
+
+    public function unlinkJadwalPengajuan(string $idPengajuan): void
+    {
+        DB::table('jadwal_shift')
+            ->where('id_pengajuan', $idPengajuan)
+            ->update(['id_pengajuan' => null]);
+    }
+
+    public function findPengajuanPeriodeUntukTrip(string $idTrip): ?PengajuanPengeluaranModel
+    {
+        $trip = DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereNull('p.dihapus_pada')
+            ->where('t.id_trip', $idTrip)
+            ->selectRaw('p.id_supir, p.id_proyek, DATE(COALESCE(t.waktu_checkin, t.dibuat_pada)) as tanggal')
+            ->first();
+
+        if ($trip === null || $trip->id_supir === null) {
+            return null;
+        }
+
+        $idPengajuan = DB::table('jadwal_shift')
+            ->whereNull('dihapus_pada')
+            ->where('id_supir', $trip->id_supir)
+            ->where('id_proyek', $trip->id_proyek)
+            ->where('tanggal', $trip->tanggal)
+            ->whereNotNull('id_pengajuan')
+            ->value('id_pengajuan');
+
+        return $idPengajuan !== null ? $this->findPengajuanById((string) $idPengajuan) : null;
+    }
 }
