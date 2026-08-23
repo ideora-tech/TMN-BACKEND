@@ -41,79 +41,50 @@ class TripService
     ) {}
 
     /**
-     * Armada efektif sebuah penugasan: kolom armada penugasan bila diisi;
-     * untuk supir shift (penugasan tanpa armada) diambil dari alokasi harian.
+     * Armada efektif sebuah penugasan: kolom id_armada penugasan langsung
+     * (penugasan harian sejak Task 5 selalu eksplisit id_armada/id_armada_vendor
+     * per baris) — tanpa fallback ke alokasi harian lagi.
      */
     private function armadaEfektif(?object $penugasan): ?string
     {
-        if ($penugasan === null) {
+        if ($penugasan === null || empty($penugasan->id_armada)) {
             return null;
         }
-        if (!empty($penugasan->id_armada)) {
-            return (string) $penugasan->id_armada;
-        }
-        if (empty($penugasan->id_supir)) {
-            return null;
-        }
-        $alokasi = $this->alokasiRepo->findAktifBySupirTanggal((string) $penugasan->id_supir, now()->toDateString());
-        return $alokasi?->id_armada;
-    }
-
-    private function resolvePenugasanPengganti(
-        string $idSupirPengganti, string $idProyek, string $idPerusahaan, ?string $idArmadaOverride, object $penugasanAsal
-    ): array {
-        $existing = $this->penugasanService->findAktifUntukSupirDiProyek($idSupirPengganti, $idProyek);
-        if ($existing !== null) {
-            return ['penugasan' => $existing, 'dibuatBaru' => false];
-        }
-
-        $baru = $this->penugasanService->create([
-            'id_proyek'     => $idProyek,
-            'id_supir'      => $idSupirPengganti,
-            'id_armada'     => $idArmadaOverride ?? $penugasanAsal->id_armada,
-            'status'        => 'aktif',
-            'tanggal_tugas' => now()->toDateString(),
-            'sumber'        => 'internal',
-        ], $idPerusahaan);
-
-        return ['penugasan' => $baru, 'dibuatBaru' => true];
+        return (string) $penugasan->id_armada;
     }
 
     /**
      * Jadwal harian supir dari dua sumber: penugasan (tanggal_tugas) dan papan
-     * jadwal shift (jadwal_shift.tanggal). Entri shift di-map ke penugasan
-     * supir pada proyek yang sama agar trip tetap bisa dimulai via id_penugasan;
-     * entri dengan kunci (id_penugasan, tanggal) yang sama digabung.
+     * jadwal shift (jadwal_shift.tanggal). Entri shift HANYA digabung ke
+     * penugasan pada proyek DAN tanggal_tugas yang SAMA PERSIS dengan tanggal
+     * shift itu — shift di tanggal yang tidak punya penugasan harian sengaja
+     * DILEWATI (tidak diterbitkan sebagai entri info-only ber-id_penugasan
+     * null). Alasan: JadwalPenugasanModel.fromJson di mobile
+     * (TMN-TRANSPORT-MOBILE/lib/shared/models/jadwal_penugasan.dart:62)
+     * meng-cast id_penugasan sebagai String NON-NULL (`as String`) dan CRASH
+     * bila menerima null; menempelkan penugasan proyek yang sama dari
+     * tanggal lain (perilaku lama) juga dilarang — itulah akar bug "Mulai
+     * Trip" yang menempel ke penugasan tanggal salah.
      */
     public function jadwalUntukSupir(string $idSupir, string $dari, string $sampai): array
     {
         $penugasanTanggal = $this->penugasanRepo->listJadwalSupir($idSupir, $dari, $sampai);
         $shiftRows = $this->jadwalShiftRepo->listShiftSupir($idSupir, $dari, $sampai);
 
-        $idProyekShift = collect($shiftRows)->pluck('id_proyek')->unique()->values()->all();
-        $urutanStatus = ['aktif' => 0, 'pending' => 1, 'selesai' => 2, 'batal' => 3];
-        $penugasanPerProyek = [];
-        foreach ($this->penugasanRepo->listBySupirUntukProyek($idSupir, $idProyekShift) as $p) {
-            $ada = $penugasanPerProyek[$p->id_proyek] ?? null;
-            if ($ada === null || ($urutanStatus[$p->status] ?? 9) < ($urutanStatus[$ada->status] ?? 9)) {
-                $penugasanPerProyek[$p->id_proyek] = $p;
-            }
-        }
-
         $entri = [];
+        $penugasanByProyekTanggal = [];
         foreach ($penugasanTanggal as $p) {
             $tanggal = substr((string) $p->tanggal_tugas, 0, 10);
             $entri[$p->id_penugasan . '|' . $tanggal] = ['penugasan' => $p, 'tanggal' => $tanggal, 'shift' => null];
+            $penugasanByProyekTanggal[$p->id_proyek . '|' . $tanggal] = $p;
         }
         foreach ($shiftRows as $row) {
-            $p = $penugasanPerProyek[$row->id_proyek] ?? null;
+            $tanggal = substr((string) $row->tanggal, 0, 10);
+            $p = $penugasanByProyekTanggal[$row->id_proyek . '|' . $tanggal] ?? null;
             if ($p === null) {
                 continue;
             }
-            $tanggal = substr((string) $row->tanggal, 0, 10);
-            $kunci = $p->id_penugasan . '|' . $tanggal;
-            $entri[$kunci] ??= ['penugasan' => $p, 'tanggal' => $tanggal, 'shift' => null];
-            $entri[$kunci]['shift'] = [
+            $entri[$p->id_penugasan . '|' . $tanggal]['shift'] = [
                 'nama'        => $row->shift_nama,
                 'jam_mulai'   => $row->jam_mulai,
                 'jam_selesai' => $row->jam_selesai,
@@ -325,7 +296,7 @@ class TripService
             return $this->checkin($tripBelumMulai->id_trip, $idPerusahaan);
         }
 
-        return $this->mulaiDariPenugasan($data, $idPerusahaan, false);
+        return $this->mulaiDariPenugasan($data, $idPerusahaan);
     }
 
     public function checkoutUntukSupir(string $idTrip, string $idSupir, string $idPerusahaan): TripModel
@@ -366,9 +337,9 @@ class TripService
         return $trip;
     }
 
-    public function mulaiDariPenugasan(array $data, string $idPerusahaan, bool $terapkanOverride = true): TripModel
+    public function mulaiDariPenugasan(array $data, string $idPerusahaan): TripModel
     {
-        return DB::transaction(function () use ($data, $idPerusahaan, $terapkanOverride) {
+        return DB::transaction(function () use ($data, $idPerusahaan) {
             $penugasan = $this->repo->findPenugasanMilikPerusahaan($data['id_penugasan'], $idPerusahaan);
             if ($penugasan === null) {
                 abort(404, 'Penugasan tidak ditemukan');
@@ -381,33 +352,8 @@ class TripService
                 abort(422, 'Penugasan sudah berstatus ' . $penugasan->status . ' — trip tidak dapat dimulai');
             }
 
-            $penugasanAsal = $penugasan;
-            $tanggalIni    = now()->toDateString();
-            $override      = $terapkanOverride
-                ? $this->jadwalShiftRepo->findOverrideAktif(
-                    (string) $penugasanAsal->id_supir, (string) $penugasanAsal->id_proyek, $tanggalIni
-                  )
-                : null;
-
-            $penugasanBaruUntukDitutup = null;
-            $idArmadaOverrideLangsung  = null;
-
-            if ($override !== null && $override->id_supir_pengganti !== null) {
-                $hasil = $this->resolvePenugasanPengganti(
-                    (string) $override->id_supir_pengganti, (string) $penugasanAsal->id_proyek,
-                    $idPerusahaan, $override->id_armada_override, $penugasanAsal
-                );
-                $penugasan = $hasil['penugasan'];
-                if ($hasil['dibuatBaru']) {
-                    $penugasanBaruUntukDitutup = (string) $penugasan->id_penugasan;
-                }
-            } elseif ($override !== null && $override->id_armada_override !== null) {
-                $idArmadaOverrideLangsung = (string) $override->id_armada_override;
-            }
-
-            $armadaUntukCek = $idArmadaOverrideLangsung ?? $this->armadaEfektif($penugasan);
             $tripAktif = $this->repo->findTripAktifUntukAktor(
-                $armadaUntukCek,
+                $this->armadaEfektif($penugasan),
                 $penugasan->id_supir,
                 $penugasan->id_armada_vendor,
                 $penugasan->id_supir_vendor
@@ -443,23 +389,9 @@ class TripService
                 'uang_jalan_alokasi' => $data['uang_jalan_alokasi'] ?? null,
             ]);
 
-            $titikDropOverride = $override !== null
-                ? $this->jadwalShiftRepo->listTitikDropOverride((string) $override->id_jadwal_shift)
-                : [];
+            $this->repo->salinTitikDropDariPenugasan((string) $penugasan->id_penugasan, (string) $trip->id_trip);
 
-            if ($titikDropOverride !== []) {
-                $this->repo->syncTitikDropTrip((string) $trip->id_trip, $titikDropOverride);
-            } else {
-                $this->repo->salinTitikDropDariPenugasan((string) $penugasan->id_penugasan, (string) $trip->id_trip);
-            }
-
-            $tripBerjalan = $this->checkin($trip->id_trip, $idPerusahaan);
-
-            if ($penugasanBaruUntukDitutup !== null) {
-                $this->penugasanService->update($penugasanBaruUntukDitutup, ['status' => 'selesai'], $idPerusahaan);
-            }
-
-            return $tripBerjalan;
+            return $this->checkin($trip->id_trip, $idPerusahaan);
         });
     }
 

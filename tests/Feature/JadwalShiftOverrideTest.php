@@ -60,6 +60,17 @@ class JadwalShiftOverrideTest extends TestCase
         ]);
     }
 
+    private function makeSupirProyek(string $idProyek, string $idSupir, ?string $idPerusahaan = null): void
+    {
+        DB::table('supir_proyek')->insert([
+            'id_supir_proyek' => (string) Str::uuid(),
+            'id_perusahaan'   => $idPerusahaan ?? self::PERUSAHAAN_ID,
+            'id_proyek'       => $idProyek,
+            'id_supir'        => $idSupir,
+            'dibuat_pada'     => now(),
+        ]);
+    }
+
     private function makeShift(): string
     {
         $id = (string) Str::uuid();
@@ -120,6 +131,7 @@ class JadwalShiftOverrideTest extends TestCase
         $armadaAsal = $this->makeArmada('B 1000 AA');
         $armadaOverride = $this->makeArmada('B 2000 BB');
         $this->makePenugasan($proyek->id_proyek, $supir, $armadaAsal->id_armada);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supir, $tanggal);
@@ -133,11 +145,6 @@ class JadwalShiftOverrideTest extends TestCase
 
         $list = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyek->id_proyek}&dari={$tanggal}&sampai={$tanggal}");
         $list->assertStatus(200)->assertJsonPath('data.0.nopol_override', 'B 2000 BB');
-
-        $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $supir, 'tanggal' => $tanggal,
-            'id_armada' => $armadaOverride->id_armada, 'sumber' => 'override_manual',
-        ]);
     }
 
     public function test_set_supir_pengganti_tersimpan(): void
@@ -146,7 +153,7 @@ class JadwalShiftOverrideTest extends TestCase
         $proyek = $this->makeProyek();
         $supirAsal = $this->makeSupir('Budi');
         $supirPengganti = $this->makeSupir('Andi');
-        $this->makePenugasan($proyek->id_proyek, $supirAsal);
+        $this->makeSupirProyek($proyek->id_proyek, $supirAsal);
         $shift = $this->makeShift();
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supirAsal, $tanggal);
@@ -164,7 +171,7 @@ class JadwalShiftOverrideTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir('Budi');
-        $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supir, $tanggal);
@@ -180,7 +187,7 @@ class JadwalShiftOverrideTest extends TestCase
         $proyek = $this->makeProyek();
         $supirAsal = $this->makeSupir('Budi');
         $supirPengganti = $this->makeSupir('Andi');
-        $this->makePenugasan($proyek->id_proyek, $supirAsal);
+        $this->makeSupirProyek($proyek->id_proyek, $supirAsal);
         $shift = $this->makeShift();
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supirAsal, $tanggal);
@@ -198,8 +205,8 @@ class JadwalShiftOverrideTest extends TestCase
         $proyekB = $this->makeProyek();
         $supirAsal = $this->makeSupir('Budi');
         $supirPengganti = $this->makeSupir('Andi');
-        $this->makePenugasan($proyekA->id_proyek, $supirAsal);
-        $this->makePenugasan($proyekB->id_proyek, $supirPengganti);
+        $this->makeSupirProyek($proyekA->id_proyek, $supirAsal);
+        $this->makeSupirProyek($proyekB->id_proyek, $supirPengganti);
         $shift = $this->makeShift();
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwalA = $this->buatJadwal($proyekA->id_proyek, $shift, $supirAsal, $tanggal);
@@ -215,7 +222,7 @@ class JadwalShiftOverrideTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir('Budi');
-        $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supir, $tanggal);
@@ -238,6 +245,7 @@ class JadwalShiftOverrideTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir('Budi');
         $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
         $tanggal = now()->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supir, $tanggal);
@@ -287,11 +295,7 @@ class JadwalShiftOverrideTest extends TestCase
             'nama' => 'Pagi', 'jam_mulai' => '06:00:00', 'jam_selesai' => '14:00:00',
             'aktif' => 1, 'dibuat_pada' => now(),
         ]);
-        DB::table('penugasan')->insert([
-            'id_penugasan' => (string) Str::uuid(),
-            'id_proyek' => $proyekB->id_proyek, 'id_supir' => $idSupirB, 'status' => 'aktif',
-            'tanggal_tugas' => now()->toDateString(), 'dibuat_pada' => now(),
-        ]);
+        $this->makeSupirProyek($proyekB->id_proyek, $idSupirB, $idPerusahaanLain);
         $idJadwalB = $this->buatJadwal($proyekB->id_proyek, $idShiftB, $idSupirB, $tanggal);
 
         Sanctum::actingAs($penggunaA, ['*']);

@@ -17,6 +17,7 @@ class PenugasanResource extends JsonResource
             'id_supir'       => $this->id_supir,
             'id_karyawan'    => $this->id_karyawan,
             'id_rute'        => $this->id_rute,
+            'id_pengajuan'   => $this->id_pengajuan,
             'tanggal_tugas'  => $this->tanggal_tugas,
             'status'         => $this->status,
             'estimasi_biaya' => $this->estimasi_biaya !== null ? (float) $this->estimasi_biaya : null,

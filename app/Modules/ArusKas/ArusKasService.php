@@ -262,26 +262,6 @@ class ArusKasService
         $this->repo->unlinkJadwalPengajuan($id);
     }
 
-    public function sinkronPengajuanJadwal(string $idPengajuan): void
-    {
-        $record = $this->repo->findPengajuanById($idPengajuan);
-        if ($record === null || $record->status !== self::STATUS_DIAJUKAN) {
-            return;
-        }
-
-        $hari = $this->repo->hitungHariJadwalPengajuan($idPengajuan);
-        if ((int) $hari->jumlah === 0) {
-            $this->repo->deletePengajuan($record);
-            return;
-        }
-
-        $this->repo->updatePengajuan($record, [
-            'nominal'        => (float) $record->tarif_per_hari * (int) $hari->jumlah,
-            'periode_dari'   => $hari->dari,
-            'periode_sampai' => $hari->sampai,
-        ]);
-    }
-
     public function cek(string $id, string $idPerusahaan): PengajuanPengeluaranModel
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
@@ -563,48 +543,6 @@ class ArusKasService
             ->when($kategori, fn (Collection $c, string $v) => $c->where('kategori', $v))
             ->values()
             ->all();
-    }
-
-    public function buatPengajuanUangJalanJadwal(string $idProyek, string $idSupir, array $tanggalList): array
-    {
-        sort($tanggalList);
-        $info = $this->repo->tarifUangJalanSupir($idProyek, $idSupir);
-        if ($info === null) {
-            $nama = $this->repo->namaSupir($idSupir) ?? 'Supir';
-            return ['pengajuan' => null, 'peringatan' => "Supir {$nama}: tarif uang jalan tidak ditemukan — pengajuan tidak dibuat"];
-        }
-
-        $tarif        = (float) $info->uang_jalan;
-        $jumlah       = count($tanggalList);
-        $dari         = $tanggalList[0];
-        $sampai       = $tanggalList[$jumlah - 1];
-        $idPerusahaan = (string) $info->id_perusahaan;
-
-        $pengajuan = $this->repo->createPengajuan([
-            'id_perusahaan'     => $idPerusahaan,
-            'id_supir'          => $idSupir,
-            'id_proyek'         => $idProyek,
-            'periode_dari'      => $dari,
-            'periode_sampai'    => $sampai,
-            'tarif_per_hari'    => $tarif,
-            'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
-            'kategori'          => 'uang_jalan',
-            'nominal'           => $tarif * $jumlah,
-            'tanggal_pengajuan' => now()->toDateString(),
-            'penerima'          => (string) $info->nama_supir,
-            'keterangan'        => sprintf(
-                'Uang jalan %s — %s (%s–%s, Rp %s/hari × %d hari)',
-                $info->nama_supir,
-                $info->nama_proyek,
-                Carbon::parse($dari)->format('d/m'),
-                Carbon::parse($sampai)->format('d/m'),
-                number_format($tarif, 0, ',', '.'),
-                $jumlah,
-            ),
-            'status'            => self::STATUS_DIAJUKAN,
-        ]);
-
-        return ['pengajuan' => $pengajuan, 'peringatan' => null];
     }
 
     public function buatPengajuanPerawatanOtomatis(object $perawatan, float $totalBiaya): void
@@ -986,6 +924,87 @@ class ArusKasService
         if (!$this->repo->softDeleteApprover($id, $idPerusahaan)) {
             abort(404, 'Approver tidak ditemukan');
         }
+    }
+
+    /**
+     * Satu pengajuan uang jalan untuk seluruh tanggal sukses dalam satu batch
+     * assign penugasan harian (bukan per-tanggal) — nominal = tarif × jumlah
+     * tanggal, periode = rentang MIN..MAX tanggal sukses.
+     */
+    public function buatPengajuanUangJalanPenugasan(
+        string $idPerusahaan,
+        string $idSupir,
+        string $idProyek,
+        float $tarif,
+        array $tanggalList,
+    ): PengajuanPengeluaranModel {
+        sort($tanggalList);
+        $jumlah = count($tanggalList);
+        $dari   = $tanggalList[0];
+        $sampai = $tanggalList[$jumlah - 1];
+
+        $info = $this->repo->dataUntukPengajuanPenugasan($idSupir, $idProyek);
+
+        return $this->repo->createPengajuan([
+            'id_perusahaan'     => $idPerusahaan,
+            'id_supir'          => $idSupir,
+            'id_proyek'         => $idProyek,
+            'periode_dari'      => $dari,
+            'periode_sampai'    => $sampai,
+            'tarif_per_hari'    => $tarif,
+            'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
+            'kategori'          => 'uang_jalan',
+            'nominal'           => $tarif * $jumlah,
+            'tanggal_pengajuan' => now()->toDateString(),
+            'penerima'          => $info->nama_supir,
+            'keterangan'        => sprintf(
+                'Uang jalan %s — %s (%s–%s, Rp %s/hari × %d hari)',
+                $info->nama_supir,
+                $info->nama_proyek,
+                Carbon::parse($dari)->format('d/m'),
+                Carbon::parse($sampai)->format('d/m'),
+                number_format($tarif, 0, ',', '.'),
+                $jumlah,
+            ),
+            'status' => self::STATUS_DIAJUKAN,
+        ]);
+    }
+
+    /**
+     * Status murni pengajuan_pengeluaran untuk pengecekan caller (mis.
+     * PenugasanService::update() saat ganti supir) SEBELUM memutuskan boleh
+     * tidaknya melepas link id_pengajuan baris lain — sengaja tidak abort 404
+     * seperti findPengajuanOrFail(), karena caller hanya perlu tahu status
+     * (atau null bila sudah tidak ada), bukan record lengkapnya.
+     */
+    public function statusPengajuan(string $idPengajuan): ?string
+    {
+        return $this->repo->findPengajuanById($idPengajuan)?->status;
+    }
+
+    /**
+     * Dipanggil setelah satu baris penugasan ber-id_pengajuan dihapus.
+     * Pengajuan yang sudah lewat tahap diajukan (dicek/approval/dst) sengaja
+     * dibiarkan beku — nominalnya sudah jadi acuan proses keuangan berjalan.
+     */
+    public function sinkronPengajuanSetelahPenugasanDihapus(string $idPengajuan): void
+    {
+        $record = $this->repo->findPengajuanById($idPengajuan);
+        if ($record === null || $record->status !== self::STATUS_DIAJUKAN) {
+            return;
+        }
+
+        $hitung = $this->repo->hitungPenugasanTerkaitPengajuan($idPengajuan);
+        if ((int) $hitung->jumlah === 0) {
+            $this->repo->deletePengajuan($record);
+            return;
+        }
+
+        $this->repo->updatePengajuan($record, [
+            'nominal'        => (float) $record->tarif_per_hari * (int) $hitung->jumlah,
+            'periode_dari'   => $hitung->dari,
+            'periode_sampai' => $hitung->sampai,
+        ]);
     }
 
     public function batasApproval(string $idPerusahaan): float

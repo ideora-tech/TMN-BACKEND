@@ -164,6 +164,7 @@ return [
         'nama_proyek'          => 'nama proyek',
         'id_klien'             => 'klien',
         'id_armada'            => 'armada',
+        'id_armada_vendor'     => 'armada vendor',
         'id_supir'             => 'supir',
         'id_karyawan'          => 'karyawan',
         'id_proyek'            => 'proyek',

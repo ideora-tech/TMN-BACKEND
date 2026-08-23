@@ -21,6 +21,7 @@ class PenugasanModel extends BaseModel
         'id_supir',
         'id_karyawan',
         'id_rute',
+        'id_pengajuan',
         'tanggal_tugas',
         'status',
         'estimasi_biaya',

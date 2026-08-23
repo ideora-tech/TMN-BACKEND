@@ -45,6 +45,17 @@ class JadwalShiftTest extends TestCase
         ]);
     }
 
+    private function makeSupirProyek(string $idProyek, string $idSupir): void
+    {
+        DB::table('supir_proyek')->insert([
+            'id_supir_proyek' => (string) Str::uuid(),
+            'id_perusahaan'   => self::PERUSAHAAN_ID,
+            'id_proyek'       => $idProyek,
+            'id_supir'        => $idSupir,
+            'dibuat_pada'     => now(),
+        ]);
+    }
+
     private function makeShift(string $nama = 'Pagi', string $mulai = '08:00:00', string $selesai = '16:00:00'): string
     {
         $id = (string) Str::uuid();
@@ -62,8 +73,8 @@ class JadwalShiftTest extends TestCase
         $proyek = $this->makeProyek();
         $supirA = $this->makeSupir('Budi');
         $supirB = $this->makeSupir('Andi');
-        $this->makePenugasan($proyek->id_proyek, $supirA);
-        $this->makePenugasan($proyek->id_proyek, $supirB);
+        $this->makeSupirProyek($proyek->id_proyek, $supirA);
+        $this->makeSupirProyek($proyek->id_proyek, $supirB);
         $shift = $this->makeShift('Pagi');
 
         $res = $this->postJson('/api/v1/jadwal-shift', [
@@ -92,8 +103,10 @@ class JadwalShiftTest extends TestCase
         $supirSelesai = $this->makeSupir('Andi Selesai');
         $supirKosong = $this->makeSupir('Cici Kosong');
         $penugasanJalan = $this->makePenugasan($proyek->id_proyek, $supirJalan);
+        $this->makeSupirProyek($proyek->id_proyek, $supirJalan);
         $penugasanSelesai = $this->makePenugasan($proyek->id_proyek, $supirSelesai);
-        $this->makePenugasan($proyek->id_proyek, $supirKosong);
+        $this->makeSupirProyek($proyek->id_proyek, $supirSelesai);
+        $this->makeSupirProyek($proyek->id_proyek, $supirKosong);
         $shift = $this->makeShift();
 
         $this->postJson('/api/v1/jadwal-shift', [
@@ -140,6 +153,7 @@ class JadwalShiftTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir('Wawan Dua Rit');
         $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
         $this->postJson('/api/v1/jadwal-shift', [
@@ -194,7 +208,8 @@ class JadwalShiftTest extends TestCase
         $proyekB = $this->makeProyek();
         $supir = $this->makeSupir('Budi Lintas Proyek');
         $penugasanA = $this->makePenugasan($proyekA->id_proyek, $supir);
-        $this->makePenugasan($proyekB->id_proyek, $supir);
+        $this->makeSupirProyek($proyekA->id_proyek, $supir);
+        $this->makeSupirProyek($proyekB->id_proyek, $supir);
         $shift = $this->makeShift();
 
         // Supir sedang trip aktif di proyek A hari itu...
@@ -227,8 +242,8 @@ class JadwalShiftTest extends TestCase
         $proyekA = $this->makeProyek();
         $proyekB = $this->makeProyek();
         $supir = $this->makeSupir('Budi');
-        $this->makePenugasan($proyekA->id_proyek, $supir);
-        $this->makePenugasan($proyekB->id_proyek, $supir);
+        $this->makeSupirProyek($proyekA->id_proyek, $supir);
+        $this->makeSupirProyek($proyekB->id_proyek, $supir);
         $shiftPagi  = $this->makeShift('Pagi');
         $shiftMalam = $this->makeShift('Malam', '20:00:00', '04:00:00');
 
@@ -270,7 +285,7 @@ class JadwalShiftTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
-        $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shiftPagi  = $this->makeShift('Pagi');
         $shiftMalam = $this->makeShift('Malam', '20:00:00', '04:00:00');
 
@@ -301,6 +316,7 @@ class JadwalShiftTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
         $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
         $hariIni = now()->toDateString();
 
@@ -333,6 +349,7 @@ class JadwalShiftTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
         $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
         $besok = now()->addDay()->toDateString();
 
@@ -361,7 +378,7 @@ class JadwalShiftTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
-        $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
         $res = $this->postJson('/api/v1/jadwal-shift', [
@@ -384,7 +401,7 @@ class JadwalShiftTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
-        $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shiftPagi  = $this->makeShift('Pagi');
         $shiftMalam = $this->makeShift('Malam', '20:00:00', '04:00:00');
 
@@ -414,7 +431,7 @@ class JadwalShiftTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
-        $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
         $this->postJson('/api/v1/jadwal-shift', [
@@ -445,6 +462,7 @@ class JadwalShiftTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir('Supir Kunci Selesai');
         $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
         $this->postJson('/api/v1/jadwal-shift', [
@@ -473,6 +491,7 @@ class JadwalShiftTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir('Supir Kunci Jalan');
         $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
         $this->postJson('/api/v1/jadwal-shift', [
@@ -499,6 +518,7 @@ class JadwalShiftTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir('Supir Kunci Ganti');
         $penugasan = $this->makePenugasan($proyek->id_proyek, $supir);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shiftA = $this->makeShift();
         $shiftB = $this->makeShift('Malam', '16:00:00', '23:00:00');
 

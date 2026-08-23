@@ -160,11 +160,29 @@ class TripJadwalSayaTest extends TestCase
         ]);
     }
 
-    public function test_jadwal_saya_menampilkan_jadwal_shift_meski_tanggal_tugas_penugasan_beda(): void
+    /**
+     * Shift tanpa penugasan harian di tanggal yang sama dilewati (bukan
+     * dikirim info-only ber-id_penugasan null) — lihat docblock
+     * TripService::jadwalUntukSupir untuk alasan (mobile crash bila null).
+     */
+    public function test_jadwal_saya_shift_tanpa_penugasan_tanggal_sama_dilewati(): void
     {
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
-        $penugasan = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-07-20');
+        $idShift = $this->makeShift();
+        $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-07-31');
+
+        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02');
+
+        $res->assertStatus(200)
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_jadwal_saya_penugasan_tanggal_lain_tidak_menempel_ke_shift(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-07-28');
         $idShift = $this->makeShift();
         $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-07-31');
 
@@ -173,12 +191,8 @@ class TripJadwalSayaTest extends TestCase
         $res->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id_penugasan', $penugasan->id_penugasan)
-            ->assertJsonPath('data.0.tanggal_tugas', '2026-07-31')
-            ->assertJsonPath('data.0.status', 'aktif')
-            ->assertJsonPath('data.0.proyek.nama_proyek', 'Proyek Trip Jadwal Saya Test')
-            ->assertJsonPath('data.0.shift.nama', 'Pagi')
-            ->assertJsonPath('data.0.shift.jam_mulai', '08:00:00')
-            ->assertJsonPath('data.0.shift.jam_selesai', '20:00:00');
+            ->assertJsonPath('data.0.tanggal_tugas', '2026-07-28')
+            ->assertJsonPath('data.0.shift', null);
     }
 
     public function test_jadwal_saya_gabungkan_shift_dan_penugasan_tanpa_duplikat(): void
@@ -264,12 +278,10 @@ class TripJadwalSayaTest extends TestCase
     {
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
-        $p = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-03');
-        $idShift = $this->makeShift();
-        $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-08-03');
-        $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-08-04');
-        $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-08-05');
-        $idTrip = $this->makeTrip($p->id_penugasan, 'berjalan', '2026-08-04 09:00:00');
+        $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-03');
+        $p2 = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-04');
+        $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-05');
+        $idTrip = $this->makeTrip($p2->id_penugasan, 'berjalan', '2026-08-04 09:00:00');
 
         $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-05');
 
@@ -288,9 +300,7 @@ class TripJadwalSayaTest extends TestCase
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
         $p = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-03');
-        $idShift = $this->makeShift();
-        $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-08-03');
-        $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-08-04');
+        $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-04');
         $this->makeTrip($p->id_penugasan, 'selesai', '2026-08-03 08:30:00', '2026-08-03 17:00:00');
         $this->makeTrip($p->id_penugasan, 'selesai', '2026-08-03 18:00:00', '2026-08-03 20:00:00');
 
@@ -370,6 +380,38 @@ class TripJadwalSayaTest extends TestCase
         $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
             ->assertStatus(200)
             ->assertJsonPath('data.0.armada.nopol', 'B 777 PJ');
+    }
+
+    public function test_jadwal_saya_memuat_penugasan_harian(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+
+        $idArmada = (string) Str::uuid();
+        DB::table('armada')->insert([
+            'id_armada'     => $idArmada,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B 999 HR',
+            'merk'          => 'Hino',
+            'dibuat_pada'   => now(),
+        ]);
+
+        $penugasan = PenugasanModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_proyek'     => $proyek->id_proyek,
+            'id_supir'      => $ctx->id_supir,
+            'id_armada'     => $idArmada,
+            'status'        => 'aktif',
+            'tanggal_tugas' => '2026-08-05',
+        ]);
+
+        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09');
+
+        $res->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id_penugasan', $penugasan->id_penugasan)
+            ->assertJsonPath('data.0.tanggal_tugas', '2026-08-05')
+            ->assertJsonPath('data.0.armada.nopol', 'B 999 HR');
     }
 
     public function test_jadwal_saya_validasi_parameter(): void

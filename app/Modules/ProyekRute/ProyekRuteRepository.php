@@ -172,6 +172,31 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
         return $query->first();
     }
 
+    public function tarifUangJalanRute(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?float
+    {
+        if ($idJenisKendaraan !== null) {
+            $baris = ProyekRuteModel::active()
+                ->where('id_proyek', $idProyek)
+                ->where('id_rute', $idRute)
+                ->where('id_jenis_kendaraan', $idJenisKendaraan)
+                ->whereNotNull('uang_jalan')
+                ->first();
+
+            if ($baris !== null) {
+                return (float) $baris->uang_jalan;
+            }
+        }
+
+        $baris = ProyekRuteModel::active()
+            ->where('id_proyek', $idProyek)
+            ->where('id_rute', $idRute)
+            ->whereNotNull('uang_jalan')
+            ->orderBy('dibuat_pada')
+            ->first();
+
+        return $baris !== null ? (float) $baris->uang_jalan : null;
+    }
+
     public function create(array $data): ProyekRuteModel
     {
         return ProyekRuteModel::create($data);

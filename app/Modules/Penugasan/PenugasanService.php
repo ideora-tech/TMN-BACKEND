@@ -7,11 +7,15 @@ namespace App\Modules\Penugasan;
 use App\Modules\Armada\ArmadaModel;
 use App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface;
 use App\Modules\ArusKas\ArusKasService;
-use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
 use App\Modules\KontrakVendor\Contracts\KontrakVendorRepositoryInterface;
 use App\Modules\Penugasan\Contracts\PenugasanRepositoryInterface;
+use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
+use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class PenugasanService
 {
@@ -21,7 +25,9 @@ class PenugasanService
         private readonly ArmadaVendorRepositoryInterface $armadaVendorRepo,
         private readonly SupirVendorRepositoryInterface $supirVendorRepo,
         private readonly TripRepositoryInterface $tripRepo,
-        private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
+        private readonly ProyekRepositoryInterface $proyekRepo,
+        private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
+        private readonly SupirRepositoryInterface $supirRepo,
         private readonly ArusKasService $arusKasService,
     ) {}
 
@@ -91,6 +97,43 @@ class PenugasanService
         return $this->armadaVendorRepo->listOpsiUnitOnly($idPerusahaan);
     }
 
+    /**
+     * Payload Board Unit: daftar unit (internal + vendor unit_only) digabung
+     * dengan penugasan harian dalam rentang tanggal beserta trip-nya. Batas
+     * 62 hari sama dengan assignHarian() supaya query tidak dipakai untuk
+     * menarik seluruh histori sekaligus.
+     */
+    public function board(string $idPerusahaan, string $dari, string $sampai): array
+    {
+        $mulai   = Carbon::parse($dari);
+        $selesai = Carbon::parse($sampai);
+        if ($mulai->diffInDays($selesai) > 62) {
+            abort(422, 'Rentang tanggal maksimal 62 hari');
+        }
+
+        $unitVendor = array_map(fn (array $baris) => [
+            'tipe'             => 'vendor',
+            'id_armada_vendor' => $baris['id_armada_vendor'],
+            'nopol'            => $baris['nopol'],
+            'nama_jenis'       => $baris['jenis'],
+            'nama_vendor'      => $baris['nama_vendor'],
+        ], $this->armadaVendorRepo->listOpsiUnitOnly($idPerusahaan));
+
+        $assignments = $this->repo->boardAssignments($idPerusahaan, $dari, $sampai);
+        $idPenugasanList = array_map(fn (array $row) => (string) $row['id_penugasan'], $assignments);
+        $tripsMap = $this->repo->tripsUntukPenugasanList($idPenugasanList);
+
+        foreach ($assignments as &$row) {
+            $row['trips'] = $tripsMap[$row['id_penugasan']] ?? [];
+        }
+        unset($row);
+
+        return [
+            'units'       => array_merge($this->repo->boardUnits($idPerusahaan), $unitVendor),
+            'assignments' => $assignments,
+        ];
+    }
+
     public function findOrFail(string $id): PenugasanModel
     {
         $record = $this->repo->findById($id);
@@ -98,11 +141,6 @@ class PenugasanService
             abort(404, 'Penugasan tidak ditemukan');
         }
         return $record;
-    }
-
-    public function findAktifUntukSupirDiProyek(string $idSupir, string $idProyek): ?PenugasanModel
-    {
-        return $this->repo->findAktifUntukSupirDiProyek($idSupir, $idProyek);
     }
 
     public function create(array $data, string $idPerusahaan): PenugasanModel
@@ -121,20 +159,10 @@ class PenugasanService
             }
         }
 
-        if (($data['sumber'] ?? 'internal') === 'internal' && !empty($data['id_supir'])) {
-            if ($this->repo->existsAktifUntukSupirProyek($data['id_proyek'], $data['id_supir'])) {
-                abort(422, 'Supir sudah di-assign ke proyek ini');
-            }
-        }
-
         $this->assertAktorVendorTidakDobel($data, $data['tanggal_tugas'] ?? null);
 
         if (($data['status'] ?? 'pending') === 'pending') {
             $data['status'] = $this->sudahAdaSupir($data) ? 'aktif' : 'pending';
-        }
-
-        if (!empty($data['id_supir'])) {
-            $this->bersihkanJadwalOrphanUntukSupirBaru((string) $data['id_proyek'], (string) $data['id_supir']);
         }
 
         $titikDrop = $data['titik_drop'] ?? null;
@@ -152,6 +180,170 @@ class PenugasanService
         }
 
         return $record;
+    }
+
+    /**
+     * Penugasan harian: 1 unit (internal ATAU vendor unit_only) × 1 supir ×
+     * 1 rute, di-assign untuk satu rentang tanggal sekaligus (maks 62 hari,
+     * pola sama dengan JadwalShiftService::createBatch). Gagal per-tanggal
+     * (unit/supir dobel) tidak menggagalkan tanggal lain dalam rentang yang
+     * sama. Uang jalan (manual atau hasil resolusi rate card) dikumpulkan
+     * jadi SATU pengajuan per batch, bukan per baris penugasan.
+     */
+    public function assignHarian(array $data, string $idPerusahaan): array
+    {
+        return DB::transaction(function () use ($data, $idPerusahaan) {
+            $proyek = $this->proyekRepo->findById((string) $data['id_proyek']);
+            if ($proyek === null || (string) $proyek->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Proyek tidak ditemukan');
+            }
+
+            if (!$this->proyekRuteRepo->ruteTerdaftarUntukProyek((string) $data['id_proyek'], (string) $data['id_rute'])) {
+                abort(422, 'Rute tidak terdaftar di proyek ini');
+            }
+
+            $supir = $this->supirRepo->findById((string) $data['id_supir']);
+            if ($supir === null || (string) $supir->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Supir tidak ditemukan');
+            }
+            if ($supir->status !== 'aktif') {
+                abort(422, 'Supir tidak aktif');
+            }
+
+            $rowDasar = [
+                'id_proyek' => $data['id_proyek'],
+                'id_rute'   => $data['id_rute'],
+                'id_supir'  => $data['id_supir'],
+                'status'    => 'aktif',
+            ];
+
+            $idJenisKendaraanUnit = null;
+
+            if (!empty($data['id_armada'])) {
+                /**
+                 * Scope id_perusahaan ditambahkan di sini (beda dari
+                 * assertArmadaAdaOrFail milik create() lama yang tidak
+                 * scoped) — penugasan harian dientry langsung dari dropdown
+                 * Operasional per perusahaan, jadi wajib tenant-safe.
+                 */
+                $armada = ArmadaModel::active()->where('id_perusahaan', $idPerusahaan)->find($data['id_armada']);
+                if ($armada === null) {
+                    abort(404, 'Armada tidak ditemukan');
+                }
+
+                $rowDasar['sumber']    = 'internal';
+                $rowDasar['id_armada'] = $data['id_armada'];
+                $idJenisKendaraanUnit  = $armada->id_jenis_kendaraan;
+            } else {
+                $armadaVendor = $this->armadaVendorRepo->findByIdMilikPerusahaan((string) $data['id_armada_vendor'], $idPerusahaan);
+                if ($armadaVendor === null) {
+                    abort(404, 'Armada vendor tidak ditemukan');
+                }
+
+                /**
+                 * listOpsiUnitOnly() sudah menyaring hanya unit vendor yang
+                 * punya kontrak bermekanisme unit_only — ketemu di daftar ini
+                 * berarti mekanismenya otomatis unit_only, tidak perlu
+                 * assertVendorRules() seperti create() lama.
+                 */
+                $opsi = null;
+                foreach ($this->armadaVendorRepo->listOpsiUnitOnly($idPerusahaan) as $baris) {
+                    if ($baris['id_armada_vendor'] === (string) $data['id_armada_vendor']) {
+                        $opsi = $baris;
+                        break;
+                    }
+                }
+                if ($opsi === null) {
+                    abort(422, 'Unit vendor ini tidak memiliki kontrak Unit Only yang aktif');
+                }
+
+                $rowDasar['sumber']            = 'vendor';
+                $rowDasar['id_armada_vendor']  = $data['id_armada_vendor'];
+                $rowDasar['id_kontrak_vendor'] = $opsi['id_kontrak_vendor'];
+                $idJenisKendaraanUnit          = $armadaVendor->id_jenis_kendaraan;
+            }
+
+            $mulai   = Carbon::parse($data['tanggal']);
+            $selesai = Carbon::parse($data['tanggal_sampai'] ?? $data['tanggal']);
+            if ($mulai->diffInDays($selesai) > 62) {
+                abort(422, 'Rentang tanggal maksimal 62 hari');
+            }
+
+            $periode = [];
+            for ($t = $mulai->copy(); $t->lte($selesai); $t->addDay()) {
+                $periode[] = $t->toDateString();
+            }
+
+            $tarif = array_key_exists('uang_jalan', $data) && $data['uang_jalan'] !== null
+                ? (float) $data['uang_jalan']
+                : $this->proyekRuteRepo->tarifUangJalanRute((string) $data['id_proyek'], (string) $data['id_rute'], $idJenisKendaraanUnit);
+
+            $titikDrop = $data['titik_drop'] ?? null;
+
+            $sukses        = 0;
+            $gagal         = [];
+            $tanggalSukses = [];
+            $rekaman       = [];
+
+            foreach ($periode as $tanggal) {
+                if ($this->repo->adaPenugasanUnitPadaTanggal($rowDasar['id_armada'] ?? null, $rowDasar['id_armada_vendor'] ?? null, $tanggal)) {
+                    $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Unit sudah memiliki penugasan pada tanggal ini'];
+                    continue;
+                }
+
+                if ($this->repo->adaPenugasanSupirPadaTanggal((string) $data['id_supir'], $tanggal)) {
+                    $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Supir sudah memiliki penugasan pada tanggal ini'];
+                    continue;
+                }
+
+                $record = $this->repo->create(array_merge($rowDasar, [
+                    'tanggal_tugas'  => $tanggal,
+                    'estimasi_biaya' => $tarif,
+                ]));
+
+                if ($titikDrop !== null) {
+                    $this->repo->syncTitikDrop((string) $record->id_penugasan, $titikDrop);
+                }
+
+                $sukses++;
+                $tanggalSukses[] = $tanggal;
+                $rekaman[]       = $record;
+
+                $this->notifikasiPenugasan($record);
+            }
+
+            $peringatan = [];
+
+            if ($tanggalSukses !== []) {
+                if ($tarif !== null) {
+                    $pengajuan = $this->arusKasService->buatPengajuanUangJalanPenugasan(
+                        $idPerusahaan,
+                        (string) $data['id_supir'],
+                        (string) $data['id_proyek'],
+                        $tarif,
+                        $tanggalSukses,
+                    );
+
+                    foreach ($rekaman as $record) {
+                        $this->repo->update($record, ['id_pengajuan' => $pengajuan->id_pengajuan]);
+                    }
+                } else {
+                    $peringatan[] = 'Tarif uang jalan rute tidak ditemukan — pengajuan tidak dibuat';
+                }
+            }
+
+            /** Atribut virtual titik_drop diisi TERAKHIR — tidak boleh sebelum repo->update() di atas, karena Eloquent akan menganggapnya kolom dirty dan ikut ditulis (kolomnya memang tidak ada, hidup di tabel titik_drop_penugasan terpisah). */
+            foreach ($rekaman as $record) {
+                $record->titik_drop = $titikDrop ?? [];
+            }
+
+            return [
+                'sukses'     => $sukses,
+                'gagal'      => $gagal,
+                'peringatan' => $peringatan,
+                'penugasan'  => $rekaman,
+            ];
+        });
     }
 
     public function update(string $id, array $data, string $idPerusahaan): PenugasanModel
@@ -179,10 +371,11 @@ class PenugasanService
         ];
         $this->assertVendorRules($merged, $idPerusahaan);
 
-        $tanggalEfektif = $data['tanggal_tugas']
-            ?? ($record->tanggal_tugas instanceof \DateTimeInterface
-                ? $record->tanggal_tugas->format('Y-m-d')
-                : $record->tanggal_tugas);
+        $tanggalTugasSebelum = $record->tanggal_tugas instanceof \DateTimeInterface
+            ? $record->tanggal_tugas->format('Y-m-d')
+            : $record->tanggal_tugas;
+        $tanggalEfektif = $data['tanggal_tugas'] ?? $tanggalTugasSebelum;
+        $tanggalTugasBerubah = array_key_exists('tanggal_tugas', $data) && $data['tanggal_tugas'] !== $tanggalTugasSebelum;
         $this->assertAktorVendorTidakDobel($merged, $tanggalEfektif, $id);
 
         if (!empty($data['id_karyawan']) && !empty($data['tanggal_tugas'])) {
@@ -193,12 +386,36 @@ class PenugasanService
             }
         }
 
-        if ($merged['sumber'] === 'internal'
-            && array_key_exists('id_supir', $data)
-            && !empty($data['id_supir'])
-            && $data['id_supir'] !== $record->id_supir) {
-            if ($this->repo->existsAktifUntukSupirProyek((string) $record->id_proyek, $data['id_supir'], $id)) {
-                abort(422, 'Supir sudah di-assign ke proyek ini');
+        /**
+         * Semantik baru: satu baris penugasan = satu unit x satu tanggal, jadi
+         * satu supir lazim punya banyak baris aktif dalam satu proyek (1 per
+         * tanggal). Guard di sini BUKAN lagi "supir sudah di-assign ke proyek",
+         * melainkan invariant per-tanggal yang sama dipakai assignHarian(),
+         * dijalankan terhadap TANGGAL EFEKTIF baris (tanggal_tugas baru bila
+         * ikut diubah, else existing) memakai nilai supir/unit efektif dari
+         * $merged (nilai baru bila terkirim, else existing). Guard dipicu
+         * bila id_supir terkirim (bukan hanya saat berubah — board selalu
+         * mengirim id_supir tiap PUT) ATAU tanggal_tugas berubah — supir yang
+         * sama pun wajib divalidasi ulang saat tanggalnya dipindah ke tanggal
+         * yang sudah dipakai supir itu di baris lain.
+         */
+        if (($tanggalTugasBerubah || array_key_exists('id_supir', $data)) && !empty($merged['id_supir']) && !empty($tanggalEfektif)) {
+            if ($this->repo->adaPenugasanSupirPadaTanggal((string) $merged['id_supir'], $tanggalEfektif, $id)) {
+                abort(422, 'Supir sudah memiliki penugasan pada tanggal tersebut');
+            }
+        }
+
+        $idArmadaAtauVendorBerubah = (array_key_exists('id_armada', $data) && $data['id_armada'] !== $record->id_armada)
+            || (array_key_exists('id_armada_vendor', $data) && $data['id_armada_vendor'] !== $record->id_armada_vendor);
+
+        /**
+         * Guard unit ikut dipicu saat tanggal_tugas berubah tanpa unit ikut
+         * dikirim (mis. geser tanggal saja) — nilai unit efektif tetap dari
+         * $merged (unit lama bila tidak dikirim ulang).
+         */
+        if (($idArmadaAtauVendorBerubah || $tanggalTugasBerubah) && !empty($tanggalEfektif)) {
+            if ($this->repo->adaPenugasanUnitPadaTanggal($merged['id_armada'], $merged['id_armada_vendor'], $tanggalEfektif, $id)) {
+                abort(422, 'Unit sudah memiliki penugasan pada tanggal tersebut');
             }
         }
 
@@ -224,100 +441,49 @@ class PenugasanService
             $data['status'] = 'aktif';
         }
 
-        $armadaSebelum = $record->id_armada;
-        $supirSebelum  = $record->id_supir;
-        $updated = $this->repo->update($record, $data);
-
-        if ($titikDropDikirim) {
-            $this->repo->syncTitikDrop($id, $titikDrop ?? []);
+        /**
+         * Ganti supir pada baris yang masih ber-pengajuan status diajukan:
+         * lepas link id_pengajuan baris ini lalu sinkronkan pengajuan lama
+         * (nominal/periode turun otomatis dari sisa baris yang masih
+         * ter-link; soft-delete bila 0 sisa) — mirror semantik
+         * PenugasanService::delete(). Bila pengajuan sudah lewat tahap
+         * diajukan (dicek/disetujui/dst), SENGAJA dibiarkan beku dan link
+         * TIDAK dilepas — nominalnya sudah jadi acuan proses keuangan
+         * berjalan (sama seperti perlakuan ArusKasService::
+         * sinkronPengajuanSetelahPenugasanDihapus terhadap pengajuan yang
+         * sudah lanjut status).
+         */
+        $idSupirBerubah = array_key_exists('id_supir', $data) && $data['id_supir'] !== $record->id_supir;
+        $idPengajuanUntukSinkron = null;
+        if ($idSupirBerubah
+            && !empty($record->id_pengajuan)
+            && $this->arusKasService->statusPengajuan((string) $record->id_pengajuan) === ArusKasService::STATUS_DIAJUKAN) {
+            $idPengajuanUntukSinkron = (string) $record->id_pengajuan;
+            $data['id_pengajuan'] = null;
         }
-        $updated->titik_drop = $this->repo->titikDropUntukBanyak([$id])[$id] ?? [];
 
-        // Armada penugasan diubah user → alokasi jadwal ke depan dihitung ulang
-        // (penugasan = satu-satunya sumber kepemilikan harian armada).
-        if (array_key_exists('id_armada', $data)
-            && $data['id_armada'] !== $armadaSebelum
-            && !empty($updated->id_supir)) {
-            app(\App\Modules\AlokasiArmada\AlokasiArmadaService::class)->hitungUlangUntukPenugasan(
-                (string) $updated->id_supir,
-                (string) $updated->id_proyek,
-                now()->toDateString(),
-            );
-        }
+        $supirSebelum = $record->id_supir;
 
-        if (array_key_exists('id_supir', $data)
-            && !empty($updated->id_supir)
-            && $updated->id_supir !== $supirSebelum) {
-            $this->notifikasiPenugasan($updated);
+        return DB::transaction(function () use ($record, $data, $id, $titikDropDikirim, $titikDrop, $supirSebelum, $idPengajuanUntukSinkron) {
+            $updated = $this->repo->update($record, $data);
 
-            if (!empty($supirSebelum)) {
-                $this->pindahkanJadwalKeSupirBaru(
-                    (string) $updated->id_proyek,
-                    (string) $supirSebelum,
-                    (string) $updated->id_supir,
-                );
+            if ($titikDropDikirim) {
+                $this->repo->syncTitikDrop($id, $titikDrop ?? []);
             }
-        }
+            $updated->titik_drop = $this->repo->titikDropUntukBanyak([$id])[$id] ?? [];
 
-        return $updated;
-    }
+            if ($idPengajuanUntukSinkron !== null) {
+                $this->arusKasService->sinkronPengajuanSetelahPenugasanDihapus($idPengajuanUntukSinkron);
+            }
 
-    /**
-     * Supir penugasan diganti → jadwal shift mulai hari ini (papan jadwal)
-     * ikut dipindah kepemilikannya ke supir baru, alih-alih jadi nyangkut tak
-     * terlihat (baris papan diambil dari penugasan aktif, bukan jadwal_shift
-     * langsung). Jadwal sebelum hari ini dibiarkan milik supir lama sebagai
-     * riwayat. Tanggal yang bentrok dengan jadwal supir baru di proyek lain
-     * dilewati otomatis oleh repository (aturan 1 shift/hari global).
-     */
-    private function pindahkanJadwalKeSupirBaru(string $idProyek, string $supirLama, string $supirBaru): void
-    {
-        $hasil = $this->jadwalShiftRepo->pindahkanKepemilikan($idProyek, $supirLama, $supirBaru, now()->toDateString());
+            if (array_key_exists('id_supir', $data)
+                && !empty($updated->id_supir)
+                && $updated->id_supir !== $supirSebelum) {
+                $this->notifikasiPenugasan($updated);
+            }
 
-        if ($hasil['dipindah'] === []) {
-            return;
-        }
-
-        $alokasiService = app(\App\Modules\AlokasiArmada\AlokasiArmadaService::class);
-        foreach ($hasil['dipindah'] as $tanggal) {
-            $alokasiService->hapusUntukJadwal($supirLama, $tanggal);
-        }
-        $alokasiService->hitungUlangRentang($idProyek, min($hasil['dipindah']), max($hasil['dipindah']));
-
-        foreach ($hasil['id_pengajuan'] as $idPengajuan) {
-            $this->arusKasService->sinkronPengajuanJadwal($idPengajuan);
-        }
-    }
-
-    /**
-     * Penugasan baru dibuat untuk supir yang mulai hari ini masih punya
-     * jadwal_shift nyangkut dari penugasan lain (sumber apa pun) di proyek
-     * yang sama yang sudah selesai/batal — jadwal itu dihapus supaya papan
-     * bersih dan ops bisa assign shift dari nol untuk penugasan baru ini,
-     * tanpa kejegal aturan 1-shift/hari atau kewarisan supir/armada pengganti
-     * lama. Kalau masih ada penugasan aktif LAIN buat supir+proyek ini (mis.
-     * unit_only vendor yang belum ditutup), jadwal yang ada memang masih
-     * valid buat penugasan itu — dibiarkan.
-     */
-    private function bersihkanJadwalOrphanUntukSupirBaru(string $idProyek, string $idSupir): void
-    {
-        if ($this->repo->findAktifUntukSupirDiProyek($idSupir, $idProyek) !== null) {
-            return;
-        }
-
-        $hasil = $this->jadwalShiftRepo->hapusOrphanUntukSupirProyek($idProyek, $idSupir, now()->toDateString());
-        if ($hasil['tanggal'] === []) {
-            return;
-        }
-
-        $alokasiService = app(\App\Modules\AlokasiArmada\AlokasiArmadaService::class);
-        foreach ($hasil['tanggal'] as $tanggal) {
-            $alokasiService->hapusUntukJadwal($idSupir, $tanggal);
-        }
-
-        foreach ($hasil['id_pengajuan'] as $idPengajuan) {
-            $this->arusKasService->sinkronPengajuanJadwal($idPengajuan);
-        }
+            return $updated;
+        });
     }
 
     private function notifikasiPenugasan(PenugasanModel $record): void
@@ -508,6 +674,14 @@ class PenugasanService
             abort(422, 'Penugasan masih memiliki trip yang belum selesai — selesaikan atau batalkan trip terlebih dahulu');
         }
 
-        $this->repo->delete($record);
+        $idPengajuan = $record->id_pengajuan;
+
+        DB::transaction(function () use ($record, $idPengajuan) {
+            $this->repo->delete($record);
+
+            if (!empty($idPengajuan)) {
+                $this->arusKasService->sinkronPengajuanSetelahPenugasanDihapus((string) $idPengajuan);
+            }
+        });
     }
 }

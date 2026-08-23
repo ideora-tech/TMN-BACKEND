@@ -12,20 +12,6 @@ use Illuminate\Support\Facades\DB;
 
 class PenugasanRepository implements PenugasanRepositoryInterface
 {
-    public function listBySupirUntukProyek(string $idSupir, array $idProyekList): Collection
-    {
-        if ($idProyekList === []) {
-            return new Collection();
-        }
-
-        return PenugasanModel::active()
-            ->with(['proyek', 'armada'])
-            ->where('id_supir', $idSupir)
-            ->whereIn('id_proyek', $idProyekList)
-            ->orderBy('dibuat_pada', 'desc')
-            ->get();
-    }
-
     public function listJadwalSupir(string $idSupir, string $dari, string $sampai): Collection
     {
         return PenugasanModel::active()
@@ -128,30 +114,6 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return $query->exists();
     }
 
-    public function existsAktifUntukSupirProyek(string $idProyek, string $idSupir, ?string $excludeId = null): bool
-    {
-        $query = PenugasanModel::active()
-            ->where('id_proyek', $idProyek)
-            ->where('id_supir', $idSupir)
-            ->where('sumber', 'internal')
-            ->whereIn('status', ['pending', 'aktif']);
-
-        if ($excludeId !== null) {
-            $query->where('id_penugasan', '!=', $excludeId);
-        }
-
-        return $query->exists();
-    }
-
-    public function findAktifUntukSupirDiProyek(string $idSupir, string $idProyek): ?PenugasanModel
-    {
-        return PenugasanModel::where('id_supir', $idSupir)
-            ->where('id_proyek', $idProyek)
-            ->whereIn('status', ['pending', 'aktif'])
-            ->whereNull('dihapus_pada')
-            ->first();
-    }
-
     public function adaKonflikAktorPadaTanggal(string $kolomAktor, string $idAktor, string $tanggalTugas, ?string $excludeId = null): bool
     {
         if (!in_array($kolomAktor, ['id_armada_vendor', 'id_supir_vendor', 'id_supir'], true)) {
@@ -162,6 +124,43 @@ class PenugasanRepository implements PenugasanRepositoryInterface
             ->where($kolomAktor, $idAktor)
             ->where('tanggal_tugas', $tanggalTugas)
             ->whereIn('status', ['pending', 'aktif']);
+
+        if ($excludeId !== null) {
+            $query->where('id_penugasan', '!=', $excludeId);
+        }
+
+        return $query->exists();
+    }
+
+    public function adaPenugasanUnitPadaTanggal(?string $idArmada, ?string $idArmadaVendor, string $tanggal, ?string $excludeId = null): bool
+    {
+        if ($idArmada === null && $idArmadaVendor === null) {
+            return false;
+        }
+
+        $query = PenugasanModel::active()
+            ->where('tanggal_tugas', $tanggal)
+            ->where('status', '!=', 'batal');
+
+        if ($idArmada !== null) {
+            $query->where('id_armada', $idArmada);
+        } else {
+            $query->where('id_armada_vendor', $idArmadaVendor);
+        }
+
+        if ($excludeId !== null) {
+            $query->where('id_penugasan', '!=', $excludeId);
+        }
+
+        return $query->exists();
+    }
+
+    public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, ?string $excludeId = null): bool
+    {
+        $query = PenugasanModel::active()
+            ->where('id_supir', $idSupir)
+            ->where('tanggal_tugas', $tanggal)
+            ->where('status', '!=', 'batal');
 
         if ($excludeId !== null) {
             $query->where('id_penugasan', '!=', $excludeId);
@@ -216,5 +215,124 @@ class PenugasanRepository implements PenugasanRepositoryInterface
             ->groupBy('id_penugasan')
             ->map(fn ($g) => $g->pluck('lokasi')->all())
             ->all();
+    }
+
+    /**
+     * Reverse lookup id_armada_default hanya boleh ketemu satu supir aktif
+     * per armada (aturan "1 armada = 1 supir pegangan" dijaga di
+     * SupirService::assertArmadaDefaultRules) — leftJoin di sini aman tanpa
+     * risiko armada tampil dobel.
+     */
+    public function boardUnits(string $idPerusahaan): array
+    {
+        return DB::table('armada')
+            ->leftJoin('jenis_kendaraan', function ($join) {
+                $join->on('jenis_kendaraan.id_jenis_kendaraan', '=', 'armada.id_jenis_kendaraan')
+                    ->whereNull('jenis_kendaraan.dihapus_pada');
+            })
+            ->leftJoin('supir', function ($join) {
+                $join->on('supir.id_armada_default', '=', 'armada.id_armada')
+                    ->where('supir.status', 'aktif')
+                    ->whereNull('supir.dihapus_pada');
+            })
+            ->where('armada.id_perusahaan', $idPerusahaan)
+            ->where('armada.aktif', 1)
+            ->whereNull('armada.dihapus_pada')
+            ->orderBy('armada.nopol')
+            ->get([
+                'armada.id_armada',
+                'armada.nopol',
+                'jenis_kendaraan.nama_jenis',
+                'supir.id_supir as id_supir_default',
+                'supir.nama as nama_supir_default',
+            ])
+            ->map(fn ($row) => [
+                'tipe'               => 'internal',
+                'id_armada'          => $row->id_armada,
+                'nopol'              => $row->nopol,
+                'nama_jenis'         => $row->nama_jenis,
+                'id_supir_default'   => $row->id_supir_default,
+                'nama_supir_default' => $row->nama_supir_default,
+            ])
+            ->all();
+    }
+
+    /**
+     * Tabel penugasan tidak punya id_perusahaan — tenant di-scope lewat proyek,
+     * sama seperti paginateByPerusahaan. rute/supir/supir_vendor sengaja
+     * leftJoin dengan filter dihapus_pada DI KONDISI JOIN (bukan whereNull di
+     * level query) — supaya baris penugasan tetap tampil di board walau master
+     * yang direferensikan sudah soft-deleted (nama_rute/nama_supir jadi null),
+     * bukan malah membuat seluruh baris assignment hilang.
+     */
+    public function boardAssignments(string $idPerusahaan, string $dari, string $sampai): array
+    {
+        return DB::table('penugasan as p')
+            ->join('proyek as pr', 'pr.id_proyek', '=', 'p.id_proyek')
+            ->leftJoin('rute as r', function ($join) {
+                $join->on('r.id_rute', '=', 'p.id_rute')
+                    ->whereNull('r.dihapus_pada');
+            })
+            ->leftJoin('supir as s', function ($join) {
+                $join->on('s.id_supir', '=', 'p.id_supir')
+                    ->whereNull('s.dihapus_pada');
+            })
+            ->leftJoin('supir_vendor as sv', function ($join) {
+                $join->on('sv.id_supir_vendor', '=', 'p.id_supir_vendor')
+                    ->whereNull('sv.dihapus_pada');
+            })
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('pr.dihapus_pada')
+            ->where('pr.id_perusahaan', $idPerusahaan)
+            ->whereBetween('p.tanggal_tugas', [$dari, $sampai])
+            ->orderBy('p.tanggal_tugas')
+            ->select(
+                'p.id_penugasan',
+                'p.tanggal_tugas as tanggal',
+                'p.id_armada',
+                'p.id_armada_vendor',
+                'p.id_supir',
+                DB::raw('COALESCE(s.nama, sv.nama) as nama_supir'),
+                'p.id_proyek',
+                'pr.kode_proyek',
+                'p.id_rute',
+                'r.nama_rute',
+                'p.estimasi_biaya',
+                'p.id_pengajuan',
+                'p.status',
+            )
+            ->get()
+            ->map(fn ($row) => (array) $row)
+            ->all();
+    }
+
+    /**
+     * Pola sama dengan TripRepository::statusTripPerSupirTanggal, tapi
+     * dikelompokkan per id_penugasan (bukan per supir+tanggal) karena Board
+     * Unit sudah punya satu baris assignment per tanggal. 'belum_mulai'
+     * dianggap 'berjalan' (armada sudah dikunci) sesuai pola yang sama.
+     */
+    public function tripsUntukPenugasanList(array $idPenugasanList): array
+    {
+        if ($idPenugasanList === []) {
+            return [];
+        }
+
+        $rows = DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->whereIn('jk.id_penugasan', $idPenugasanList)
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereIn('t.status', ['belum_mulai', 'berjalan', 'selesai'])
+            ->orderBy('t.dibuat_pada')
+            ->get(['jk.id_penugasan', 't.id_trip', 't.status']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $status = $row->status === 'belum_mulai' ? 'berjalan' : $row->status;
+            $map[$row->id_penugasan][] = ['id_trip' => $row->id_trip, 'status' => $status];
+        }
+
+        return $map;
     }
 }

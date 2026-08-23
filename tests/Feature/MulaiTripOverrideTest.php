@@ -13,6 +13,14 @@ use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
+/**
+ * Sejak Task 7, TripService::mulaiDariPenugasan tidak lagi membaca override
+ * jadwal_shift (`id_supir_pengganti`/`id_armada_override`/titik drop) — armada
+ * & titik drop trip selalu diambil langsung dari kolom penugasan itu sendiri.
+ * Kolom override tetap tersimpan & tampil di papan jadwal shift (lihat
+ * JadwalShiftOverrideTest) tapi murni informasi manual, tidak berpengaruh
+ * ke trip.
+ */
 class MulaiTripOverrideTest extends TestCase
 {
     use RefreshDatabase;
@@ -116,6 +124,17 @@ class MulaiTripOverrideTest extends TestCase
         ]);
     }
 
+    private function makeSupirProyek(string $idProyek, string $idSupir): void
+    {
+        DB::table('supir_proyek')->insertOrIgnore([
+            'id_supir_proyek' => (string) Str::uuid(),
+            'id_perusahaan'   => self::PERUSAHAAN_ID,
+            'id_proyek'       => $idProyek,
+            'id_supir'        => $idSupir,
+            'dibuat_pada'     => now(),
+        ]);
+    }
+
     private function makeShift(): string
     {
         $id = (string) Str::uuid();
@@ -129,15 +148,17 @@ class MulaiTripOverrideTest extends TestCase
 
     private function buatJadwalHariIni(string $idProyek, string $idShift, string $idSupir): string
     {
+        $this->makeSupirProyek($idProyek, $idSupir);
+
         $this->postJson('/api/v1/jadwal-shift', [
             'id_proyek' => $idProyek, 'id_shift' => $idShift,
             'tanggal' => now()->toDateString(), 'supir' => [$idSupir],
-        ])->assertStatus(200);
+        ])->assertStatus(200)->assertJsonPath('data.sukses', 1);
         return (string) DB::table('jadwal_shift')
             ->where('id_proyek', $idProyek)->where('id_supir', $idSupir)->value('id_jadwal_shift');
     }
 
-    public function test_override_armada_saja_kepakai_saat_mulai_trip(): void
+    public function test_override_armada_shift_tidak_mempengaruhi_trip(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -161,15 +182,11 @@ class MulaiTripOverrideTest extends TestCase
             ->first();
         $this->assertNotNull($tripAktif);
 
-        $armadaOverrideSedangDipakai = DB::table('trip')
-            ->join('jadwal_keberangkatan', 'jadwal_keberangkatan.id_jadwal', '=', 'trip.id_jadwal')
-            ->join('penugasan', 'penugasan.id_penugasan', '=', 'jadwal_keberangkatan.id_penugasan')
-            ->where('trip.id_trip', $tripAktif->id_trip)
-            ->value('penugasan.id_armada');
-        $this->assertSame($armadaTetap->id_armada, $armadaOverrideSedangDipakai);
+        $this->assertSame('digunakan', DB::table('armada')->where('id_armada', $armadaTetap->id_armada)->value('status'));
+        $this->assertSame('tersedia', DB::table('armada')->where('id_armada', $armadaOverride->id_armada)->value('status'));
     }
 
-    public function test_ganti_supir_belum_punya_penugasan_dibuatkan_otomatis_lalu_ditutup(): void
+    public function test_supir_pengganti_shift_tidak_membuat_penugasan_baru(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -184,25 +201,18 @@ class MulaiTripOverrideTest extends TestCase
             'id_shift' => $shift, 'id_supir_pengganti' => $supirPengganti,
         ])->assertStatus(200);
 
-        $this->assertDatabaseMissing('penugasan', ['id_supir' => $supirPengganti]);
-
         $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanAsal->id_penugasan]);
         $res->assertStatus(201);
 
-        $penugasanBaru = DB::table('penugasan')
-            ->where('id_supir', $supirPengganti)->where('id_proyek', $proyek->id_proyek)
-            ->whereNull('dihapus_pada')->first();
-        $this->assertNotNull($penugasanBaru);
-        $this->assertSame($armadaTetap->id_armada, $penugasanBaru->id_armada);
-        $this->assertSame('selesai', $penugasanBaru->status);
+        $this->assertDatabaseMissing('penugasan', ['id_supir' => $supirPengganti]);
 
         $tripNempelKe = DB::table('trip')
             ->join('jadwal_keberangkatan', 'jadwal_keberangkatan.id_jadwal', '=', 'trip.id_jadwal')
             ->value('jadwal_keberangkatan.id_penugasan');
-        $this->assertSame($penugasanBaru->id_penugasan, $tripNempelKe);
+        $this->assertSame($penugasanAsal->id_penugasan, $tripNempelKe);
     }
 
-    public function test_ganti_supir_sudah_punya_penugasan_dipakai_tanpa_ditutup(): void
+    public function test_supir_pengganti_shift_tidak_mengalihkan_trip_meski_pengganti_sudah_punya_penugasan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -224,14 +234,14 @@ class MulaiTripOverrideTest extends TestCase
         $tripNempelKe = DB::table('trip')
             ->join('jadwal_keberangkatan', 'jadwal_keberangkatan.id_jadwal', '=', 'trip.id_jadwal')
             ->value('jadwal_keberangkatan.id_penugasan');
-        $this->assertSame($penugasanPengganti->id_penugasan, $tripNempelKe);
+        $this->assertSame($penugasanAsal->id_penugasan, $tripNempelKe);
 
         $statusPenugasanPengganti = DB::table('penugasan')
             ->where('id_penugasan', $penugasanPengganti->id_penugasan)->value('status');
         $this->assertSame('aktif', $statusPenugasanPengganti);
     }
 
-    public function test_titik_drop_override_kepakai_saat_mulai_trip(): void
+    public function test_titik_drop_override_shift_tidak_mempengaruhi_trip(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -254,7 +264,7 @@ class MulaiTripOverrideTest extends TestCase
         $idTrip = (string) DB::table('trip')->value('id_trip');
         $lokasiTrip = DB::table('titik_drop_trip')
             ->where('id_trip', $idTrip)->whereNull('dihapus_pada')->orderBy('urutan')->pluck('lokasi')->all();
-        $this->assertSame(['Gudang Baru 1', 'Gudang Baru 2'], $lokasiTrip);
+        $this->assertSame(['Gudang Lama'], $lokasiTrip);
     }
 
     public function test_tanpa_override_titik_drop_tetap_salin_dari_penugasan(): void
@@ -267,8 +277,6 @@ class MulaiTripOverrideTest extends TestCase
             'id_titik_drop' => (string) Str::uuid(), 'id_penugasan' => $penugasan->id_penugasan,
             'urutan' => 1, 'lokasi' => 'Gudang Biasa', 'dibuat_pada' => now(),
         ]);
-        $shift = $this->makeShift();
-        $this->buatJadwalHariIni($proyek->id_proyek, $shift, $supir);
 
         $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
             ->assertStatus(201);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Penugasan;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Penugasan\Requests\AssignPenugasanHarianRequest;
 use App\Modules\Penugasan\Requests\StorePenugasanRequest;
 use App\Modules\Penugasan\Requests\UpdatePenugasanRequest;
 use App\Modules\Penugasan\Resources\PenugasanResource;
@@ -20,6 +21,32 @@ class PenugasanController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         return ApiResponse::success($this->service->opsiArmadaVendor($idPerusahaan));
+    }
+
+    public function assignHarian(AssignPenugasanHarianRequest $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $hasil = $this->service->assignHarian($request->validated(), $idPerusahaan);
+
+        return ApiResponse::success([
+            'sukses'     => $hasil['sukses'],
+            'gagal'      => $hasil['gagal'],
+            'peringatan' => $hasil['peringatan'],
+            'penugasan'  => PenugasanResource::collection($hasil['penugasan']),
+        ], 'Penugasan harian diproses');
+    }
+
+    public function board(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'dari'   => ['required', 'date'],
+            'sampai' => ['required', 'date', 'after_or_equal:dari'],
+        ]);
+
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $hasil = $this->service->board($idPerusahaan, $data['dari'], $data['sampai']);
+
+        return ApiResponse::success($hasil);
     }
 
     public function index(Request $request): JsonResponse

@@ -92,13 +92,11 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
 
     public function supirTerdaftarDiProyek(string $idProyek): array
     {
-        return DB::table('penugasan as p')
-            ->join('supir as s', 's.id_supir', '=', 'p.id_supir')
-            ->whereNull('p.dihapus_pada')
+        return DB::table('supir_proyek as sp')
+            ->join('supir as s', 's.id_supir', '=', 'sp.id_supir')
+            ->whereNull('sp.dihapus_pada')
             ->whereNull('s.dihapus_pada')
-            ->where('p.id_proyek', $idProyek)
-            ->where('p.sumber', 'internal')
-            ->whereIn('p.status', ['pending', 'aktif'])
+            ->where('sp.id_proyek', $idProyek)
             ->distinct()
             ->orderBy('s.nama')
             ->select('s.id_supir', 's.nama', 's.no_sim')
@@ -127,12 +125,10 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
 
     public function supirPunyaPenugasan(string $idProyek, string $idSupir): bool
     {
-        return DB::table('penugasan')
+        return DB::table('supir_proyek')
             ->whereNull('dihapus_pada')
             ->where('id_proyek', $idProyek)
             ->where('id_supir', $idSupir)
-            ->where('sumber', 'internal')
-            ->whereIn('status', ['pending', 'aktif'])
             ->exists();
     }
 
@@ -234,58 +230,6 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
     }
 
     /**
-     * Pindahkan kepemilikan jadwal_shift dari supir lama ke supir baru di satu
-     * proyek, mulai tanggal tertentu (inklusif) — dipakai saat Edit Penugasan
-     * mengganti supir, supaya jadwal yang sudah dibuat ikut ke supir baru,
-     * bukan jadi nyangkut tak terlihat (papan mengambil baris dari penugasan
-     * aktif, bukan dari jadwal_shift langsung). Tanggal yang bentrok dengan
-     * jadwal supir baru di proyek lain dilewati — aturan 1 shift/hari
-     * GLOBAL tetap berlaku.
-     *
-     * @return array{dipindah: string[], dilewati: string[], id_pengajuan: string[]}
-     */
-    public function pindahkanKepemilikan(string $idProyek, string $supirLama, string $supirBaru, string $dariTanggal): array
-    {
-        $rows = DB::table('jadwal_shift')
-            ->whereNull('dihapus_pada')
-            ->where('id_proyek', $idProyek)
-            ->where('id_supir', $supirLama)
-            ->where('tanggal', '>=', $dariTanggal)
-            ->get(['id_jadwal_shift', 'tanggal', 'id_pengajuan']);
-
-        $dipindah = [];
-        $dilewati = [];
-        $idPengajuanList = [];
-
-        foreach ($rows as $row) {
-            $bentrok = DB::table('jadwal_shift')
-                ->whereNull('dihapus_pada')
-                ->where('id_supir', $supirBaru)
-                ->where('tanggal', $row->tanggal)
-                ->exists();
-
-            if ($bentrok) {
-                $dilewati[] = (string) $row->tanggal;
-                continue;
-            }
-
-            DB::table('jadwal_shift')
-                ->where('id_jadwal_shift', $row->id_jadwal_shift)
-                ->update(RecordHelper::stampUpdate(['id_supir' => $supirBaru, 'id_pengajuan' => null]));
-            $dipindah[] = (string) $row->tanggal;
-            if ($row->id_pengajuan !== null) {
-                $idPengajuanList[] = (string) $row->id_pengajuan;
-            }
-        }
-
-        return [
-            'dipindah'     => $dipindah,
-            'dilewati'     => $dilewati,
-            'id_pengajuan' => array_values(array_unique($idPengajuanList)),
-        ];
-    }
-
-    /**
      * Penugasan baru dibuat untuk supir yang mulai tanggal tertentu (biasanya
      * hari ini) masih punya jadwal_shift nyangkut dari penugasan lain di
      * proyek yang sama yang sudah selesai/batal — jadwal itu dihapus supaya
@@ -317,16 +261,5 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             'tanggal'      => $rows->pluck('tanggal')->map(fn ($t) => (string) $t)->unique()->values()->all(),
             'id_pengajuan' => $rows->pluck('id_pengajuan')->filter()->unique()->map(fn ($id) => (string) $id)->values()->all(),
         ];
-    }
-
-    public function tandaiPengajuan(string $idProyek, string $idSupir, array $tanggalList, string $idPengajuan): void
-    {
-        DB::table('jadwal_shift')
-            ->whereNull('dihapus_pada')
-            ->where('id_proyek', $idProyek)
-            ->where('id_supir', $idSupir)
-            ->whereIn('tanggal', $tanggalList)
-            ->whereNull('id_pengajuan')
-            ->update(['id_pengajuan' => $idPengajuan]);
     }
 }

@@ -11,6 +11,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
+/**
+ * Override armada shift (`id_armada_override`) tidak lagi memicu alokasi
+ * armada otomatis di JadwalShiftService::updateShift — kolom override tetap
+ * tersimpan & tampil di papan sebagai info manual, tapi sejak Task 7
+ * TripService sudah tidak lagi membacanya saat memulai trip (lihat
+ * MulaiTripOverrideTest), dan tabel alokasi_armada tidak lagi ditulis dari
+ * titik ini.
+ */
 class AlokasiArmadaOverrideTest extends TestCase
 {
     use RefreshDatabase;
@@ -56,6 +64,17 @@ class AlokasiArmadaOverrideTest extends TestCase
         ]);
     }
 
+    private function makeSupirProyek(string $idProyek, string $idSupir): void
+    {
+        DB::table('supir_proyek')->insert([
+            'id_supir_proyek' => (string) Str::uuid(),
+            'id_perusahaan'   => self::PERUSAHAAN_ID,
+            'id_proyek'       => $idProyek,
+            'id_supir'        => $idSupir,
+            'dibuat_pada'     => now(),
+        ]);
+    }
+
     private function makeShift(): string
     {
         $id = (string) Str::uuid();
@@ -67,7 +86,7 @@ class AlokasiArmadaOverrideTest extends TestCase
         return $id;
     }
 
-    public function test_override_armada_menang_atas_armada_tetap_penugasan(): void
+    public function test_update_shift_dengan_armada_override_tidak_lagi_membuat_alokasi_otomatis(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -75,6 +94,7 @@ class AlokasiArmadaOverrideTest extends TestCase
         $armadaTetap = $this->makeArmada('B 1000 AA');
         $armadaOverride = $this->makeArmada('B 2000 BB');
         $this->makePenugasan($proyek->id_proyek, $supir, $armadaTetap->id_armada);
+        $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
         $tanggal = now()->addDays(5)->toDateString();
 
@@ -83,54 +103,14 @@ class AlokasiArmadaOverrideTest extends TestCase
             'tanggal' => $tanggal, 'supir' => [$supir],
         ])->assertStatus(200);
 
-        $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $supir, 'tanggal' => $tanggal,
-            'id_armada' => $armadaTetap->id_armada, 'sumber' => 'penugasan',
-        ]);
-
         $idJadwal = (string) DB::table('jadwal_shift')
             ->where('id_proyek', $proyek->id_proyek)->where('id_supir', $supir)->value('id_jadwal_shift');
         $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_armada_override' => $armadaOverride->id_armada,
-        ])->assertStatus(200);
+        ])->assertStatus(200)
+            ->assertJsonPath('data.id_armada_override', $armadaOverride->id_armada)
+            ->assertJsonPath('data.nopol_override', 'B 2000 BB');
 
-        $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $supir, 'tanggal' => $tanggal,
-            'id_armada' => $armadaOverride->id_armada, 'sumber' => 'override_manual',
-        ]);
-        $this->assertDatabaseMissing('alokasi_armada', [
-            'id_supir' => $supir, 'tanggal' => $tanggal,
-            'id_armada' => $armadaTetap->id_armada, 'dihapus_pada' => null,
-        ]);
-    }
-
-    public function test_tanggal_lain_tanpa_override_tetap_pakai_logika_lama(): void
-    {
-        $this->actingAsRole('SUPERADMIN');
-        $proyek = $this->makeProyek();
-        $supir = $this->makeSupir('Budi');
-        $armadaTetap = $this->makeArmada('B 1000 AA');
-        $this->makePenugasan($proyek->id_proyek, $supir, $armadaTetap->id_armada);
-        $shift = $this->makeShift();
-        $tanggalOverride = now()->addDays(5)->toDateString();
-        $tanggalNormal = now()->addDays(6)->toDateString();
-
-        $this->postJson('/api/v1/jadwal-shift', [
-            'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
-            'tanggal' => $tanggalOverride, 'tanggal_sampai' => $tanggalNormal, 'supir' => [$supir],
-        ])->assertStatus(200);
-
-        $idJadwalOverride = (string) DB::table('jadwal_shift')
-            ->where('id_proyek', $proyek->id_proyek)->where('id_supir', $supir)
-            ->where('tanggal', $tanggalOverride)->value('id_jadwal_shift');
-        $armadaOverride = $this->makeArmada('B 2000 BB');
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwalOverride}", [
-            'id_shift' => $shift, 'id_armada_override' => $armadaOverride->id_armada,
-        ])->assertStatus(200);
-
-        $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir' => $supir, 'tanggal' => $tanggalNormal,
-            'id_armada' => $armadaTetap->id_armada, 'sumber' => 'penugasan',
-        ]);
+        $this->assertSame(0, DB::table('alokasi_armada')->count());
     }
 }

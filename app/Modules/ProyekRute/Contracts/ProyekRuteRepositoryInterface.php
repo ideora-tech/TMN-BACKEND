@@ -38,6 +38,13 @@ interface ProyekRuteRepositoryInterface
 
     public function findBarisTepat(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?ProyekRuteModel;
 
+    /**
+     * Tarif uang jalan harian untuk penugasan: baris rute yang cocok jenis
+     * kendaraan unit menang; kalau tidak ada/unit tanpa jenis kendaraan,
+     * fallback ke baris ber-uang_jalan non-null pertama (by dibuat_pada).
+     */
+    public function tarifUangJalanRute(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?float;
+
     public function create(array $data): ProyekRuteModel;
 
     public function update(ProyekRuteModel $model, array $data): ProyekRuteModel;

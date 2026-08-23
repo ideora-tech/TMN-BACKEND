@@ -79,6 +79,17 @@ class JadwalShiftImportTest extends TestCase
         return new UploadedFile($path, 'jadwal-shift.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
     }
 
+    private function makeSupirProyek(string $idProyek, string $idSupir): void
+    {
+        DB::table('supir_proyek')->insert([
+            'id_supir_proyek' => (string) Str::uuid(),
+            'id_perusahaan'   => self::PERUSAHAAN_ID,
+            'id_proyek'       => $idProyek,
+            'id_supir'        => $idSupir,
+            'dibuat_pada'     => now(),
+        ]);
+    }
+
     private function makeJadwal(string $idProyek, string $idShift, string $idSupir, string $tanggal): string
     {
         $id = (string) Str::uuid();
@@ -102,7 +113,7 @@ class JadwalShiftImportTest extends TestCase
             ->assertStatus(200);
     }
 
-    public function test_import_matriks_membuat_jadwal_dan_alokasi(): void
+    public function test_import_matriks_membuat_jadwal(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -116,6 +127,7 @@ class JadwalShiftImportTest extends TestCase
             'status'        => 'aktif',
             'tanggal_tugas' => now()->toDateString(),
         ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         $this->makeShiftNamed('Pagi');
 
         $file = $this->buatFileMatriks([
@@ -134,12 +146,6 @@ class JadwalShiftImportTest extends TestCase
 
         $this->assertDatabaseHas('jadwal_shift', ['id_supir' => $idSupir, 'tanggal' => '2026-08-10']);
         $this->assertDatabaseMissing('jadwal_shift', ['id_supir' => $idSupir, 'tanggal' => '2026-08-11']);
-        $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir'  => $idSupir,
-            'tanggal'   => '2026-08-10',
-            'id_armada' => $armada->id_armada,
-            'sumber'    => 'penugasan',
-        ]);
     }
 
     public function test_import_dengan_baris_judul_di_atas_header_tetap_sukses(): void
@@ -147,13 +153,7 @@ class JadwalShiftImportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $idSupir = $this->makeSupir('Supir Judul', 'SIM-JUDUL-1');
-        PenugasanModel::create([
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_proyek'     => $proyek->id_proyek,
-            'id_supir'      => $idSupir,
-            'status'        => 'aktif',
-            'tanggal_tugas' => now()->toDateString(),
-        ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         $this->makeShiftNamed('Pagi');
 
         $file = $this->buatFileMatriks([
@@ -176,13 +176,7 @@ class JadwalShiftImportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $idSupir = $this->makeSupir('Supir Serial', 'SIM-SERIAL-1');
-        PenugasanModel::create([
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_proyek'     => $proyek->id_proyek,
-            'id_supir'      => $idSupir,
-            'status'        => 'aktif',
-            'tanggal_tugas' => now()->toDateString(),
-        ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         $this->makeShiftNamed('Pagi');
 
         $serial = \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(new \DateTime('2026-08-15'));
@@ -211,6 +205,7 @@ class JadwalShiftImportTest extends TestCase
             'status'        => 'aktif',
             'tanggal_tugas' => now()->toDateString(),
         ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         $idShiftPagi = $this->makeShiftNamed('Pagi');
         $this->makeShiftNamed('Malam');
         $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupir, '2026-08-10');
@@ -244,13 +239,7 @@ class JadwalShiftImportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $idSupir = $this->makeSupir('Supir Roundtrip', 'SIM-RT-1');
-        PenugasanModel::create([
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_proyek'     => $proyek->id_proyek,
-            'id_supir'      => $idSupir,
-            'status'        => 'aktif',
-            'tanggal_tugas' => now()->toDateString(),
-        ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
 
         $res = $this->get("/api/v1/jadwal-shift/import/template?id_proyek={$proyek->id_proyek}&dari=2026-08-01&sampai=2026-08-31");
         $res->assertStatus(200);
@@ -278,13 +267,7 @@ class JadwalShiftImportTest extends TestCase
         $idSupirTerjadwal = $this->makeSupir('Supir Terjadwal', 'SIM-PREFILL-1');
         $idSupirKosong = $this->makeSupir('Supir Kosong', 'SIM-PREFILL-2');
         foreach ([$idSupirTerjadwal, $idSupirKosong] as $idSupir) {
-            PenugasanModel::create([
-                'id_perusahaan' => self::PERUSAHAAN_ID,
-                'id_proyek'     => $proyek->id_proyek,
-                'id_supir'      => $idSupir,
-                'status'        => 'aktif',
-                'tanggal_tugas' => '2026-08-05',
-            ]);
+            $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         }
         $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupirTerjadwal, '2026-08-05');
         $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupirTerjadwal, '2026-08-07');
@@ -323,13 +306,7 @@ class JadwalShiftImportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $idSupir = $this->makeSupir('Supir Valid', 'SIM-VALID-1');
-        PenugasanModel::create([
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_proyek'     => $proyek->id_proyek,
-            'id_supir'      => $idSupir,
-            'status'        => 'aktif',
-            'tanggal_tugas' => now()->toDateString(),
-        ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         $this->makeShiftNamed('Pagi');
 
         $file = $this->buatFileMatriks([
@@ -362,6 +339,7 @@ class JadwalShiftImportTest extends TestCase
             'status'        => 'aktif',
             'tanggal_tugas' => now()->toDateString(),
         ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         $idShiftPagi  = $this->makeShiftNamed('Pagi');
         $idShiftSiang = $this->makeShiftNamed('Siang');
         $idLama = $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupir, '2026-08-10');
@@ -389,13 +367,6 @@ class JadwalShiftImportTest extends TestCase
         $this->assertNotNull($baru);
         $this->assertNotSame($idLama, $baru->id_jadwal_shift);
         $this->assertSame($idShiftSiang, $baru->id_shift);
-
-        $this->assertDatabaseHas('alokasi_armada', [
-            'id_supir'  => $idSupir,
-            'tanggal'   => '2026-08-10',
-            'id_armada' => $armada->id_armada,
-            'sumber'    => 'penugasan',
-        ]);
     }
 
     public function test_import_shift_identik_dihitung_sukses_tanpa_perubahan(): void
@@ -403,13 +374,7 @@ class JadwalShiftImportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $idSupir = $this->makeSupir('Supir Identik', 'SIM-IDENTIK-1');
-        PenugasanModel::create([
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_proyek'     => $proyek->id_proyek,
-            'id_supir'      => $idSupir,
-            'status'        => 'aktif',
-            'tanggal_tugas' => now()->toDateString(),
-        ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         $idShiftPagi = $this->makeShiftNamed('Pagi');
         $idLama = $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupir, '2026-08-10');
 
@@ -435,13 +400,7 @@ class JadwalShiftImportTest extends TestCase
         $proyekTujuan = $this->makeProyek();
         $proyekLain   = $this->makeProyek();
         $idSupir = $this->makeSupir('Supir Lintas', 'SIM-LINTAS-1');
-        PenugasanModel::create([
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_proyek'     => $proyekTujuan->id_proyek,
-            'id_supir'      => $idSupir,
-            'status'        => 'aktif',
-            'tanggal_tugas' => now()->toDateString(),
-        ]);
+        $this->makeSupirProyek($proyekTujuan->id_proyek, $idSupir);
         $idShiftPagi = $this->makeShiftNamed('Pagi');
         $this->makeShiftNamed('Siang');
         $idLama = $this->makeJadwal($proyekLain->id_proyek, $idShiftPagi, $idSupir, '2026-08-10');
@@ -475,6 +434,7 @@ class JadwalShiftImportTest extends TestCase
             'status'        => 'aktif',
             'tanggal_tugas' => $hariIni,
         ]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
         $idShiftPagi = $this->makeShiftNamed('Pagi');
         $this->makeShiftNamed('Siang');
         $idLama = $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupir, $hariIni);

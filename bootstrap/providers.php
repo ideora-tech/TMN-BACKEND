@@ -56,6 +56,7 @@ return [
     App\Modules\Sparepart\SparepartServiceProvider::class,
     App\Modules\StatusTrip\StatusTripServiceProvider::class,
     App\Modules\Supir\SupirServiceProvider::class,
+    App\Modules\SupirProyek\SupirProyekServiceProvider::class,
     App\Modules\Supplier\SupplierServiceProvider::class,
     App\Modules\TokenPerangkat\TokenPerangkatServiceProvider::class,
     App\Modules\Trip\TripServiceProvider::class,

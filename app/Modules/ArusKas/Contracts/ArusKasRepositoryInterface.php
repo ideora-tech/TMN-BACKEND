@@ -57,9 +57,12 @@ interface ArusKasRepositoryInterface
     public function findPengajuanForUpdate(string $id): ?PengajuanPengeluaranModel;
     public function updateApprovalRowJikaMenunggu(string $idApproval, array $data): int;
     public function hitungApprovalMenunggu(string $idPengajuan): int;
-    public function tarifUangJalanSupir(string $idProyek, string $idSupir): ?object;
-    public function namaSupir(string $idSupir): ?string;
-    public function hitungHariJadwalPengajuan(string $idPengajuan): object;
     public function unlinkJadwalPengajuan(string $idPengajuan): void;
     public function findPengajuanPeriodeUntukTrip(string $idTrip): ?PengajuanPengeluaranModel;
+
+    /** Nama supir & proyek untuk menyusun penerima/keterangan pengajuan uang jalan penugasan. */
+    public function dataUntukPengajuanPenugasan(string $idSupir, string $idProyek): object;
+
+    /** Sisa baris `penugasan` aktif (non-dihapus) yang masih ber-`id_pengajuan` ini, untuk sinkron nominal/periode. */
+    public function hitungPenugasanTerkaitPengajuan(string $idPengajuan): object;
 }
