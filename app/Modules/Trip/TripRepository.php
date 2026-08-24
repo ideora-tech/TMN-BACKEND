@@ -443,26 +443,46 @@ class TripRepository implements TripRepositoryInterface
             ->all();
     }
 
+    public function namaRutePerId(array $idRuteList): array
+    {
+        if ($idRuteList === []) {
+            return [];
+        }
+
+        return DB::table('rute')
+            ->whereIn('id_rute', $idRuteList)
+            ->whereNull('dihapus_pada')
+            ->pluck('nama_rute', 'id_rute')
+            ->all();
+    }
+
     public function tripAktifSupir(string $idSupir): array
     {
         $rows = DB::table('trip as t')
             ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
             ->join('penugasan as p', 'p.id_penugasan', '=', 'jk.id_penugasan')
+            ->leftJoin('laporan_perjalanan as lp', function ($j) {
+                $j->on('lp.id_trip', '=', 't.id_trip')->whereNull('lp.dihapus_pada');
+            })
             ->where('p.id_supir', $idSupir)
             ->whereIn('t.status', ['belum_mulai', 'berjalan'])
             ->whereNull('t.dihapus_pada')
             ->whereNull('jk.dihapus_pada')
             ->whereNull('p.dihapus_pada')
-            ->select('jk.id_penugasan', 't.id_trip', 't.status', 't.waktu_checkin', 't.dibuat_pada')
+            ->select(
+                'jk.id_penugasan', 't.id_trip', 't.status', 't.waktu_checkin', 't.dibuat_pada',
+                DB::raw('lp.id_laporan is not null as punya_laporan')
+            )
             ->get();
 
         $map = [];
         foreach ($rows as $row) {
             if (!isset($map[$row->id_penugasan]) || $row->status === 'berjalan') {
                 $map[$row->id_penugasan] = [
-                    'id_trip' => $row->id_trip,
-                    'status'  => $row->status,
-                    'tanggal' => substr((string) ($row->waktu_checkin ?? $row->dibuat_pada), 0, 10),
+                    'id_trip'       => $row->id_trip,
+                    'status'        => $row->status,
+                    'tanggal'       => substr((string) ($row->waktu_checkin ?? $row->dibuat_pada), 0, 10),
+                    'punya_laporan' => (bool) $row->punya_laporan,
                 ];
             }
         }
@@ -628,6 +648,14 @@ class TripRepository implements TripRepositoryInterface
             ->whereNull('ft.dihapus_pada')
             ->whereNull('f.dihapus_pada')
             ->where('f.status', '!=', 'batal')
+            ->exists();
+    }
+
+    public function tripPunyaLaporan(string $idTrip): bool
+    {
+        return DB::table('laporan_perjalanan')
+            ->where('id_trip', $idTrip)
+            ->whereNull('dihapus_pada')
             ->exists();
     }
 }

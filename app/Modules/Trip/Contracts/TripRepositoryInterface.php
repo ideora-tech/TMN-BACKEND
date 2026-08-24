@@ -32,9 +32,12 @@ interface TripRepositoryInterface
     public function statusTripPerSupirTanggal(string $idProyek, array $idSupirList, string $dari, string $sampai): array;
     public function namaKlienPerProyek(array $idProyekList): array;
 
+    public function namaRutePerId(array $idRuteList): array;
+
     public function salinTitikDropDariPenugasan(string $idPenugasan, string $idTrip): void;
     public function syncTitikDropTrip(string $idTrip, array $lokasiList): void;
     public function titikDropTrip(string $idTrip): array;
     public function titikDropTripBanyak(array $idTrips): array;
     public function tripPunyaFakturAktif(string $idTrip): bool;
+    public function tripPunyaLaporan(string $idTrip): bool;
 }

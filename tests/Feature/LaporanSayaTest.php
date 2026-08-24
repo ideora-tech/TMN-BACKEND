@@ -166,17 +166,33 @@ class LaporanSayaTest extends TestCase
         ])->assertStatus(403);
     }
 
-    public function test_supir_tidak_bisa_membuat_laporan_untuk_trip_belum_selesai(): void
+    public function test_supir_tidak_bisa_membuat_laporan_untuk_trip_belum_mulai(): void
     {
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
-        $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'berjalan');
+        $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'belum_mulai');
 
         $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
         ])->assertStatus(422);
+    }
+
+    public function test_supir_bisa_membuat_laporan_untuk_trip_berjalan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'berjalan');
+
+        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+            'biaya_bbm'       => 300000,
+            'jarak_tempuh_km' => 85,
+            'uang_jalan'      => 150000,
+        ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.id_trip', $trip->id_trip);
     }
 
     public function test_kirim_laporan_saya_dua_kali_menimpa_bukan_menduplikat(): void

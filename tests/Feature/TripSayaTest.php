@@ -82,6 +82,16 @@ class TripSayaTest extends TestCase
         ]);
     }
 
+    private function buatLaporanKosong(string $idTrip): void
+    {
+        DB::table('laporan_perjalanan')->insert([
+            'id_laporan'    => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_trip'       => $idTrip,
+            'dibuat_pada'   => now(),
+        ]);
+    }
+
     private function makeProyek(): ProyekModel
     {
         $idKlien = (string) Str::uuid();
@@ -267,6 +277,7 @@ class TripSayaTest extends TestCase
         $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
+        $this->buatLaporanKosong($mulai->json('data.id_trip'));
         $this->postJson("/api/v1/trip/{$mulai->json('data.id_trip')}/checkout-saya")->assertStatus(200);
 
         $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
@@ -472,7 +483,14 @@ class TripSayaTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('data.trip.id_trip', $trip->id_trip)
-            ->assertJsonPath('data.trip.status', 'berjalan');
+            ->assertJsonPath('data.trip.status', 'berjalan')
+            ->assertJsonPath('data.trip.punya_laporan', false);
+
+        $this->buatLaporanKosong($trip->id_trip);
+
+        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.trip.punya_laporan', true);
     }
 
     public function test_detail_penugasan_menampilkan_rute_tersedia_dari_proyek(): void
@@ -623,6 +641,7 @@ class TripSayaTest extends TestCase
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTrip = $mulai->json('data.id_trip');
+        $this->buatLaporanKosong($idTrip);
 
         $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
             ->assertStatus(200)
@@ -642,6 +661,7 @@ class TripSayaTest extends TestCase
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTripPertama = $mulaiPertama->json('data.id_trip');
+        $this->buatLaporanKosong($idTripPertama);
 
         $this->postJson("/api/v1/trip/{$idTripPertama}/checkout-saya")->assertStatus(200);
 
@@ -652,6 +672,29 @@ class TripSayaTest extends TestCase
         $mulaiKedua->assertStatus(201)
             ->assertJsonPath('data.status', 'berjalan');
         $this->assertNotSame($idTripPertama, $mulaiKedua->json('data.id_trip'));
+    }
+
+    public function test_checkout_ditolak_tanpa_laporan_perjalanan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
+
+        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(201);
+        $idTrip = $mulai->json('data.id_trip');
+
+        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Laporan perjalanan wajib diisi sebelum trip dapat diselesaikan');
+
+        $this->buatLaporanKosong($idTrip);
+
+        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'selesai');
     }
 
     public function test_checkout_ulang_trip_yang_sudah_selesai_tetap_sukses(): void
@@ -665,6 +708,7 @@ class TripSayaTest extends TestCase
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTrip = $mulai->json('data.id_trip');
+        $this->buatLaporanKosong($idTrip);
 
         $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")->assertStatus(200);
 

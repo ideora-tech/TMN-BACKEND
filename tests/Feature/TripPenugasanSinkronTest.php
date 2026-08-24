@@ -31,6 +31,16 @@ class TripPenugasanSinkronTest extends TestCase
         return $id;
     }
 
+    private function buatLaporanKosong(string $idTrip): void
+    {
+        DB::table('laporan_perjalanan')->insert([
+            'id_laporan'    => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_trip'       => $idTrip,
+            'dibuat_pada'   => now(),
+        ]);
+    }
+
     private function makeSupir(): string
     {
         $id = (string) Str::uuid();
@@ -130,6 +140,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
+        $this->buatLaporanKosong($trip->id_trip);
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
 
@@ -149,6 +160,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
+        $this->buatLaporanKosong($trip->id_trip);
 
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
 
@@ -172,6 +184,7 @@ class TripPenugasanSinkronTest extends TestCase
             'status'    => 'aktif',
         ]);
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
+        $this->buatLaporanKosong($trip->id_trip);
 
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true])
             ->assertStatus(200);
@@ -216,6 +229,7 @@ class TripPenugasanSinkronTest extends TestCase
 
         $this->getJson("/api/v1/trip/{$trip->id_trip}")->assertStatus(200);
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
+        $this->buatLaporanKosong($trip->id_trip);
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
     }
 
@@ -225,6 +239,7 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $tripA = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
         $this->makeTripUntukPenugasan($penugasan, 'belum_mulai');
+        $this->buatLaporanKosong($tripA->id_trip);
 
         $res = $this->postJson("/api/v1/trip/{$tripA->id_trip}/checkout", ['selesaikan_penugasan' => true]);
 
@@ -239,6 +254,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'batal');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
+        $this->buatLaporanKosong($trip->id_trip);
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
 
@@ -298,6 +314,7 @@ class TripPenugasanSinkronTest extends TestCase
             'status'            => 'aktif',
         ]);
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
+        $this->buatLaporanKosong($trip->id_trip);
 
         $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
 

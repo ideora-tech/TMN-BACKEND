@@ -116,6 +116,9 @@ class TripService
         $klienMap = $this->repo->namaKlienPerProyek(
             array_values(array_unique(array_map(fn ($e) => (string) $e['penugasan']->id_proyek, $entri)))
         );
+        $ruteMap = $this->repo->namaRutePerId(array_values(array_unique(array_filter(
+            array_map(fn ($e) => $e['penugasan']->id_rute !== null ? (string) $e['penugasan']->id_rute : null, $entri)
+        ))));
 
         $hasil = [];
         foreach ($entri as $e) {
@@ -137,7 +140,13 @@ class TripService
                     'nopol'     => $e['penugasan']->armada->nopol,
                 ] : ($alokasiMap[$e['tanggal']] ?? null),
                 'shift'         => $e['shift'],
-                'trip_berjalan' => $trip === null ? null : ['id_trip' => $trip['id_trip'], 'status' => $trip['status']],
+                'nama_rute'     => $e['penugasan']->id_rute !== null ? ($ruteMap[(string) $e['penugasan']->id_rute] ?? null) : null,
+                'uang_jalan'    => $e['penugasan']->estimasi_biaya !== null ? (float) $e['penugasan']->estimasi_biaya : null,
+                'trip_berjalan' => $trip === null ? null : [
+                    'id_trip'       => $trip['id_trip'],
+                    'status'        => $trip['status'],
+                    'punya_laporan' => $trip['punya_laporan'] ?? false,
+                ],
                 'jumlah_trip_selesai' => $selesaiMap[$e['penugasan']->id_penugasan . '|' . $e['tanggal']] ?? 0,
                 'jumlah_laporan_terisi' => $laporanMap[$e['penugasan']->id_penugasan . '|' . $e['tanggal']] ?? 0,
             ];
@@ -243,8 +252,20 @@ class TripService
 
         $tripResult = $this->list($idPerusahaan, 1, 1, null, $idPenugasan, null, null, 'belum_mulai,berjalan');
         $tripAktif = $tripResult['data'][0] ?? null;
+        if ($tripAktif !== null) {
+            $tripAktif->punya_laporan = $this->tripPunyaLaporan((string) $tripAktif->id_trip);
+        }
 
         $ruteTersedia = $this->proyekRuteRepo->listByProyek((string) $penugasan->id_proyek);
+        if ($penugasan->id_rute !== null) {
+            $milikPenugasan = $ruteTersedia
+                ->filter(fn ($r) => (string) $r->id_rute === (string) $penugasan->id_rute)
+                ->unique('id_rute')
+                ->values();
+            if ($milikPenugasan->isNotEmpty()) {
+                $ruteTersedia = $milikPenugasan;
+            }
+        }
 
         $hariIni = $tanggal ?? now()->toDateString();
         $shiftHariIni = null;
@@ -267,6 +288,8 @@ class TripService
             'penugasan' => $penugasan,
             'trip' => $tripAktif,
             'rute_tersedia' => $ruteTersedia,
+            'nama_rute' => $ruteTersedia->first(fn ($r) => (string) $r->id_rute === (string) $penugasan->id_rute)?->nama_rute,
+            'uang_jalan' => $penugasan->estimasi_biaya !== null ? (float) $penugasan->estimasi_biaya : null,
             'nama_klien' => $this->repo->namaKlienPerProyek([(string) $penugasan->id_proyek])[(string) $penugasan->id_proyek] ?? null,
             'shift_hari_ini' => $shiftHariIni,
             'armada_hari_ini' => $armadaHariIni,
@@ -363,7 +386,7 @@ class TripService
                 abort(422, "Supir/armada masih memiliki trip aktif di proyek {$tripAktif->nama_proyek} (status: {$status}) — selesaikan atau batalkan trip tersebut dahulu");
             }
 
-            $idRute = $data['id_rute'] ?? null;
+            $idRute = $data['id_rute'] ?? ($penugasan->id_rute !== null ? (string) $penugasan->id_rute : null);
             $namaRute = null;
             if ($idRute !== null) {
                 $rute = $this->ruteRepo->findById($idRute);
@@ -452,6 +475,9 @@ class TripService
 
         if ($trip->status !== 'berjalan') {
             abort(422, 'Trip tidak dapat di-checkout pada status saat ini');
+        }
+        if (!$this->repo->tripPunyaLaporan($trip->id_trip)) {
+            abort(422, 'Laporan perjalanan wajib diisi sebelum trip dapat diselesaikan');
         }
 
         return DB::transaction(function () use ($trip, $selesaikanPenugasan) {
@@ -581,6 +607,11 @@ class TripService
     public function tripPunyaFakturAktif(string $idTrip): bool
     {
         return $this->repo->tripPunyaFakturAktif($idTrip);
+    }
+
+    public function tripPunyaLaporan(string $idTrip): bool
+    {
+        return $this->repo->tripPunyaLaporan($idTrip);
     }
 
     public function infoPengajuanUangJalan(string $idTrip): ?array

@@ -65,6 +65,16 @@ class PenugasanArmadaLifecycleTest extends TestCase
         ]);
     }
 
+    private function buatLaporanKosong(string $idTrip): void
+    {
+        DB::table('laporan_perjalanan')->insert([
+            'id_laporan'    => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_trip'       => $idTrip,
+            'dibuat_pada'   => now(),
+        ]);
+    }
+
     public function test_create_penugasan_tidak_mengubah_status_armada(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -164,6 +174,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
         $this->assertSame('digunakan', $armada->fresh()->status);
 
+        $this->buatLaporanKosong($trip->id_trip);
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
         $this->assertSame('tersedia', $armada->fresh()->status);
     }
@@ -258,6 +269,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
         $armada->fresh()->update(['status' => 'perawatan']);
 
+        $this->buatLaporanKosong($trip->id_trip);
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
 
         $this->assertSame('perawatan', $armada->fresh()->status);
@@ -301,6 +313,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $tripA = $this->makeTrip($this->buatPenugasanAktif($armada), 'berjalan');
         $this->makeTrip($this->buatPenugasanAktif($armada), 'berjalan');
 
+        $this->buatLaporanKosong($tripA->id_trip);
         $this->postJson("/api/v1/trip/{$tripA->id_trip}/checkout")->assertStatus(200);
 
         $this->assertSame('digunakan', $armada->fresh()->status);
@@ -315,6 +328,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $this->deleteJson("/api/v1/trip/{$trip->id_trip}")->assertStatus(422);
         $this->assertDatabaseHas('trip', ['id_trip' => $trip->id_trip, 'dihapus_pada' => null]);
 
+        $this->buatLaporanKosong($trip->id_trip);
         $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
         $this->deleteJson("/api/v1/trip/{$trip->id_trip}")->assertStatus(200);
     }

@@ -271,7 +271,19 @@ class TripJadwalSayaTest extends TestCase
         $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
             ->assertStatus(200)
             ->assertJsonPath('data.0.trip_berjalan.id_trip', $idTrip)
-            ->assertJsonPath('data.0.trip_berjalan.status', 'berjalan');
+            ->assertJsonPath('data.0.trip_berjalan.status', 'berjalan')
+            ->assertJsonPath('data.0.trip_berjalan.punya_laporan', false);
+
+        DB::table('laporan_perjalanan')->insert([
+            'id_laporan'    => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_trip'       => $idTrip,
+            'dibuat_pada'   => now(),
+        ]);
+
+        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.trip_berjalan.punya_laporan', true);
     }
 
     public function test_trip_berjalan_hanya_menempel_di_tanggal_checkin(): void

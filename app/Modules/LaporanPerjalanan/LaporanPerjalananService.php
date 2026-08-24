@@ -94,8 +94,8 @@ class LaporanPerjalananService
         if ($trip === null) {
             abort(404, 'Trip tidak ditemukan');
         }
-        if ($trip->status !== 'selesai') {
-            abort(422, 'Laporan hanya bisa diisi setelah trip selesai');
+        if (!in_array($trip->status, ['berjalan', 'selesai'], true)) {
+            abort(422, 'Laporan hanya bisa diisi untuk trip yang sedang berjalan atau sudah selesai');
         }
 
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);

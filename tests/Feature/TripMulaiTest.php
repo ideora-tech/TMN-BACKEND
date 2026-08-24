@@ -205,6 +205,12 @@ class TripMulaiTest extends TestCase
 
         $idTrip = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
             ->json('data.id_trip');
+        DB::table('laporan_perjalanan')->insert([
+            'id_laporan'    => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_trip'       => $idTrip,
+            'dibuat_pada'   => now(),
+        ]);
         $this->postJson("/api/v1/trip/{$idTrip}/checkout")->assertStatus(200);
 
         $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])->assertStatus(201);

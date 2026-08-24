@@ -32,6 +32,7 @@ class TripResource extends JsonResource
             'uang_jalan_alokasi' => $this->uang_jalan_alokasi !== null ? (float) $this->uang_jalan_alokasi : null,
             'titik_drop'         => $this->titik_drop ?? [],
             'sudah_difakturkan'  => (bool) ($this->sudah_difakturkan ?? false),
+            'punya_laporan'      => (bool) ($this->punya_laporan ?? false),
             'pengajuan_uang_jalan' => $this->pengajuan_uang_jalan ?? null,
             'dibuat_pada'     => $this->dibuat_pada,
             'diubah_pada'     => $this->diubah_pada,
