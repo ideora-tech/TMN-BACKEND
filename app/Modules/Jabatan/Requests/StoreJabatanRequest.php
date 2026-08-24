@@ -17,6 +17,7 @@ class StoreJabatanRequest extends FormRequest
     {
         return [
             'id_departemen' => ['sometimes', 'nullable', 'string', 'uuid'],
+            'id_jabatan_induk' => ['sometimes', 'nullable', 'string', 'uuid'],
             'id_peran'      => ['sometimes', 'nullable', 'string', 'uuid'],
             'kode_jabatan'  => ['required', 'string', 'max:50'],
             'nama_jabatan'  => ['required', 'string', 'max:150'],

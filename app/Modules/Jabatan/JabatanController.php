@@ -36,6 +36,12 @@ class JabatanController extends Controller
         );
     }
 
+    public function strukturOrganisasi(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success($this->service->strukturOrganisasi($idPerusahaan));
+    }
+
     public function show(string $id): JsonResponse
     {
         return ApiResponse::success(new JabatanResource($this->service->findOrFail($id)));

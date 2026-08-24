@@ -14,6 +14,7 @@ class JabatanResource extends JsonResource
             'id_jabatan'    => $this->id_jabatan,
             'id_perusahaan' => $this->id_perusahaan,
             'id_departemen' => $this->id_departemen,
+            'id_jabatan_induk' => $this->id_jabatan_induk,
             'id_peran'      => $this->id_peran,
             'kode_jabatan'  => $this->kode_jabatan,
             'nama_jabatan'  => $this->nama_jabatan,
