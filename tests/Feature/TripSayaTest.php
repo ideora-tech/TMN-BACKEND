@@ -534,6 +534,55 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.rute_tersedia.0.nama_rute', 'Jakarta - Bandung');
     }
 
+    public function test_detail_penugasan_menyertakan_nama_rute_dan_uang_jalan_penugasan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+
+        $idJenisKendaraan = (string) Str::uuid();
+        DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $idJenisKendaraan,
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'kode_jenis'         => 'CDD',
+            'nama_jenis'         => 'CDD',
+            'dibuat_pada'        => now(),
+        ]);
+
+        $idRute = (string) Str::uuid();
+        DB::table('rute')->insert([
+            'id_rute'       => $idRute,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_rute'     => 'RUTE-' . Str::random(6),
+            'nama_rute'     => 'Jakarta - Bandung',
+            'asal'          => 'Jakarta',
+            'tujuan'        => 'Bandung',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        ProyekRuteModel::create([
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'id_proyek'          => $proyek->id_proyek,
+            'id_rute'            => $idRute,
+            'id_jenis_kendaraan' => $idJenisKendaraan,
+        ]);
+
+        $penugasan = PenugasanModel::create([
+            'id_perusahaan'  => self::PERUSAHAAN_ID,
+            'id_proyek'      => $proyek->id_proyek,
+            'id_supir'       => $ctx->id_supir,
+            'id_rute'        => $idRute,
+            'status'         => 'aktif',
+            'tanggal_tugas'  => now()->toDateString(),
+            'estimasi_biaya' => 900000,
+        ]);
+
+        $response = $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.nama_rute', 'Jakarta - Bandung')
+            ->assertJsonPath('data.uang_jalan', 900000);
+    }
+
     public function test_riwayat_saya_termasuk_trip_dibatalkan(): void
     {
         $ctx = $this->actingAsSupir();
