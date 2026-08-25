@@ -29,6 +29,9 @@ class ApprovalServiceProvider extends ServiceProvider
                     Route::post('approval-event-type/{id}/approver', [ApprovalController::class, 'storeConfigApprover']);
                     Route::delete('approval-event-type/{id}/approver/{idConfig}', [ApprovalController::class, 'destroyConfigApprover']);
                 });
+
+                Route::get('approval-pengajuan/menunggu-saya', [ApprovalController::class, 'menungguSaya']);
+                Route::patch('approval-pengajuan/{id}/keputusan', [ApprovalController::class, 'putuskan']);
             });
     }
 }

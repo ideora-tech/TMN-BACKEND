@@ -27,9 +27,9 @@ interface ApprovalRepositoryInterface
 
     public function createPengajuan(array $data): ApprovalPengajuanModel;
     public function insertKeputusanRows(string $idApproval, array $idPenggunaList): void;
-    public function findPengajuanOrFail(string $id): ApprovalPengajuanModel;
+    public function findPengajuanForUpdate(string $id, string $idPerusahaan): ?ApprovalPengajuanModel;
     public function findKeputusanMenunggu(string $idApproval, string $idPengguna): ?object;
-    public function updateKeputusan(string $idKeputusan, array $data): void;
+    public function updateKeputusanJikaMenunggu(string $idKeputusan, array $data): int;
     public function hitungKeputusanBelumSetuju(string $idApproval): int;
     public function updatePengajuan(ApprovalPengajuanModel $model, array $data): ApprovalPengajuanModel;
     public function findPengajuanAktifUntukReferensi(string $idEventType, string $idReferensi): ?ApprovalPengajuanModel;

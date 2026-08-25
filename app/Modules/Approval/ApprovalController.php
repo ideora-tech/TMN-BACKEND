@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Approval;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Approval\Requests\KeputusanApprovalRequest;
 use App\Modules\Approval\Requests\StoreConfigApproverRequest;
 use App\Modules\Approval\Requests\StoreEventTypeRequest;
 use App\Modules\Approval\Requests\UpdateEventTypeRequest;
+use App\Modules\Approval\Resources\ApprovalPengajuanResource;
 use App\Modules\Approval\Resources\EventTypeResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -60,5 +62,26 @@ class ApprovalController extends Controller
             (string) $request->user()->id_perusahaan,
         );
         return ApiResponse::success(null, 'Approver dihapus');
+    }
+
+    public function menungguSaya(Request $request): JsonResponse
+    {
+        $data = $this->service->menungguApprovalSaya(
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->id_perusahaan,
+        );
+        return ApiResponse::success(ApprovalPengajuanResource::collection($data));
+    }
+
+    public function putuskan(KeputusanApprovalRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->putuskan(
+            $id,
+            (string) $request->user()->id_pengguna,
+            $request->validated('keputusan'),
+            $request->validated('catatan'),
+            (string) $request->user()->id_perusahaan,
+        );
+        return ApiResponse::success(new ApprovalPengajuanResource($record));
     }
 }

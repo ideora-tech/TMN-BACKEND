@@ -166,12 +166,79 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         DB::table('approval_keputusan')->insert($rows);
     }
 
-    public function findPengajuanOrFail(string $id): ApprovalPengajuanModel { return ApprovalPengajuanModel::active()->findOrFail($id); }
-    public function findKeputusanMenunggu(string $idApproval, string $idPengguna): ?object { return null; }
-    public function updateKeputusan(string $idKeputusan, array $data): void {}
-    public function hitungKeputusanBelumSetuju(string $idApproval): int { return 0; }
-    public function updatePengajuan(ApprovalPengajuanModel $model, array $data): ApprovalPengajuanModel { $model->update($data); return $model->fresh(); }
-    public function findPengajuanAktifUntukReferensi(string $idEventType, string $idReferensi): ?ApprovalPengajuanModel { return null; }
-    public function progressApproval(string $idApproval): array { return ['disetujui' => 0, 'total' => 0]; }
-    public function listMenungguApprovalSaya(string $idPengguna, string $idPerusahaan): Collection { return collect(); }
+    public function findPengajuanForUpdate(string $id, string $idPerusahaan): ?ApprovalPengajuanModel
+    {
+        return ApprovalPengajuanModel::active()
+            ->where('id_approval', $id)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->lockForUpdate()
+            ->first();
+    }
+
+    public function findKeputusanMenunggu(string $idApproval, string $idPengguna): ?object
+    {
+        return DB::table('approval_keputusan')
+            ->where('id_approval', $idApproval)
+            ->where('id_pengguna', $idPengguna)
+            ->where('status', 'menunggu')
+            ->whereNull('dihapus_pada')
+            ->first();
+    }
+
+    public function updateKeputusanJikaMenunggu(string $idKeputusan, array $data): int
+    {
+        return DB::table('approval_keputusan')
+            ->where('id_keputusan', $idKeputusan)
+            ->where('status', 'menunggu')
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampUpdate($data));
+    }
+
+    public function hitungKeputusanBelumSetuju(string $idApproval): int
+    {
+        return DB::table('approval_keputusan')
+            ->where('id_approval', $idApproval)
+            ->where('status', '!=', 'disetujui')
+            ->whereNull('dihapus_pada')
+            ->count();
+    }
+
+    public function updatePengajuan(ApprovalPengajuanModel $model, array $data): ApprovalPengajuanModel
+    {
+        $model->update($data);
+        return $model->fresh();
+    }
+
+    public function findPengajuanAktifUntukReferensi(string $idEventType, string $idReferensi): ?ApprovalPengajuanModel
+    {
+        return ApprovalPengajuanModel::active()
+            ->where('id_event_type', $idEventType)
+            ->where('id_referensi', $idReferensi)
+            ->orderByDesc('dibuat_pada')
+            ->first();
+    }
+
+    public function progressApproval(string $idApproval): array
+    {
+        $disetujui = DB::table('approval_keputusan')
+            ->where('id_approval', $idApproval)->where('status', 'disetujui')->whereNull('dihapus_pada')->count();
+        $total = DB::table('approval_keputusan')
+            ->where('id_approval', $idApproval)->whereNull('dihapus_pada')->count();
+
+        return ['disetujui' => $disetujui, 'total' => $total];
+    }
+
+    public function listMenungguApprovalSaya(string $idPengguna, string $idPerusahaan): Collection
+    {
+        return ApprovalPengajuanModel::active()
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', 'menunggu')
+            ->whereExists(fn ($q) => $q->from('approval_keputusan as ak')
+                ->whereColumn('ak.id_approval', 'approval_pengajuan.id_approval')
+                ->where('ak.id_pengguna', $idPengguna)
+                ->where('ak.status', 'menunggu')
+                ->whereNull('ak.dihapus_pada'))
+            ->orderByDesc('dibuat_pada')
+            ->get();
+    }
 }

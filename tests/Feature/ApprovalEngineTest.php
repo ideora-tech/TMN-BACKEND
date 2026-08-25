@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Models\Pengguna;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -220,5 +221,250 @@ class ApprovalEngineTest extends TestCase
         } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
             $this->assertSame(422, $e->getStatusCode());
         }
+    }
+
+    public function test_putuskan_setuju_semua_baru_final_disetujui(): void
+    {
+        Event::fake([\App\Events\ApprovalDiputuskan::class]);
+
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_2approver');
+        $idJabatan   = $this->makeJabatan('Direktur Dua');
+        $a1 = $this->makePenggunaDenganJabatan($idJabatan, 'A1');
+        $a2 = $this->makePenggunaDenganJabatan($idJabatan, 'A2');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy_2approver', (string) Str::uuid(), $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        $service->putuskan($pengajuan->id_approval, $a1->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
+        $this->assertSame('menunggu', $pengajuan->fresh()->status);
+        Event::assertNotDispatched(\App\Events\ApprovalDiputuskan::class);
+
+        $service->putuskan($pengajuan->id_approval, $a2->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
+        $this->assertSame('disetujui', $pengajuan->fresh()->status);
+        Event::assertDispatched(\App\Events\ApprovalDiputuskan::class, fn ($e) => $e->keputusan === 'disetujui');
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id_pengguna'    => $pengaju->id_pengguna,
+            'referensi_id'   => $pengajuan->id_approval,
+            'referensi_tipe' => 'approval_pengajuan',
+        ]);
+    }
+
+    public function test_putuskan_tolak_satu_langsung_final_ditolak(): void
+    {
+        Event::fake([\App\Events\ApprovalDiputuskan::class]);
+
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_tolak');
+        $idJabatan   = $this->makeJabatan('Direktur Tolak');
+        $a1 = $this->makePenggunaDenganJabatan($idJabatan, 'A1');
+        $a2 = $this->makePenggunaDenganJabatan($idJabatan, 'A2');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy_tolak', (string) Str::uuid(), $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        $service->putuskan($pengajuan->id_approval, $a1->id_pengguna, 'tolak', 'Tidak sesuai budget', self::PERUSAHAAN_ID);
+        $this->assertSame('ditolak', $pengajuan->fresh()->status);
+        $this->assertSame('Tidak sesuai budget', $pengajuan->fresh()->alasan_ditolak);
+        Event::assertDispatched(\App\Events\ApprovalDiputuskan::class, fn ($e) => $e->keputusan === 'ditolak');
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id_pengguna'    => $pengaju->id_pengguna,
+            'referensi_id'   => $pengajuan->id_approval,
+            'referensi_tipe' => 'approval_pengajuan',
+            'isi'            => 'Tidak sesuai budget',
+        ]);
+    }
+
+    public function test_putuskan_oleh_bukan_approver_403(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_403');
+        $idJabatan   = $this->makeJabatan('Direktur 403');
+        $a1 = $this->makePenggunaDenganJabatan($idJabatan, 'A1');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $bukanApprover = $this->actingAsRole('DISPATCHER');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy_403', (string) Str::uuid(), $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        try {
+            $service->putuskan($pengajuan->id_approval, $bukanApprover->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
+            $this->fail('Seharusnya melempar HttpException 403');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+        }
+    }
+
+    public function test_status_untuk_null_sebelum_diajukan_terisi_setelah_diajukan(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_status');
+        $idJabatan   = $this->makeJabatan('Direktur Status');
+        $this->makePenggunaDenganJabatan($idJabatan, 'A1');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $idReferensi = (string) Str::uuid();
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+
+        $this->assertNull($service->statusUntuk('test_dummy_status', $idReferensi, self::PERUSAHAAN_ID));
+
+        $service->ajukan('test_dummy_status', $idReferensi, $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        $status = $service->statusUntuk('test_dummy_status', $idReferensi, self::PERUSAHAAN_ID);
+        $this->assertSame('menunggu', $status['status']);
+        $this->assertSame(0, $status['approval_progress']['disetujui']);
+        $this->assertSame(1, $status['approval_progress']['total']);
+    }
+
+    public function test_putuskan_dua_kali_oleh_approver_sama_409(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_409');
+        $idJabatan   = $this->makeJabatan('Direktur 409');
+        $a1 = $this->makePenggunaDenganJabatan($idJabatan, 'A1');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy_409', (string) Str::uuid(), $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        $service->putuskan($pengajuan->id_approval, $a1->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
+
+        try {
+            $service->putuskan($pengajuan->id_approval, $a1->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
+            $this->fail('Seharusnya melempar HttpException 409');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(409, $e->getStatusCode());
+        }
+    }
+
+    public function test_putuskan_setelah_final_oleh_approver_lain_409_dan_event_hanya_sekali(): void
+    {
+        Event::fake([\App\Events\ApprovalDiputuskan::class]);
+
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_race');
+        $idJabatan   = $this->makeJabatan('Direktur Race');
+        $a1 = $this->makePenggunaDenganJabatan($idJabatan, 'A1');
+        $a2 = $this->makePenggunaDenganJabatan($idJabatan, 'A2');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy_race', (string) Str::uuid(), $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        $service->putuskan($pengajuan->id_approval, $a1->id_pengguna, 'tolak', 'reason-1', self::PERUSAHAAN_ID);
+        $this->assertSame('ditolak', $pengajuan->fresh()->status);
+        $this->assertSame('reason-1', $pengajuan->fresh()->alasan_ditolak);
+
+        try {
+            $service->putuskan($pengajuan->id_approval, $a2->id_pengguna, 'tolak', 'reason-2', self::PERUSAHAAN_ID);
+            $this->fail('Seharusnya melempar HttpException 409 karena pengajuan sudah final');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(409, $e->getStatusCode());
+        }
+
+        $this->assertSame('reason-1', $pengajuan->fresh()->alasan_ditolak);
+        $this->assertSame('ditolak', $pengajuan->fresh()->status);
+
+        $this->assertSame('menunggu', DB::table('approval_keputusan')
+            ->where('id_approval', $pengajuan->id_approval)
+            ->where('id_pengguna', $a2->id_pengguna)
+            ->value('status'));
+
+        Event::assertDispatchedTimes(\App\Events\ApprovalDiputuskan::class, 1);
+    }
+
+    public function test_putuskan_pengajuan_milik_perusahaan_lain_404(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_tenant');
+        $idJabatan   = $this->makeJabatan('Direktur Tenant');
+        $a1 = $this->makePenggunaDenganJabatan($idJabatan, 'A1');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy_tenant', (string) Str::uuid(), $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        $idPerusahaanLain = (string) Str::uuid();
+
+        try {
+            $service->putuskan($pengajuan->id_approval, $a1->id_pengguna, 'setuju', null, $idPerusahaanLain);
+            $this->fail('Seharusnya melempar HttpException 404');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(404, $e->getStatusCode());
+        }
+
+        $this->assertSame('menunggu', $pengajuan->fresh()->status);
+        $this->assertSame('menunggu', DB::table('approval_keputusan')
+            ->where('id_approval', $pengajuan->id_approval)
+            ->where('id_pengguna', $a1->id_pengguna)
+            ->value('status'));
+    }
+
+    public function test_endpoint_menunggu_saya_dan_keputusan(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_http');
+        $idJabatan   = $this->makeJabatan('Direktur HTTP');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Approver HTTP');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy_http', (string) Str::uuid(), $pengaju->id_pengguna, 750000.0, self::PERUSAHAAN_ID);
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+
+        $list = $this->getJson('/api/approval-pengajuan/menunggu-saya');
+        $list->assertStatus(200);
+        $this->assertTrue(collect($list->json('data'))->contains('id_approval', $pengajuan->id_approval));
+
+        $keputusan = $this->patchJson("/api/approval-pengajuan/{$pengajuan->id_approval}/keputusan", [
+            'keputusan' => 'setuju',
+        ]);
+        $keputusan->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+    }
+
+    public function test_endpoint_keputusan_tolak_wajib_catatan(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_http_tolak');
+        $idJabatan   = $this->makeJabatan('Direktur HTTP Tolak');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Approver HTTP Tolak');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy_http_tolak', (string) Str::uuid(), $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+
+        $this->patchJson("/api/approval-pengajuan/{$pengajuan->id_approval}/keputusan", [
+            'keputusan' => 'tolak',
+        ])->assertStatus(422);
+
+        $this->patchJson("/api/approval-pengajuan/{$pengajuan->id_approval}/keputusan", [
+            'keputusan' => 'tolak',
+            'catatan'   => 'Alasan wajib ini',
+        ])->assertStatus(200)->assertJsonPath('data.status', 'ditolak');
     }
 }
