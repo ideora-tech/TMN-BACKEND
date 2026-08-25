@@ -277,6 +277,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
                 DB::raw('COALESCE(s.nama, sv.nama) as nama_supir'),
                 'p.id_proyek',
                 'pr.kode_proyek',
+                'pr.nama_proyek',
                 'p.id_rute',
                 'r.nama_rute',
                 'p.estimasi_biaya',
