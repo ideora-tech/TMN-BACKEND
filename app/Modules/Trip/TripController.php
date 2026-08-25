@@ -117,7 +117,7 @@ class TripController extends Controller
     {
         $validated = $request->validate([
             'tanggal' => ['nullable', 'date_format:Y-m-d'],
-            'status'  => ['nullable', 'in:selesai,dibatalkan'],
+            'status'  => ['nullable', 'in:selesai,dibatalkan,berjalan'],
         ]);
 
         $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);

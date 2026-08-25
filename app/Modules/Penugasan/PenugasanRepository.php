@@ -132,29 +132,6 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return $query->exists();
     }
 
-    public function adaPenugasanUnitPadaTanggal(?string $idArmada, ?string $idArmadaVendor, string $tanggal, ?string $excludeId = null): bool
-    {
-        if ($idArmada === null && $idArmadaVendor === null) {
-            return false;
-        }
-
-        $query = PenugasanModel::active()
-            ->where('tanggal_tugas', $tanggal)
-            ->where('status', '!=', 'batal');
-
-        if ($idArmada !== null) {
-            $query->where('id_armada', $idArmada);
-        } else {
-            $query->where('id_armada_vendor', $idArmadaVendor);
-        }
-
-        if ($excludeId !== null) {
-            $query->where('id_penugasan', '!=', $excludeId);
-        }
-
-        return $query->exists();
-    }
-
     public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, ?string $excludeId = null): bool
     {
         $query = PenugasanModel::active()

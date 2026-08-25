@@ -286,11 +286,6 @@ class PenugasanService
             $rekaman       = [];
 
             foreach ($periode as $tanggal) {
-                if ($this->repo->adaPenugasanUnitPadaTanggal($rowDasar['id_armada'] ?? null, $rowDasar['id_armada_vendor'] ?? null, $tanggal)) {
-                    $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Unit sudah memiliki penugasan pada tanggal ini'];
-                    continue;
-                }
-
                 if ($this->repo->adaPenugasanSupirPadaTanggal((string) $data['id_supir'], $tanggal)) {
                     $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Supir sudah memiliki penugasan pada tanggal ini'];
                     continue;
@@ -402,20 +397,6 @@ class PenugasanService
         if (($tanggalTugasBerubah || array_key_exists('id_supir', $data)) && !empty($merged['id_supir']) && !empty($tanggalEfektif)) {
             if ($this->repo->adaPenugasanSupirPadaTanggal((string) $merged['id_supir'], $tanggalEfektif, $id)) {
                 abort(422, 'Supir sudah memiliki penugasan pada tanggal tersebut');
-            }
-        }
-
-        $idArmadaAtauVendorBerubah = (array_key_exists('id_armada', $data) && $data['id_armada'] !== $record->id_armada)
-            || (array_key_exists('id_armada_vendor', $data) && $data['id_armada_vendor'] !== $record->id_armada_vendor);
-
-        /**
-         * Guard unit ikut dipicu saat tanggal_tugas berubah tanpa unit ikut
-         * dikirim (mis. geser tanggal saja) — nilai unit efektif tetap dari
-         * $merged (unit lama bila tidak dikirim ulang).
-         */
-        if (($idArmadaAtauVendorBerubah || $tanggalTugasBerubah) && !empty($tanggalEfektif)) {
-            if ($this->repo->adaPenugasanUnitPadaTanggal($merged['id_armada'], $merged['id_armada_vendor'], $tanggalEfektif, $id)) {
-                abort(422, 'Unit sudah memiliki penugasan pada tanggal tersebut');
             }
         }
 

@@ -20,9 +20,6 @@ interface PenugasanRepositoryInterface
     public function hasConflict(string $idKaryawan, string $tanggalTugas, ?string $excludeId = null): bool;
     public function adaKonflikAktorPadaTanggal(string $kolomAktor, string $idAktor, string $tanggalTugas, ?string $excludeId = null): bool;
 
-    /** Guard penugasan harian: satu unit (internal ATAU vendor) tidak boleh dobel di tanggal yang sama. */
-    public function adaPenugasanUnitPadaTanggal(?string $idArmada, ?string $idArmadaVendor, string $tanggal, ?string $excludeId = null): bool;
-
     /** Guard penugasan harian: satu supir tidak boleh dobel di tanggal yang sama (lintas unit/proyek). */
     public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, ?string $excludeId = null): bool;
 

@@ -148,7 +148,7 @@ class PenugasanHarianTest extends TestCase
         $this->assertSame(3, DB::table('penugasan')->where('id_supir', $supir)->where('id_pengajuan', $idPengajuan)->count());
     }
 
-    public function test_guard_unit_dan_supir_dobel_tanggal(): void
+    public function test_guard_supir_dobel_tanggal_unit_boleh_dobel(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek  = $this->makeProyek();
@@ -175,9 +175,12 @@ class PenugasanHarianTest extends TestCase
             'id_proyek' => $proyek->id_proyek,
             'id_rute'   => $rute,
         ]);
-        $resUnit->assertStatus(200)->assertJsonPath('data.sukses', 0);
-        $this->assertCount(1, $resUnit->json('data.gagal'));
-        $this->assertStringContainsString('Unit', $resUnit->json('data.gagal.0.alasan'));
+        $resUnit->assertStatus(200)->assertJsonPath('data.sukses', 1);
+        $this->assertCount(0, $resUnit->json('data.gagal'));
+        $this->assertSame(2, DB::table('penugasan')
+            ->where('id_armada', $armadaA->id_armada)
+            ->where('tanggal_tugas', '2026-09-10')
+            ->count());
 
         $resSupir = $this->postJson('/api/v1/penugasan/harian', [
             'tanggal'   => '2026-09-10',
@@ -189,6 +192,45 @@ class PenugasanHarianTest extends TestCase
         $resSupir->assertStatus(200)->assertJsonPath('data.sukses', 0);
         $this->assertCount(1, $resSupir->json('data.gagal'));
         $this->assertStringContainsString('Supir', $resSupir->json('data.gagal.0.alasan'));
+    }
+
+    public function test_assign_unit_yang_sama_ke_dua_proyek_berbeda_tanggal_sama(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyekA = $this->makeProyek();
+        $proyekB = $this->makeProyek();
+        $rute    = $this->makeRute();
+        $this->makeProyekRute($proyekA->id_proyek, $rute, null);
+        $this->makeProyekRute($proyekB->id_proyek, $rute, null);
+        $armada = $this->makeArmada();
+        $supirA = $this->makeSupir('Rian Dobel Proyek');
+        $supirB = $this->makeSupir('Sari Dobel Proyek');
+
+        $this->postJson('/api/v1/penugasan/harian', [
+            'tanggal'   => '2026-09-25',
+            'id_armada' => $armada->id_armada,
+            'id_supir'  => $supirA,
+            'id_proyek' => $proyekA->id_proyek,
+            'id_rute'   => $rute,
+        ])->assertStatus(200)->assertJsonPath('data.sukses', 1);
+
+        $this->postJson('/api/v1/penugasan/harian', [
+            'tanggal'   => '2026-09-25',
+            'id_armada' => $armada->id_armada,
+            'id_supir'  => $supirB,
+            'id_proyek' => $proyekB->id_proyek,
+            'id_rute'   => $rute,
+        ])->assertStatus(200)->assertJsonPath('data.sukses', 1);
+
+        $res = $this->getJson('/api/v1/penugasan/board?dari=2026-09-25&sampai=2026-09-25');
+        $res->assertStatus(200);
+
+        $assignments = collect($res->json('data.assignments'))->where('id_armada', $armada->id_armada);
+        $this->assertCount(2, $assignments);
+        $this->assertEqualsCanonicalizing(
+            [$proyekA->id_proyek, $proyekB->id_proyek],
+            $assignments->pluck('id_proyek')->all(),
+        );
     }
 
     public function test_tarif_tidak_ketemu_penugasan_tetap_dibuat_dengan_peringatan(): void
@@ -498,7 +540,7 @@ class PenugasanHarianTest extends TestCase
         ]);
     }
 
-    public function test_edit_tanggal_tugas_ke_tanggal_yang_sudah_dipakai_unit_ditolak(): void
+    public function test_edit_tanggal_tugas_unit_boleh_dobel_tanggal(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek  = $this->makeProyek();
@@ -529,20 +571,11 @@ class PenugasanHarianTest extends TestCase
         $resDobel = $this->putJson('/api/v1/penugasan/' . $penugasanX->id_penugasan, [
             'tanggal_tugas' => '2026-09-15',
         ]);
-        $resDobel->assertStatus(422);
-        $this->assertDatabaseHas('penugasan', [
-            'id_penugasan'  => $penugasanX->id_penugasan,
-            'tanggal_tugas' => '2026-09-10',
-        ]);
-
-        $resSukses = $this->putJson('/api/v1/penugasan/' . $penugasanX->id_penugasan, [
-            'tanggal_tugas' => '2026-09-20',
-        ]);
-        $resSukses->assertStatus(200);
-        $this->assertDatabaseHas('penugasan', [
-            'id_penugasan'  => $penugasanX->id_penugasan,
-            'tanggal_tugas' => '2026-09-20',
-        ]);
+        $resDobel->assertStatus(200);
+        $this->assertSame(2, DB::table('penugasan')
+            ->where('id_armada', $armadaU->id_armada)
+            ->where('tanggal_tugas', '2026-09-15')
+            ->count());
     }
 
     public function test_edit_ganti_supir_baris_diajukan_melepas_link_dan_sinkron_pengajuan(): void
