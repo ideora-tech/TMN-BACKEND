@@ -22,6 +22,8 @@ class UpdateFakturRequest extends FormRequest
             'status'         => ['sometimes', 'string', 'in:draft,terkirim,lunas,batal'],
             'tanggal_faktur' => ['sometimes', 'nullable', 'date'],
             'jatuh_tempo'    => ['sometimes', 'nullable', 'date'],
+            'nama_pajak'     => ['sometimes', 'nullable', 'string', 'max:50'],
+            'persen_pajak'   => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
             'items'          => ['sometimes', 'array'],
             'items.*.deskripsi'    => ['required_with:items', 'string', 'max:300'],
             'items.*.qty'          => ['required_with:items', 'numeric', 'min:0'],

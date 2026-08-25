@@ -18,8 +18,12 @@ class FakturRepository implements FakturRepositoryInterface
                 $join->on('klien.id_klien', '=', 'faktur.id_klien')
                     ->whereNull('klien.dihapus_pada');
             })
+            ->leftJoin('proyek', function ($join) {
+                $join->on('proyek.id_proyek', '=', 'faktur.id_proyek')
+                    ->whereNull('proyek.dihapus_pada');
+            })
             ->where('faktur.id_perusahaan', $idPerusahaan)
-            ->select('faktur.*')
+            ->select('faktur.*', 'klien.nama_klien', 'proyek.nama_proyek')
             ->orderBy('faktur.dibuat_pada', 'desc');
 
         if ($status !== null && $status !== '') {
@@ -39,9 +43,14 @@ class FakturRepository implements FakturRepositoryInterface
     public function paginateByKlien(string $idKlien, string $idPerusahaan, int $page, int $limit): LengthAwarePaginator
     {
         return FakturModel::active()
-            ->where('id_klien', $idKlien)
-            ->where('id_perusahaan', $idPerusahaan)
-            ->orderBy('dibuat_pada', 'desc')
+            ->leftJoin('proyek', function ($join) {
+                $join->on('proyek.id_proyek', '=', 'faktur.id_proyek')
+                    ->whereNull('proyek.dihapus_pada');
+            })
+            ->where('faktur.id_klien', $idKlien)
+            ->where('faktur.id_perusahaan', $idPerusahaan)
+            ->select('faktur.*', 'proyek.nama_proyek')
+            ->orderBy('faktur.dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
 

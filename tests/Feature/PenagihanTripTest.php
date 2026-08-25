@@ -381,6 +381,8 @@ class PenagihanTripTest extends TestCase
         $daftarFaktur->assertStatus(200);
         $baris = collect($daftarFaktur->json('data'))->firstWhere('id_faktur', $idFaktur);
         $this->assertSame($pengguna->username, $baris['dibuat_oleh_nama']);
+        $this->assertSame('Proyek Penagihan', $baris['nama_proyek']);
+        $this->assertSame('Klien Penagihan', $baris['nama_klien']);
     }
 
     public function test_draft_faktur_menyimpan_referensi_penawaran_disetujui_proyek(): void
