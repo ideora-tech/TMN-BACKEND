@@ -108,13 +108,22 @@ class FakturKlienExportTest extends TestCase
             'f'          => $faktur->fresh()->load('items'),
             'items'      => $faktur->fresh()->items,
             'logoBase64' => null,
-            'perusahaan' => (object) [],
+            'perusahaan' => (object) [
+                'nama_bank'          => 'BANK SYARIAH INDONESIA',
+                'atas_nama_rekening' => 'PT. SULITA LOGISTIK INDONESIA',
+                'nomor_rekening'     => '7285139591',
+            ],
         ]);
 
         $view->assertSee('Subtotal');
         $view->assertSee('PPN (11%)', false);
         $view->assertSee('Rp 165.000');
         $view->assertSee('Rp 1.665.000');
+        $view->assertSee('Terbilang', false);
+        $view->assertSee('Satu Juta Enam Ratus Enam Puluh Lima Ribu Rupiah', false);
+        $view->assertSee('BANK SYARIAH INDONESIA', false);
+        $view->assertSee('PT. SULITA LOGISTIK INDONESIA', false);
+        $view->assertSee('7285139591', false);
     }
 
     public function test_excel_export_collection_menyertakan_baris_subtotal_dan_pajak(): void
@@ -132,6 +141,7 @@ class FakturKlienExportTest extends TestCase
         $this->assertSame(165000.0, $rows[2][4]);
         $this->assertSame('TOTAL', $rows[3][1]);
         $this->assertSame(1665000.0, $rows[3][4]);
+        $this->assertSame('Terbilang: Satu Juta Enam Ratus Enam Puluh Lima Ribu Rupiah', $rows[4][1]);
     }
 
     public function test_export_faktur_milik_perusahaan_lain_ditolak_404(): void

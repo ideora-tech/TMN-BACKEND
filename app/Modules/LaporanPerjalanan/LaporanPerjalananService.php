@@ -34,6 +34,7 @@ class LaporanPerjalananService
 
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
         $this->tolakBiayaTanggunganVendor($idTrip, $data);
+        $this->pastikanBiayaBbmDiisi($idTrip, $data);
 
         $hasBiayaTagihan = array_key_exists('biaya_tagihan', $data);
         $biayaTagihan = $data['biaya_tagihan'] ?? [];
@@ -44,6 +45,10 @@ class LaporanPerjalananService
 
         $biayaLain = $data['biaya_lain'] ?? [];
         unset($data['biaya_lain'], $data['foto']);
+
+        if ($fotoFiles === []) {
+            abort(422, 'Laporan wajib menyertakan minimal 1 foto bukti');
+        }
 
         $laporan = $this->repo->create(array_merge($data, [
             'id_trip'       => $idTrip,
@@ -102,6 +107,14 @@ class LaporanPerjalananService
         $this->tolakBiayaTanggunganVendor($idTrip, $data);
 
         $existing = $this->repo->findByTrip($idTrip);
+        if ($existing === null) {
+            $this->pastikanBiayaBbmDiisi($idTrip, $data);
+        }
+        $totalFotoSaatIni = $existing !== null ? $existing->foto()->count() : 0;
+        if ($fotoFiles === [] && $totalFotoSaatIni === 0) {
+            abort(422, 'Laporan wajib menyertakan minimal 1 foto bukti');
+        }
+
         $hasBiayaLain = array_key_exists('biaya_lain', $data);
         $biayaLain = $data['biaya_lain'] ?? [];
         unset($data['biaya_lain'], $data['foto']);
@@ -215,6 +228,21 @@ class LaporanPerjalananService
         if ($mekanisme === 'full'
             && ($terisi('biaya_bbm') || $terisi('jumlah_liter') || $terisi('uang_tol') || !empty($data['id_jenis_bbm']) || !empty($data['biaya_lain']))) {
             abort(422, "Biaya operasional ditanggung vendor (kontrak {$label})");
+        }
+    }
+
+    private function pastikanBiayaBbmDiisi(string $idTrip, array $data): void
+    {
+        $penugasan = $this->tripRepo->findPenugasanDariTrip($idTrip);
+        if ($penugasan !== null && ($penugasan->sumber ?? 'internal') === 'vendor' && !empty($penugasan->id_kontrak_vendor)) {
+            $mekanisme = $this->repo->mekanismeKontrak((string) $penugasan->id_kontrak_vendor);
+            if ($mekanisme === 'full') {
+                return;
+            }
+        }
+
+        if (empty($data['biaya_bbm']) || (float) $data['biaya_bbm'] <= 0) {
+            abort(422, 'Biaya BBM wajib diisi');
         }
     }
 

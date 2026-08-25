@@ -28,7 +28,7 @@ class PenugasanResource extends JsonResource
             'titik_drop'     => $this->titik_drop ?? [],
             'dibuat_pada'    => $this->dibuat_pada,
             'diubah_pada'    => $this->diubah_pada,
-            'proyek' => $this->whenLoaded('proyek', fn () => $this->proyek !== null ? ['nama_proyek' => $this->proyek->nama_proyek] : null),
+            'proyek' => $this->whenLoaded('proyek', fn () => $this->proyek !== null ? ['kode_proyek' => $this->proyek->kode_proyek, 'nama_proyek' => $this->proyek->nama_proyek] : null),
             'armada' => $this->whenLoaded('armada', fn () => $this->armada !== null ? ['nopol' => $this->armada->nopol] : null),
         ];
     }

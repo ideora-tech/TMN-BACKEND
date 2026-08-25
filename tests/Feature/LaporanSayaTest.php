@@ -185,10 +185,12 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'berjalan');
 
+        Storage::fake('public');
         $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
+            'foto'            => [UploadedFile::fake()->image('bukti.jpg')],
         ]);
 
         $res->assertStatus(201)
@@ -201,10 +203,12 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'selesai');
 
+        Storage::fake('public');
         $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
+            'foto'            => [UploadedFile::fake()->image('bukti.jpg')],
         ])->assertStatus(201);
 
         $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
@@ -252,10 +256,12 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $pemilik = $this->actingAsSupir();
         $trip = $this->makeTripUntukSupir($pemilik->id_supir, $proyek->id_proyek, 'selesai');
+        Storage::fake('public');
         $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
+            'foto'            => [UploadedFile::fake()->image('bukti.jpg')],
         ]);
         $idLaporan = $createRes->json('data.id_laporan');
 

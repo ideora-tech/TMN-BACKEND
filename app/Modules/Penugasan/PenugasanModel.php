@@ -6,6 +6,7 @@ namespace App\Modules\Penugasan;
 
 use App\Models\BaseModel;
 use App\Modules\Armada\ArmadaModel;
+use App\Modules\ArmadaVendor\ArmadaVendorModel;
 use App\Modules\Proyek\ProyekModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -43,5 +44,10 @@ class PenugasanModel extends BaseModel
     public function armada(): BelongsTo
     {
         return $this->belongsTo(ArmadaModel::class, 'id_armada', 'id_armada');
+    }
+
+    public function armadaVendor(): BelongsTo
+    {
+        return $this->belongsTo(ArmadaVendorModel::class, 'id_armada_vendor', 'id_armada_vendor');
     }
 }

@@ -6,6 +6,7 @@ namespace App\Modules\Faktur\Exports;
 
 use App\Modules\Faktur\FakturModel;
 use App\Support\Exports\DenganGayaLaporan;
+use App\Support\Terbilang;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -63,6 +64,7 @@ class FakturDetailExport implements FromCollection, WithHeadings, ShouldAutoSize
         }
 
         $rows->push(['', 'TOTAL', '', '', (float) $this->faktur->total]);
+        $rows->push(['', 'Terbilang: ' . Terbilang::rupiah((float) $this->faktur->total), '', '', '']);
 
         return $rows;
     }

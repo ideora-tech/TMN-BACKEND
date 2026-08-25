@@ -6,7 +6,7 @@ namespace App\Modules\LaporanPerjalanan\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreLaporanPerjalananRequest extends FormRequest
+class UpdateLaporanPerjalananRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -30,7 +30,7 @@ class StoreLaporanPerjalananRequest extends FormRequest
             'biaya_tagihan.*.nama_biaya'  => ['required_with:biaya_tagihan', 'string', 'max:100'],
             'biaya_tagihan.*.nominal'     => ['required_with:biaya_tagihan', 'numeric', 'min:0'],
             'foto'                        => ['sometimes', 'array'],
-            'foto.*'                      => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:10240'],
+            'foto.*'                      => ['file', 'mimes:jpg,jpeg,png', 'max:10240'],
         ];
     }
 }

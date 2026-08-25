@@ -10,13 +10,21 @@ use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
 use App\Modules\Trip\TripModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class LaporanBbmTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function fotoDummy(): array
+    {
+        Storage::fake('public');
+        return ['foto' => [UploadedFile::fake()->image('bukti.jpg')]];
+    }
 
     private function makeTrip(string $idPerusahaan, string $status = 'selesai'): TripModel
     {
@@ -72,6 +80,7 @@ class LaporanBbmTest extends TestCase
             'uang_jalan'      => 200000,
             'id_jenis_bbm'    => $jenis->id_jenis_bbm,
             'jumlah_liter'    => 73.5,
+            ...$this->fotoDummy(),
         ]);
 
         $res->assertStatus(201)
@@ -114,6 +123,7 @@ class LaporanBbmTest extends TestCase
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
+            ...$this->fotoDummy(),
         ]);
 
         $res->assertStatus(201)
@@ -137,6 +147,7 @@ class LaporanBbmTest extends TestCase
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
+            ...$this->fotoDummy(),
         ]);
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');
@@ -160,6 +171,7 @@ class LaporanBbmTest extends TestCase
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
+            ...$this->fotoDummy(),
         ]);
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');

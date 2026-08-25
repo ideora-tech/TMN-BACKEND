@@ -14,13 +14,16 @@ class PenugasanRepository implements PenugasanRepositoryInterface
 {
     public function listJadwalSupir(string $idSupir, string $dari, string $sampai): Collection
     {
-        return PenugasanModel::active()
-            ->with(['proyek', 'armada'])
+        $records = PenugasanModel::active()
             ->where('id_supir', $idSupir)
             ->whereBetween('tanggal_tugas', [$dari, $sampai])
             ->orderBy('tanggal_tugas')
             ->orderBy('dibuat_pada')
             ->get();
+
+        $this->attachProyekArmada($records);
+
+        return $records;
     }
 
     public function paginateByProyek(string $idProyek, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
@@ -36,13 +39,21 @@ class PenugasanRepository implements PenugasanRepositoryInterface
     /** Tabel penugasan tidak punya id_perusahaan — tenant di-scope lewat proyek. */
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
     {
-        return PenugasanModel::active()
-            ->with(['proyek', 'armada'])
-            ->whereHas('proyek', fn ($q) => $q->where('id_perusahaan', $idPerusahaan)->whereNull('dihapus_pada'))
+        $paginator = PenugasanModel::active()
+            ->join('proyek', function ($join) use ($idPerusahaan) {
+                $join->on('proyek.id_proyek', '=', 'penugasan.id_proyek')
+                    ->where('proyek.id_perusahaan', $idPerusahaan)
+                    ->whereNull('proyek.dihapus_pada');
+            })
+            ->select('penugasan.*')
             ->when($sumber, fn ($q, $v) => $this->terapkanFilterSumber($q, $v))
-            ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
-            ->orderBy('tanggal_tugas', 'desc')
+            ->when($status, fn ($q, $v) => $q->whereIn('penugasan.status', explode(',', $v)))
+            ->orderBy('penugasan.tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
+
+        $this->attachProyekArmada($paginator->getCollection());
+
+        return $paginator;
     }
 
     public function paginateByArmada(string $idArmada, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
@@ -57,13 +68,40 @@ class PenugasanRepository implements PenugasanRepositoryInterface
 
     public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
     {
-        return PenugasanModel::active()
-            ->with(['proyek', 'armada'])
+        $paginator = PenugasanModel::active()
             ->where('id_supir', $idSupir)
             ->when($sumber, fn ($q, $v) => $this->terapkanFilterSumber($q, $v))
             ->when($status, fn ($q, $v) => $q->whereIn('status', explode(',', $v)))
             ->orderBy('tanggal_tugas', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
+
+        $this->attachProyekArmada($paginator->getCollection());
+
+        return $paginator;
+    }
+
+    /**
+     * Lampirkan pseudo-relasi proyek/armada via query builder biasa (bukan
+     * Eloquent with()/whereHas()) — dipakai konsumen (TripService dkk) yang
+     * masih mengakses ->proyek->nama_proyek / ->armada->nopol seperti relasi
+     * asli, jadi cukup di-setRelation() tanpa mengubah kode pemanggil.
+     */
+    private function attachProyekArmada(Collection $records): void
+    {
+        $idProyekList = $records->pluck('id_proyek')->unique()->filter()->values();
+        $idArmadaList = $records->pluck('id_armada')->unique()->filter()->values();
+
+        $proyekMap = $idProyekList->isEmpty() ? collect()
+            : DB::table('proyek')->whereIn('id_proyek', $idProyekList)
+                ->get(['id_proyek', 'kode_proyek', 'nama_proyek'])->keyBy('id_proyek');
+        $armadaMap = $idArmadaList->isEmpty() ? collect()
+            : DB::table('armada')->whereIn('id_armada', $idArmadaList)
+                ->get(['id_armada', 'nopol'])->keyBy('id_armada');
+
+        foreach ($records as $record) {
+            $record->setRelation('proyek', $proyekMap->get($record->id_proyek));
+            $record->setRelation('armada', $armadaMap->get($record->id_armada));
+        }
     }
 
     /**

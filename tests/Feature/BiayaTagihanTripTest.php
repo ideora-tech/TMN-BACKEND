@@ -10,13 +10,21 @@ use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
 use App\Modules\Trip\TripModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class BiayaTagihanTripTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function fotoDummy(): array
+    {
+        Storage::fake('public');
+        return ['foto' => [UploadedFile::fake()->image('bukti.jpg')]];
+    }
 
     private function makeKlien(): string
     {
@@ -88,6 +96,7 @@ class BiayaTagihanTripTest extends TestCase
             'biaya_tagihan'  => [
                 ['nama_biaya' => 'Multidrop', 'nominal' => 150000],
             ],
+            ...$this->fotoDummy(),
         ]);
 
         $createRes->assertStatus(201)
@@ -134,16 +143,18 @@ class BiayaTagihanTripTest extends TestCase
         $trip = $this->makeTrip('selesai');
 
         $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_bbm'     => 500000,
             'uang_jalan'    => 100000,
             'biaya_tagihan' => [
                 ['nama_biaya' => 'Multidrop', 'nominal' => 150000],
             ],
+            ...$this->fotoDummy(),
         ])->assertStatus(201);
 
         $res = $this->getJson("/api/trip/{$trip->id_trip}/rekap-biaya");
 
         $res->assertStatus(200);
-        $this->assertEquals(100000, $res->json('data.total_keseluruhan'));
+        $this->assertEquals(600000, $res->json('data.total_keseluruhan'));
     }
 
     public function test_biaya_tagihan_ditolak_bila_sudah_difakturkan(): void
@@ -154,6 +165,7 @@ class BiayaTagihanTripTest extends TestCase
         $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'  => 500000,
             'uang_jalan' => 200000,
+            ...$this->fotoDummy(),
         ]);
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');

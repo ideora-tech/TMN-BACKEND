@@ -11,25 +11,55 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
 {
     public function findByTrip(string $idTrip): ?LaporanPerjalananModel
     {
-        return LaporanPerjalananModel::active()
-            ->with(['biayaLain', 'biayaTagihan', 'foto'])
+        $laporan = LaporanPerjalananModel::active()
             ->where('id_trip', $idTrip)
             ->first();
+
+        $this->attachDetail($laporan);
+
+        return $laporan;
     }
 
     public function findById(string $id): ?LaporanPerjalananModel
     {
-        return LaporanPerjalananModel::active()
-            ->with(['biayaLain', 'biayaTagihan', 'foto'])
-            ->find($id);
+        $laporan = LaporanPerjalananModel::active()->find($id);
+        $this->attachDetail($laporan);
+
+        return $laporan;
     }
 
     public function findByIdMilik(string $id, string $idPerusahaan): ?LaporanPerjalananModel
     {
-        return LaporanPerjalananModel::active()
-            ->with(['biayaLain', 'biayaTagihan', 'foto'])
+        $laporan = LaporanPerjalananModel::active()
             ->where('id_perusahaan', $idPerusahaan)
             ->find($id);
+
+        $this->attachDetail($laporan);
+
+        return $laporan;
+    }
+
+    /**
+     * Lampirkan pseudo-relasi biayaLain/biayaTagihan/foto via query builder biasa
+     * (bukan Eloquent with()) — LaporanPerjalananResource masih memakai
+     * whenLoaded('biayaLain') dkk, jadi cukup di-setRelation() tanpa mengubah
+     * resource/kode pemanggil.
+     */
+    private function attachDetail(?LaporanPerjalananModel $laporan): void
+    {
+        if ($laporan === null) {
+            return;
+        }
+
+        $laporan->setRelation('biayaLain', DB::table('biaya_lain_trip')
+            ->where('id_laporan', $laporan->id_laporan)->whereNull('dihapus_pada')
+            ->get(['id_biaya_lain', 'id_laporan', 'nama_biaya', 'nominal']));
+        $laporan->setRelation('biayaTagihan', DB::table('biaya_tagihan_trip')
+            ->where('id_laporan', $laporan->id_laporan)->whereNull('dihapus_pada')
+            ->get(['id_biaya_tagihan', 'id_laporan', 'nama_biaya', 'nominal']));
+        $laporan->setRelation('foto', DB::table('foto_laporan_perjalanan')
+            ->where('id_laporan', $laporan->id_laporan)->whereNull('dihapus_pada')
+            ->get(['id_foto', 'id_laporan', 'url_file', 'keterangan']));
     }
 
     public function create(array $data): LaporanPerjalananModel
@@ -45,7 +75,10 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
 
     public function reload(LaporanPerjalananModel $model): LaporanPerjalananModel
     {
-        return $model->fresh(['biayaLain', 'biayaTagihan', 'foto']);
+        $fresh = $model->fresh();
+        $this->attachDetail($fresh);
+
+        return $fresh;
     }
 
     public function syncBiayaLain(LaporanPerjalananModel $laporan, array $biayaLain): void

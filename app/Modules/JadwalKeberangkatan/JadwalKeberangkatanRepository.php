@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\JadwalKeberangkatan;
 
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
-use App\Modules\Penugasan\PenugasanModel;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -42,7 +41,8 @@ class JadwalKeberangkatanRepository implements JadwalKeberangkatanRepositoryInte
 
     public function findBySupir(string $idSupir, int $page, int $limit): LengthAwarePaginator
     {
-        $penugasanIds = PenugasanModel::active()
+        $penugasanIds = DB::table('penugasan')
+            ->whereNull('dihapus_pada')
             ->where('id_karyawan', $idSupir)
             ->pluck('id_penugasan');
 

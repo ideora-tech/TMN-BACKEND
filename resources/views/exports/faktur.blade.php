@@ -39,6 +39,11 @@
         table.rincian tr.subtotal td { font-weight: bold; background: #f0fdfa; border-top: 1.5px solid #0e7490; }
         .ket { color: #9ca3af; font-size: 9.5px; }
 
+        .terbilang { margin-top: 10px; font-size: 10.5px; color: #374151; }
+        table.pembayaran { margin-top: 10px; font-size: 10.5px; color: #374151; border-collapse: collapse; }
+        table.pembayaran td { padding: 1.5px 0; }
+        table.pembayaran td.label { width: 90px; color: #6b7280; }
+
         .cetak { margin-top: 14px; color: #9ca3af; font-size: 9px; }
 
         .footer { position: fixed; bottom: 0; left: 0; right: 0; height: 68px; }
@@ -158,6 +163,25 @@
                         <td class="jumlah">{{ $rp($f->total) }}</td>
                     </tr>
                 </tbody>
+            </table>
+        @endif
+
+        <p class="terbilang">Terbilang: <em>{{ \App\Support\Terbilang::rupiah((float) $f->total) }}</em></p>
+
+        @if (!empty($perusahaan->nama_bank) || !empty($perusahaan->nomor_rekening))
+            <table class="pembayaran">
+                <tr>
+                    <td colspan="2">Pembayaran dengan cek/giro harap diatasnamakan atau transfer ke:</td>
+                </tr>
+                @if (!empty($perusahaan->nama_bank))
+                    <tr><td class="label">Nama Bank</td><td>: {{ $perusahaan->nama_bank }}</td></tr>
+                @endif
+                @if (!empty($perusahaan->atas_nama_rekening))
+                    <tr><td class="label">Nama Account</td><td>: {{ $perusahaan->atas_nama_rekening }}</td></tr>
+                @endif
+                @if (!empty($perusahaan->nomor_rekening))
+                    <tr><td class="label">No. Account</td><td>: {{ $perusahaan->nomor_rekening }}</td></tr>
+                @endif
             </table>
         @endif
 

@@ -7,6 +7,7 @@ namespace App\Modules\LaporanPerjalanan;
 use App\Helpers\ApiResponse;
 use App\Modules\LaporanPerjalanan\Requests\StoreFotoLaporanRequest;
 use App\Modules\LaporanPerjalanan\Requests\StoreLaporanPerjalananRequest;
+use App\Modules\LaporanPerjalanan\Requests\UpdateLaporanPerjalananRequest;
 use App\Modules\LaporanPerjalanan\Resources\FotoLaporanResource;
 use App\Modules\LaporanPerjalanan\Resources\LaporanPerjalananResource;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
@@ -73,7 +74,7 @@ class LaporanPerjalananController extends Controller
         return ApiResponse::success(new LaporanPerjalananResource($record), 'Laporan perjalanan berhasil dibuat', 201);
     }
 
-    public function update(StoreLaporanPerjalananRequest $request, string $id): JsonResponse
+    public function update(UpdateLaporanPerjalananRequest $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $record = $this->service->update($id, $request->validated(), $idPerusahaan, $request->file('foto', []));

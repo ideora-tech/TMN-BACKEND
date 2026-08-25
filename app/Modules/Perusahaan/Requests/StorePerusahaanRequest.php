@@ -20,6 +20,9 @@ class StorePerusahaanRequest extends FormRequest
             'email'        => ['nullable', 'email', 'max:150'],
             'telepon'      => ['nullable', 'string', 'max:30'],
             'alamat'       => ['nullable', 'string', 'max:500'],
+            'nama_bank'          => ['nullable', 'string', 'max:100'],
+            'atas_nama_rekening' => ['nullable', 'string', 'max:200'],
+            'nomor_rekening'     => ['nullable', 'string', 'max:50'],
             'id_zona'      => ['nullable', 'string', 'size:36'],
             'id_mata_uang' => ['nullable', 'string', 'size:36'],
         ];

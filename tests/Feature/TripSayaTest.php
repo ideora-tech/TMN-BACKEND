@@ -132,6 +132,7 @@ class TripSayaTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('data.penugasan.id_penugasan', $penugasan->id_penugasan)
+            ->assertJsonPath('data.penugasan.proyek.kode_proyek', $proyek->kode_proyek)
             ->assertJsonPath('data.trip', null)
             ->assertJsonPath('data.rute_tersedia', []);
     }
@@ -149,6 +150,64 @@ class TripSayaTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('data.ditugaskan_oleh_nama', $admin->username)
             ->assertJsonPath('data.ditugaskan_oleh_peran', 'SUPERADMIN');
+    }
+
+    public function test_detail_penugasan_vendor_menampilkan_nopol_unit_vendor_bukan_alokasi_internal(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+
+        $idVendor = (string) Str::uuid();
+        DB::table('vendor')->insert([
+            'id_vendor'     => $idVendor,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor'   => 'VDR-' . Str::random(6),
+            'nama_vendor'   => 'Vendor Test',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        $idArmadaVendor = (string) Str::uuid();
+        DB::table('armada_vendor')->insert([
+            'id_armada_vendor' => $idArmadaVendor,
+            'id_vendor'        => $idVendor,
+            'nopol'            => '1235',
+            'dibuat_pada'      => now(),
+        ]);
+
+        $penugasan = PenugasanModel::create([
+            'id_proyek'        => $proyek->id_proyek,
+            'id_supir'         => $ctx->id_supir,
+            'status'           => 'aktif',
+            'tanggal_tugas'    => now()->toDateString(),
+            'sumber'           => 'vendor',
+            'id_armada_vendor' => $idArmadaVendor,
+        ]);
+
+        // Supir yang sama juga punya alokasi armada INTERNAL di tanggal yang
+        // sama (mis. dari penugasan lain/default) — ini tidak boleh menimpa
+        // nopol unit vendor yang sudah eksplisit di penugasan ini.
+        $idArmadaInternal = (string) Str::uuid();
+        DB::table('armada')->insert([
+            'id_armada'     => $idArmadaInternal,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B 9001 TMN',
+            'merk'          => 'Hino',
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('alokasi_armada')->insert([
+            'id_alokasi'  => (string) Str::uuid(),
+            'tanggal'     => now()->toDateString(),
+            'id_proyek'   => $proyek->id_proyek,
+            'id_supir'    => $ctx->id_supir,
+            'id_armada'   => $idArmadaInternal,
+            'sumber'      => 'otomatis',
+            'dibuat_pada' => now(),
+        ]);
+
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.armada_hari_ini.nopol', '1235')
+            ->assertJsonPath('data.armada_hari_ini.id_armada_vendor', $idArmadaVendor);
     }
 
     public function test_detail_penugasan_menyertakan_klien_shift_dan_armada_hari_ini(): void

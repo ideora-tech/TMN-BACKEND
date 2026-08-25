@@ -23,6 +23,12 @@ class LaporanPerjalananTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function fotoDummy(): array
+    {
+        Storage::fake('public');
+        return ['foto' => [UploadedFile::fake()->image('bukti.jpg')]];
+    }
+
     private function makeTrip(string $status): TripModel
     {
         $proyek = ProyekModel::create([
@@ -140,6 +146,7 @@ class LaporanPerjalananTest extends TestCase
         $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm' => 100000,
             'uang_tol'  => 20000,
+            ...$this->fotoDummy(),
         ])->assertStatus(201);
     }
 
@@ -159,7 +166,38 @@ class LaporanPerjalananTest extends TestCase
         $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'jarak_tempuh_km' => 120,
             'catatan_insiden' => 'aman',
+            ...$this->fotoDummy(),
         ])->assertStatus(201);
+    }
+
+    public function test_menolak_laporan_tanpa_foto(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $trip = $this->makeTrip('selesai');
+
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_bbm'       => 500000,
+            'jarak_tempuh_km' => 120,
+        ]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('foto', (string) $res->json('message'));
+        $this->assertDatabaseCount('laporan_perjalanan', 0);
+    }
+
+    public function test_menolak_laporan_tanpa_biaya_bbm(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $trip = $this->makeTrip('selesai');
+
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'jarak_tempuh_km' => 120,
+            ...$this->fotoDummy(),
+        ]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('Biaya BBM wajib diisi', (string) $res->json('message'));
+        $this->assertDatabaseCount('laporan_perjalanan', 0);
     }
 
     public function test_membuat_laporan_untuk_trip_selesai(): void
@@ -175,6 +213,7 @@ class LaporanPerjalananTest extends TestCase
             'biaya_lain'      => [
                 ['nama_biaya' => 'Tol', 'nominal' => 75000],
             ],
+            ...$this->fotoDummy(),
         ]);
 
         $res->assertStatus(201)
@@ -197,10 +236,10 @@ class LaporanPerjalananTest extends TestCase
             'uang_jalan'      => 200000,
         ];
 
-        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", $payload)
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [...$payload, ...$this->fotoDummy()])
             ->assertStatus(201);
 
-        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", $payload);
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [...$payload, ...$this->fotoDummy()]);
 
         $res->assertStatus(409);
     }
@@ -256,6 +295,7 @@ class LaporanPerjalananTest extends TestCase
             'biaya_lain'      => [
                 ['nama_biaya' => 'Tol', 'nominal' => 75000],
             ],
+            ...$this->fotoDummy(),
         ])->assertStatus(201);
 
         $res = $this->getJson("/api/trip/{$trip->id_trip}/laporan-perjalanan");
@@ -281,6 +321,7 @@ class LaporanPerjalananTest extends TestCase
             'biaya_lain'      => [
                 ['nama_biaya' => 'Tol', 'nominal' => 75000],
             ],
+            ...$this->fotoDummy(),
         ]);
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');
@@ -359,6 +400,7 @@ class LaporanPerjalananTest extends TestCase
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
+            ...$this->fotoDummy(),
         ]);
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');
@@ -394,6 +436,7 @@ class LaporanPerjalananTest extends TestCase
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
+            ...$this->fotoDummy(),
         ]);
         $idLaporan = $createRes->json('data.id_laporan');
 
@@ -406,7 +449,7 @@ class LaporanPerjalananTest extends TestCase
 
         $res->assertStatus(201);
         $this->assertCount(2, $res->json('data'));
-        $this->assertSame(2, DB::table('foto_laporan_perjalanan')
+        $this->assertSame(3, DB::table('foto_laporan_perjalanan')
             ->where('id_laporan', $idLaporan)->whereNull('dihapus_pada')->count());
     }
 

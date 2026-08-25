@@ -132,6 +132,7 @@ class TripService
                 'status'        => $e['penugasan']->status,
                 'proyek'        => $e['penugasan']->proyek === null ? null : [
                     'id_proyek'   => $e['penugasan']->proyek->id_proyek,
+                    'kode_proyek' => $e['penugasan']->proyek->kode_proyek,
                     'nama_proyek' => $e['penugasan']->proyek->nama_proyek,
                     'nama_klien'  => $klienMap[$e['penugasan']->proyek->id_proyek] ?? null,
                 ],
@@ -248,7 +249,7 @@ class TripService
             abort(403, 'Penugasan ini bukan milik Anda');
         }
 
-        $penugasan->load(['proyek', 'armada']);
+        $penugasan->load(['proyek', 'armada', 'armadaVendor']);
 
         $tripResult = $this->list($idPerusahaan, 1, 1, null, $idPenugasan, null, null, 'belum_mulai,berjalan');
         $tripAktif = $tripResult['data'][0] ?? null;
@@ -280,9 +281,11 @@ class TripService
             }
         }
 
-        $armadaHariIni = $penugasan->armada !== null
-            ? ['id_armada' => $penugasan->armada->id_armada, 'nopol' => $penugasan->armada->nopol]
-            : ($this->alokasiRepo->alokasiNopolMap($idSupir, $hariIni, $hariIni)[$hariIni] ?? null);
+        $armadaHariIni = match (true) {
+            $penugasan->armada !== null => ['id_armada' => $penugasan->armada->id_armada, 'nopol' => $penugasan->armada->nopol],
+            $penugasan->armadaVendor !== null => ['id_armada_vendor' => $penugasan->armadaVendor->id_armada_vendor, 'nopol' => $penugasan->armadaVendor->nopol],
+            default => $this->alokasiRepo->alokasiNopolMap($idSupir, $hariIni, $hariIni)[$hariIni] ?? null,
+        };
 
         $ditugaskanOleh = $penugasan->dibuat_oleh !== null
             ? $this->repo->infoPengguna((string) $penugasan->dibuat_oleh)

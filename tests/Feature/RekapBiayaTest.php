@@ -9,13 +9,21 @@ use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
 use App\Modules\Trip\TripModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class RekapBiayaTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function fotoDummy(): array
+    {
+        Storage::fake('public');
+        return ['foto' => [UploadedFile::fake()->image('bukti.jpg')]];
+    }
 
     private function makeTrip(string $status, ?float $estimasiBiaya = null): TripModel
     {
@@ -84,6 +92,7 @@ class RekapBiayaTest extends TestCase
             'biaya_lain'      => [
                 ['nama_biaya' => 'Tol', 'nominal' => 75000],
             ],
+            ...$this->fotoDummy(),
         ])->assertStatus(201);
 
         $res = $this->getJson("/api/trip/{$trip->id_trip}/rekap-biaya");
