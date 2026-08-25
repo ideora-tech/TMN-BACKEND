@@ -84,6 +84,21 @@ class StatusTripTest extends TestCase
         ]);
     }
 
+    public function test_menambah_status_trip_menyertakan_nama_dan_peran_eksekutor(): void
+    {
+        $pengguna = $this->actingAsRole('SUPERADMIN');
+        $idTrip = $this->makeTrip();
+
+        $res = $this->postJson("/api/trip/{$idTrip}/status", [
+            'status' => 'tiba_tujuan',
+        ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.dibuat_oleh', $pengguna->id_pengguna)
+            ->assertJsonPath('data.dibuat_oleh_nama', $pengguna->username)
+            ->assertJsonPath('data.dibuat_oleh_peran', 'SUPERADMIN');
+    }
+
     public function test_menambah_status_trip_ke_trip_tidak_ada_mengembalikan_404(): void
     {
         $this->actingAsRole('SUPERADMIN');

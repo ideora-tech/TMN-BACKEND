@@ -18,6 +18,8 @@ class StatusTripResource extends JsonResource
             'latitude'    => $this->latitude !== null ? (float) $this->latitude : null,
             'longitude'   => $this->longitude !== null ? (float) $this->longitude : null,
             'dibuat_oleh' => $this->dibuat_oleh,
+            'dibuat_oleh_nama' => $this->dibuat_oleh_nama,
+            'dibuat_oleh_peran' => $this->dibuat_oleh_peran,
             'dibuat_pada' => $this->dibuat_pada,
         ];
     }
