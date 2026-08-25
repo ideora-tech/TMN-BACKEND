@@ -90,6 +90,8 @@ class TripController extends Controller
             'nama_klien' => $result['nama_klien'],
             'shift_hari_ini' => $result['shift_hari_ini'],
             'armada_hari_ini' => $result['armada_hari_ini'],
+            'ditugaskan_oleh_nama' => $result['ditugaskan_oleh_nama'],
+            'ditugaskan_oleh_peran' => $result['ditugaskan_oleh_peran'],
             'jumlah_trip_selesai_hari_ini' => $result['jumlah_trip_selesai_hari_ini'],
         ]);
     }

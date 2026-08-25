@@ -450,6 +450,19 @@ class TripRepository implements TripRepositoryInterface
             ->all();
     }
 
+    public function infoPengguna(string $idPengguna): ?object
+    {
+        return DB::table('pengguna as pg')
+            ->leftJoin('supir as sp', 'sp.id_pengguna', '=', 'pg.id_pengguna')
+            ->leftJoin('karyawan as k', 'k.id_karyawan', '=', 'pg.id_karyawan')
+            ->where('pg.id_pengguna', $idPengguna)
+            ->select(
+                DB::raw('COALESCE(sp.nama, k.nama_karyawan, pg.username) as nama'),
+                'pg.kode_peran as peran'
+            )
+            ->first();
+    }
+
     public function namaRutePerId(array $idRuteList): array
     {
         if ($idRuteList === []) {

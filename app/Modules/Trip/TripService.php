@@ -284,6 +284,10 @@ class TripService
             ? ['id_armada' => $penugasan->armada->id_armada, 'nopol' => $penugasan->armada->nopol]
             : ($this->alokasiRepo->alokasiNopolMap($idSupir, $hariIni, $hariIni)[$hariIni] ?? null);
 
+        $ditugaskanOleh = $penugasan->dibuat_oleh !== null
+            ? $this->repo->infoPengguna((string) $penugasan->dibuat_oleh)
+            : null;
+
         return [
             'penugasan' => $penugasan,
             'trip' => $tripAktif,
@@ -293,6 +297,8 @@ class TripService
             'nama_klien' => $this->repo->namaKlienPerProyek([(string) $penugasan->id_proyek])[(string) $penugasan->id_proyek] ?? null,
             'shift_hari_ini' => $shiftHariIni,
             'armada_hari_ini' => $armadaHariIni,
+            'ditugaskan_oleh_nama' => $ditugaskanOleh->nama ?? null,
+            'ditugaskan_oleh_peran' => $ditugaskanOleh->peran ?? null,
             'jumlah_trip_selesai_hari_ini' => $this->repo->tripSelesaiPerPenugasanTanggal([$idPenugasan])[$idPenugasan . '|' . $hariIni] ?? 0,
         ];
     }

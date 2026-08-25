@@ -136,6 +136,21 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.rute_tersedia', []);
     }
 
+    public function test_detail_penugasan_menyertakan_nama_dan_peran_yang_menugaskan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $admin = $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        Sanctum::actingAs($ctx->pengguna, ['*']);
+        $response = $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.ditugaskan_oleh_nama', $admin->username)
+            ->assertJsonPath('data.ditugaskan_oleh_peran', 'SUPERADMIN');
+    }
+
     public function test_detail_penugasan_menyertakan_klien_shift_dan_armada_hari_ini(): void
     {
         $ctx = $this->actingAsSupir();
