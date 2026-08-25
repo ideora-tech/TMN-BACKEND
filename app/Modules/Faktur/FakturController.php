@@ -47,7 +47,8 @@ class FakturController extends Controller
     {
         $record = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
-        return ApiResponse::success(new FakturResource($this->service->denganReferensi($this->service->denganAudit($record))));
+        $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
+        return ApiResponse::success(new FakturResource($record));
     }
 
     public function store(StoreFakturRequest $request): JsonResponse

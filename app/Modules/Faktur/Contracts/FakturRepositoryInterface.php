@@ -24,4 +24,5 @@ interface FakturRepositoryInterface
     public function namaPengguna(array $ids): array;
     public function insertStatusLog(string $idFaktur, string $status, ?string $keterangan = null): void;
     public function listStatusLog(string $idFaktur): array;
+    public function tripTerkait(string $idFaktur): array;
 }

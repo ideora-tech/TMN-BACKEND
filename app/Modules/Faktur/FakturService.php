@@ -19,6 +19,7 @@ class FakturService
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
     {
         $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
+        $this->attachDibuatOlehNama($result->items());
 
         return [
             'data' => $result->items(),
@@ -34,6 +35,7 @@ class FakturService
     public function listByKlien(string $idKlien, string $idPerusahaan, int $page = 1, int $limit = 20): array
     {
         $result = $this->repo->paginateByKlien($idKlien, $idPerusahaan, $page, $limit);
+        $this->attachDibuatOlehNama($result->items());
 
         return [
             'data' => $result->items(),
@@ -44,6 +46,19 @@ class FakturService
                 'totalPages' => $result->lastPage(),
             ],
         ];
+    }
+
+    /** @param FakturModel[] $items */
+    private function attachDibuatOlehNama(array $items): void
+    {
+        $idPenggunaList = array_values(array_unique(array_filter(
+            array_map(fn (FakturModel $item) => $item->dibuat_oleh, $items)
+        )));
+        $namaMap = $this->repo->namaPengguna($idPenggunaList);
+
+        foreach ($items as $item) {
+            $item->dibuat_oleh_nama = $item->dibuat_oleh !== null ? ($namaMap[$item->dibuat_oleh] ?? null) : null;
+        }
     }
 
     public function findOrFail(string $id, ?string $idPerusahaan = null): FakturModel
@@ -93,8 +108,9 @@ class FakturService
         }
 
         $items = $data['items'] ?? [];
-        $total = collect($items)->sum(fn($i) => $i['qty'] * $i['harga_satuan']);
-        $data['total'] = $total;
+        $subtotal = collect($items)->sum(fn($i) => $i['qty'] * $i['harga_satuan']);
+        $persenPajak = $data['persen_pajak'] ?? null;
+        $data['total'] = $subtotal + ($persenPajak ? $subtotal * $persenPajak / 100 : 0);
         unset($data['items']);
 
         $faktur = $this->repo->create($data);
@@ -121,10 +137,9 @@ class FakturService
         }
 
         // If items are provided, replace them
-        if (isset($data['items'])) {
+        $itemsBerubah = isset($data['items']);
+        if ($itemsBerubah) {
             $items = $data['items'];
-            $total = collect($items)->sum(fn($i) => $i['qty'] * $i['harga_satuan']);
-            $data['total'] = $total;
             unset($data['items']);
 
             $this->itemRepo->deleteByFaktur($record->id_faktur);
@@ -134,6 +149,16 @@ class FakturService
                 $item['subtotal']  = $item['qty'] * $item['harga_satuan'];
                 $this->itemRepo->create($item);
             }
+        }
+
+        // Total dihitung ulang bila item ATAU persen pajak berubah — subtotal
+        // diambil dari item baru (bila diganti) atau item existing di DB.
+        if ($itemsBerubah || array_key_exists('persen_pajak', $data)) {
+            $subtotal = $itemsBerubah
+                ? collect($items)->sum(fn ($i) => $i['qty'] * $i['harga_satuan'])
+                : (float) $record->items()->sum('subtotal');
+            $persenPajak = array_key_exists('persen_pajak', $data) ? $data['persen_pajak'] : $record->persen_pajak;
+            $data['total'] = $subtotal + ($persenPajak ? $subtotal * $persenPajak / 100 : 0);
         }
 
         $updated = $this->repo->update($record, $data);
@@ -151,6 +176,13 @@ class FakturService
 
         $record->dibuat_oleh_nama = $record->dibuat_oleh !== null ? ($nama[$record->dibuat_oleh] ?? null) : null;
         $record->diubah_oleh_nama = $record->diubah_oleh !== null ? ($nama[$record->diubah_oleh] ?? null) : null;
+
+        return $record;
+    }
+
+    public function denganTripTerkait(FakturModel $record): FakturModel
+    {
+        $record->trip_terkait = $this->repo->tripTerkait((string) $record->id_faktur);
 
         return $record;
     }

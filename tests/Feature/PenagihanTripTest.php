@@ -342,7 +342,7 @@ class PenagihanTripTest extends TestCase
 
     public function test_generate_draft_faktur_dari_trip(): void
     {
-        $this->actingAsRole('SUPERADMIN');
+        $pengguna = $this->actingAsRole('SUPERADMIN');
         $this->siapkanMaster();
         $this->buatProyekRute($this->proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1500000);
 
@@ -371,6 +371,16 @@ class PenagihanTripTest extends TestCase
 
         $daftar = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $this->assertCount(0, $daftar->json('data'));
+
+        $detail = $this->getJson("/api/faktur/{$idFaktur}");
+        $detail->assertStatus(200)->assertJsonCount(2, 'data.trip_terkait');
+        $idTripTerkait = collect($detail->json('data.trip_terkait'))->pluck('id_trip')->all();
+        $this->assertEqualsCanonicalizing([$trip1->id_trip, $trip2->id_trip], $idTripTerkait);
+
+        $daftarFaktur = $this->getJson('/api/faktur');
+        $daftarFaktur->assertStatus(200);
+        $baris = collect($daftarFaktur->json('data'))->firstWhere('id_faktur', $idFaktur);
+        $this->assertSame($pengguna->username, $baris['dibuat_oleh_nama']);
     }
 
     public function test_draft_faktur_menyimpan_referensi_penawaran_disetujui_proyek(): void

@@ -151,4 +151,34 @@ class FakturRepository implements FakturRepositoryInterface
             ->map(fn ($r) => (array) $r)
             ->all();
     }
+
+    public function tripTerkait(string $idFaktur): array
+    {
+        return DB::table('faktur_trip as ft')
+            ->join('trip as t', 't.id_trip', '=', 'ft.id_trip')
+            ->join('jadwal_keberangkatan as jk', 'jk.id_jadwal', '=', 't.id_jadwal')
+            ->join('penugasan as p', 'p.id_penugasan', '=', 'jk.id_penugasan')
+            ->leftJoin('rute as r', 'r.id_rute', '=', 'jk.id_rute')
+            ->leftJoin('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoin('armada_vendor as av', 'av.id_armada_vendor', '=', 'p.id_armada_vendor')
+            ->leftJoin('supir as s', 's.id_supir', '=', 'p.id_supir')
+            ->leftJoin('supir_vendor as sv', 'sv.id_supir_vendor', '=', 'p.id_supir_vendor')
+            ->where('ft.id_faktur', $idFaktur)
+            ->whereNull('ft.dihapus_pada')
+            ->whereNull('t.dihapus_pada')
+            ->orderBy('jk.waktu_berangkat')
+            ->select(
+                't.id_trip',
+                DB::raw('COALESCE(r.nama_rute, jk.rute) as rute'),
+                DB::raw('COALESCE(a.nopol, av.nopol) as armada_nopol'),
+                DB::raw('COALESCE(s.nama, sv.nama) as supir_nama'),
+                'jk.waktu_berangkat',
+                't.waktu_checkin',
+                't.waktu_checkout',
+                't.status'
+            )
+            ->get()
+            ->map(fn ($r) => (array) $r)
+            ->all();
+    }
 }

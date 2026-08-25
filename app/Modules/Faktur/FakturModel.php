@@ -20,13 +20,16 @@ class FakturModel extends BaseModel
         'id_penawaran',
         'nomor_faktur',
         'total',
+        'nama_pajak',
+        'persen_pajak',
         'status',
         'tanggal_faktur',
         'jatuh_tempo',
     ];
 
     protected $casts = [
-        'total'          => 'float',
+        'total'        => 'float',
+        'persen_pajak' => 'float',
         'tanggal_faktur' => 'date',
         'jatuh_tempo'    => 'date',
     ];

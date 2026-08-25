@@ -337,6 +337,32 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.0.status', 'selesai');
     }
 
+    public function test_riwayat_saya_menampilkan_nama_dan_peran_yang_menugaskan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $admin = $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek, 'selesai');
+
+        $jadwal = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => now(),
+        ]);
+        TripModel::create([
+            'id_jadwal'      => $jadwal->id_jadwal,
+            'status'         => 'selesai',
+            'waktu_checkin'  => now()->subHour(),
+            'waktu_checkout' => now(),
+        ]);
+
+        Sanctum::actingAs($ctx->pengguna, ['*']);
+        $response = $this->getJson('/api/trip/riwayat-saya');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.ditugaskan_oleh_nama', $admin->username)
+            ->assertJsonPath('data.0.ditugaskan_oleh_peran', 'SUPERADMIN');
+    }
+
     public function test_riwayat_saya_menampilkan_punya_laporan_sesuai_data_sebenarnya(): void
     {
         $ctx = $this->actingAsSupir();

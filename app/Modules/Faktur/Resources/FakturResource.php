@@ -22,6 +22,8 @@ class FakturResource extends JsonResource
             'nilai_penawaran' => $this->nilai_penawaran ?? null,
             'nomor_faktur'   => $this->nomor_faktur,
             'total'          => $this->total,
+            'nama_pajak'     => $this->nama_pajak,
+            'persen_pajak'   => $this->persen_pajak !== null ? (float) $this->persen_pajak : null,
             'status'         => $this->status,
             'tanggal_faktur' => $this->tanggal_faktur?->toDateString(),
             'jatuh_tempo'    => $this->jatuh_tempo?->toDateString(),
@@ -30,6 +32,7 @@ class FakturResource extends JsonResource
             'dibuat_oleh_nama' => $this->dibuat_oleh_nama ?? null,
             'diubah_oleh_nama' => $this->diubah_oleh_nama ?? null,
             'riwayat_status'   => $this->riwayat_status ?? null,
+            'trip_terkait'     => $this->trip_terkait ?? [],
             'items'          => $this->whenLoaded('items', function () {
                 return $this->items->map(fn($item) => [
                     'id_faktur_item' => $item->id_faktur_item,

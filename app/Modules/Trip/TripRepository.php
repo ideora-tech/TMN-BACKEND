@@ -145,7 +145,7 @@ class TripRepository implements TripRepositoryInterface
 
         $penugasanRows = $idPenugasanList->isEmpty() ? collect() : DB::table('penugasan')
             ->whereIn('id_penugasan', $idPenugasanList)
-            ->select('id_penugasan', 'id_armada', 'id_supir', 'id_armada_vendor', 'id_supir_vendor', 'id_proyek', 'sumber', 'id_kontrak_vendor')
+            ->select('id_penugasan', 'id_armada', 'id_supir', 'id_armada_vendor', 'id_supir_vendor', 'id_proyek', 'sumber', 'id_kontrak_vendor', 'dibuat_oleh')
             ->get()
             ->keyBy('id_penugasan');
 
@@ -176,6 +176,19 @@ class TripRepository implements TripRepositoryInterface
         $idVendorList = $kontrakVendorMap->pluck('id_vendor')->unique()->filter()->values();
         $vendorMap = $idVendorList->isEmpty() ? collect()
             : DB::table('vendor')->whereIn('id_vendor', $idVendorList)->pluck('nama_vendor', 'id_vendor');
+
+        $idPenggunaList = $penugasanRows->pluck('dibuat_oleh')->unique()->filter()->values();
+        $penggunaMap = $idPenggunaList->isEmpty() ? collect() : DB::table('pengguna as pg')
+            ->leftJoin('supir as sp', 'sp.id_pengguna', '=', 'pg.id_pengguna')
+            ->leftJoin('karyawan as k', 'k.id_karyawan', '=', 'pg.id_karyawan')
+            ->whereIn('pg.id_pengguna', $idPenggunaList)
+            ->select(
+                'pg.id_pengguna',
+                DB::raw('COALESCE(sp.nama, k.nama_karyawan, pg.username) as nama'),
+                'pg.kode_peran as peran'
+            )
+            ->get()
+            ->keyBy('id_pengguna');
 
         // Supir shift: penugasan sengaja tanpa id_armada — armada hariannya
         // ditentukan lewat alokasi_armada (lihat AlokasiArmadaService::alokasikan()),
@@ -232,6 +245,10 @@ class TripRepository implements TripRepositoryInterface
                 : null;
             $vendorNama = $kontrak?->id_vendor !== null ? $vendorMap->get($kontrak->id_vendor) : null;
 
+            $ditugaskanOleh = $penugasan !== null && $penugasan->dibuat_oleh !== null
+                ? $penggunaMap->get($penugasan->dibuat_oleh)
+                : null;
+
             $record->setRelation('rute', $ruteNama);
             $record->setRelation('waktu_berangkat', $jadwal->waktu_berangkat ?? null);
             $record->setRelation('armada_nopol', $armadaNopol);
@@ -245,6 +262,8 @@ class TripRepository implements TripRepositoryInterface
             $record->setRelation('mekanisme', $kontrak?->mekanisme);
             $record->setRelation('id_penugasan', $penugasan?->id_penugasan);
             $record->setRelation('punya_laporan', in_array($record->id_trip, $idTripPunyaLaporan, true));
+            $record->setRelation('ditugaskan_oleh_nama', $ditugaskanOleh->nama ?? null);
+            $record->setRelation('ditugaskan_oleh_peran', $ditugaskanOleh->peran ?? null);
         }
     }
 
