@@ -194,6 +194,43 @@ class PenugasanHarianTest extends TestCase
         $this->assertStringContainsString('Supir', $resSupir->json('data.gagal.0.alasan'));
     }
 
+    public function test_supir_boleh_dobel_tanggal_sama_jika_proyek_berbeda(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyekA = $this->makeProyek();
+        $proyekB = $this->makeProyek();
+        $rute    = $this->makeRute();
+        $this->makeProyekRute($proyekA->id_proyek, $rute, null);
+        $this->makeProyekRute($proyekB->id_proyek, $rute, null);
+        $armadaA = $this->makeArmada();
+        $armadaB = $this->makeArmada();
+        $supir   = $this->makeSupir('Dedi Lintas Proyek');
+
+        $resA = $this->postJson('/api/penugasan/harian', [
+            'tanggal'   => '2026-09-12',
+            'id_armada' => $armadaA->id_armada,
+            'id_supir'  => $supir,
+            'id_proyek' => $proyekA->id_proyek,
+            'id_rute'   => $rute,
+        ]);
+        $resA->assertStatus(200)->assertJsonPath('data.sukses', 1);
+
+        $resB = $this->postJson('/api/penugasan/harian', [
+            'tanggal'   => '2026-09-12',
+            'id_armada' => $armadaB->id_armada,
+            'id_supir'  => $supir,
+            'id_proyek' => $proyekB->id_proyek,
+            'id_rute'   => $rute,
+        ]);
+        $resB->assertStatus(200)->assertJsonPath('data.sukses', 1);
+        $this->assertCount(0, $resB->json('data.gagal'));
+
+        $this->assertSame(2, DB::table('penugasan')
+            ->where('id_supir', $supir)
+            ->where('tanggal_tugas', '2026-09-12')
+            ->count());
+    }
+
     public function test_assign_unit_yang_sama_ke_dua_proyek_berbeda_tanggal_sama(): void
     {
         $this->actingAsRole('SUPERADMIN');

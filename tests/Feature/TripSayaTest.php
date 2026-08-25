@@ -322,6 +322,43 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.0.status', 'selesai');
     }
 
+    public function test_riwayat_saya_menampilkan_punya_laporan_sesuai_data_sebenarnya(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek, 'selesai');
+
+        $jadwalSudahLapor = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => '2026-08-20 08:00:00',
+        ]);
+        $tripSudahLapor = TripModel::create([
+            'id_jadwal'      => $jadwalSudahLapor->id_jadwal,
+            'status'         => 'selesai',
+            'waktu_checkin'  => '2026-08-20 08:00:00',
+            'waktu_checkout' => '2026-08-20 17:00:00',
+        ]);
+        $this->buatLaporanKosong((string) $tripSudahLapor->id_trip);
+
+        $jadwalBelumLapor = JadwalKeberangkatanModel::create([
+            'id_penugasan'    => $penugasan->id_penugasan,
+            'waktu_berangkat' => '2026-08-21 08:00:00',
+        ]);
+        TripModel::create([
+            'id_jadwal'      => $jadwalBelumLapor->id_jadwal,
+            'status'         => 'selesai',
+            'waktu_checkin'  => '2026-08-21 08:00:00',
+            'waktu_checkout' => '2026-08-21 17:00:00',
+        ]);
+
+        $response = $this->getJson('/api/trip/riwayat-saya');
+
+        $response->assertStatus(200)->assertJsonCount(2, 'data');
+        $byTanggal = collect($response->json('data'))->keyBy(fn ($t) => substr($t['waktu_checkin'], 0, 10));
+        $this->assertTrue($byTanggal['2026-08-20']['punya_laporan']);
+        $this->assertFalse($byTanggal['2026-08-21']['punya_laporan']);
+    }
+
     public function test_riwayat_saya_filter_status_selesai_dengan_total_akumulasi(): void
     {
         $ctx = $this->actingAsSupir();

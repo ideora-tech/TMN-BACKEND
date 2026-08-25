@@ -21,7 +21,7 @@ interface PenugasanRepositoryInterface
     public function adaKonflikAktorPadaTanggal(string $kolomAktor, string $idAktor, string $tanggalTugas, ?string $excludeId = null): bool;
 
     /** Guard penugasan harian: satu supir tidak boleh dobel di tanggal yang sama (lintas unit/proyek). */
-    public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, ?string $excludeId = null): bool;
+    public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, string $idProyek, ?string $excludeId = null): bool;
 
     public function create(array $data): PenugasanModel;
     public function update(PenugasanModel $model, array $data): PenugasanModel;

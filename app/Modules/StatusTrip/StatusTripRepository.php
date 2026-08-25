@@ -19,11 +19,12 @@ class StatusTripRepository implements StatusTripRepositoryInterface
     {
         return DB::table('status_trip as st')
             ->leftJoin('pengguna as pg', 'pg.id_pengguna', '=', 'st.dibuat_oleh')
+            ->leftJoin('supir as sp', 'sp.id_pengguna', '=', 'pg.id_pengguna')
             ->leftJoin('karyawan as k', 'k.id_karyawan', '=', 'pg.id_karyawan')
             ->select(array_merge(
                 array_map(fn ($kolom) => "st.$kolom", self::COLUMNS),
                 [
-                    DB::raw('COALESCE(k.nama_karyawan, pg.username) as dibuat_oleh_nama'),
+                    DB::raw('COALESCE(sp.nama, k.nama_karyawan, pg.username) as dibuat_oleh_nama'),
                     'pg.kode_peran as dibuat_oleh_peran',
                 ]
             ));

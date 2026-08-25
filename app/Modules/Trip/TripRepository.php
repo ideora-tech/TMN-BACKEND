@@ -125,6 +125,12 @@ class TripRepository implements TripRepositoryInterface
             return;
         }
 
+        $idTripPunyaLaporan = DB::table('laporan_perjalanan')
+            ->whereIn('id_trip', $records->pluck('id_trip')->unique()->filter()->values())
+            ->whereNull('dihapus_pada')
+            ->pluck('id_trip')
+            ->all();
+
         $jadwalRows = DB::table('jadwal_keberangkatan')
             ->whereIn('id_jadwal', $idJadwalList)
             ->select('id_jadwal', 'id_penugasan', 'id_rute', 'waktu_berangkat', 'rute')
@@ -238,6 +244,7 @@ class TripRepository implements TripRepositoryInterface
             $record->setRelation('vendor_nama', $vendorNama);
             $record->setRelation('mekanisme', $kontrak?->mekanisme);
             $record->setRelation('id_penugasan', $penugasan?->id_penugasan);
+            $record->setRelation('punya_laporan', in_array($record->id_trip, $idTripPunyaLaporan, true));
         }
     }
 
