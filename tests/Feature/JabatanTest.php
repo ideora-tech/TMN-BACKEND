@@ -64,7 +64,6 @@ class JabatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/jabatan', [
-            'kode_jabatan' => 'JBT-01',
             'nama_jabatan' => 'Manager',
             'level'        => 3,
             'tunjangan_jabatan' => 1500000,
@@ -75,11 +74,27 @@ class JabatanTest extends TestCase
             ->assertJsonPath('data.nama_jabatan', 'Manager')
             ->assertJsonPath('data.level', 3);
         $this->assertEquals(1500000, $res->json('data.tunjangan_jabatan'));
+        $this->assertMatchesRegularExpression('/^JBT-\d{4}$/', $res->json('data.kode_jabatan'));
 
         $this->assertDatabaseHas('jabatan', [
-            'kode_jabatan'  => 'JBT-01',
+            'kode_jabatan'  => $res->json('data.kode_jabatan'),
             'id_perusahaan' => self::PERUSAHAAN_ID,
         ]);
+    }
+
+    public function test_kode_jabatan_dikirim_client_diabaikan_dan_dibuat_otomatis(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/v1/jabatan', [
+            'kode_jabatan' => 'KODE-BEBAS',
+            'nama_jabatan' => 'Supervisor',
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertMatchesRegularExpression('/^JBT-\d{4}$/', $res->json('data.kode_jabatan'));
+        $this->assertNotSame('KODE-BEBAS', $res->json('data.kode_jabatan'));
+        $this->assertDatabaseMissing('jabatan', ['kode_jabatan' => 'KODE-BEBAS']);
     }
 
     public function test_list_jabatan_berhasil(): void
@@ -149,7 +164,6 @@ class JabatanTest extends TestCase
         $atasan = $this->makeJabatan(self::PERUSAHAAN_ID, null, 'Manager');
 
         $res = $this->postJson('/api/v1/jabatan', [
-            'kode_jabatan'     => 'JBT-BAWAHAN',
             'nama_jabatan'     => 'Staff',
             'id_jabatan_induk' => $atasan->id_jabatan,
         ]);
@@ -157,7 +171,7 @@ class JabatanTest extends TestCase
         $res->assertStatus(201)
             ->assertJsonPath('data.id_jabatan_induk', $atasan->id_jabatan);
         $this->assertDatabaseHas('jabatan', [
-            'kode_jabatan'     => 'JBT-BAWAHAN',
+            'kode_jabatan'     => $res->json('data.kode_jabatan'),
             'id_jabatan_induk' => $atasan->id_jabatan,
         ]);
     }

@@ -60,6 +60,16 @@ class DepartemenRepository implements DepartemenRepositoryInterface
             ->first();
     }
 
+    public function findByKode(string $idPerusahaan, string $kode): ?object
+    {
+        return DB::table('departemen')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('kode_departemen', $kode)
+            ->first();
+    }
+
     public function create(array $data): object
     {
         $data = RecordHelper::stampCreate($data, 'id_departemen');

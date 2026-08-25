@@ -19,7 +19,7 @@ class StoreJabatanRequest extends FormRequest
             'id_departemen' => ['sometimes', 'nullable', 'string', 'uuid'],
             'id_jabatan_induk' => ['sometimes', 'nullable', 'string', 'uuid'],
             'id_peran'      => ['sometimes', 'nullable', 'string', 'uuid'],
-            'kode_jabatan'  => ['required', 'string', 'max:50'],
+            'kode_jabatan'  => ['sometimes', 'nullable', 'string', 'max:50'],
             'nama_jabatan'  => ['required', 'string', 'max:150'],
             'is_supir'      => ['sometimes', 'boolean'],
             'level'         => ['sometimes', 'integer', 'min:0'],

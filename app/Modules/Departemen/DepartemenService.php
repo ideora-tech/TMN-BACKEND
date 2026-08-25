@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Departemen;
 
 use App\Modules\Departemen\Contracts\DepartemenRepositoryInterface;
+use App\Support\KodeOtomatis;
 
 class DepartemenService
 {
@@ -41,6 +42,12 @@ class DepartemenService
 
     public function create(array $data): object
     {
+        $idPerusahaan = (string) $data['id_perusahaan'];
+        $data['kode_departemen'] = KodeOtomatis::berikutnya($idPerusahaan, 'departemen');
+        if ($this->repo->findByKode($idPerusahaan, $data['kode_departemen'])) {
+            abort(409, 'Kode departemen sudah digunakan');
+        }
+
         return $this->repo->create($data);
     }
 

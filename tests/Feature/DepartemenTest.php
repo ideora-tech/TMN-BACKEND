@@ -33,18 +33,33 @@ class DepartemenTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/v1/departemen', [
-            'kode_departemen' => 'DEP-01',
             'nama_departemen' => 'Operasional',
         ]);
 
         $res->assertStatus(201)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.nama_departemen', 'Operasional');
+        $this->assertMatchesRegularExpression('/^DEP-\d{4}$/', $res->json('data.kode_departemen'));
 
         $this->assertDatabaseHas('departemen', [
-            'kode_departemen' => 'DEP-01',
+            'kode_departemen' => $res->json('data.kode_departemen'),
             'id_perusahaan'   => self::PERUSAHAAN_ID,
         ]);
+    }
+
+    public function test_kode_departemen_dikirim_client_diabaikan_dan_dibuat_otomatis(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/v1/departemen', [
+            'kode_departemen' => 'KODE-BEBAS',
+            'nama_departemen' => 'Keuangan',
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertMatchesRegularExpression('/^DEP-\d{4}$/', $res->json('data.kode_departemen'));
+        $this->assertNotSame('KODE-BEBAS', $res->json('data.kode_departemen'));
+        $this->assertDatabaseMissing('departemen', ['kode_departemen' => 'KODE-BEBAS']);
     }
 
     public function test_list_departemen_berhasil(): void

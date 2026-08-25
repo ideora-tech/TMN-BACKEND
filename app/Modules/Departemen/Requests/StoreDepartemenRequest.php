@@ -17,7 +17,7 @@ class StoreDepartemenRequest extends FormRequest
     {
         return [
             'id_departemen_induk' => ['sometimes', 'nullable', 'string', 'uuid'],
-            'kode_departemen'     => ['required', 'string', 'max:50'],
+            'kode_departemen'     => ['sometimes', 'nullable', 'string', 'max:50'],
             'nama_departemen'     => ['required', 'string', 'max:150'],
             'aktif'               => ['sometimes', 'boolean'],
         ];

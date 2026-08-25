@@ -52,6 +52,16 @@ class JabatanRepository implements JabatanRepositoryInterface
             ->first();
     }
 
+    public function findByKode(string $idPerusahaan, string $kode): ?object
+    {
+        return DB::table('jabatan')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('kode_jabatan', $kode)
+            ->first();
+    }
+
     public function create(array $data): object
     {
         $data = RecordHelper::stampCreate($data, 'id_jabatan');

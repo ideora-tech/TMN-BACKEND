@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Jabatan;
 
 use App\Modules\Jabatan\Contracts\JabatanRepositoryInterface;
+use App\Support\KodeOtomatis;
 
 class JabatanService
 {
@@ -37,6 +38,13 @@ class JabatanService
     public function create(array $data): object
     {
         $this->validasiJabatanInduk($data['id_jabatan_induk'] ?? null, (string) $data['id_perusahaan'], null);
+
+        $idPerusahaan = (string) $data['id_perusahaan'];
+        $data['kode_jabatan'] = KodeOtomatis::berikutnya($idPerusahaan, 'jabatan');
+        if ($this->repo->findByKode($idPerusahaan, $data['kode_jabatan'])) {
+            abort(409, 'Kode jabatan sudah digunakan');
+        }
+
         return $this->repo->create($data);
     }
 
