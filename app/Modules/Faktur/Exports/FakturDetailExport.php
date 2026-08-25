@@ -55,6 +55,11 @@ class FakturDetailExport implements FromCollection, WithHeadings, ShouldAutoSize
 
         if ($rows->isEmpty()) {
             $rows->push([1, 'Tagihan sesuai invoice ' . $this->faktur->nomor_faktur, 1, (float) $this->faktur->total, (float) $this->faktur->total]);
+        } elseif (!empty($this->faktur->persen_pajak)) {
+            $subtotal = (float) $this->faktur->items->sum('subtotal');
+            $rows->push(['', 'Subtotal', '', '', $subtotal]);
+            $namaPajak = $this->faktur->nama_pajak ?: 'Pajak';
+            $rows->push(['', "{$namaPajak} ({$this->faktur->persen_pajak}%)", '', '', (float) $this->faktur->total - $subtotal]);
         }
 
         $rows->push(['', 'TOTAL', '', '', (float) $this->faktur->total]);

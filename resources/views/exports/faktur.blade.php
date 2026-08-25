@@ -124,6 +124,16 @@
                             <td class="jumlah">{{ $rp($item->subtotal) }}</td>
                         </tr>
                     @endforeach
+                    @if (!empty($f->persen_pajak))
+                        <tr>
+                            <td colspan="3">Subtotal</td>
+                            <td class="jumlah">{{ $rp(collect($items)->sum('subtotal')) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="3">{{ $f->nama_pajak ?: 'Pajak' }} ({{ rtrim(rtrim(number_format((float) $f->persen_pajak, 2, ',', '.'), '0'), ',') }}%)</td>
+                            <td class="jumlah">{{ $rp($f->total - collect($items)->sum('subtotal')) }}</td>
+                        </tr>
+                    @endif
                     <tr class="subtotal">
                         <td colspan="3">TOTAL TAGIHAN</td>
                         <td class="jumlah">{{ $rp($f->total) }}</td>

@@ -97,6 +97,43 @@ class FakturKlienExportTest extends TestCase
         $this->assertStringContainsString('application/pdf', $res->headers->get('Content-Type'));
     }
 
+    public function test_export_pdf_menampilkan_baris_subtotal_dan_pajak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKlien = $this->makeKlien('PT Klien Pajak PDF');
+        $faktur  = $this->makeFaktur($idKlien);
+        $faktur->update(['nama_pajak' => 'PPN', 'persen_pajak' => 11, 'total' => 1665000]);
+
+        $view = $this->view('exports.faktur', [
+            'f'          => $faktur->fresh()->load('items'),
+            'items'      => $faktur->fresh()->items,
+            'logoBase64' => null,
+            'perusahaan' => (object) [],
+        ]);
+
+        $view->assertSee('Subtotal');
+        $view->assertSee('PPN (11%)', false);
+        $view->assertSee('Rp 165.000');
+        $view->assertSee('Rp 1.665.000');
+    }
+
+    public function test_excel_export_collection_menyertakan_baris_subtotal_dan_pajak(): void
+    {
+        $idKlien = $this->makeKlien('PT Klien Pajak Excel');
+        $faktur  = $this->makeFaktur($idKlien);
+        $faktur->update(['nama_pajak' => 'PPN', 'persen_pajak' => 11, 'total' => 1665000]);
+        $faktur = $faktur->fresh()->load('items');
+
+        $rows = (new \App\Modules\Faktur\Exports\FakturDetailExport($faktur))->collection();
+
+        $this->assertSame('Subtotal', $rows[1][1]);
+        $this->assertSame(1500000.0, $rows[1][4]);
+        $this->assertSame('PPN (11%)', $rows[2][1]);
+        $this->assertSame(165000.0, $rows[2][4]);
+        $this->assertSame('TOTAL', $rows[3][1]);
+        $this->assertSame(1665000.0, $rows[3][4]);
+    }
+
     public function test_export_faktur_milik_perusahaan_lain_ditolak_404(): void
     {
         $this->actingAsRole('SUPERADMIN');
