@@ -56,7 +56,7 @@ class PenawaranItemTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+        $res = $this->postJson('/api/penawaran', $this->payloadPenawaran([
             [
                 'id_rute'            => $this->makeRute(),
                 'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -82,7 +82,7 @@ class PenawaranItemTest extends TestCase
     public function test_show_memuat_items(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+        $id = $this->postJson('/api/penawaran', $this->payloadPenawaran([
             [
                 'id_rute'            => $this->makeRute(),
                 'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -90,7 +90,7 @@ class PenawaranItemTest extends TestCase
             ],
         ]))->json('data.id_penawaran');
 
-        $res = $this->getJson("/api/v1/penawaran/{$id}");
+        $res = $this->getJson("/api/penawaran/{$id}");
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data.items'));
@@ -100,7 +100,7 @@ class PenawaranItemTest extends TestCase
     public function test_update_mengganti_semua_items(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+        $id = $this->postJson('/api/penawaran', $this->payloadPenawaran([
             [
                 'id_rute'            => $this->makeRute(),
                 'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -108,7 +108,7 @@ class PenawaranItemTest extends TestCase
             ],
         ]))->json('data.id_penawaran');
 
-        $res = $this->putJson("/api/v1/penawaran/{$id}", [
+        $res = $this->putJson("/api/penawaran/{$id}", [
             'items' => [
                 [
                     'id_rute'            => $this->makeRute(),
@@ -130,7 +130,7 @@ class PenawaranItemTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/penawaran', [
+        $res = $this->postJson('/api/penawaran', [
             'nomor_penawaran' => 'PNW-MANUAL',
             'judul'           => 'Tanpa Item',
             'nilai_penawaran' => 12345678,
@@ -146,7 +146,7 @@ class PenawaranItemTest extends TestCase
         $lain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $lain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
 
-        $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+        $res = $this->postJson('/api/penawaran', $this->payloadPenawaran([
             [
                 'id_rute'            => $this->makeRute($lain),
                 'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -161,7 +161,7 @@ class PenawaranItemTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+        $res = $this->postJson('/api/penawaran', $this->payloadPenawaran([
             [
                 'id_rute'            => $this->makeRute(),
                 'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -175,7 +175,7 @@ class PenawaranItemTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/penawaran', array_merge(
+        $res = $this->postJson('/api/penawaran', array_merge(
             $this->payloadPenawaran([
                 [
                     'id_rute'            => $this->makeRute(),
@@ -195,7 +195,7 @@ class PenawaranItemTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/penawaran', array_merge(
+        $res = $this->postJson('/api/penawaran', array_merge(
             $this->payloadPenawaran([
                 [
                     'id_rute'            => $this->makeRute(),
@@ -212,7 +212,7 @@ class PenawaranItemTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/penawaran', array_merge(
+        $res = $this->postJson('/api/penawaran', array_merge(
             $this->payloadPenawaran([
                 [
                     'id_rute'            => $this->makeRute(),
@@ -231,7 +231,7 @@ class PenawaranItemTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+        $res = $this->postJson('/api/penawaran', $this->payloadPenawaran([
             ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 500000],
             ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000],
         ]));
@@ -246,7 +246,7 @@ class PenawaranItemTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idRute = $this->makeRute();
 
-        $res = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+        $res = $this->postJson('/api/penawaran', $this->payloadPenawaran([
             ['id_rute' => $idRute, 'id_jenis_kendaraan' => $this->makeJenisKendaraan(), 'harga_satuan' => 500000],
             ['id_rute' => $idRute, 'id_jenis_kendaraan' => $this->makeJenisKendaraan(), 'harga_satuan' => 600000],
         ]));
@@ -258,7 +258,7 @@ class PenawaranItemTest extends TestCase
     public function test_update_item_duplikat_rute_dan_jenis_sama_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/v1/penawaran', $this->payloadPenawaran([
+        $id = $this->postJson('/api/penawaran', $this->payloadPenawaran([
             [
                 'id_rute'            => $this->makeRute(),
                 'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
@@ -269,7 +269,7 @@ class PenawaranItemTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->putJson("/api/v1/penawaran/{$id}", [
+        $res = $this->putJson("/api/penawaran/{$id}", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 500000],
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000],
@@ -285,7 +285,7 @@ class PenawaranItemTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $id = $this->postJson('/api/v1/penawaran', array_merge(
+        $id = $this->postJson('/api/penawaran', array_merge(
             $this->payloadPenawaran([
                 [
                     'id_rute'            => $this->makeRute(),
@@ -295,7 +295,7 @@ class PenawaranItemTest extends TestCase
             ['tipe_harga' => 'borongan']
         ))->json('data.id_penawaran');
 
-        $res = $this->putJson("/api/v1/penawaran/{$id}", [
+        $res = $this->putJson("/api/penawaran/{$id}", [
             'items' => [
                 [
                     'id_rute'            => $this->makeRute(),

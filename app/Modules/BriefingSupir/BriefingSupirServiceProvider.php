@@ -18,7 +18,7 @@ class BriefingSupirServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:penugasan'])
             ->group(function () {
                 Route::get('penugasan/{idPenugasan}/briefing', [BriefingSupirController::class, 'index']);

@@ -50,7 +50,7 @@ class PembelianBuktiRealisasiTest extends TestCase
     private function pengajuanDisetujuiFinance(): array
     {
         $this->actingAsRole('SUPERADMIN');
-        $res = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPengajuan());
+        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan());
         $id = $res->json('data.id_pembelian');
         DB::table('pembelian_sparepart')->where('id_pembelian', $id)->update(['status' => 'disetujui_finance']);
         return [$id, $res->json('data.items')];
@@ -61,7 +61,7 @@ class PembelianBuktiRealisasiTest extends TestCase
         Storage::fake('public');
         [$id] = $this->pengajuanDisetujuiFinance();
 
-        $res = $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
+        $res = $this->postJson("/api/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg'), UploadedFile::fake()->image('nota2.png')],
         ]);
         $res->assertStatus(200);
@@ -74,8 +74,8 @@ class PembelianBuktiRealisasiTest extends TestCase
         Storage::disk('public')->assertExists($tersimpan);
 
         $idBukti = $res->json('data.bukti.0.id_bukti');
-        $this->deleteJson("/api/v1/pembelian-sparepart/{$id}/bukti/{$idBukti}")->assertStatus(200);
-        $this->assertCount(1, $this->getJson("/api/v1/pembelian-sparepart/{$id}")->json('data.bukti'));
+        $this->deleteJson("/api/pembelian-sparepart/{$id}/bukti/{$idBukti}")->assertStatus(200);
+        $this->assertCount(1, $this->getJson("/api/pembelian-sparepart/{$id}")->json('data.bukti'));
     }
 
     public function test_upload_validasi(): void
@@ -83,8 +83,8 @@ class PembelianBuktiRealisasiTest extends TestCase
         Storage::fake('public');
         [$id] = $this->pengajuanDisetujuiFinance();
 
-        $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", ['bukti' => []])->assertStatus(422);
-        $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$id}/bukti", ['bukti' => []])->assertStatus(422);
+        $this->postJson("/api/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->create('nota.txt', 10)],
         ])->assertStatus(422);
     }
@@ -93,15 +93,15 @@ class PembelianBuktiRealisasiTest extends TestCase
     {
         Storage::fake('public');
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPengajuan())->json('data.id_pembelian');
+        $id = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan())->json('data.id_pembelian');
 
-        $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->image('penawaran.jpg'), UploadedFile::fake()->create('penawaran.pdf', 100, 'application/pdf')],
         ])->assertStatus(200);
-        $this->assertCount(2, $this->getJson("/api/v1/pembelian-sparepart/{$id}")->json('data.bukti'));
+        $this->assertCount(2, $this->getJson("/api/pembelian-sparepart/{$id}")->json('data.bukti'));
 
         DB::table('pembelian_sparepart')->where('id_pembelian', $id)->update(['status' => 'ditolak']);
-        $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(422);
     }
@@ -110,11 +110,11 @@ class PembelianBuktiRealisasiTest extends TestCase
     {
         Storage::fake('public');
         [$id, $items] = $this->pengajuanDisetujuiFinance();
-        $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(200);
 
-        $res = $this->patchJson("/api/v1/pembelian-sparepart/{$id}/realisasi", [
+        $res = $this->patchJson("/api/pembelian-sparepart/{$id}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items' => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000],
@@ -133,7 +133,7 @@ class PembelianBuktiRealisasiTest extends TestCase
             'id_pembelian' => $id,
         ]);
 
-        $mutasi = $this->getJson("/api/v1/sparepart/{$idSparepart}/mutasi")->json('data');
+        $mutasi = $this->getJson("/api/sparepart/{$idSparepart}/mutasi")->json('data');
         $this->assertSame($id, $mutasi[0]['id_pembelian']);
     }
 
@@ -149,12 +149,12 @@ class PembelianBuktiRealisasiTest extends TestCase
                 ['id_item' => $items[1]['id_item'], 'harga_aktual' => 75000],
             ],
         ];
-        $this->patchJson("/api/v1/pembelian-sparepart/{$id}/realisasi", $payload)->assertStatus(422);
+        $this->patchJson("/api/pembelian-sparepart/{$id}/realisasi", $payload)->assertStatus(422);
 
-        $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ]);
-        $this->patchJson("/api/v1/pembelian-sparepart/{$id}/realisasi", [
+        $this->patchJson("/api/pembelian-sparepart/{$id}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items' => [['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000]],
         ])->assertStatus(422);
@@ -164,11 +164,11 @@ class PembelianBuktiRealisasiTest extends TestCase
     {
         Storage::fake('public');
         $this->actingAsRole('SUPERADMIN');
-        $res = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPengajuan());
+        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan());
         $id = $res->json('data.id_pembelian');
         $items = $res->json('data.items');
 
-        $this->patchJson("/api/v1/pembelian-sparepart/{$id}/realisasi", [
+        $this->patchJson("/api/pembelian-sparepart/{$id}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items' => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000],
@@ -177,7 +177,7 @@ class PembelianBuktiRealisasiTest extends TestCase
         ])->assertStatus(422);
 
         [$idDibeli, $itemsDibeli] = $this->pengajuanDisetujuiFinance();
-        $this->postJson("/api/v1/pembelian-sparepart/{$idDibeli}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$idDibeli}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(200);
 
@@ -188,21 +188,21 @@ class PembelianBuktiRealisasiTest extends TestCase
                 ['id_item' => $itemsDibeli[1]['id_item'], 'harga_aktual' => 75000],
             ],
         ];
-        $this->patchJson("/api/v1/pembelian-sparepart/{$idDibeli}/realisasi", $payloadRealisasi)
+        $this->patchJson("/api/pembelian-sparepart/{$idDibeli}/realisasi", $payloadRealisasi)
             ->assertStatus(200)->assertJsonPath('data.status', 'dibeli');
 
-        $this->patchJson("/api/v1/pembelian-sparepart/{$idDibeli}/realisasi", $payloadRealisasi)->assertStatus(422);
+        $this->patchJson("/api/pembelian-sparepart/{$idDibeli}/realisasi", $payloadRealisasi)->assertStatus(422);
     }
 
     public function test_realisasi_id_item_duplikat_ditolak(): void
     {
         Storage::fake('public');
         [$id, $items] = $this->pengajuanDisetujuiFinance();
-        $this->postJson("/api/v1/pembelian-sparepart/{$id}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(200);
 
-        $this->patchJson("/api/v1/pembelian-sparepart/{$id}/realisasi", [
+        $this->patchJson("/api/pembelian-sparepart/{$id}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items' => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000],
@@ -215,11 +215,11 @@ class PembelianBuktiRealisasiTest extends TestCase
     {
         Storage::fake('public');
         [$idA] = $this->pengajuanDisetujuiFinance();
-        $res = $this->postJson("/api/v1/pembelian-sparepart/{$idA}/bukti", [
+        $res = $this->postJson("/api/pembelian-sparepart/{$idA}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ]);
         $idBukti = $res->json('data.bukti.0.id_bukti');
         [$idB] = $this->pengajuanDisetujuiFinance();
-        $this->deleteJson("/api/v1/pembelian-sparepart/{$idB}/bukti/{$idBukti}")->assertStatus(404);
+        $this->deleteJson("/api/pembelian-sparepart/{$idB}/bukti/{$idBukti}")->assertStatus(404);
     }
 }

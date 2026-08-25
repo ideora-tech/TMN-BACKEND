@@ -107,15 +107,15 @@ class ArusKasPsakTest extends TestCase
             'penerima'          => 'Penerima Test',
         ];
 
-        $this->postJson('/api/v1/arus-kas/pengajuan', $payload + ['kategori' => 'pembelian_aset'])
+        $this->postJson('/api/arus-kas/pengajuan', $payload + ['kategori' => 'pembelian_aset'])
             ->assertStatus(201)
             ->assertJsonPath('data.kategori', 'pembelian_aset');
 
-        $this->postJson('/api/v1/arus-kas/pengajuan', $payload + ['kategori' => 'pembayaran_pinjaman'])
+        $this->postJson('/api/arus-kas/pengajuan', $payload + ['kategori' => 'pembayaran_pinjaman'])
             ->assertStatus(201)
             ->assertJsonPath('data.kategori', 'pembayaran_pinjaman');
 
-        $this->postJson('/api/v1/arus-kas/pengajuan', $payload + ['kategori' => 'kategori_ngawur'])
+        $this->postJson('/api/arus-kas/pengajuan', $payload + ['kategori' => 'kategori_ngawur'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['kategori']);
     }
@@ -245,7 +245,7 @@ class ArusKasPsakTest extends TestCase
         $this->buatFaktur(['tanggal_faktur' => '2026-08-05', 'total' => 1000000]);
         $this->buatPengajuanDitransfer(['nominal' => 400000, 'tanggal_transfer' => '2026-08-10']);
 
-        $res = $this->get('/api/v1/arus-kas/export/excel?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->get('/api/arus-kas/export/excel?dari=2026-08-01&sampai=2026-08-31');
 
         $res->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', (string) $res->headers->get('content-type'));

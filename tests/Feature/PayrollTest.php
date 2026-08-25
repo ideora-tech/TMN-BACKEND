@@ -27,7 +27,7 @@ class PayrollTest extends TestCase
     private function buatPeriode(string $bulan = null): string
     {
         $bulan = $bulan ?? now()->format('Y-m');
-        $res = $this->postJson('/api/v1/payroll/periode', ['bulan' => $bulan]);
+        $res = $this->postJson('/api/payroll/periode', ['bulan' => $bulan]);
         $res->assertStatus(201);
         return $res->json('data.id_periode');
     }
@@ -69,15 +69,15 @@ class PayrollTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         // default cutoff 21: bulan Juli = 21 Jun s/d 20 Jul
-        $res = $this->getJson('/api/v1/payroll/preview-rentang?bulan=2026-07');
+        $res = $this->getJson('/api/payroll/preview-rentang?bulan=2026-07');
         $res->assertStatus(200)
             ->assertJsonPath('data.tanggal_mulai', '2026-06-21')
             ->assertJsonPath('data.tanggal_selesai', '2026-07-20');
 
         // cutoff 1 = bulan kalender
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
 
-        $res2 = $this->getJson('/api/v1/payroll/preview-rentang?bulan=2026-07');
+        $res2 = $this->getJson('/api/payroll/preview-rentang?bulan=2026-07');
         $res2->assertStatus(200)
             ->assertJsonPath('data.tanggal_mulai', '2026-07-01')
             ->assertJsonPath('data.tanggal_selesai', '2026-07-31');
@@ -88,26 +88,26 @@ class PayrollTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->buatPeriode('2026-07');
 
-        $this->postJson('/api/v1/payroll/periode', ['bulan' => '2026-07'])->assertStatus(422);
+        $this->postJson('/api/payroll/periode', ['bulan' => '2026-07'])->assertStatus(422);
     }
 
     public function test_list_periode_bisa_dicari_dan_difilter_status(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload());
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload());
 
         $idA = $this->buatPeriode('2026-01');
         $idB = $this->buatPeriode('2026-02');
         $this->makeKaryawan('Filter Test', 'NIK-PAY-FLT', 5000000);
-        $this->postJson("/api/v1/payroll/periode/{$idB}/generate")->assertStatus(200);
-        $this->postJson("/api/v1/payroll/periode/{$idB}/finalisasi")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idB}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idB}/finalisasi")->assertStatus(200);
 
-        $resSearch = $this->getJson('/api/v1/payroll/periode?search=' . urlencode('Jan 2026'));
+        $resSearch = $this->getJson('/api/payroll/periode?search=' . urlencode('Jan 2026'));
         $resSearch->assertStatus(200);
         $this->assertCount(1, $resSearch->json('data'));
         $this->assertSame($idA, $resSearch->json('data.0.id_periode'));
 
-        $resStatus = $this->getJson('/api/v1/payroll/periode?status=final');
+        $resStatus = $this->getJson('/api/payroll/periode?status=final');
         $resStatus->assertStatus(200);
         $this->assertCount(1, $resStatus->json('data'));
         $this->assertSame($idB, $resStatus->json('data.0.id_periode'));
@@ -118,7 +118,7 @@ class PayrollTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         // Pengaturan payroll: cutoff 1 (bulan kalender), 25 hari kerja, BPJS 1%/2%/1%
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
 
         // Gaji 5.000.000, ikut BPJS lengkap, TK/0
         // Neto tahunan = (5jt − 250rb biaya jabatan) × 12 = 57jt; PKP 3jt → PPh21 150rb/thn = 12.500/bln
@@ -142,9 +142,9 @@ class PayrollTest extends TestCase
         ]);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $res = $this->getJson("/api/v1/payroll/periode/{$idPeriode}");
+        $res = $this->getJson("/api/payroll/periode/{$idPeriode}");
         $res->assertStatus(200);
 
         $slip = collect($res->json('data.slips'))->firstWhere('id_karyawan', $idKaryawan);
@@ -163,14 +163,14 @@ class PayrollTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $resDefault = $this->getJson('/api/v1/payroll/pengaturan');
+        $resDefault = $this->getJson('/api/payroll/pengaturan');
         $resDefault->assertStatus(200);
         $this->assertEquals(1.0, $resDefault->json('data.persen_bpjs_kesehatan'));
         $this->assertEquals(2.0, $resDefault->json('data.persen_bpjs_jht'));
         $this->assertEquals(1.0, $resDefault->json('data.persen_bpjs_jp'));
         $this->assertEquals(12000000.0, $resDefault->json('data.plafon_gaji_bpjs_kesehatan'));
 
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload([
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload([
             'persen_bpjs_kesehatan' => 2,
             'persen_bpjs_jht'       => 3.7,
             'persen_bpjs_jp'        => 1,
@@ -185,9 +185,9 @@ class PayrollTest extends TestCase
         ]);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
         $this->assertEquals(200000, $slip['potongan_bpjs_kesehatan']);
         $this->assertEquals(705000, $slip['potongan_bpjs_tk']);
     }
@@ -196,17 +196,17 @@ class PayrollTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $resDefault = $this->getJson('/api/v1/payroll/pengaturan');
+        $resDefault = $this->getJson('/api/payroll/pengaturan');
         $resDefault->assertStatus(200);
         $this->assertEquals(54000000.0, $resDefault->json('data.ptkp_dasar'));
         $this->assertEquals(4500000.0, $resDefault->json('data.ptkp_tambahan'));
 
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload([
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload([
             'ptkp_dasar'    => 36000000,
             'ptkp_tambahan' => 3000000,
         ]))->assertStatus(200);
 
-        $resSetelah = $this->getJson('/api/v1/payroll/pengaturan');
+        $resSetelah = $this->getJson('/api/payroll/pengaturan');
         $this->assertEquals(36000000.0, $resSetelah->json('data.ptkp_dasar'));
         $this->assertEquals(3000000.0, $resSetelah->json('data.ptkp_tambahan'));
 
@@ -217,9 +217,9 @@ class PayrollTest extends TestCase
         ]);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
         $this->assertEquals(62500, $slip['pph21']);
     }
 
@@ -227,7 +227,7 @@ class PayrollTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         // Setting company-wide: Kesehatan 1%, JHT 2%, JP 1%, plafon 12jt
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload());
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload());
 
         // Karyawan dengan override: Kesehatan 2%, JHT 3%, JP 1,5% — plafon tidak dioverride (ikut default 12jt)
         $idKaryawan = $this->makeKaryawan('Fani Override', 'NIK-PAY-07', 5000000, [
@@ -239,9 +239,9 @@ class PayrollTest extends TestCase
         ]);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
             ->firstWhere('id_karyawan', $idKaryawan);
 
         // BPJS Kes = 2% × 5jt = 100.000 (bukan 1% × 5jt = 50.000 dari default perusahaan)
@@ -256,7 +256,7 @@ class PayrollTest extends TestCase
     public function test_karyawan_tanpa_override_ikut_pengaturan_perusahaan(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload());
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload());
 
         $this->makeKaryawan('Gani Default', 'NIK-PAY-08', 5000000, [
             'ikut_bpjs_kesehatan' => 1,
@@ -264,9 +264,9 @@ class PayrollTest extends TestCase
         ]);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
         $this->assertEquals(50000, $slip['potongan_bpjs_kesehatan']);  // 1% default
         $this->assertEquals(150000, $slip['potongan_bpjs_tk']);        // 3% default
     }
@@ -274,16 +274,16 @@ class PayrollTest extends TestCase
     public function test_pph21_terhitung_untuk_gaji_di_atas_ptkp(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload());
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload());
 
         // Gaji 10jt TK/0: biaya jabatan 500rb → neto 9,5jt ×12 = 114jt; PKP 60jt
         // Pajak: 60jt×5% = 3.000.000/tahun → 250.000/bulan
         $this->makeKaryawan('Budi Pajak', 'NIK-PAY-02', 10000000, ['status_ptkp' => 'TK/0']);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $res = $this->getJson("/api/v1/payroll/periode/{$idPeriode}");
+        $res = $this->getJson("/api/payroll/periode/{$idPeriode}");
         $slip = collect($res->json('data.slips'))->first();
         $this->assertEquals(250000, $slip['pph21']);
     }
@@ -291,7 +291,7 @@ class PayrollTest extends TestCase
     public function test_generate_slip_mengisi_tunjangan_dari_default_jabatan(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
 
         $idJabatan = $this->makeJabatan(1000000);
         // Gaji 5jt + tunjangan jabatan 1jt = bruto 6jt, TK/0
@@ -301,9 +301,9 @@ class PayrollTest extends TestCase
         ]);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
         $this->assertEquals(1000000, $slip['tunjangan_lain']);
         $this->assertEquals(6000000, $slip['total_bruto']);
         $this->assertEquals(60000, $slip['pph21']);
@@ -313,7 +313,7 @@ class PayrollTest extends TestCase
     public function test_override_tunjangan_jabatan_per_karyawan_menang_atas_default_jabatan(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
 
         $idJabatan = $this->makeJabatan(1000000);
         // Gaji 5jt + override tunjangan 2,5jt (bukan default jabatan 1jt) = bruto 7,5jt, TK/0
@@ -324,9 +324,9 @@ class PayrollTest extends TestCase
         ]);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
         $this->assertEquals(2500000, $slip['tunjangan_lain']);
         $this->assertEquals(7500000, $slip['total_bruto']);
         $this->assertEquals(131250, $slip['pph21']);
@@ -336,7 +336,7 @@ class PayrollTest extends TestCase
     public function test_generate_slip_prorata_karyawan_masuk_tengah_periode(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
 
         $idJabatan = $this->makeJabatan(310000);
         // Periode Juli 2026 (cutoff 1) = 31 hari; masuk 16 Jul -> aktif 16 hari (16 s/d 31 Jul)
@@ -350,9 +350,9 @@ class PayrollTest extends TestCase
         ]);
 
         $idPeriode = $this->buatPeriode('2026-07');
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slips = $this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips');
+        $slips = $this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips');
         $this->assertCount(1, $slips);
 
         $slip = collect($slips)->firstWhere('id_karyawan', $idKaryawan);
@@ -367,7 +367,7 @@ class PayrollTest extends TestCase
     public function test_generate_slip_prorata_karyawan_berhenti_tengah_periode(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
 
         // Berhenti efektif 10 Jul -> aktif 10 hari (1 s/d 10 Jul); 3.100.000 x 10/31 = 1.000.000
         $idKaryawan = $this->makeKaryawan('Lani Prorata Berhenti', 'NIK-PAY-13', 3100000, ['aktif' => 0]);
@@ -376,9 +376,9 @@ class PayrollTest extends TestCase
         $this->makeKaryawan('Mati Tanpa Exit', 'NIK-PAY-14', 4000000, ['aktif' => 0]);
 
         $idPeriode = $this->buatPeriode('2026-07');
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slips = $this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips');
+        $slips = $this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips');
         $this->assertCount(1, $slips);
 
         $slip = collect($slips)->firstWhere('id_karyawan', $idKaryawan);
@@ -391,7 +391,7 @@ class PayrollTest extends TestCase
     public function test_generate_slip_karyawan_berhenti_setelah_periode_dapat_gaji_penuh(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload())->assertStatus(200);
 
         // Resign efektif 5 Agu (setelah periode Juli berakhir) -> gaji Juli tetap penuh
         // Gaji 5jt TK/0: PPh21 12.500/bln (sama seperti test generate komponen)
@@ -399,9 +399,9 @@ class PayrollTest extends TestCase
         $this->makeExit($idKaryawan, '2026-08-05');
 
         $idPeriode = $this->buatPeriode('2026-07');
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
             ->firstWhere('id_karyawan', $idKaryawan);
         $this->assertNotNull($slip);
         $this->assertEquals(5000000, $slip['gaji_pokok']);
@@ -412,14 +412,14 @@ class PayrollTest extends TestCase
     public function test_edit_slip_menghitung_ulang_total(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload());
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload());
         $this->makeKaryawan('Citra Edit', 'NIK-PAY-03', 5000000);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
 
-        $res = $this->putJson("/api/v1/payroll/slip/{$slip['id_slip']}", [
+        $res = $this->putJson("/api/payroll/slip/{$slip['id_slip']}", [
             'tunjangan_lain' => 500000,
             'keterangan_tunjangan' => 'Bonus kinerja',
             'potongan_lain' => 100000,
@@ -435,14 +435,14 @@ class PayrollTest extends TestCase
     public function test_download_pdf_slip(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload());
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload());
         $this->makeKaryawan('Eka Pdf', 'NIK-PAY-05', 5000000);
 
         $idPeriode = $this->buatPeriode();
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
 
-        $res = $this->get("/api/v1/payroll/slip/{$slip['id_slip']}/pdf");
+        $res = $this->get("/api/payroll/slip/{$slip['id_slip']}/pdf");
 
         $res->assertStatus(200);
         $this->assertSame('application/pdf', $res->headers->get('content-type'));
@@ -452,26 +452,26 @@ class PayrollTest extends TestCase
     public function test_finalisasi_mengunci_slip_dan_regenerate(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', $this->pengaturanPayload());
+        $this->putJson('/api/payroll/pengaturan', $this->pengaturanPayload());
         $this->makeKaryawan('Dodi Final', 'NIK-PAY-04', 5000000);
 
         $idPeriode = $this->buatPeriode();
 
         // finalisasi tanpa slip ditolak
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(422);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(422);
 
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
 
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(200);
 
         // setelah final: edit slip, generate ulang, dan hapus periode ditolak
-        $this->putJson("/api/v1/payroll/slip/{$slip['id_slip']}", ['tunjangan_lain' => 1])->assertStatus(422);
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(422);
-        $this->deleteJson("/api/v1/payroll/periode/{$idPeriode}")->assertStatus(422);
+        $this->putJson("/api/payroll/slip/{$slip['id_slip']}", ['tunjangan_lain' => 1])->assertStatus(422);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(422);
+        $this->deleteJson("/api/payroll/periode/{$idPeriode}")->assertStatus(422);
 
         // batal finalisasi -> kembali draft, bisa diedit lagi
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/batal-finalisasi")->assertStatus(200);
-        $this->putJson("/api/v1/payroll/slip/{$slip['id_slip']}", ['tunjangan_lain' => 1])->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/batal-finalisasi")->assertStatus(200);
+        $this->putJson("/api/payroll/slip/{$slip['id_slip']}", ['tunjangan_lain' => 1])->assertStatus(200);
     }
 }

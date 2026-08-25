@@ -53,7 +53,7 @@ class JadwalRuteTest extends TestCase
         $rute = $this->makeRute('Jakarta - Surabaya');
         $penugasan = $this->makePenugasan();
 
-        $res = $this->postJson('/api/v1/jadwal', [
+        $res = $this->postJson('/api/jadwal', [
             'id_penugasan'    => $penugasan->id_penugasan,
             'waktu_berangkat' => '2026-08-01 08:00:00',
             'id_rute'         => $rute->id_rute,
@@ -69,7 +69,7 @@ class JadwalRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
 
-        $res = $this->postJson('/api/v1/jadwal', [
+        $res = $this->postJson('/api/jadwal', [
             'id_penugasan'    => $penugasan->id_penugasan,
             'waktu_berangkat' => '2026-08-01 08:00:00',
             'id_rute'         => (string) Str::uuid(),
@@ -92,7 +92,7 @@ class JadwalRuteTest extends TestCase
             'rute'            => $ruteLama->nama_rute,
         ]);
 
-        $res = $this->putJson("/api/v1/jadwal/{$jadwal->id_jadwal}", [
+        $res = $this->putJson("/api/jadwal/{$jadwal->id_jadwal}", [
             'id_rute' => $ruteBaru->id_rute,
         ]);
 
@@ -114,7 +114,7 @@ class JadwalRuteTest extends TestCase
             'rute'            => $rute->nama_rute,
         ]);
 
-        $res = $this->putJson("/api/v1/jadwal/{$jadwal->id_jadwal}", [
+        $res = $this->putJson("/api/jadwal/{$jadwal->id_jadwal}", [
             'id_rute' => null,
         ]);
 
@@ -136,7 +136,7 @@ class JadwalRuteTest extends TestCase
             'rute'            => $rute->nama_rute,
         ]);
 
-        $res = $this->putJson("/api/v1/jadwal/{$jadwal->id_jadwal}", [
+        $res = $this->putJson("/api/jadwal/{$jadwal->id_jadwal}", [
             'estimasi_tiba' => '2026-08-01 12:00:00',
         ]);
 
@@ -163,7 +163,7 @@ class JadwalRuteTest extends TestCase
 
         TripModel::create(['id_jadwal' => $jadwal->id_jadwal, 'status' => 'belum_mulai']);
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
 
         $res->assertStatus(200)
             ->assertJsonPath('data.0.rute', 'Nama Rute Sudah Diperbarui');

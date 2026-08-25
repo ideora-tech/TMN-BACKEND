@@ -56,7 +56,7 @@ class RekeningVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $res = $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/rekening", [
+        $res = $this->postJson("/api/vendor/{$vendor->id_vendor}/rekening", [
             'nama_bank'      => 'BCA',
             'nomor_rekening' => '8888999900',
             'atas_nama'      => 'PT Vendor Test',
@@ -83,7 +83,7 @@ class RekeningVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $res = $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/rekening", [
+        $res = $this->postJson("/api/vendor/{$vendor->id_vendor}/rekening", [
             'nomor_rekening' => '8888999900',
             'atas_nama'      => 'PT Vendor Test',
         ]);
@@ -97,7 +97,7 @@ class RekeningVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendorLain = $this->makeVendorPerusahaanLain();
 
-        $res = $this->postJson("/api/v1/vendor/{$vendorLain->id_vendor}/rekening", [
+        $res = $this->postJson("/api/vendor/{$vendorLain->id_vendor}/rekening", [
             'nama_bank'      => 'BCA',
             'nomor_rekening' => '7777888899',
             'atas_nama'      => 'PT Vendor Lain',
@@ -118,7 +118,7 @@ class RekeningVendorTest extends TestCase
         $this->insertRekening($vendor->id_vendor, 'Mandiri');
         $this->insertRekening($vendorB->id_vendor, 'BNI');
 
-        $res = $this->getJson("/api/v1/vendor/{$vendor->id_vendor}/rekening");
+        $res = $this->getJson("/api/vendor/{$vendor->id_vendor}/rekening");
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -132,7 +132,7 @@ class RekeningVendorTest extends TestCase
         $vendorLain = $this->makeVendorPerusahaanLain();
         $this->insertRekening($vendorLain->id_vendor);
 
-        $this->getJson("/api/v1/vendor/{$vendorLain->id_vendor}/rekening")
+        $this->getJson("/api/vendor/{$vendorLain->id_vendor}/rekening")
             ->assertStatus(404);
     }
 
@@ -142,7 +142,7 @@ class RekeningVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertRekening($vendor->id_vendor);
 
-        $res = $this->putJson("/api/v1/vendor/{$vendor->id_vendor}/rekening/{$id}", [
+        $res = $this->putJson("/api/vendor/{$vendor->id_vendor}/rekening/{$id}", [
             'nomor_rekening' => '0011223344',
             'cabang'         => 'Surabaya',
         ]);
@@ -165,7 +165,7 @@ class RekeningVendorTest extends TestCase
         $vendorLain = $this->makeVendorPerusahaanLain();
         $id = $this->insertRekening($vendorLain->id_vendor);
 
-        $res = $this->putJson("/api/v1/vendor/{$vendorLain->id_vendor}/rekening/{$id}", [
+        $res = $this->putJson("/api/vendor/{$vendorLain->id_vendor}/rekening/{$id}", [
             'nomor_rekening' => '5555666677',
         ]);
 
@@ -184,7 +184,7 @@ class RekeningVendorTest extends TestCase
         $vendorB = $this->makeVendor();
         $id = $this->insertRekening($vendorA->id_vendor);
 
-        $res = $this->putJson("/api/v1/vendor/{$vendorB->id_vendor}/rekening/{$id}", [
+        $res = $this->putJson("/api/vendor/{$vendorB->id_vendor}/rekening/{$id}", [
             'nomor_rekening' => '5555666677',
         ]);
 
@@ -197,13 +197,13 @@ class RekeningVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertRekening($vendor->id_vendor);
 
-        $res = $this->deleteJson("/api/v1/vendor/{$vendor->id_vendor}/rekening/{$id}");
+        $res = $this->deleteJson("/api/vendor/{$vendor->id_vendor}/rekening/{$id}");
         $res->assertStatus(200)->assertJsonPath('success', true);
 
         $row = DB::table('rekening_vendor')->where('id_rekening_vendor', $id)->first();
         $this->assertNotNull($row->dihapus_pada);
 
-        $this->assertCount(0, $this->getJson("/api/v1/vendor/{$vendor->id_vendor}/rekening")->json('data'));
+        $this->assertCount(0, $this->getJson("/api/vendor/{$vendor->id_vendor}/rekening")->json('data'));
     }
 
     public function test_menolak_hapus_rekening_vendor_perusahaan_lain(): void
@@ -212,7 +212,7 @@ class RekeningVendorTest extends TestCase
         $vendorLain = $this->makeVendorPerusahaanLain();
         $id = $this->insertRekening($vendorLain->id_vendor);
 
-        $this->deleteJson("/api/v1/vendor/{$vendorLain->id_vendor}/rekening/{$id}")
+        $this->deleteJson("/api/vendor/{$vendorLain->id_vendor}/rekening/{$id}")
             ->assertStatus(404);
 
         $row = DB::table('rekening_vendor')->where('id_rekening_vendor', $id)->first();

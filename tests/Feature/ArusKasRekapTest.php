@@ -207,7 +207,7 @@ class ArusKasRekapTest extends TestCase
         $this->buatFaktur(['tanggal_faktur' => null, 'dibuat_pada' => '2026-08-03 09:00:00', 'total' => 750000]);
         $this->buatFaktur(['status' => 'batal', 'tanggal_faktur' => '2026-08-04', 'total' => 999999]);
 
-        $res = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
 
         $rows = $this->transaksiSumber($res, 'faktur');
@@ -231,7 +231,7 @@ class ArusKasRekapTest extends TestCase
         $this->buatPengajuanDitransfer(['status' => 'diajukan', 'tanggal_transfer' => null, 'nominal' => 999999]);
         $this->buatPengajuanDitransfer(['status' => 'disetujui', 'tanggal_transfer' => null, 'nominal' => 888888]);
 
-        $res = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
 
         $rows = $this->transaksiSumber($res, 'pengajuan_pengeluaran');
@@ -249,7 +249,7 @@ class ArusKasRekapTest extends TestCase
         $invoice = $this->buatInvoiceVendor($vendor);
         $this->buatPembayaranVendor($invoice, ['nominal' => 2000000, 'tanggal_bayar' => '2026-08-07']);
 
-        $res = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
 
         $rows = $this->transaksiSumber($res, 'pembayaran_vendor');
@@ -272,7 +272,7 @@ class ArusKasRekapTest extends TestCase
         $karyawanC = $this->buatKaryawan();
         $this->buatSlipPayroll($periodeDraft, $karyawanC, null, 5000000);
 
-        $res = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
 
         $rows = $this->transaksiSumber($res, 'payroll_periode');
@@ -306,7 +306,7 @@ class ArusKasRekapTest extends TestCase
             'id_perawatan'   => null,
         ]);
 
-        $res = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
 
         $rows = $this->transaksiSumber($res, 'pembelian_sparepart');
@@ -320,28 +320,28 @@ class ArusKasRekapTest extends TestCase
         $this->buatPengajuanDitransfer(['nominal' => 400000, 'tanggal_transfer' => '2026-08-10']);
         $this->buatFaktur(['tanggal_faktur' => '2026-07-01', 'total' => 500000]);
 
-        $penuh = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $penuh = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $penuh->assertStatus(200)
             ->assertJsonPath('data.ringkasan.total_pemasukan', 1000000)
             ->assertJsonPath('data.ringkasan.total_pengeluaran', 400000)
             ->assertJsonPath('data.ringkasan.netto', 600000);
         $this->assertCount(2, $penuh->json('data.transaksi'));
 
-        $filterArah = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31&arah=masuk');
+        $filterArah = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31&arah=masuk');
         $filterArah->assertStatus(200)
             ->assertJsonPath('data.ringkasan.total_pemasukan', 1000000)
             ->assertJsonPath('data.ringkasan.total_pengeluaran', 400000);
         $this->assertCount(1, $filterArah->json('data.transaksi'));
         $this->assertSame('masuk', $filterArah->json('data.transaksi.0.arah'));
 
-        $filterSumber = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31&sumber=pengajuan_pengeluaran');
+        $filterSumber = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31&sumber=pengajuan_pengeluaran');
         $filterSumber->assertStatus(200)
             ->assertJsonPath('data.ringkasan.total_pemasukan', 1000000)
             ->assertJsonPath('data.ringkasan.total_pengeluaran', 400000);
         $this->assertCount(1, $filterSumber->json('data.transaksi'));
         $this->assertSame('pengajuan_pengeluaran', $filterSumber->json('data.transaksi.0.sumber'));
 
-        $periodeSempit = $this->getJson('/api/v1/arus-kas?dari=2026-07-01&sampai=2026-07-31');
+        $periodeSempit = $this->getJson('/api/arus-kas?dari=2026-07-01&sampai=2026-07-31');
         $periodeSempit->assertStatus(200)
             ->assertJsonPath('data.ringkasan.total_pemasukan', 500000)
             ->assertJsonPath('data.ringkasan.total_pengeluaran', 0);
@@ -355,7 +355,7 @@ class ArusKasRekapTest extends TestCase
         $this->buatFaktur(['tanggal_faktur' => $tanggalBulanIni, 'total' => 1234000]);
         $this->buatFaktur(['tanggal_faktur' => now()->subMonths(2)->toDateString(), 'total' => 999000]);
 
-        $res = $this->getJson('/api/v1/arus-kas');
+        $res = $this->getJson('/api/arus-kas');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data.transaksi'));
         $this->assertSame(1234000, $res->json('data.transaksi.0.nominal'));
@@ -365,8 +365,8 @@ class ArusKasRekapTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $this->getJson('/api/v1/arus-kas?dari=2026-01-01&sampai=2027-01-05')->assertStatus(422);
-        $this->getJson('/api/v1/arus-kas?dari=2026-01-01&sampai=2026-12-31')->assertStatus(200);
+        $this->getJson('/api/arus-kas?dari=2026-01-01&sampai=2027-01-05')->assertStatus(422);
+        $this->getJson('/api/arus-kas?dari=2026-01-01&sampai=2026-12-31')->assertStatus(200);
     }
 
     public function test_isolasi_tenant_faktur_dan_pembayaran_vendor_via_join(): void
@@ -382,7 +382,7 @@ class ArusKasRekapTest extends TestCase
         $invoiceLain = $this->buatInvoiceVendor($vendorLain, $idLain);
         $this->buatPembayaranVendor($invoiceLain, ['nominal' => 222222, 'tanggal_bayar' => '2026-08-06']);
 
-        $res = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
 
         $this->assertCount(0, $this->transaksiSumber($res, 'faktur'));
@@ -397,7 +397,7 @@ class ArusKasRekapTest extends TestCase
         $this->buatFaktur(['tanggal_faktur' => '2026-08-05', 'total' => 1000000]);
         $this->buatPengajuanDitransfer(['nominal' => 400000, 'tanggal_transfer' => '2026-08-10']);
 
-        $res = $this->get('/api/v1/arus-kas/export/excel?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->get('/api/arus-kas/export/excel?dari=2026-08-01&sampai=2026-08-31');
 
         $res->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', (string) $res->headers->get('content-type'));
@@ -410,7 +410,7 @@ class ArusKasRekapTest extends TestCase
         $tanggalBulanIni = now()->startOfMonth()->addDays(2)->toDateString();
         $this->buatFaktur(['tanggal_faktur' => $tanggalBulanIni, 'total' => 1234000]);
 
-        $res = $this->get('/api/v1/arus-kas/export/excel');
+        $res = $this->get('/api/arus-kas/export/excel');
 
         $res->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', (string) $res->headers->get('content-type'));

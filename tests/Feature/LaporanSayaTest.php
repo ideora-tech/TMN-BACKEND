@@ -119,7 +119,7 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'selesai');
 
-        $this->getJson("/api/v1/trip/{$trip->id_trip}/laporan-saya")
+        $this->getJson("/api/trip/{$trip->id_trip}/laporan-saya")
             ->assertStatus(200)
             ->assertJsonPath('data', null);
     }
@@ -131,7 +131,7 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'selesai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
@@ -159,7 +159,7 @@ class LaporanSayaTest extends TestCase
 
         $this->actingAsSupir();
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
@@ -172,7 +172,7 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'belum_mulai');
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
@@ -185,7 +185,7 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'berjalan');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
@@ -201,13 +201,13 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'selesai');
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
         ])->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 350000,
             'jarak_tempuh_km' => 90,
             'uang_jalan'      => 150000,
@@ -229,7 +229,7 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'selesai');
 
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
@@ -238,7 +238,7 @@ class LaporanSayaTest extends TestCase
         $idLaporan = $createRes->json('data.id_laporan');
         $idFoto = $createRes->json('data.foto.0.id_foto');
 
-        $this->deleteJson("/api/v1/laporan-saya/{$idLaporan}/foto/{$idFoto}")
+        $this->deleteJson("/api/laporan-saya/{$idLaporan}/foto/{$idFoto}")
             ->assertStatus(200);
 
         $this->assertDatabaseMissing('foto_laporan_perjalanan', [
@@ -252,7 +252,7 @@ class LaporanSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $pemilik = $this->actingAsSupir();
         $trip = $this->makeTripUntukSupir($pemilik->id_supir, $proyek->id_proyek, 'selesai');
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-saya", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'       => 300000,
             'jarak_tempuh_km' => 85,
             'uang_jalan'      => 150000,
@@ -261,7 +261,7 @@ class LaporanSayaTest extends TestCase
 
         $this->actingAsSupir();
 
-        $this->postJson("/api/v1/laporan-saya/{$idLaporan}/foto", [
+        $this->postJson("/api/laporan-saya/{$idLaporan}/foto", [
             'foto' => [UploadedFile::fake()->image('bukti.jpg')],
         ])->assertStatus(403);
     }
@@ -299,7 +299,7 @@ class LaporanSayaTest extends TestCase
 
         Sanctum::actingAs($pengguna, ['*']);
 
-        $this->getJson('/api/v1/trip/' . (string) Str::uuid() . '/laporan-saya')
+        $this->getJson('/api/trip/' . (string) Str::uuid() . '/laporan-saya')
             ->assertStatus(404);
     }
 }

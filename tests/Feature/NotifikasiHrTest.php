@@ -59,7 +59,7 @@ class NotifikasiHrTest extends TestCase
             'dibaca' => 0, 'aktif' => 1, 'dibuat_pada' => now(),
         ]);
 
-        $res = $this->putJson("/api/v1/notifikasi/{$idNotif}/baca");
+        $res = $this->putJson("/api/notifikasi/{$idNotif}/baca");
 
         $res->assertStatus(200)->assertJsonPath('data.link', "/trip/{$idTrip}");
 

@@ -52,11 +52,11 @@ class IntervalPerawatanResolusiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
-        $this->postJson('/api/v1/interval-perawatan', [
+        $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'interval_hari' => 180, 'interval_km' => 10000,
         ]);
 
-        $res = $this->getJson("/api/v1/interval-perawatan/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");
+        $res = $this->getJson("/api/interval-perawatan/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");
 
         $res->assertStatus(200)->assertJsonPath('data.interval_hari', 180);
     }
@@ -65,7 +65,7 @@ class IntervalPerawatanResolusiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/interval-perawatan/resolusi?id_jenis_perawatan=' . $this->makeJenisPerawatan()
+        $res = $this->getJson('/api/interval-perawatan/resolusi?id_jenis_perawatan=' . $this->makeJenisPerawatan()
             . '&id_jenis_kendaraan=' . $this->makeJenisKendaraan());
 
         $res->assertStatus(200)->assertJsonPath('data', null);
@@ -87,7 +87,7 @@ class IntervalPerawatanResolusiTest extends TestCase
             'dibuat_pada'           => now(),
         ]);
 
-        $res = $this->getJson("/api/v1/interval-perawatan/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");
+        $res = $this->getJson("/api/interval-perawatan/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");
 
         $res->assertStatus(200)->assertJsonPath('data', null);
     }
@@ -96,7 +96,7 @@ class IntervalPerawatanResolusiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/interval-perawatan/resolusi');
+        $res = $this->getJson('/api/interval-perawatan/resolusi');
 
         $res->assertStatus(422);
     }

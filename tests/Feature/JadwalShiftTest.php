@@ -77,7 +77,7 @@ class JadwalShiftTest extends TestCase
         $this->makeSupirProyek($proyek->id_proyek, $supirB);
         $shift = $this->makeShift('Pagi');
 
-        $res = $this->postJson('/api/v1/jadwal-shift', [
+        $res = $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek,
             'id_shift'  => $shift,
             'tanggal'   => '2026-07-20',
@@ -88,7 +88,7 @@ class JadwalShiftTest extends TestCase
             ->assertJsonPath('data.sukses', 2)
             ->assertJsonPath('data.gagal', []);
 
-        $list = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyek->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
+        $list = $this->getJson("/api/jadwal-shift?id_proyek={$proyek->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
         $list->assertStatus(200);
         $this->assertCount(2, $list->json('data'));
         $this->assertSame('Pagi', $list->json('data.0.shift_nama'));
@@ -109,7 +109,7 @@ class JadwalShiftTest extends TestCase
         $this->makeSupirProyek($proyek->id_proyek, $supirKosong);
         $shift = $this->makeShift();
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => '2026-07-20', 'supir' => [$supirJalan, $supirSelesai, $supirKosong],
         ])->assertJsonPath('data.sukses', 3);
@@ -135,7 +135,7 @@ class JadwalShiftTest extends TestCase
             'waktu_checkout' => '2026-07-20 17:00:00',
         ]);
 
-        $list = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyek->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
+        $list = $this->getJson("/api/jadwal-shift?id_proyek={$proyek->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
 
         $list->assertStatus(200);
         $data = collect($list->json('data'))->keyBy('id_supir');
@@ -156,7 +156,7 @@ class JadwalShiftTest extends TestCase
         $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => '2026-07-20', 'supir' => [$supir],
         ])->assertJsonPath('data.sukses', 1);
@@ -182,7 +182,7 @@ class JadwalShiftTest extends TestCase
             'waktu_checkin' => '2026-07-20 11:05:00',
         ]);
 
-        $list = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyek->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
+        $list = $this->getJson("/api/jadwal-shift?id_proyek={$proyek->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
         $list->assertStatus(200);
         $baris = collect($list->json('data'))->firstWhere('id_supir', $supir);
 
@@ -224,12 +224,12 @@ class JadwalShiftTest extends TestCase
         ]);
 
         // ...tapi jadwal shift yang dicek ada di proyek B — tidak boleh ikut ditandai.
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyekB->id_proyek, 'id_shift' => $shift,
             'tanggal' => '2026-07-20', 'supir' => [$supir],
         ])->assertJsonPath('data.sukses', 1);
 
-        $list = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyekB->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
+        $list = $this->getJson("/api/jadwal-shift?id_proyek={$proyekB->id_proyek}&dari=2026-07-01&sampai=2026-07-31");
 
         $list->assertStatus(200)
             ->assertJsonPath('data.0.status_trip', null)
@@ -247,13 +247,13 @@ class JadwalShiftTest extends TestCase
         $shiftPagi  = $this->makeShift('Pagi');
         $shiftMalam = $this->makeShift('Malam', '20:00:00', '04:00:00');
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyekA->id_proyek, 'id_shift' => $shiftPagi,
             'tanggal' => '2026-07-20', 'supir' => [$supir],
         ])->assertJsonPath('data.sukses', 1);
 
         // proyek BERBEDA, tanggal sama → tetap ditolak (aturan global)
-        $res = $this->postJson('/api/v1/jadwal-shift', [
+        $res = $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyekB->id_proyek, 'id_shift' => $shiftMalam,
             'tanggal' => '2026-07-20', 'supir' => [$supir],
         ]);
@@ -271,7 +271,7 @@ class JadwalShiftTest extends TestCase
         $supirLuar = $this->makeSupir('Orang Luar'); // tidak di-assign
         $shift = $this->makeShift();
 
-        $res = $this->postJson('/api/v1/jadwal-shift', [
+        $res = $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => '2026-07-20', 'supir' => [$supirLuar],
         ]);
@@ -289,21 +289,21 @@ class JadwalShiftTest extends TestCase
         $shiftPagi  = $this->makeShift('Pagi');
         $shiftMalam = $this->makeShift('Malam', '20:00:00', '04:00:00');
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shiftPagi,
             'tanggal' => '2026-07-21', 'supir' => [$supir],
         ]);
         $idJadwal = DB::table('jadwal_shift')->value('id_jadwal_shift');
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", ['id_shift' => $shiftMalam])
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", ['id_shift' => $shiftMalam])
             ->assertStatus(200)
             ->assertJsonPath('data.shift_nama', 'Malam');
 
-        $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}")->assertStatus(200);
+        $this->deleteJson("/api/jadwal-shift/{$idJadwal}")->assertStatus(200);
         $this->assertSoftDeleted('jadwal_shift', ['id_jadwal_shift' => $idJadwal]);
 
         // tanggal terbuka lagi setelah delete
-        $res = $this->postJson('/api/v1/jadwal-shift', [
+        $res = $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shiftPagi,
             'tanggal' => '2026-07-21', 'supir' => [$supir],
         ]);
@@ -320,7 +320,7 @@ class JadwalShiftTest extends TestCase
         $shift = $this->makeShift();
         $hariIni = now()->toDateString();
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => $hariIni, 'supir' => [$supir],
         ]);
@@ -336,7 +336,7 @@ class JadwalShiftTest extends TestCase
             'waktu_checkin' => now(),
         ]);
 
-        $res = $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}");
+        $res = $this->deleteJson("/api/jadwal-shift/{$idJadwal}");
 
         $res->assertStatus(422);
         $this->assertStringContainsString('sedang berjalan', $res->json('message'));
@@ -353,7 +353,7 @@ class JadwalShiftTest extends TestCase
         $shift = $this->makeShift();
         $besok = now()->addDay()->toDateString();
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => $besok, 'supir' => [$supir],
         ]);
@@ -369,7 +369,7 @@ class JadwalShiftTest extends TestCase
             'waktu_checkin' => now(),
         ]);
 
-        $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}")->assertStatus(200);
+        $this->deleteJson("/api/jadwal-shift/{$idJadwal}")->assertStatus(200);
         $this->assertSoftDeleted('jadwal_shift', ['id_jadwal_shift' => $idJadwal]);
     }
 
@@ -381,7 +381,7 @@ class JadwalShiftTest extends TestCase
         $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
-        $res = $this->postJson('/api/v1/jadwal-shift', [
+        $res = $this->postJson('/api/jadwal-shift', [
             'id_proyek'      => $proyek->id_proyek,
             'id_shift'       => $shift,
             'tanggal'        => '2026-07-01',
@@ -406,13 +406,13 @@ class JadwalShiftTest extends TestCase
         $shiftMalam = $this->makeShift('Malam', '20:00:00', '04:00:00');
 
         // isi dulu tanggal 3 Juli
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shiftMalam,
             'tanggal' => '2026-07-03', 'supir' => [$supir],
         ])->assertJsonPath('data.sukses', 1);
 
         // rentang 1-5 Juli → 4 sukses, tanggal 3 gagal dengan keterangan
-        $res = $this->postJson('/api/v1/jadwal-shift', [
+        $res = $this->postJson('/api/jadwal-shift', [
             'id_proyek'      => $proyek->id_proyek,
             'id_shift'       => $shiftPagi,
             'tanggal'        => '2026-07-01',
@@ -434,7 +434,7 @@ class JadwalShiftTest extends TestCase
         $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek'      => $proyek->id_proyek,
             'id_shift'       => $shift,
             'tanggal'        => '2026-07-01',
@@ -446,13 +446,13 @@ class JadwalShiftTest extends TestCase
     public function test_list_scoped_ke_perusahaan_dan_wajib_id_proyek(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->getJson('/api/v1/jadwal-shift')->assertStatus(422);
+        $this->getJson('/api/jadwal-shift')->assertStatus(422);
 
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
         $proyekLain = $this->makeProyek($idPerusahaanLain);
 
-        $res = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyekLain->id_proyek}");
+        $res = $this->getJson("/api/jadwal-shift?id_proyek={$proyekLain->id_proyek}");
         $res->assertStatus(404); // proyek bukan milik perusahaan user
     }
 
@@ -465,7 +465,7 @@ class JadwalShiftTest extends TestCase
         $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => '2026-07-20', 'supir' => [$supir],
         ])->assertJsonPath('data.sukses', 1);
@@ -479,7 +479,7 @@ class JadwalShiftTest extends TestCase
             'waktu_checkin' => '2026-07-20 08:05:00', 'waktu_checkout' => '2026-07-20 17:00:00',
         ]);
 
-        $res = $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}");
+        $res = $this->deleteJson("/api/jadwal-shift/{$idJadwal}");
         $res->assertStatus(422);
         $this->assertStringContainsString('sudah selesai', (string) $res->json('message'));
         $this->assertDatabaseHas('jadwal_shift', ['id_jadwal_shift' => $idJadwal, 'dihapus_pada' => null]);
@@ -494,7 +494,7 @@ class JadwalShiftTest extends TestCase
         $this->makeSupirProyek($proyek->id_proyek, $supir);
         $shift = $this->makeShift();
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => '2026-07-20', 'supir' => [$supir],
         ])->assertJsonPath('data.sukses', 1);
@@ -507,7 +507,7 @@ class JadwalShiftTest extends TestCase
             'id_jadwal' => $jk->id_jadwal, 'status' => 'berjalan', 'waktu_checkin' => '2026-07-20 08:05:00',
         ]);
 
-        $res = $this->deleteJson("/api/v1/jadwal-shift/{$idJadwal}");
+        $res = $this->deleteJson("/api/jadwal-shift/{$idJadwal}");
         $res->assertStatus(422);
         $this->assertStringContainsString('sedang berjalan', (string) $res->json('message'));
     }
@@ -522,7 +522,7 @@ class JadwalShiftTest extends TestCase
         $shiftA = $this->makeShift();
         $shiftB = $this->makeShift('Malam', '16:00:00', '23:00:00');
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shiftA,
             'tanggal' => '2026-07-20', 'supir' => [$supir],
         ])->assertJsonPath('data.sukses', 1);
@@ -536,7 +536,7 @@ class JadwalShiftTest extends TestCase
             'waktu_checkin' => '2026-07-20 08:05:00', 'waktu_checkout' => '2026-07-20 17:00:00',
         ]);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", ['id_shift' => $shiftB])->assertStatus(422);
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", ['id_shift' => $shiftB])->assertStatus(422);
         $this->assertDatabaseHas('jadwal_shift', ['id_jadwal_shift' => $idJadwal, 'id_shift' => $shiftA]);
     }
 }

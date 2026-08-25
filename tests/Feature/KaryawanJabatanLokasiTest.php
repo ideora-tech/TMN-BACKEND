@@ -67,7 +67,7 @@ class KaryawanJabatanLokasiTest extends TestCase
         $idLokasi = $this->makeLokasi('Gudang Cikarang');
         $this->makeKaryawan($idJabatan, $idLokasi);
 
-        $res = $this->getJson('/api/v1/karyawan');
+        $res = $this->getJson('/api/karyawan');
 
         $res->assertStatus(200);
         $data = $res->json('data')[0];
@@ -82,7 +82,7 @@ class KaryawanJabatanLokasiTest extends TestCase
         $idLokasi = $this->makeLokasi('Kantor Cabang');
         $idKaryawan = $this->makeKaryawan($idJabatan, $idLokasi);
 
-        $res = $this->getJson("/api/v1/karyawan/{$idKaryawan}");
+        $res = $this->getJson("/api/karyawan/{$idKaryawan}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.jabatan.nama_jabatan', 'Staff Admin')
@@ -104,7 +104,7 @@ class KaryawanJabatanLokasiTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $res = $this->getJson("/api/v1/karyawan/{$id}");
+        $res = $this->getJson("/api/karyawan/{$id}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.jabatan', null)

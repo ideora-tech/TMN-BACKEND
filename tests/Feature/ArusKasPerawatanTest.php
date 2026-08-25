@@ -55,7 +55,7 @@ class ArusKasPerawatanTest extends TestCase
         $armada = $this->buatArmada('B 9001 AK');
         $sp = $this->buatSparepart();
 
-        $res = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Ganti Oli',
             'biaya'           => 250000,
@@ -76,7 +76,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->assertSame('Ganti Oli - B 9001 AK', $pengajuan->keterangan);
         $this->assertNotNull($pengajuan->nomor_pengajuan);
 
-        $resPengajuan = $this->getJson("/api/v1/arus-kas/pengajuan/{$pengajuan->id_pengajuan}");
+        $resPengajuan = $this->getJson("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}");
         $resPengajuan->assertStatus(200)->assertJsonPath('data.id_perawatan', $idPerawatan);
     }
 
@@ -85,7 +85,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $res = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Cek Rutin Gratis',
             'biaya'           => 0,
@@ -102,7 +102,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $res = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Servis Besar',
             'biaya'           => 500000,
@@ -119,7 +119,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada('B 9002 AK');
 
-        $res = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Servis Besar',
             'biaya'           => 500000,
@@ -139,7 +139,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $create = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $create = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Servis Besar',
             'biaya'           => 400000,
@@ -149,7 +149,7 @@ class ArusKasPerawatanTest extends TestCase
         $idPerawatan = $create->json('data.id_perawatan');
         $this->assertNull($this->pengajuanPerawatan($idPerawatan));
 
-        $update = $this->putJson("/api/v1/armada/{$armada}/perawatan/{$idPerawatan}", [
+        $update = $this->putJson("/api/armada/{$armada}/perawatan/{$idPerawatan}", [
             'status' => 'dalam_proses',
         ]);
         $update->assertStatus(200);
@@ -164,7 +164,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $create = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $create = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Servis Besar',
             'biaya'           => 300000,
@@ -174,7 +174,7 @@ class ArusKasPerawatanTest extends TestCase
         $idPerawatan = $create->json('data.id_perawatan');
         $this->assertSame(1, DB::table('pengajuan_pengeluaran')->where('id_perawatan', $idPerawatan)->count());
 
-        $update = $this->putJson("/api/v1/armada/{$armada}/perawatan/{$idPerawatan}", [
+        $update = $this->putJson("/api/armada/{$armada}/perawatan/{$idPerawatan}", [
             'status' => 'selesai',
         ]);
         $update->assertStatus(200);
@@ -187,7 +187,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $create = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $create = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Servis Besar',
             'biaya'           => 0,
@@ -197,7 +197,7 @@ class ArusKasPerawatanTest extends TestCase
         $idPerawatan = $create->json('data.id_perawatan');
         $this->assertNull($this->pengajuanPerawatan($idPerawatan));
 
-        $update = $this->putJson("/api/v1/armada/{$armada}/perawatan/{$idPerawatan}", [
+        $update = $this->putJson("/api/armada/{$armada}/perawatan/{$idPerawatan}", [
             'biaya' => 350000,
         ]);
         $update->assertStatus(200);
@@ -212,7 +212,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $create = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $create = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Servis Besar',
             'biaya'           => 300000,
@@ -222,7 +222,7 @@ class ArusKasPerawatanTest extends TestCase
         $idPerawatan = $create->json('data.id_perawatan');
         $this->assertNotNull($this->pengajuanPerawatan($idPerawatan));
 
-        $delete = $this->deleteJson("/api/v1/armada/{$armada}/perawatan/{$idPerawatan}", [
+        $delete = $this->deleteJson("/api/armada/{$armada}/perawatan/{$idPerawatan}", [
             'alasan' => 'Pembersihan data uji',
         ]);
         $delete->assertStatus(200);
@@ -237,7 +237,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $create = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $create = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Servis Besar',
             'biaya'           => 300000,
@@ -251,7 +251,7 @@ class ArusKasPerawatanTest extends TestCase
             'tanggal_transfer' => '2026-08-12',
         ]);
 
-        $delete = $this->deleteJson("/api/v1/armada/{$armada}/perawatan/{$idPerawatan}", [
+        $delete = $this->deleteJson("/api/armada/{$armada}/perawatan/{$idPerawatan}", [
             'alasan' => 'Pembersihan data uji',
         ]);
         $delete->assertStatus(200);
@@ -266,7 +266,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $create = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $create = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Servis Besar',
             'biaya'           => 300000,
@@ -276,7 +276,7 @@ class ArusKasPerawatanTest extends TestCase
         $idPerawatan = $create->json('data.id_perawatan');
         $this->assertNull($this->pengajuanPerawatan($idPerawatan));
 
-        $update = $this->putJson("/api/v1/armada/{$armada}/perawatan/{$idPerawatan}", [
+        $update = $this->putJson("/api/armada/{$armada}/perawatan/{$idPerawatan}", [
             'status' => 'selesai',
         ]);
         $update->assertStatus(200);
@@ -291,7 +291,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $res = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Ganti Ban',
             'biaya'           => 200000,
@@ -310,7 +310,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $res = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Ganti Ban',
             'biaya'           => 200000,
@@ -330,7 +330,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
 
-        $res = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Ganti Ban',
             'biaya'           => 200000,
@@ -362,7 +362,7 @@ class ArusKasPerawatanTest extends TestCase
             'dibuat_pada'     => now(),
         ]);
 
-        $res = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
 
         $rows = collect($res->json('data.transaksi'))->where('sumber', 'perawatan_armada');
@@ -374,7 +374,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada('B 7777 AK');
 
-        $res = $this->postJson("/api/v1/armada/{$armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Ganti Oli',
             'biaya'           => 250000,
@@ -387,7 +387,7 @@ class ArusKasPerawatanTest extends TestCase
             'tanggal_transfer' => '2026-08-15',
         ]);
 
-        $rekap = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $rekap = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $rekap->assertStatus(200);
 
         $rows = collect($rekap->json('data.transaksi'))->where('sumber', 'pengajuan_pengeluaran')->values();
@@ -437,7 +437,7 @@ class ArusKasPerawatanTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $rekap = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $rekap = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $rekap->assertStatus(200);
 
         $rows = collect($rekap->json('data.transaksi'))->where('sumber', 'pembelian_sparepart');

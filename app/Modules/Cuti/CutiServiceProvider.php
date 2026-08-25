@@ -18,7 +18,7 @@ class CutiServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
             ->group(function () {
                 Route::get('jenis-cuti', [CutiController::class, 'indexJenis']);

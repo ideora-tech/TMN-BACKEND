@@ -65,7 +65,7 @@ class StatusTripTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idTrip = $this->makeTrip();
 
-        $res = $this->postJson("/api/v1/trip/{$idTrip}/status", [
+        $res = $this->postJson("/api/trip/{$idTrip}/status", [
             'status'      => 'tiba_tujuan',
             'keterangan'  => 'Sampai di lokasi bongkar',
             'latitude'    => -6.200000,
@@ -88,7 +88,7 @@ class StatusTripTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/trip/' . Str::uuid()->toString() . '/status', [
+        $res = $this->postJson('/api/trip/' . Str::uuid()->toString() . '/status', [
             'status' => 'berangkat',
         ]);
 
@@ -100,11 +100,11 @@ class StatusTripTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idTrip = $this->makeTrip();
 
-        $this->postJson("/api/v1/trip/{$idTrip}/status", ['status' => 'berangkat']);
+        $this->postJson("/api/trip/{$idTrip}/status", ['status' => 'berangkat']);
         $this->travel(1)->seconds();
-        $this->postJson("/api/v1/trip/{$idTrip}/status", ['status' => 'tiba_tujuan']);
+        $this->postJson("/api/trip/{$idTrip}/status", ['status' => 'tiba_tujuan']);
 
-        $res = $this->getJson("/api/v1/trip/{$idTrip}/status");
+        $res = $this->getJson("/api/trip/{$idTrip}/status");
 
         $res->assertStatus(200);
         $data = $res->json('data');

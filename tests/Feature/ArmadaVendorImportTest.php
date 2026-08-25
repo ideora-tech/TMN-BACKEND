@@ -70,7 +70,7 @@ class ArmadaVendorImportTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/armada-vendor/import/template');
+        $res = $this->get('/api/armada-vendor/import/template');
 
         $res->assertStatus(200);
         $res->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -89,7 +89,7 @@ class ArmadaVendorImportTest extends TestCase
             ['VDR-001', 'B 4444 VD', '', '', 'Jenis Tak Ada', '', '', '', ''],
         ]);
 
-        $res = $this->postJson('/api/v1/armada-vendor/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada-vendor/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 2);
         $this->assertCount(2, $res->json('data.gagal'));
@@ -122,7 +122,7 @@ class ArmadaVendorImportTest extends TestCase
             ['VDR-001', 'B 8888 DUP', '', '', '', '', '', '', ''],
         ]);
 
-        $res = $this->postJson('/api/v1/armada-vendor/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada-vendor/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 0);
         $this->assertCount(3, $res->json('data.gagal'));

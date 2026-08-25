@@ -57,7 +57,7 @@ class PenugasanTitikDropTest extends TestCase
         $armada = $this->makeArmada();
         $idSupir = $this->makeSupir();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'  => $proyek->id_proyek,
             'id_armada'  => $armada->id_armada,
             'id_supir'   => $idSupir,
@@ -80,7 +80,7 @@ class PenugasanTitikDropTest extends TestCase
         $armada = $this->makeArmada();
         $idSupir = $this->makeSupir();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek'  => $proyek->id_proyek,
             'id_armada'  => $armada->id_armada,
             'id_supir'   => $idSupir,
@@ -89,7 +89,7 @@ class PenugasanTitikDropTest extends TestCase
         $create->assertStatus(201);
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$id}", [
+        $res = $this->putJson("/api/penugasan/{$id}", [
             'titik_drop' => ['KPM'],
         ]);
 
@@ -110,14 +110,14 @@ class PenugasanTitikDropTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek'  => $proyek->id_proyek,
             'titik_drop' => ['JLB', 'MRY'],
         ]);
         $create->assertStatus(201);
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$id}", [
+        $res = $this->putJson("/api/penugasan/{$id}", [
             'titik_drop' => [],
         ]);
 
@@ -137,7 +137,7 @@ class PenugasanTitikDropTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'  => $proyek->id_proyek,
             'titik_drop' => array_map(fn ($i) => "LOKASI-{$i}", range(1, 11)),
         ]);
@@ -150,14 +150,14 @@ class PenugasanTitikDropTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek'  => $proyek->id_proyek,
             'titik_drop' => ['JLB'],
         ]);
         $create->assertStatus(201);
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$id}", [
+        $res = $this->putJson("/api/penugasan/{$id}", [
             'estimasi_biaya' => 150000,
         ]);
 
@@ -174,13 +174,13 @@ class PenugasanTitikDropTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek'  => $proyek->id_proyek,
             'titik_drop' => ['JLB', 'MRY'],
         ]);
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->getJson("/api/v1/penugasan/{$id}");
+        $res = $this->getJson("/api/penugasan/{$id}");
 
         $res->assertStatus(200)->assertJsonPath('data.titik_drop', ['JLB', 'MRY']);
     }
@@ -190,12 +190,12 @@ class PenugasanTitikDropTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek'  => $proyek->id_proyek,
             'titik_drop' => ['JLB'],
         ])->assertStatus(201);
 
-        $res = $this->getJson('/api/v1/penugasan?id_proyek=' . $proyek->id_proyek);
+        $res = $this->getJson('/api/penugasan?id_proyek=' . $proyek->id_proyek);
 
         $res->assertStatus(200);
         $this->assertSame(['JLB'], $res->json('data.0.titik_drop'));

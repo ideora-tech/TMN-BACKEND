@@ -58,7 +58,7 @@ class ArusKasPemasukanTest extends TestCase
     {
         $this->actingAsRole('KEUANGAN');
 
-        $res = $this->postJson('/api/v1/arus-kas/pemasukan', $this->payloadValid());
+        $res = $this->postJson('/api/arus-kas/pemasukan', $this->payloadValid());
 
         $res->assertStatus(201)
             ->assertJsonPath('data.kategori', 'pendapatan_jasa')
@@ -77,8 +77,8 @@ class ArusKasPemasukanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $a = $this->postJson('/api/v1/arus-kas/pemasukan', $this->payloadValid())->json('data.nomor_pemasukan');
-        $b = $this->postJson('/api/v1/arus-kas/pemasukan', $this->payloadValid())->json('data.nomor_pemasukan');
+        $a = $this->postJson('/api/arus-kas/pemasukan', $this->payloadValid())->json('data.nomor_pemasukan');
+        $b = $this->postJson('/api/arus-kas/pemasukan', $this->payloadValid())->json('data.nomor_pemasukan');
 
         $this->assertStringEndsWith('-0001', (string) $a);
         $this->assertStringEndsWith('-0002', (string) $b);
@@ -88,11 +88,11 @@ class ArusKasPemasukanTest extends TestCase
     {
         $this->actingAsRole('KEUANGAN');
 
-        $this->postJson('/api/v1/arus-kas/pemasukan', [])
+        $this->postJson('/api/arus-kas/pemasukan', [])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['kategori', 'nominal', 'tanggal', 'sumber_dana']);
 
-        $this->postJson('/api/v1/arus-kas/pemasukan', $this->payloadValid(['kategori' => 'gaji']))
+        $this->postJson('/api/arus-kas/pemasukan', $this->payloadValid(['kategori' => 'gaji']))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['kategori']);
     }
@@ -101,7 +101,7 @@ class ArusKasPemasukanTest extends TestCase
     {
         $this->actingAsRole('ADMIN');
 
-        $this->postJson('/api/v1/arus-kas/pemasukan', $this->payloadValid())->assertStatus(403);
+        $this->postJson('/api/arus-kas/pemasukan', $this->payloadValid())->assertStatus(403);
     }
 
     public function test_update_pemasukan_manual(): void
@@ -109,7 +109,7 @@ class ArusKasPemasukanTest extends TestCase
         $this->actingAsRole('KEUANGAN');
         $id = $this->buatPemasukan();
 
-        $res = $this->putJson("/api/v1/arus-kas/pemasukan/{$id}", $this->payloadValid([
+        $res = $this->putJson("/api/arus-kas/pemasukan/{$id}", $this->payloadValid([
             'kategori' => 'penjualan_aset',
             'nominal'  => 2500000,
         ]));
@@ -125,7 +125,7 @@ class ArusKasPemasukanTest extends TestCase
         $this->actingAsRole('KEUANGAN');
         $id = $this->buatPemasukan();
 
-        $this->deleteJson("/api/v1/arus-kas/pemasukan/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/arus-kas/pemasukan/{$id}")->assertStatus(200);
 
         $this->assertNotNull(DB::table('pemasukan')->where('id_pemasukan', $id)->value('dihapus_pada'));
     }
@@ -137,8 +137,8 @@ class ArusKasPemasukanTest extends TestCase
         DB::table('perusahaan')->insert(['id_perusahaan' => $idLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
         $id = $this->buatPemasukan(['id_perusahaan' => $idLain]);
 
-        $this->putJson("/api/v1/arus-kas/pemasukan/{$id}", $this->payloadValid())->assertStatus(404);
-        $this->deleteJson("/api/v1/arus-kas/pemasukan/{$id}")->assertStatus(404);
+        $this->putJson("/api/arus-kas/pemasukan/{$id}", $this->payloadValid())->assertStatus(404);
+        $this->deleteJson("/api/arus-kas/pemasukan/{$id}")->assertStatus(404);
     }
 
     public function test_role_admin_tidak_bisa_ubah_atau_hapus(): void
@@ -146,8 +146,8 @@ class ArusKasPemasukanTest extends TestCase
         $this->actingAsRole('ADMIN');
         $id = $this->buatPemasukan();
 
-        $this->putJson("/api/v1/arus-kas/pemasukan/{$id}", $this->payloadValid())->assertStatus(403);
-        $this->deleteJson("/api/v1/arus-kas/pemasukan/{$id}")->assertStatus(403);
+        $this->putJson("/api/arus-kas/pemasukan/{$id}", $this->payloadValid())->assertStatus(403);
+        $this->deleteJson("/api/arus-kas/pemasukan/{$id}")->assertStatus(403);
     }
 
     public function test_list_gabungan_invoice_dan_manual(): void
@@ -157,7 +157,7 @@ class ArusKasPemasukanTest extends TestCase
         $this->buatFaktur(['status' => 'batal', 'tanggal_faktur' => '2026-08-06', 'total' => 999999]);
         $this->buatPemasukan(['tanggal' => '2026-08-09', 'nominal' => 750000]);
 
-        $res = $this->getJson('/api/v1/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
 
         $rows = collect($res->json('data'));
@@ -182,11 +182,11 @@ class ArusKasPemasukanTest extends TestCase
         $this->buatPemasukan(['kategori' => 'pendapatan_jasa', 'tanggal' => '2026-08-06']);
         $this->buatPemasukan(['kategori' => 'modal_pinjaman', 'tanggal' => '2026-08-07']);
 
-        $invoice = $this->getJson('/api/v1/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31&jenis=invoice');
+        $invoice = $this->getJson('/api/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31&jenis=invoice');
         $this->assertCount(1, $invoice->json('data'));
         $this->assertSame('invoice', $invoice->json('data.0.jenis'));
 
-        $kategori = $this->getJson('/api/v1/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31&kategori=modal_pinjaman');
+        $kategori = $this->getJson('/api/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31&kategori=modal_pinjaman');
         $this->assertCount(1, $kategori->json('data'));
         $this->assertSame('modal_pinjaman', $kategori->json('data.0.kategori'));
     }
@@ -200,7 +200,7 @@ class ArusKasPemasukanTest extends TestCase
         $this->buatPemasukan(['id_perusahaan' => $idLain, 'tanggal' => '2026-08-06']);
         $this->buatPemasukan(['tanggal' => '2026-08-07', 'dihapus_pada' => now()]);
 
-        $res = $this->getJson('/api/v1/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31');
         $this->assertCount(0, $res->json('data'));
     }
 
@@ -210,7 +210,7 @@ class ArusKasPemasukanTest extends TestCase
         $this->buatPemasukan(['tanggal' => now()->startOfMonth()->addDays(2)->toDateString()]);
         $this->buatPemasukan(['tanggal' => now()->subMonths(2)->toDateString()]);
 
-        $res = $this->getJson('/api/v1/arus-kas/pemasukan');
+        $res = $this->getJson('/api/arus-kas/pemasukan');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
     }
@@ -221,7 +221,7 @@ class ArusKasPemasukanTest extends TestCase
         $this->buatFaktur(['tanggal_faktur' => '2026-08-05', 'total' => 1000000]);
         $id = $this->buatPemasukan(['tanggal' => '2026-08-09', 'nominal' => 750000, 'keterangan' => 'Setoran modal']);
 
-        $res = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200)
             ->assertJsonPath('data.ringkasan.total_pemasukan', 1750000)
             ->assertJsonPath('data.ringkasan.netto', 1750000);
@@ -235,7 +235,7 @@ class ArusKasPemasukanTest extends TestCase
         $this->assertSame($id, $rows[0]['referensi']['id']);
         $this->assertSame('Setoran modal', $rows[0]['keterangan']);
 
-        $filter = $this->getJson('/api/v1/arus-kas?dari=2026-08-01&sampai=2026-08-31&sumber=pemasukan_manual');
+        $filter = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31&sumber=pemasukan_manual');
         $this->assertCount(1, $filter->json('data.transaksi'));
         $this->assertSame('pemasukan_manual', $filter->json('data.transaksi.0.sumber'));
     }
@@ -245,7 +245,7 @@ class ArusKasPemasukanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->buatPemasukan(['tanggal' => '2026-08-09', 'nominal' => 750000]);
 
-        $res = $this->get('/api/v1/arus-kas/export/excel?dari=2026-08-01&sampai=2026-08-31');
+        $res = $this->get('/api/arus-kas/export/excel?dari=2026-08-01&sampai=2026-08-31');
         $res->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', (string) $res->headers->get('content-type'));
     }

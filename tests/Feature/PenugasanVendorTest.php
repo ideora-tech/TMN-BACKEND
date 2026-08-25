@@ -82,7 +82,7 @@ class PenugasanVendorTest extends TestCase
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
@@ -110,7 +110,7 @@ class PenugasanVendorTest extends TestCase
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
@@ -130,7 +130,7 @@ class PenugasanVendorTest extends TestCase
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
         $supirVendor = $this->makeSupirVendor($vendor->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
@@ -152,7 +152,7 @@ class PenugasanVendorTest extends TestCase
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
         $supirVendor = $this->makeSupirVendor($vendor->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
@@ -178,7 +178,7 @@ class PenugasanVendorTest extends TestCase
         $kontrak = $this->makeKontrak($vendorA->id_vendor, 'unit_only');
         $armadaVendorLain = $this->makeArmadaVendor($vendorB->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
@@ -197,7 +197,7 @@ class PenugasanVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'        => $proyek->id_proyek,
             'id_armada_vendor' => $armadaVendor->id_armada_vendor,
         ]);
@@ -216,7 +216,7 @@ class PenugasanVendorTest extends TestCase
         $kontrakLain = $this->makeKontrak($vendorLain->id_vendor, 'unit_only', $idPerusahaanLain);
         $armadaVendorLain = $this->makeArmadaVendor($vendorLain->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrakLain->id_kontrak_vendor,
@@ -243,7 +243,7 @@ class PenugasanVendorTest extends TestCase
             'id_supir'          => (string) Str::uuid(),
         ]);
 
-        $res = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", [
+        $res = $this->putJson("/api/penugasan/{$penugasan->id_penugasan}", [
             'id_supir' => null,
         ]);
 
@@ -270,13 +270,13 @@ class PenugasanVendorTest extends TestCase
             'id_supir'          => (string) Str::uuid(),
         ]);
 
-        $res = $this->getJson('/api/v1/penugasan?id_proyek=' . $proyek->id_proyek . '&sumber=vendor');
+        $res = $this->getJson('/api/penugasan?id_proyek=' . $proyek->id_proyek . '&sumber=vendor');
         $res->assertStatus(200);
         $data = $res->json('data');
         $this->assertCount(1, $data);
         $this->assertSame('vendor', $data[0]['sumber']);
 
-        $resAll = $this->getJson('/api/v1/penugasan?id_proyek=' . $proyek->id_proyek);
+        $resAll = $this->getJson('/api/penugasan?id_proyek=' . $proyek->id_proyek);
         $this->assertCount(2, $resAll->json('data'));
     }
 
@@ -290,7 +290,7 @@ class PenugasanVendorTest extends TestCase
         ]);
         $this->assertSame('internal', $lama->fresh()->sumber);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
         ]);
 
@@ -303,7 +303,7 @@ class PenugasanVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'sumber'    => null,
         ]);
@@ -326,7 +326,7 @@ class PenugasanVendorTest extends TestCase
             'id_proyek' => $proyek->id_proyek,
         ]);
 
-        $res = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", [
+        $res = $this->putJson("/api/penugasan/{$penugasan->id_penugasan}", [
             'sumber' => null,
         ]);
 
@@ -356,7 +356,7 @@ class PenugasanVendorTest extends TestCase
             'id_supir_vendor'   => $supirVendor->id_supir_vendor,
         ]);
 
-        $res = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", [
+        $res = $this->putJson("/api/penugasan/{$penugasan->id_penugasan}", [
             'tanggal_tugas' => '2026-08-01',
         ]);
 
@@ -393,14 +393,14 @@ class PenugasanVendorTest extends TestCase
             'id_supir_vendor'   => $supirVendor->id_supir_vendor,
         ]);
 
-        $resGagal = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", [
+        $resGagal = $this->putJson("/api/penugasan/{$penugasan->id_penugasan}", [
             'sumber' => 'internal',
         ]);
 
         $resGagal->assertStatus(422);
         $this->assertStringContainsStringIgnoringCase('hanya untuk penugasan bersumber vendor', (string) $resGagal->json('message'));
 
-        $resBerhasil = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", [
+        $resBerhasil = $this->putJson("/api/penugasan/{$penugasan->id_penugasan}", [
             'sumber'            => 'internal',
             'id_kontrak_vendor' => null,
             'id_armada_vendor'  => null,
@@ -431,7 +431,7 @@ class PenugasanVendorTest extends TestCase
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
         $supirVendor = $this->makeSupirVendor($vendor->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
@@ -476,14 +476,14 @@ class PenugasanVendorTest extends TestCase
         $armadaB = $this->makeArmadaVendor($vendor->id_vendor);
         $supir   = $this->makeSupirVendor($vendor->id_vendor);
 
-        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaA->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
+        $this->postJson('/api/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaA->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
             ->assertStatus(201);
 
-        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaB->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
+        $this->postJson('/api/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaB->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
             ->assertStatus(422)
             ->assertJsonPath('message', 'Supir vendor sudah memiliki penugasan pada tanggal tersebut');
 
-        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaB->id_armada_vendor, $supir->id_supir_vendor, '2026-08-02'))
+        $this->postJson('/api/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armadaB->id_armada_vendor, $supir->id_supir_vendor, '2026-08-02'))
             ->assertStatus(201);
     }
 
@@ -497,10 +497,10 @@ class PenugasanVendorTest extends TestCase
         $supirA  = $this->makeSupirVendor($vendor->id_vendor);
         $supirB  = $this->makeSupirVendor($vendor->id_vendor);
 
-        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supirA->id_supir_vendor, '2026-08-01'))
+        $this->postJson('/api/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supirA->id_supir_vendor, '2026-08-01'))
             ->assertStatus(201);
 
-        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supirB->id_supir_vendor, '2026-08-01'))
+        $this->postJson('/api/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supirB->id_supir_vendor, '2026-08-01'))
             ->assertStatus(422)
             ->assertJsonPath('message', 'Armada vendor sudah memiliki penugasan pada tanggal tersebut');
     }
@@ -514,13 +514,13 @@ class PenugasanVendorTest extends TestCase
         $armada  = $this->makeArmadaVendor($vendor->id_vendor);
         $supir   = $this->makeSupirVendor($vendor->id_vendor);
 
-        $res = $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'));
+        $res = $this->postJson('/api/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'));
         $res->assertStatus(201);
 
         PenugasanModel::where('id_penugasan', $res->json('data.id_penugasan'))
             ->update(['status' => 'selesai']);
 
-        $this->postJson('/api/v1/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
+        $this->postJson('/api/penugasan', $this->payloadUnitDriver($proyek, $kontrak, $armada->id_armada_vendor, $supir->id_supir_vendor, '2026-08-01'))
             ->assertStatus(201);
     }
 
@@ -543,9 +543,9 @@ class PenugasanVendorTest extends TestCase
             'tanggal_tugas'     => '2026-08-01',
         ];
 
-        $this->postJson('/api/v1/penugasan', $payload($armadaA->id_armada_vendor))->assertStatus(201);
+        $this->postJson('/api/penugasan', $payload($armadaA->id_armada_vendor))->assertStatus(201);
 
-        $this->postJson('/api/v1/penugasan', $payload($armadaB->id_armada_vendor))
+        $this->postJson('/api/penugasan', $payload($armadaB->id_armada_vendor))
             ->assertStatus(422)
             ->assertJsonPath('message', 'Supir sudah memiliki penugasan pada tanggal tersebut');
     }

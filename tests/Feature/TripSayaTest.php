@@ -128,7 +128,7 @@ class TripSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
 
-        $response = $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}");
+        $response = $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.penugasan.id_penugasan', $penugasan->id_penugasan)
@@ -180,7 +180,7 @@ class TripSayaTest extends TestCase
             'dibuat_pada' => now(),
         ]);
 
-        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
             ->assertStatus(200)
             ->assertJsonPath('data.nama_klien', 'Klien Trip Saya Test')
             ->assertJsonPath('data.shift_hari_ini.nama', 'PAGI')
@@ -195,7 +195,7 @@ class TripSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
 
-        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
             ->assertStatus(200)
             ->assertJsonPath('data.shift_hari_ini', null)
             ->assertJsonPath('data.armada_hari_ini', null)
@@ -245,13 +245,13 @@ class TripSayaTest extends TestCase
             'dibuat_pada' => now(),
         ]);
 
-        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}?tanggal=2026-09-10")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}?tanggal=2026-09-10")
             ->assertStatus(200)
             ->assertJsonPath('data.shift_hari_ini.nama', 'MALAM')
             ->assertJsonPath('data.armada_hari_ini.nopol', 'B 910 SEP')
             ->assertJsonPath('data.jumlah_trip_selesai_hari_ini', 0);
 
-        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
             ->assertStatus(200)
             ->assertJsonPath('data.shift_hari_ini', null)
             ->assertJsonPath('data.armada_hari_ini', null);
@@ -263,7 +263,7 @@ class TripSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
 
-        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}?tanggal=10-09-2026")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}?tanggal=10-09-2026")
             ->assertStatus(422);
     }
 
@@ -274,13 +274,13 @@ class TripSayaTest extends TestCase
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
         $this->absenHadir($ctx->id_supir);
 
-        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+        $mulai = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $this->buatLaporanKosong($mulai->json('data.id_trip'));
-        $this->postJson("/api/v1/trip/{$mulai->json('data.id_trip')}/checkout-saya")->assertStatus(200);
+        $this->postJson("/api/trip/{$mulai->json('data.id_trip')}/checkout-saya")->assertStatus(200);
 
-        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
             ->assertStatus(200)
             ->assertJsonPath('data.trip', null)
             ->assertJsonPath('data.jumlah_trip_selesai_hari_ini', 1);
@@ -294,7 +294,7 @@ class TripSayaTest extends TestCase
 
         $this->actingAsSupir();
 
-        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
             ->assertStatus(403);
     }
 
@@ -315,7 +315,7 @@ class TripSayaTest extends TestCase
             'waktu_checkout' => now(),
         ]);
 
-        $response = $this->getJson('/api/v1/trip/riwayat-saya');
+        $response = $this->getJson('/api/trip/riwayat-saya');
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -341,13 +341,13 @@ class TripSayaTest extends TestCase
             ]);
         }
 
-        $this->getJson('/api/v1/trip/riwayat-saya?status=selesai&limit=1')
+        $this->getJson('/api/trip/riwayat-saya?status=selesai&limit=1')
             ->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('meta.total', 2)
             ->assertJsonPath('data.0.status', 'selesai');
 
-        $this->getJson('/api/v1/trip/riwayat-saya?status=ngawur')
+        $this->getJson('/api/trip/riwayat-saya?status=ngawur')
             ->assertStatus(422);
     }
 
@@ -379,21 +379,21 @@ class TripSayaTest extends TestCase
             'waktu_checkout' => '2026-08-04 17:00:00',
         ]);
 
-        $this->getJson('/api/v1/trip/riwayat-saya?tanggal=2026-08-04')
+        $this->getJson('/api/trip/riwayat-saya?tanggal=2026-08-04')
             ->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id_trip', $tripBaru->id_trip);
 
-        $this->getJson('/api/v1/trip/riwayat-saya?tanggal=2026-08-01')
+        $this->getJson('/api/trip/riwayat-saya?tanggal=2026-08-01')
             ->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id_trip', $tripLama->id_trip);
 
-        $this->getJson('/api/v1/trip/riwayat-saya')
+        $this->getJson('/api/trip/riwayat-saya')
             ->assertStatus(200)
             ->assertJsonCount(2, 'data');
 
-        $this->getJson('/api/v1/trip/riwayat-saya?tanggal=04-08-2026')
+        $this->getJson('/api/trip/riwayat-saya?tanggal=04-08-2026')
             ->assertStatus(422);
     }
 
@@ -435,7 +435,7 @@ class TripSayaTest extends TestCase
             'waktu_checkout' => '2026-08-06 11:30:00',
         ]);
 
-        $this->getJson('/api/v1/trip/riwayat-saya')
+        $this->getJson('/api/trip/riwayat-saya')
             ->assertStatus(200)
             ->assertJsonPath('data.0.armada_nopol', 'B 9037 TMN');
     }
@@ -458,7 +458,7 @@ class TripSayaTest extends TestCase
 
         $this->actingAsSupir();
 
-        $this->getJson('/api/v1/trip/riwayat-saya')
+        $this->getJson('/api/trip/riwayat-saya')
             ->assertStatus(200)
             ->assertJsonCount(0, 'data');
     }
@@ -479,7 +479,7 @@ class TripSayaTest extends TestCase
             'waktu_checkin' => now(),
         ]);
 
-        $response = $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}");
+        $response = $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.trip.id_trip', $trip->id_trip)
@@ -488,7 +488,7 @@ class TripSayaTest extends TestCase
 
         $this->buatLaporanKosong($trip->id_trip);
 
-        $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
             ->assertStatus(200)
             ->assertJsonPath('data.trip.punya_laporan', true);
     }
@@ -526,7 +526,7 @@ class TripSayaTest extends TestCase
             'id_jenis_kendaraan' => $idJenisKendaraan,
         ]);
 
-        $response = $this->getJson("/api/v1/trip/penugasan-saya/{$penugasan->id_penugasan}");
+        $response = $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}");
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data.rute_tersedia')
@@ -549,7 +549,7 @@ class TripSayaTest extends TestCase
             'status'    => 'dibatalkan',
         ]);
 
-        $response = $this->getJson('/api/v1/trip/riwayat-saya');
+        $response = $this->getJson('/api/trip/riwayat-saya');
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -572,7 +572,7 @@ class TripSayaTest extends TestCase
             'waktu_checkin' => now(),
         ]);
 
-        $response = $this->getJson('/api/v1/trip/riwayat-saya');
+        $response = $this->getJson('/api/trip/riwayat-saya');
 
         $response->assertStatus(200)
             ->assertJsonCount(0, 'data');
@@ -584,7 +584,7 @@ class TripSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
 
-        $this->postJson('/api/v1/trip/mulai-saya', [
+        $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(422);
     }
@@ -596,7 +596,7 @@ class TripSayaTest extends TestCase
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
         $this->absenHadir($ctx->id_supir, 'berhalangan');
 
-        $this->postJson('/api/v1/trip/mulai-saya', [
+        $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(422);
     }
@@ -608,7 +608,7 @@ class TripSayaTest extends TestCase
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
         $this->absenHadir($ctx->id_supir);
 
-        $response = $this->postJson('/api/v1/trip/mulai-saya', [
+        $response = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ]);
 
@@ -625,7 +625,7 @@ class TripSayaTest extends TestCase
 
         $this->actingAsSupir();
 
-        $this->postJson('/api/v1/trip/mulai-saya', [
+        $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(403);
     }
@@ -637,13 +637,13 @@ class TripSayaTest extends TestCase
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
         $this->absenHadir($ctx->id_supir);
 
-        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+        $mulai = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTrip = $mulai->json('data.id_trip');
         $this->buatLaporanKosong($idTrip);
 
-        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+        $this->postJson("/api/trip/{$idTrip}/checkout-saya")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'selesai');
 
@@ -657,15 +657,15 @@ class TripSayaTest extends TestCase
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
         $this->absenHadir($ctx->id_supir);
 
-        $mulaiPertama = $this->postJson('/api/v1/trip/mulai-saya', [
+        $mulaiPertama = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTripPertama = $mulaiPertama->json('data.id_trip');
         $this->buatLaporanKosong($idTripPertama);
 
-        $this->postJson("/api/v1/trip/{$idTripPertama}/checkout-saya")->assertStatus(200);
+        $this->postJson("/api/trip/{$idTripPertama}/checkout-saya")->assertStatus(200);
 
-        $mulaiKedua = $this->postJson('/api/v1/trip/mulai-saya', [
+        $mulaiKedua = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ]);
 
@@ -681,18 +681,18 @@ class TripSayaTest extends TestCase
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
         $this->absenHadir($ctx->id_supir);
 
-        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+        $mulai = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTrip = $mulai->json('data.id_trip');
 
-        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+        $this->postJson("/api/trip/{$idTrip}/checkout-saya")
             ->assertStatus(422)
             ->assertJsonPath('message', 'Laporan perjalanan wajib diisi sebelum trip dapat diselesaikan');
 
         $this->buatLaporanKosong($idTrip);
 
-        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+        $this->postJson("/api/trip/{$idTrip}/checkout-saya")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'selesai');
     }
@@ -704,15 +704,15 @@ class TripSayaTest extends TestCase
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
         $this->absenHadir($ctx->id_supir);
 
-        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+        $mulai = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTrip = $mulai->json('data.id_trip');
         $this->buatLaporanKosong($idTrip);
 
-        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")->assertStatus(200);
+        $this->postJson("/api/trip/{$idTrip}/checkout-saya")->assertStatus(200);
 
-        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+        $this->postJson("/api/trip/{$idTrip}/checkout-saya")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'selesai');
     }
@@ -724,14 +724,14 @@ class TripSayaTest extends TestCase
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
         $this->absenHadir($ctx->id_supir);
 
-        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+        $mulai = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTrip = $mulai->json('data.id_trip');
 
         DB::table('trip')->where('id_trip', $idTrip)->update(['status' => 'dibatalkan']);
 
-        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+        $this->postJson("/api/trip/{$idTrip}/checkout-saya")
             ->assertStatus(422);
     }
 
@@ -741,14 +741,14 @@ class TripSayaTest extends TestCase
         $pemilik = $this->actingAsSupir();
         $penugasan = $this->makePenugasan($pemilik->id_supir, $proyek->id_proyek);
         $this->absenHadir($pemilik->id_supir);
-        $mulai = $this->postJson('/api/v1/trip/mulai-saya', [
+        $mulai = $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
         ])->assertStatus(201);
         $idTrip = $mulai->json('data.id_trip');
 
         $this->actingAsSupir();
 
-        $this->postJson("/api/v1/trip/{$idTrip}/checkout-saya")
+        $this->postJson("/api/trip/{$idTrip}/checkout-saya")
             ->assertStatus(403);
     }
 }

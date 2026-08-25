@@ -63,7 +63,7 @@ class SupirProyekTest extends TestCase
         $supirA = $this->makeSupir('Budi');
         $supirB = $this->makeSupir('Andi');
 
-        $res = $this->postJson('/api/v1/supir-proyek', [
+        $res = $this->postJson('/api/supir-proyek', [
             'id_proyek' => $proyek->id_proyek,
             'supir'     => [$supirA, $supirB],
         ]);
@@ -72,7 +72,7 @@ class SupirProyekTest extends TestCase
             ->assertJsonPath('data.sukses', 2)
             ->assertJsonPath('data.gagal', []);
 
-        $list = $this->getJson("/api/v1/supir-proyek?id_proyek={$proyek->id_proyek}");
+        $list = $this->getJson("/api/supir-proyek?id_proyek={$proyek->id_proyek}");
         $list->assertStatus(200);
         $this->assertCount(2, $list->json('data'));
         $this->assertSame('Andi', $list->json('data.0.nama'));
@@ -86,12 +86,12 @@ class SupirProyekTest extends TestCase
         $supirTerdaftar = $this->makeSupir('Budi');
         $supirAsing     = $this->makeSupir('Asing', (string) Str::uuid());
 
-        $this->postJson('/api/v1/supir-proyek', [
+        $this->postJson('/api/supir-proyek', [
             'id_proyek' => $proyek->id_proyek,
             'supir'     => [$supirTerdaftar],
         ])->assertJsonPath('data.sukses', 1);
 
-        $res = $this->postJson('/api/v1/supir-proyek', [
+        $res = $this->postJson('/api/supir-proyek', [
             'id_proyek' => $proyek->id_proyek,
             'supir'     => [$supirTerdaftar, $supirAsing],
         ]);
@@ -114,7 +114,7 @@ class SupirProyekTest extends TestCase
         $supir  = $this->makeSupir('Wawan');
         $shift  = $this->makeShift();
 
-        $this->postJson('/api/v1/supir-proyek', [
+        $this->postJson('/api/supir-proyek', [
             'id_proyek' => $proyek->id_proyek,
             'supir'     => [$supir],
         ])->assertJsonPath('data.sukses', 1);
@@ -133,7 +133,7 @@ class SupirProyekTest extends TestCase
         $jadwalHariIni = $this->makeJadwalShift($proyek->id_proyek, $supir, $shift, $hariIni);
         $jadwalBesok   = $this->makeJadwalShift($proyek->id_proyek, $supir, $shift, $besok);
 
-        $this->deleteJson("/api/v1/supir-proyek/{$idSupirProyek}")
+        $this->deleteJson("/api/supir-proyek/{$idSupirProyek}")
             ->assertStatus(200);
 
         $this->assertDatabaseHas('jadwal_shift', ['id_jadwal_shift' => $jadwalKemarin, 'dihapus_pada' => null]);

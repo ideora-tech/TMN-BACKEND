@@ -48,7 +48,7 @@ class PenawaranPdfTest extends TestCase
         $klien     = $this->makeKlien();
         $penawaran = $this->makePenawaran($klien->id_klien);
 
-        $res = $this->get("/api/v1/penawaran/{$penawaran->id_penawaran}/pdf");
+        $res = $this->get("/api/penawaran/{$penawaran->id_penawaran}/pdf");
 
         $res->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));
@@ -58,7 +58,7 @@ class PenawaranPdfTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/penawaran/' . (string) Str::uuid() . '/pdf');
+        $res = $this->get('/api/penawaran/' . (string) Str::uuid() . '/pdf');
 
         $res->assertStatus(404);
     }
@@ -84,7 +84,7 @@ class PenawaranPdfTest extends TestCase
             'tanggal_berlaku'   => now()->addDays(30)->toDateString(),
         ]);
 
-        $res = $this->get("/api/v1/penawaran/{$penawaranLain->id_penawaran}/pdf");
+        $res = $this->get("/api/penawaran/{$penawaranLain->id_penawaran}/pdf");
 
         $res->assertStatus(404);
     }

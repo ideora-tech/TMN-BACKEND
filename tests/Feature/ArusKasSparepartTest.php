@@ -88,7 +88,7 @@ class ArusKasSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian());
+        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian());
         $res->assertStatus(201);
         $idPembelian = $res->json('data.id_pembelian');
 
@@ -101,7 +101,7 @@ class ArusKasSparepartTest extends TestCase
         $this->assertNotNull($pengajuan->nomor_pengajuan);
         $this->assertStringContainsString('Toko Sparepart Jaya', (string) $pengajuan->keterangan);
 
-        $resPengajuan = $this->getJson("/api/v1/arus-kas/pengajuan/{$pengajuan->id_pengajuan}");
+        $resPengajuan = $this->getJson("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}");
         $resPengajuan->assertStatus(200)->assertJsonPath('data.id_pembelian', $idPembelian);
     }
 
@@ -110,7 +110,7 @@ class ArusKasSparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
 
-        $res = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian(['id_perawatan' => $idPerawatan]));
+        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian(['id_perawatan' => $idPerawatan]));
         $res->assertStatus(201)->assertJsonPath('data.status', 'disetujui_finance');
         $idPembelian = $res->json('data.id_pembelian');
 
@@ -127,7 +127,7 @@ class ArusKasSparepartTest extends TestCase
     public function test_dedup_pengajuan_pembelian_per_id_pembelian(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $idPembelian = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
         $this->assertSame(1, DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->count());
 
         app(ArusKasService::class)->buatPengajuanPembelianOtomatis((object) ['id_pembelian' => $idPembelian], 200000);
@@ -138,11 +138,11 @@ class ArusKasSparepartTest extends TestCase
     public function test_update_total_estimasi_sinkron_ke_nominal_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $idPembelian = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $idSparepartBaru = $this->makeSparepart('Kampas Rem');
-        $this->putJson("/api/v1/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian([
+        $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian([
             'items' => [['id_sparepart' => $idSparepartBaru, 'qty' => 3, 'harga_estimasi' => 40000]],
         ]))->assertStatus(200)->assertJsonPath('data.total_estimasi', 120000);
 
@@ -154,12 +154,12 @@ class ArusKasSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
-        $create = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian(['id_perawatan' => $idPerawatan]));
+        $create = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian(['id_perawatan' => $idPerawatan]));
         $create->assertJsonPath('data.status', 'disetujui_finance');
         $idPembelian = $create->json('data.id_pembelian');
         $this->assertNull($this->pengajuanUntukPembelian($idPembelian));
 
-        $this->putJson("/api/v1/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian(['id_perawatan' => null]))
+        $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian(['id_perawatan' => null]))
             ->assertStatus(200)
             ->assertJsonPath('data.id_perawatan', null)
             ->assertJsonPath('data.status', 'diajukan');
@@ -183,10 +183,10 @@ class ArusKasSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
-        $idPembelian = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
-        $this->putJson("/api/v1/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian(['id_perawatan' => $idPerawatan]))
+        $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian(['id_perawatan' => $idPerawatan]))
             ->assertStatus(200)
             ->assertJsonPath('data.id_perawatan', $idPerawatan)
             ->assertJsonPath('data.status', 'disetujui_finance');
@@ -204,14 +204,14 @@ class ArusKasSparepartTest extends TestCase
     private function ajukanSampaiDisetujui(): array
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
-        $create = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian());
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
+        $create = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian());
         $idPembelian = $create->json('data.id_pembelian');
         $items = $create->json('data.items');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         return [$idPembelian, $items, $idPengajuan];
@@ -230,11 +230,11 @@ class ArusKasSparepartTest extends TestCase
         $this->assertNotNull($row->disetujui_finance_pada);
 
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson("/api/v1/pembelian-sparepart/{$idPembelian}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$idPembelian}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(200);
 
-        $res = $this->patchJson("/api/v1/pembelian-sparepart/{$idPembelian}/realisasi", [
+        $res = $this->patchJson("/api/pembelian-sparepart/{$idPembelian}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items'             => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000],
@@ -255,10 +255,10 @@ class ArusKasSparepartTest extends TestCase
         $this->assertEquals(200000, (float) $sebelum->nominal);
 
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson("/api/v1/pembelian-sparepart/{$idPembelian}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$idPembelian}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(200);
-        $this->patchJson("/api/v1/pembelian-sparepart/{$idPembelian}/realisasi", [
+        $this->patchJson("/api/pembelian-sparepart/{$idPembelian}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items'             => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000],
@@ -274,11 +274,11 @@ class ArusKasSparepartTest extends TestCase
     public function test_tolak_di_arus_kas_sinkron_dua_arah_ke_pembelian(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $idPembelian = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $this->actingAsRole('MANAGER');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/tolak", ['alasan' => 'Harga tidak wajar'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/tolak", ['alasan' => 'Harga tidak wajar'])
             ->assertStatus(200)->assertJsonPath('data.status', 'ditolak');
 
         $row = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
@@ -292,7 +292,7 @@ class ArusKasSparepartTest extends TestCase
 
         $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->toDateString();
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => $tanggalTransfer,
         ])->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
@@ -309,13 +309,13 @@ class ArusKasSparepartTest extends TestCase
 
         $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->toDateString();
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => $tanggalTransfer,
         ])->assertStatus(200);
 
         $dari   = now()->startOfMonth()->toDateString();
         $sampai = now()->endOfMonth()->toDateString();
-        $rekap = $this->getJson("/api/v1/arus-kas?dari={$dari}&sampai={$sampai}");
+        $rekap = $this->getJson("/api/arus-kas?dari={$dari}&sampai={$sampai}");
         $rows = collect($rekap->json('data.transaksi'))
             ->where('sumber', 'pengajuan_pengeluaran')
             ->where('kategori', 'sparepart')
@@ -331,7 +331,7 @@ class ArusKasSparepartTest extends TestCase
         DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->update(['status' => 'diajukan']);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
         ])->assertStatus(409);
 
@@ -345,10 +345,10 @@ class ArusKasSparepartTest extends TestCase
         [$idPembelian, $items, $idPengajuan] = $this->ajukanSampaiDisetujui();
 
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson("/api/v1/pembelian-sparepart/{$idPembelian}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$idPembelian}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(200);
-        $this->patchJson("/api/v1/pembelian-sparepart/{$idPembelian}/realisasi", [
+        $this->patchJson("/api/pembelian-sparepart/{$idPembelian}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items'             => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000],
@@ -358,7 +358,7 @@ class ArusKasSparepartTest extends TestCase
 
         $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->addDay()->toDateString();
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => $tanggalTransfer,
         ])->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
@@ -370,10 +370,10 @@ class ArusKasSparepartTest extends TestCase
     public function test_hapus_pembelian_saat_diajukan_ikut_soft_delete_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $idPembelian = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
-        $this->deleteJson("/api/v1/pembelian-sparepart/{$idPembelian}")->assertStatus(200);
+        $this->deleteJson("/api/pembelian-sparepart/{$idPembelian}")->assertStatus(200);
 
         $this->assertSoftDeleted('pengajuan_pengeluaran', ['id_pengajuan' => $idPengajuan]);
     }
@@ -384,10 +384,10 @@ class ArusKasSparepartTest extends TestCase
         [$idPembelian, $items, $idPengajuan] = $this->ajukanSampaiDisetujui();
 
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson("/api/v1/pembelian-sparepart/{$idPembelian}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$idPembelian}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ]);
-        $this->patchJson("/api/v1/pembelian-sparepart/{$idPembelian}/realisasi", [
+        $this->patchJson("/api/pembelian-sparepart/{$idPembelian}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items'             => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000],
@@ -398,16 +398,16 @@ class ArusKasSparepartTest extends TestCase
         $dari   = now()->startOfMonth()->toDateString();
         $sampai = now()->endOfMonth()->toDateString();
 
-        $rekapSebelum = $this->getJson("/api/v1/arus-kas?dari={$dari}&sampai={$sampai}");
+        $rekapSebelum = $this->getJson("/api/arus-kas?dari={$dari}&sampai={$sampai}");
         $this->assertCount(0, collect($rekapSebelum->json('data.transaksi'))->where('sumber', 'pembelian_sparepart'));
         $this->assertCount(0, collect($rekapSebelum->json('data.transaksi'))->where('kategori', 'sparepart'));
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
         ])->assertStatus(200);
 
-        $rekapSesudah = $this->getJson("/api/v1/arus-kas?dari={$dari}&sampai={$sampai}");
+        $rekapSesudah = $this->getJson("/api/arus-kas?dari={$dari}&sampai={$sampai}");
         $rows = collect($rekapSesudah->json('data.transaksi'))
             ->where('sumber', 'pengajuan_pengeluaran')
             ->where('kategori', 'sparepart')

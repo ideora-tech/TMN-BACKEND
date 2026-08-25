@@ -59,7 +59,7 @@ class TripTitikDropTest extends TestCase
             'merk'          => 'Hino',
         ])->id_armada;
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'  => $this->makeProyek(),
             'id_armada'  => $idArmada,
             'id_supir'   => $this->makeSupir(),
@@ -72,7 +72,7 @@ class TripTitikDropTest extends TestCase
 
     private function mulaiTripUntukPenugasan(string $idPenugasan): string
     {
-        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $idPenugasan]);
+        $res = $this->postJson('/api/trip/mulai', ['id_penugasan' => $idPenugasan]);
         $res->assertStatus(201);
         return (string) $res->json('data.id_trip');
     }
@@ -101,7 +101,7 @@ class TripTitikDropTest extends TestCase
 
         $idTrip = $this->mulaiTripUntukPenugasan($idPenugasan);
 
-        $this->putJson("/api/v1/penugasan/{$idPenugasan}", ['titik_drop' => ['KPM']])
+        $this->putJson("/api/penugasan/{$idPenugasan}", ['titik_drop' => ['KPM']])
             ->assertStatus(200);
 
         $lokasi = DB::table('titik_drop_trip')
@@ -123,7 +123,7 @@ class TripTitikDropTest extends TestCase
         $idLama = DB::table('titik_drop_trip')->where('id_trip', $idTrip)->whereNull('dihapus_pada')->value('id_titik_drop');
         $this->assertNotNull($idLama);
 
-        $res = $this->putJson("/api/v1/trip/{$idTrip}/titik-drop", [
+        $res = $this->putJson("/api/trip/{$idTrip}/titik-drop", [
             'titik_drop' => ['JLB', 'MRY', 'RDS', 'KPM'],
         ]);
 
@@ -164,7 +164,7 @@ class TripTitikDropTest extends TestCase
             'dibuat_pada'    => now(),
         ]);
 
-        $res = $this->putJson("/api/v1/trip/{$idTrip}/titik-drop", ['titik_drop' => ['JLB', 'MRY']]);
+        $res = $this->putJson("/api/trip/{$idTrip}/titik-drop", ['titik_drop' => ['JLB', 'MRY']]);
 
         $res->assertStatus(422);
     }

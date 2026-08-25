@@ -13,7 +13,7 @@ class AuthSmokeTest extends TestCase
     {
         $pengguna = $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/auth/me');
+        $res = $this->getJson('/api/auth/me');
 
         $res->assertStatus(200)
             ->assertJsonPath('success', true)

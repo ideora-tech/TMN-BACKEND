@@ -124,7 +124,7 @@ class ArusKasOtomatisTest extends TestCase
     {
         $penugasan = $this->makePenugasan($namaSupir);
 
-        $res = $this->postJson('/api/v1/trip/mulai', [
+        $res = $this->postJson('/api/trip/mulai', [
             'id_penugasan'       => $penugasan->id_penugasan,
             'uang_jalan_alokasi' => $alokasi,
         ]);
@@ -148,7 +148,7 @@ class ArusKasOtomatisTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idTrip = $this->mulaiTripDenganUangJalan(500000);
 
-        $this->putJson("/api/v1/trip/{$idTrip}/uang-jalan", ['uang_jalan_alokasi' => 750000])
+        $this->putJson("/api/trip/{$idTrip}/uang-jalan", ['uang_jalan_alokasi' => 750000])
             ->assertStatus(200);
 
         $this->assertDatabaseHas('trip', ['id_trip' => $idTrip, 'uang_jalan_alokasi' => 750000]);

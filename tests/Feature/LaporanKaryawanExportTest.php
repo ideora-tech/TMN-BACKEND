@@ -45,7 +45,7 @@ class LaporanKaryawanExportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeKaryawan('Karyawan Excel Test');
 
-        $res = $this->get('/api/v1/laporan/karyawan/export/excel');
+        $res = $this->get('/api/laporan/karyawan/export/excel');
 
         $res->assertStatus(200);
         $this->assertStringContainsString(
@@ -59,7 +59,7 @@ class LaporanKaryawanExportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeKaryawan('Karyawan PDF Test');
 
-        $res = $this->get('/api/v1/laporan/karyawan/export/pdf');
+        $res = $this->get('/api/laporan/karyawan/export/pdf');
 
         $res->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $res->headers->get('Content-Type'));
@@ -69,7 +69,7 @@ class LaporanKaryawanExportTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/laporan/karyawan/export/excel');
+        $res = $this->get('/api/laporan/karyawan/export/excel');
 
         $res->assertStatus(200);
     }

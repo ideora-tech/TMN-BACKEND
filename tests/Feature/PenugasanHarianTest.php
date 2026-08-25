@@ -117,7 +117,7 @@ class PenugasanHarianTest extends TestCase
         $armada = $this->makeArmada();
         $supir  = $this->makeSupir('Budi Harian');
 
-        $res = $this->postJson('/api/v1/penugasan/harian', [
+        $res = $this->postJson('/api/penugasan/harian', [
             'tanggal'        => '2026-09-01',
             'tanggal_sampai' => '2026-09-03',
             'id_armada'      => $armada->id_armada,
@@ -168,7 +168,7 @@ class PenugasanHarianTest extends TestCase
             'status'        => 'aktif',
         ]);
 
-        $resUnit = $this->postJson('/api/v1/penugasan/harian', [
+        $resUnit = $this->postJson('/api/penugasan/harian', [
             'tanggal'   => '2026-09-10',
             'id_armada' => $armadaA->id_armada,
             'id_supir'  => $supirB,
@@ -182,7 +182,7 @@ class PenugasanHarianTest extends TestCase
             ->where('tanggal_tugas', '2026-09-10')
             ->count());
 
-        $resSupir = $this->postJson('/api/v1/penugasan/harian', [
+        $resSupir = $this->postJson('/api/penugasan/harian', [
             'tanggal'   => '2026-09-10',
             'id_armada' => $armadaB->id_armada,
             'id_supir'  => $supirA,
@@ -206,7 +206,7 @@ class PenugasanHarianTest extends TestCase
         $supirA = $this->makeSupir('Rian Dobel Proyek');
         $supirB = $this->makeSupir('Sari Dobel Proyek');
 
-        $this->postJson('/api/v1/penugasan/harian', [
+        $this->postJson('/api/penugasan/harian', [
             'tanggal'   => '2026-09-25',
             'id_armada' => $armada->id_armada,
             'id_supir'  => $supirA,
@@ -214,7 +214,7 @@ class PenugasanHarianTest extends TestCase
             'id_rute'   => $rute,
         ])->assertStatus(200)->assertJsonPath('data.sukses', 1);
 
-        $this->postJson('/api/v1/penugasan/harian', [
+        $this->postJson('/api/penugasan/harian', [
             'tanggal'   => '2026-09-25',
             'id_armada' => $armada->id_armada,
             'id_supir'  => $supirB,
@@ -222,7 +222,7 @@ class PenugasanHarianTest extends TestCase
             'id_rute'   => $rute,
         ])->assertStatus(200)->assertJsonPath('data.sukses', 1);
 
-        $res = $this->getJson('/api/v1/penugasan/board?dari=2026-09-25&sampai=2026-09-25');
+        $res = $this->getJson('/api/penugasan/board?dari=2026-09-25&sampai=2026-09-25');
         $res->assertStatus(200);
 
         $assignments = collect($res->json('data.assignments'))->where('id_armada', $armada->id_armada);
@@ -242,7 +242,7 @@ class PenugasanHarianTest extends TestCase
         $armada = $this->makeArmada();
         $supir  = $this->makeSupir('Deni Tanpa Tarif');
 
-        $res = $this->postJson('/api/v1/penugasan/harian', [
+        $res = $this->postJson('/api/penugasan/harian', [
             'tanggal'   => '2026-09-05',
             'id_armada' => $armada->id_armada,
             'id_supir'  => $supir,
@@ -270,7 +270,7 @@ class PenugasanHarianTest extends TestCase
         $armada = $this->makeArmada();
         $supir  = $this->makeSupir('Eka Sinkron');
 
-        $this->postJson('/api/v1/penugasan/harian', [
+        $this->postJson('/api/penugasan/harian', [
             'tanggal' => '2026-09-01', 'tanggal_sampai' => '2026-09-03',
             'id_armada' => $armada->id_armada, 'id_supir' => $supir,
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
@@ -280,15 +280,15 @@ class PenugasanHarianTest extends TestCase
         $ids = DB::table('penugasan')->where('id_supir', $supir)->orderBy('tanggal_tugas')->pluck('id_penugasan')->all();
         $this->assertCount(3, $ids);
 
-        $this->deleteJson('/api/v1/penugasan/' . $ids[0])->assertStatus(200);
+        $this->deleteJson('/api/penugasan/' . $ids[0])->assertStatus(200);
 
         $this->assertDatabaseHas('pengajuan_pengeluaran', [
             'id_pengajuan' => $idPengajuan, 'nominal' => 300000,
             'periode_dari' => '2026-09-02', 'periode_sampai' => '2026-09-03', 'status' => 'diajukan',
         ]);
 
-        $this->deleteJson('/api/v1/penugasan/' . $ids[1])->assertStatus(200);
-        $this->deleteJson('/api/v1/penugasan/' . $ids[2])->assertStatus(200);
+        $this->deleteJson('/api/penugasan/' . $ids[1])->assertStatus(200);
+        $this->deleteJson('/api/penugasan/' . $ids[2])->assertStatus(200);
 
         $this->assertNotNull(DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('dihapus_pada'));
     }
@@ -302,7 +302,7 @@ class PenugasanHarianTest extends TestCase
         $vendorUnit = $this->makeVendorUnitOnly();
         $supir = $this->makeSupir('Fajar Vendor');
 
-        $res = $this->postJson('/api/v1/penugasan/harian', [
+        $res = $this->postJson('/api/penugasan/harian', [
             'tanggal'          => '2026-09-07',
             'id_armada_vendor' => $vendorUnit['id_armada_vendor'],
             'id_supir'         => $supir,
@@ -330,7 +330,7 @@ class PenugasanHarianTest extends TestCase
         $armada = $this->makeArmada();
         $supir  = $this->makeSupir('Gita Override');
 
-        $res = $this->postJson('/api/v1/penugasan/harian', [
+        $res = $this->postJson('/api/penugasan/harian', [
             'tanggal'    => '2026-09-08',
             'id_armada'  => $armada->id_armada,
             'id_supir'   => $supir,
@@ -360,7 +360,7 @@ class PenugasanHarianTest extends TestCase
         $vendorUnit = $this->makeVendorUnitOnly();
         $supir      = $this->makeSupir('Hadi Xor');
 
-        $res = $this->postJson('/api/v1/penugasan/harian', [
+        $res = $this->postJson('/api/penugasan/harian', [
             'tanggal'          => '2026-09-09',
             'id_armada'        => $armada->id_armada,
             'id_armada_vendor' => $vendorUnit['id_armada_vendor'],
@@ -383,7 +383,7 @@ class PenugasanHarianTest extends TestCase
         $vendorUnit = $this->makeVendorUnitOnly();
         $supir      = $this->makeSupir('Indra Board', 'aktif', $armada->id_armada);
 
-        $this->postJson('/api/v1/penugasan/harian', [
+        $this->postJson('/api/penugasan/harian', [
             'tanggal'   => '2026-09-20',
             'id_armada' => $armada->id_armada,
             'id_supir'  => $supir,
@@ -399,7 +399,7 @@ class PenugasanHarianTest extends TestCase
         $this->makeTripUntukPenugasan($idPenugasan, 'berjalan');
         $this->makeTripUntukPenugasan($idPenugasan, 'belum_mulai');
 
-        $res = $this->getJson('/api/v1/penugasan/board?dari=2026-09-20&sampai=2026-09-20');
+        $res = $this->getJson('/api/penugasan/board?dari=2026-09-20&sampai=2026-09-20');
         $res->assertStatus(200);
 
         $units = collect($res->json('data.units'));
@@ -433,7 +433,7 @@ class PenugasanHarianTest extends TestCase
         $armada = $this->makeArmada();
         $supir  = $this->makeSupir('Joko Trip Harian');
 
-        $this->postJson('/api/v1/penugasan/harian', [
+        $this->postJson('/api/penugasan/harian', [
             'tanggal'   => now()->toDateString(),
             'id_armada' => $armada->id_armada,
             'id_supir'  => $supir,
@@ -445,7 +445,7 @@ class PenugasanHarianTest extends TestCase
             ->where('id_supir', $supir)->where('tanggal_tugas', now()->toDateString())
             ->value('id_penugasan');
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $idPenugasan])
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $idPenugasan])
             ->assertStatus(201);
 
         $trip = DB::table('trip')
@@ -488,7 +488,7 @@ class PenugasanHarianTest extends TestCase
             'status'        => 'aktif',
         ]);
 
-        $res = $this->putJson('/api/v1/penugasan/' . $penugasanX->id_penugasan, [
+        $res = $this->putJson('/api/penugasan/' . $penugasanX->id_penugasan, [
             'id_supir' => $supirB,
         ]);
 
@@ -529,7 +529,7 @@ class PenugasanHarianTest extends TestCase
             'status'        => 'aktif',
         ]);
 
-        $res = $this->putJson('/api/v1/penugasan/' . $penugasanA->id_penugasan, [
+        $res = $this->putJson('/api/penugasan/' . $penugasanA->id_penugasan, [
             'id_supir' => $supirB,
         ]);
 
@@ -568,7 +568,7 @@ class PenugasanHarianTest extends TestCase
             'status'        => 'aktif',
         ]);
 
-        $resDobel = $this->putJson('/api/v1/penugasan/' . $penugasanX->id_penugasan, [
+        $resDobel = $this->putJson('/api/penugasan/' . $penugasanX->id_penugasan, [
             'tanggal_tugas' => '2026-09-15',
         ]);
         $resDobel->assertStatus(200);
@@ -588,7 +588,7 @@ class PenugasanHarianTest extends TestCase
         $supirLama = $this->makeSupir('Lama Sinkron');
         $supirBaru = $this->makeSupir('Baru Sinkron');
 
-        $this->postJson('/api/v1/penugasan/harian', [
+        $this->postJson('/api/penugasan/harian', [
             'tanggal' => '2026-09-01', 'tanggal_sampai' => '2026-09-03',
             'id_armada' => $armada->id_armada, 'id_supir' => $supirLama,
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
@@ -601,7 +601,7 @@ class PenugasanHarianTest extends TestCase
         $ids = DB::table('penugasan')->where('id_supir', $supirLama)->orderBy('tanggal_tugas')->pluck('id_penugasan')->all();
         $this->assertCount(3, $ids);
 
-        $res = $this->putJson('/api/v1/penugasan/' . $ids[2], ['id_supir' => $supirBaru]);
+        $res = $this->putJson('/api/penugasan/' . $ids[2], ['id_supir' => $supirBaru]);
         $res->assertStatus(200);
 
         $this->assertDatabaseHas('penugasan', [
@@ -623,7 +623,7 @@ class PenugasanHarianTest extends TestCase
         $supirLama = $this->makeSupir('Lama Semua');
         $supirBaru = $this->makeSupir('Baru Semua');
 
-        $this->postJson('/api/v1/penugasan/harian', [
+        $this->postJson('/api/penugasan/harian', [
             'tanggal' => '2026-09-01', 'tanggal_sampai' => '2026-09-02',
             'id_armada' => $armada->id_armada, 'id_supir' => $supirLama,
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
@@ -633,8 +633,8 @@ class PenugasanHarianTest extends TestCase
         $ids = DB::table('penugasan')->where('id_supir', $supirLama)->orderBy('tanggal_tugas')->pluck('id_penugasan')->all();
         $this->assertCount(2, $ids);
 
-        $this->putJson('/api/v1/penugasan/' . $ids[0], ['id_supir' => $supirBaru])->assertStatus(200);
-        $this->putJson('/api/v1/penugasan/' . $ids[1], ['id_supir' => $supirBaru])->assertStatus(200);
+        $this->putJson('/api/penugasan/' . $ids[0], ['id_supir' => $supirBaru])->assertStatus(200);
+        $this->putJson('/api/penugasan/' . $ids[1], ['id_supir' => $supirBaru])->assertStatus(200);
 
         $this->assertNotNull(DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('dihapus_pada'));
     }
@@ -649,7 +649,7 @@ class PenugasanHarianTest extends TestCase
         $supirLama = $this->makeSupir('Lama Dicek');
         $supirBaru = $this->makeSupir('Baru Dicek');
 
-        $this->postJson('/api/v1/penugasan/harian', [
+        $this->postJson('/api/penugasan/harian', [
             'tanggal' => '2026-09-01', 'tanggal_sampai' => '2026-09-03',
             'id_armada' => $armada->id_armada, 'id_supir' => $supirLama,
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
@@ -659,7 +659,7 @@ class PenugasanHarianTest extends TestCase
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['status' => 'dicek']);
         $ids = DB::table('penugasan')->where('id_supir', $supirLama)->orderBy('tanggal_tugas')->pluck('id_penugasan')->all();
 
-        $res = $this->putJson('/api/v1/penugasan/' . $ids[0], ['id_supir' => $supirBaru]);
+        $res = $this->putJson('/api/penugasan/' . $ids[0], ['id_supir' => $supirBaru]);
         $res->assertStatus(200);
 
         $this->assertDatabaseHas('penugasan', [

@@ -59,7 +59,7 @@ class ArmadaImportTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/armada/import/template');
+        $res = $this->get('/api/armada/import/template');
 
         $res->assertStatus(200);
         $res->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -75,7 +75,7 @@ class ArmadaImportTest extends TestCase
             ['B 3333 CCC', 'Suzuki', 'Ertiga', 2022, ''],
         ]);
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 3)
@@ -115,7 +115,7 @@ class ArmadaImportTest extends TestCase
             ['B 7777 DUP', 'Daihatsu', 'Xenia', 2018, 'tersedia'],   // baris 7: duplikat antar-baris
         ]);
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
 
@@ -144,7 +144,7 @@ class ArmadaImportTest extends TestCase
             ['B 8888 THN', 'Toyota', 'Avanza', 1800, 'tersedia'],
         ]);
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 0);
         $gagal = $res->json('data.gagal');
@@ -162,7 +162,7 @@ class ArmadaImportTest extends TestCase
             ['', '', '', '', ''],
         ]);
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1)
@@ -175,7 +175,7 @@ class ArmadaImportTest extends TestCase
 
         $file = UploadedFile::fake()->create('data.txt', 10, 'text/plain');
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(422);
     }
@@ -197,7 +197,7 @@ class ArmadaImportTest extends TestCase
             ]
         );
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1)
@@ -222,7 +222,7 @@ class ArmadaImportTest extends TestCase
             ['B 2020 LMA', 'Toyota', 'Avanza', 2020, 'tersedia'],
         ]);
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1)
@@ -242,7 +242,7 @@ class ArmadaImportTest extends TestCase
             ]
         );
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 0)
@@ -268,7 +268,7 @@ class ArmadaImportTest extends TestCase
             ]
         );
 
-        $res = $this->postJson('/api/v1/armada/import', ['file' => $file]);
+        $res = $this->postJson('/api/armada/import', ['file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 0)

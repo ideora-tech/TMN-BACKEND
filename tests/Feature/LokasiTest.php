@@ -38,7 +38,7 @@ class LokasiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/lokasi', [
+        $res = $this->postJson('/api/lokasi', [
             'nama_lokasi' => 'Pelabuhan Tanjung Priok',
             'alamat'      => 'Jl. Pelabuhan No. 1',
             'kota'        => 'Jakarta Utara',
@@ -60,7 +60,7 @@ class LokasiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/lokasi', [
+        $res = $this->postJson('/api/lokasi', [
             'kota' => 'Jakarta',
         ]);
 
@@ -75,7 +75,7 @@ class LokasiTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
-        $res = $this->getJson('/api/v1/lokasi');
+        $res = $this->getJson('/api/lokasi');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -89,7 +89,7 @@ class LokasiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $lokasi = $this->makeLokasi(self::PERUSAHAAN_ID);
 
-        $res = $this->getJson("/api/v1/lokasi/{$lokasi->id_lokasi}");
+        $res = $this->getJson("/api/lokasi/{$lokasi->id_lokasi}");
 
         $res->assertStatus(200)->assertJsonPath('data.id_lokasi', $lokasi->id_lokasi);
     }
@@ -100,7 +100,7 @@ class LokasiTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
-        $res = $this->getJson("/api/v1/lokasi/{$lokasiLain->id_lokasi}");
+        $res = $this->getJson("/api/lokasi/{$lokasiLain->id_lokasi}");
 
         $res->assertStatus(404);
     }
@@ -110,7 +110,7 @@ class LokasiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $lokasi = $this->makeLokasi(self::PERUSAHAAN_ID);
 
-        $res = $this->putJson("/api/v1/lokasi/{$lokasi->id_lokasi}", [
+        $res = $this->putJson("/api/lokasi/{$lokasi->id_lokasi}", [
             'nama_lokasi' => 'Gudang Diperbarui',
         ]);
 
@@ -127,7 +127,7 @@ class LokasiTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
-        $res = $this->putJson("/api/v1/lokasi/{$lokasiLain->id_lokasi}", [
+        $res = $this->putJson("/api/lokasi/{$lokasiLain->id_lokasi}", [
             'nama_lokasi' => 'Coba Ubah',
         ]);
 
@@ -139,20 +139,20 @@ class LokasiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $lokasi = $this->makeLokasi(self::PERUSAHAAN_ID);
 
-        $res = $this->deleteJson("/api/v1/lokasi/{$lokasi->id_lokasi}");
+        $res = $this->deleteJson("/api/lokasi/{$lokasi->id_lokasi}");
         $res->assertStatus(200)->assertJsonPath('success', true);
 
         $row = DB::table('lokasi')->where('id_lokasi', $lokasi->id_lokasi)->first();
         $this->assertNotNull($row->dihapus_pada);
 
-        $this->assertCount(0, $this->getJson('/api/v1/lokasi')->json('data'));
+        $this->assertCount(0, $this->getJson('/api/lokasi')->json('data'));
     }
 
     public function test_hapus_lokasi_tidak_ditemukan_mengembalikan_404(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->deleteJson('/api/v1/lokasi/' . Str::uuid()->toString());
+        $res = $this->deleteJson('/api/lokasi/' . Str::uuid()->toString());
 
         $res->assertStatus(404);
     }

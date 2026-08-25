@@ -81,7 +81,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
         ])->assertStatus(201);
@@ -96,13 +96,13 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $proyekA = $this->makeProyek();
         $proyekB = $this->makeProyek();
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyekA->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->assertStatus(201);
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyekB->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
@@ -118,7 +118,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('digunakan');
         $proyek = $this->makeProyek();
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
         ])->assertStatus(201);
@@ -129,7 +129,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => (string) Str::uuid(),
         ])->assertStatus(422);
@@ -141,20 +141,20 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
-        $idPenugasan = $this->postJson('/api/v1/penugasan', [
+        $idPenugasan = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->json('data.id_penugasan');
 
-        $this->putJson("/api/v1/penugasan/{$idPenugasan}", ['status' => 'selesai'])->assertStatus(200);
+        $this->putJson("/api/penugasan/{$idPenugasan}", ['status' => 'selesai'])->assertStatus(200);
         $this->assertSame('tersedia', $armada->fresh()->status);
 
         // Penugasan selesai terkunci dari penghapusan — buka kembali dulu
-        $this->deleteJson("/api/v1/penugasan/{$idPenugasan}")->assertStatus(422);
-        $this->putJson("/api/v1/penugasan/{$idPenugasan}", ['status' => 'aktif'])->assertStatus(200);
+        $this->deleteJson("/api/penugasan/{$idPenugasan}")->assertStatus(422);
+        $this->putJson("/api/penugasan/{$idPenugasan}", ['status' => 'aktif'])->assertStatus(200);
 
-        $this->deleteJson("/api/v1/penugasan/{$idPenugasan}")->assertStatus(200);
+        $this->deleteJson("/api/penugasan/{$idPenugasan}")->assertStatus(200);
         $this->assertSame('tersedia', $armada->fresh()->status);
     }
 
@@ -164,18 +164,18 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
-        $idPenugasan = $this->postJson('/api/v1/penugasan', [
+        $idPenugasan = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->json('data.id_penugasan');
         $trip = $this->makeTrip($idPenugasan);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkin")->assertStatus(200);
         $this->assertSame('digunakan', $armada->fresh()->status);
 
         $this->buatLaporanKosong($trip->id_trip);
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkout")->assertStatus(200);
         $this->assertSame('tersedia', $armada->fresh()->status);
     }
 
@@ -185,13 +185,13 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
-        $idPenugasan = $this->postJson('/api/v1/penugasan', [
+        $idPenugasan = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->json('data.id_penugasan');
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $idPenugasan])->assertStatus(201);
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $idPenugasan])->assertStatus(201);
         $this->assertSame('digunakan', $armada->fresh()->status);
     }
 
@@ -201,17 +201,17 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
-        $idPenugasan = $this->postJson('/api/v1/penugasan', [
+        $idPenugasan = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->json('data.id_penugasan');
         $trip = $this->makeTrip($idPenugasan);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkin")->assertStatus(200);
         $this->assertSame('digunakan', $armada->fresh()->status);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/batalkan")->assertStatus(200);
         $this->assertSame('tersedia', $armada->fresh()->status);
     }
 
@@ -221,14 +221,14 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('perawatan');
         $proyek = $this->makeProyek();
 
-        $idPenugasan = $this->postJson('/api/v1/penugasan', [
+        $idPenugasan = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->json('data.id_penugasan');
         $trip = $this->makeTrip($idPenugasan);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin");
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/checkin");
 
         $res->assertStatus(422);
         $this->assertStringContainsString('perawatan', $res->json('message'));
@@ -241,13 +241,13 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tidak_aktif');
         $proyek = $this->makeProyek();
 
-        $idPenugasan = $this->postJson('/api/v1/penugasan', [
+        $idPenugasan = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->json('data.id_penugasan');
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $idPenugasan])->assertStatus(422);
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $idPenugasan])->assertStatus(422);
 
         $this->assertSame(0, DB::table('trip')->count());
         $this->assertSame(0, DB::table('jadwal_keberangkatan')->where('id_penugasan', $idPenugasan)->count());
@@ -259,18 +259,18 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyek();
 
-        $idPenugasan = $this->postJson('/api/v1/penugasan', [
+        $idPenugasan = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->json('data.id_penugasan');
         $trip = $this->makeTrip($idPenugasan);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkin")->assertStatus(200);
         $armada->fresh()->update(['status' => 'perawatan']);
 
         $this->buatLaporanKosong($trip->id_trip);
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkout")->assertStatus(200);
 
         $this->assertSame('perawatan', $armada->fresh()->status);
     }
@@ -279,7 +279,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
     {
         $proyek = $this->makeProyek();
 
-        return (string) $this->postJson('/api/v1/penugasan', array_filter([
+        return (string) $this->postJson('/api/penugasan', array_filter([
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'id_supir'  => $idSupir,
@@ -295,9 +295,9 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $tripA = $this->makeTrip($this->buatPenugasanAktif($armada));
         $tripB = $this->makeTrip($this->buatPenugasanAktif($armada));
 
-        $this->postJson("/api/v1/trip/{$tripA->id_trip}/checkin")->assertStatus(200);
+        $this->postJson("/api/trip/{$tripA->id_trip}/checkin")->assertStatus(200);
 
-        $res = $this->postJson("/api/v1/trip/{$tripB->id_trip}/checkin");
+        $res = $this->postJson("/api/trip/{$tripB->id_trip}/checkin");
 
         $res->assertStatus(422);
         $this->assertStringContainsString('sedang berjalan', $res->json('message'));
@@ -314,7 +314,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $this->makeTrip($this->buatPenugasanAktif($armada), 'berjalan');
 
         $this->buatLaporanKosong($tripA->id_trip);
-        $this->postJson("/api/v1/trip/{$tripA->id_trip}/checkout")->assertStatus(200);
+        $this->postJson("/api/trip/{$tripA->id_trip}/checkout")->assertStatus(200);
 
         $this->assertSame('digunakan', $armada->fresh()->status);
     }
@@ -325,12 +325,12 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $trip = $this->makeTrip($this->buatPenugasanAktif($armada), 'berjalan');
 
-        $this->deleteJson("/api/v1/trip/{$trip->id_trip}")->assertStatus(422);
+        $this->deleteJson("/api/trip/{$trip->id_trip}")->assertStatus(422);
         $this->assertDatabaseHas('trip', ['id_trip' => $trip->id_trip, 'dihapus_pada' => null]);
 
         $this->buatLaporanKosong($trip->id_trip);
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
-        $this->deleteJson("/api/v1/trip/{$trip->id_trip}")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkout")->assertStatus(200);
+        $this->deleteJson("/api/trip/{$trip->id_trip}")->assertStatus(200);
     }
 
     public function test_ganti_armada_penugasan_dengan_trip_berjalan_ditolak(): void
@@ -341,7 +341,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $idPenugasan = $this->buatPenugasanAktif($armadaLama);
         $this->makeTrip($idPenugasan, 'berjalan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$idPenugasan}", ['id_armada' => $armadaBaru->id_armada]);
+        $res = $this->putJson("/api/penugasan/{$idPenugasan}", ['id_armada' => $armadaBaru->id_armada]);
 
         $res->assertStatus(422);
         $this->assertDatabaseHas('penugasan', ['id_penugasan' => $idPenugasan, 'id_armada' => $armadaLama->id_armada]);
@@ -353,7 +353,7 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $idPenugasan = $this->buatPenugasanAktif($armada);
 
-        $this->putJson("/api/v1/penugasan/{$idPenugasan}", ['id_armada' => (string) Str::uuid()])
+        $this->putJson("/api/penugasan/{$idPenugasan}", ['id_armada' => (string) Str::uuid()])
             ->assertStatus(422);
     }
 
@@ -364,11 +364,11 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $this->buatPenugasanAktif($armada);
         $this->buatPenugasanAktif($armada);
 
-        $list = $this->getJson('/api/v1/armada?search=' . urlencode($armada->nopol));
+        $list = $this->getJson('/api/armada?search=' . urlencode($armada->nopol));
         $list->assertStatus(200);
         $this->assertSame(2, $list->json('data.0.jumlah_penugasan_aktif'));
 
-        $detail = $this->getJson("/api/v1/armada/{$armada->id_armada}");
+        $detail = $this->getJson("/api/armada/{$armada->id_armada}");
         $detail->assertStatus(200)->assertJsonPath('data.jumlah_penugasan_aktif', 2);
     }
 
@@ -379,14 +379,14 @@ class PenugasanArmadaLifecycleTest extends TestCase
         $this->buatPenugasanAktif($armada);
 
         $proyekTerhapus = $this->makeProyek();
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyekTerhapus->id_proyek,
             'id_armada' => $armada->id_armada,
             'status'    => 'aktif',
         ])->assertStatus(201);
         DB::table('proyek')->where('id_proyek', $proyekTerhapus->id_proyek)->update(['dihapus_pada' => now()]);
 
-        $this->getJson("/api/v1/armada/{$armada->id_armada}")
+        $this->getJson("/api/armada/{$armada->id_armada}")
             ->assertStatus(200)
             ->assertJsonPath('data.jumlah_penugasan_aktif', 1);
     }

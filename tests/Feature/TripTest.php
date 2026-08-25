@@ -106,7 +106,7 @@ class TripTest extends TestCase
 
         $this->makeTrip($idArmada, $idSupir, null, null, 'Jakarta - Bandung');
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
 
         $res->assertStatus(200);
         $item = $res->json('data.0');
@@ -129,7 +129,7 @@ class TripTest extends TestCase
 
         $trip = $this->makeTrip($idArmada, $idSupir, null, null, 'Surabaya - Malang');
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.rute', 'Surabaya - Malang')
@@ -139,7 +139,7 @@ class TripTest extends TestCase
 
         $this->buatLaporanKosong($trip->id_trip);
 
-        $this->getJson("/api/v1/trip/{$trip->id_trip}")
+        $this->getJson("/api/trip/{$trip->id_trip}")
             ->assertStatus(200)
             ->assertJsonPath('data.punya_laporan', true);
     }
@@ -165,7 +165,7 @@ class TripTest extends TestCase
 
         $trip = $this->makeTrip(null, null, $idArmadaVendor, $idSupirVendor, 'Bekasi - Cikampek');
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.supir_nama', 'Supir Vendor Test')
@@ -185,11 +185,11 @@ class TripTest extends TestCase
 
         $trip = $this->makeTrip($idArmada, $idSupir, null, null, 'Jakarta - Bogor');
 
-        $resCheckin = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin");
+        $resCheckin = $this->postJson("/api/trip/{$trip->id_trip}/checkin");
         $resCheckin->assertStatus(200)->assertJsonPath('data.status', 'berjalan');
 
         $this->buatLaporanKosong($trip->id_trip);
-        $resCheckout = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout");
+        $resCheckout = $this->postJson("/api/trip/{$trip->id_trip}/checkout");
         $resCheckout->assertStatus(200)->assertJsonPath('data.status', 'selesai');
 
         $this->assertDatabaseHas('trip', [
@@ -211,13 +211,13 @@ class TripTest extends TestCase
 
         $trip = $this->makeTrip($idArmada, $idSupir, null, null, 'Jakarta - Depok', 'berjalan');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout");
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/checkout");
         $res->assertStatus(422);
         $this->assertStringContainsString('Laporan perjalanan wajib diisi', $res->json('message'));
 
         $this->buatLaporanKosong($trip->id_trip);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")
+        $this->postJson("/api/trip/{$trip->id_trip}/checkout")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'selesai');
     }
@@ -235,14 +235,14 @@ class TripTest extends TestCase
 
         $trip = $this->makeTrip($idArmada, $idSupir, null, null, 'Jakarta - Cirebon');
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkin")->assertStatus(200);
         $this->assertDatabaseHas('status_trip', ['id_trip' => $trip->id_trip, 'status' => 'berjalan']);
 
         $this->buatLaporanKosong($trip->id_trip);
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkout")->assertStatus(200);
         $this->assertDatabaseHas('status_trip', ['id_trip' => $trip->id_trip, 'status' => 'selesai']);
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/status");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}/status");
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));
     }
@@ -260,7 +260,7 @@ class TripTest extends TestCase
 
         $trip = $this->makeTrip($idArmada, $idSupir, null, null, 'Jakarta - Serang');
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/batalkan")->assertStatus(200);
         $this->assertDatabaseHas('status_trip', ['id_trip' => $trip->id_trip, 'status' => 'dibatalkan']);
     }
 
@@ -303,7 +303,7 @@ class TripTest extends TestCase
         $this->makeTripUntukProyek($proyekA->id_proyek, 'Rute A2');
         $this->makeTripUntukProyek($proyekB->id_proyek, 'Rute B1');
 
-        $res = $this->getJson('/api/v1/trip/ringkasan-proyek');
+        $res = $this->getJson('/api/trip/ringkasan-proyek');
         $res->assertStatus(200);
 
         $data = collect($res->json('data'));
@@ -330,12 +330,12 @@ class TripTest extends TestCase
         $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 1', 'berjalan');
         $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 2', 'selesai');
 
-        $resStatus = $this->getJson('/api/v1/trip/ringkasan-proyek?status=berjalan');
+        $resStatus = $this->getJson('/api/trip/ringkasan-proyek?status=berjalan');
         $resStatus->assertStatus(200);
         $rowStatus = collect($resStatus->json('data'))->firstWhere('id_proyek', $proyek->id_proyek);
         $this->assertSame(1, $rowStatus['jumlah_trip']);
 
-        $resSearch = $this->getJson('/api/v1/trip/ringkasan-proyek?search=Filter Unik');
+        $resSearch = $this->getJson('/api/trip/ringkasan-proyek?search=Filter Unik');
         $resSearch->assertStatus(200);
         $this->assertCount(1, $resSearch->json('data'));
         $this->assertSame($proyek->id_proyek, $resSearch->json('data.0.id_proyek'));
@@ -356,11 +356,11 @@ class TripTest extends TestCase
         $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 3', 'selesai');
         $this->makeTripUntukProyek($proyek->id_proyek, 'Rute 4', 'dibatalkan');
 
-        $resList = $this->getJson("/api/v1/trip?id_proyek={$proyek->id_proyek}&status=belum_mulai,berjalan");
+        $resList = $this->getJson("/api/trip?id_proyek={$proyek->id_proyek}&status=belum_mulai,berjalan");
         $resList->assertStatus(200);
         $this->assertCount(2, $resList->json('data'));
 
-        $resRingkasan = $this->getJson('/api/v1/trip/ringkasan-proyek?status=selesai,dibatalkan');
+        $resRingkasan = $this->getJson('/api/trip/ringkasan-proyek?status=selesai,dibatalkan');
         $resRingkasan->assertStatus(200);
         $row = collect($resRingkasan->json('data'))->firstWhere('id_proyek', $proyek->id_proyek);
         $this->assertSame(2, $row['jumlah_trip']);
@@ -382,7 +382,7 @@ class TripTest extends TestCase
         DB::table('jadwal_keberangkatan')->where('id_jadwal', $tripBaru->id_jadwal)->update(['waktu_berangkat' => now()->subDay()]);
 
         $dari = now()->subDays(30)->toDateString();
-        $res = $this->getJson("/api/v1/trip?id_proyek={$proyek->id_proyek}&tanggal_dari={$dari}");
+        $res = $this->getJson("/api/trip?id_proyek={$proyek->id_proyek}&tanggal_dari={$dari}");
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -446,7 +446,7 @@ class TripTest extends TestCase
 
         $trip = $this->makeTripVendor('PT Vendor Ekspedisi');
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
         $res->assertStatus(200);
         $item = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
         $this->assertNotNull($item);
@@ -454,7 +454,7 @@ class TripTest extends TestCase
         $this->assertSame('PT Vendor Ekspedisi', $item['vendor_nama']);
         $this->assertSame('full', $item['mekanisme']);
 
-        $resDetail = $this->getJson("/api/v1/trip/{$trip->id_trip}");
+        $resDetail = $this->getJson("/api/trip/{$trip->id_trip}");
         $resDetail->assertStatus(200)
             ->assertJsonPath('data.sumber', 'vendor')
             ->assertJsonPath('data.vendor_nama', 'PT Vendor Ekspedisi')
@@ -470,13 +470,13 @@ class TripTest extends TestCase
         $idSupir = $this->makeSupir('Supir Internal Filter');
         $tripInternal = $this->makeTrip(null, $idSupir, null, null, 'Rute Internal Filter');
 
-        $resVendor = $this->getJson('/api/v1/trip?sumber=vendor');
+        $resVendor = $this->getJson('/api/trip?sumber=vendor');
         $resVendor->assertStatus(200);
         $idsVendor = collect($resVendor->json('data'))->pluck('id_trip');
         $this->assertTrue($idsVendor->contains($tripVendor->id_trip));
         $this->assertFalse($idsVendor->contains($tripInternal->id_trip));
 
-        $resInternal = $this->getJson('/api/v1/trip?sumber=internal');
+        $resInternal = $this->getJson('/api/trip?sumber=internal');
         $resInternal->assertStatus(200);
         $idsInternal = collect($resInternal->json('data'))->pluck('id_trip');
         $this->assertTrue($idsInternal->contains($tripInternal->id_trip));
@@ -490,7 +490,7 @@ class TripTest extends TestCase
         $idSupir = $this->makeSupir('Supir Internal Sumber');
         $trip = $this->makeTrip(null, $idSupir, null, null, 'Rute Internal Sumber');
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
         $res->assertStatus(200);
         $item = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
         $this->assertNotNull($item);
@@ -498,7 +498,7 @@ class TripTest extends TestCase
         $this->assertNull($item['vendor_nama']);
         $this->assertNull($item['mekanisme']);
 
-        $resDetail = $this->getJson("/api/v1/trip/{$trip->id_trip}");
+        $resDetail = $this->getJson("/api/trip/{$trip->id_trip}");
         $resDetail->assertStatus(200)
             ->assertJsonPath('data.sumber', 'internal')
             ->assertJsonPath('data.vendor_nama', null);
@@ -523,7 +523,7 @@ class TripTest extends TestCase
         $this->makeTripUntukProyek($proyekA->id_proyek, 'Rute A');
         $this->makeTripUntukProyek($proyekB->id_proyek, 'Rute B');
 
-        $res = $this->getJson("/api/v1/trip?id_proyek={$proyekA->id_proyek}");
+        $res = $this->getJson("/api/trip?id_proyek={$proyekA->id_proyek}");
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertSame('Rute A', $res->json('data.0.rute'));
@@ -534,7 +534,7 @@ class TripTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/trip/riwayat/export/excel?dari=2026-08-01&sampai=2026-08-10');
+        $res = $this->get('/api/trip/riwayat/export/excel?dari=2026-08-01&sampai=2026-08-10');
 
         $res->assertStatus(200);
         $this->assertStringContainsString('spreadsheet', (string) $res->headers->get('content-type'));
@@ -544,7 +544,7 @@ class TripTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/trip/riwayat/export/pdf');
+        $res = $this->get('/api/trip/riwayat/export/pdf');
 
         $res->assertStatus(200);
         $this->assertSame('application/pdf', $res->headers->get('content-type'));

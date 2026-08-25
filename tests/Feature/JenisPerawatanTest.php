@@ -30,7 +30,7 @@ class JenisPerawatanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/jenis-perawatan', [
+        $res = $this->postJson('/api/jenis-perawatan', [
             'nama'       => 'Tune Up Mesin',
             'keterangan' => 'Servis rutin 10.000 km',
         ]);
@@ -54,7 +54,7 @@ class JenisPerawatanTest extends TestCase
         DB::table('perusahaan')->insert(['id_perusahaan' => $idLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
         $this->makeJenis('Milik Orang', $idLain);
 
-        $res = $this->getJson('/api/v1/jenis-perawatan');
+        $res = $this->getJson('/api/jenis-perawatan');
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -66,7 +66,7 @@ class JenisPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenis();
 
-        $resUpdate = $this->putJson("/api/v1/jenis-perawatan/{$jenis->id_jenis_perawatan}", [
+        $resUpdate = $this->putJson("/api/jenis-perawatan/{$jenis->id_jenis_perawatan}", [
             'nama'  => 'Ganti Oli Mesin',
             'aktif' => false,
         ]);
@@ -74,7 +74,7 @@ class JenisPerawatanTest extends TestCase
             ->assertJsonPath('data.nama', 'Ganti Oli Mesin')
             ->assertJsonPath('data.aktif', false);
 
-        $resShow = $this->getJson("/api/v1/jenis-perawatan/{$jenis->id_jenis_perawatan}");
+        $resShow = $this->getJson("/api/jenis-perawatan/{$jenis->id_jenis_perawatan}");
         $resShow->assertStatus(200)->assertJsonPath('data.nama', 'Ganti Oli Mesin');
     }
 
@@ -83,10 +83,10 @@ class JenisPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenis();
 
-        $res = $this->deleteJson("/api/v1/jenis-perawatan/{$jenis->id_jenis_perawatan}");
+        $res = $this->deleteJson("/api/jenis-perawatan/{$jenis->id_jenis_perawatan}");
         $res->assertStatus(200);
 
         $this->assertSoftDeleted('jenis_perawatan', ['id_jenis_perawatan' => $jenis->id_jenis_perawatan]);
-        $this->getJson("/api/v1/jenis-perawatan/{$jenis->id_jenis_perawatan}")->assertStatus(404);
+        $this->getJson("/api/jenis-perawatan/{$jenis->id_jenis_perawatan}")->assertStatus(404);
     }
 }

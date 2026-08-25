@@ -57,7 +57,7 @@ class SupirVendorImportTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/supir-vendor/import/template');
+        $res = $this->get('/api/supir-vendor/import/template');
 
         $res->assertStatus(200);
         $res->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -83,7 +83,7 @@ class SupirVendorImportTest extends TestCase
             ['VDR-001', 'Dup B', '', 'SIM-DUP', ''],
         ]);
 
-        $res = $this->postJson('/api/v1/supir-vendor/import', ['file' => $file]);
+        $res = $this->postJson('/api/supir-vendor/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
         $this->assertCount(6, $res->json('data.gagal'));

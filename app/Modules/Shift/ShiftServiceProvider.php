@@ -18,7 +18,7 @@ class ShiftServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:shift'])
             ->group(function () {
                 Route::apiResource('shift', ShiftController::class)

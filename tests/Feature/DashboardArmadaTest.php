@@ -43,7 +43,7 @@ class DashboardArmadaTest extends TestCase
 
     public function test_butuh_autentikasi(): void
     {
-        $this->getJson('/api/v1/armada/dashboard')->assertStatus(401);
+        $this->getJson('/api/armada/dashboard')->assertStatus(401);
     }
 
     public function test_statistik_menghitung_armada_per_status(): void
@@ -57,7 +57,7 @@ class DashboardArmadaTest extends TestCase
         $terhapus = $this->makeArmada('tersedia');
         $terhapus->softDelete();
 
-        $res = $this->getJson('/api/v1/armada/dashboard');
+        $res = $this->getJson('/api/armada/dashboard');
 
         $res->assertStatus(200);
         $stat = $res->json('data.statistik');
@@ -79,7 +79,7 @@ class DashboardArmadaTest extends TestCase
         $this->makePerawatan($c->id_armada, 'selesai', '2026-07-01');
         $this->makePerawatan($c->id_armada, 'dalam_proses', '2026-07-15', null, 'Ganti Ban', true);
 
-        $res = $this->getJson('/api/v1/armada/dashboard');
+        $res = $this->getJson('/api/armada/dashboard');
 
         $res->assertStatus(200);
         $aktif = $res->json('data.perawatanAktif');
@@ -134,7 +134,7 @@ class DashboardArmadaTest extends TestCase
             'km_odometer' => 59500, 'dibuat_pada' => now(),
         ]);
 
-        $res = $this->getJson('/api/v1/armada/dashboard');
+        $res = $this->getJson('/api/armada/dashboard');
 
         $res->assertStatus(200);
         $harusServis = collect($res->json('data.harusServis'));
@@ -151,7 +151,7 @@ class DashboardArmadaTest extends TestCase
         $armadaLain = $this->makeArmada('perawatan', 'D 9999 ZZ', $lain);
         $this->makePerawatan($armadaLain->id_armada, 'dalam_proses');
 
-        $res = $this->getJson('/api/v1/armada/dashboard');
+        $res = $this->getJson('/api/armada/dashboard');
 
         $res->assertStatus(200);
         $this->assertSame(0, $res->json('data.statistik.total'));

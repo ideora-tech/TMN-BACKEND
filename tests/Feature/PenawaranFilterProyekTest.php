@@ -66,7 +66,7 @@ class PenawaranFilterProyekTest extends TestCase
         $this->makePenawaran(null);
         $this->makePenawaran($this->makeProyek());
 
-        $res = $this->getJson('/api/v1/penawaran?id_proyek=' . $idProyek);
+        $res = $this->getJson('/api/penawaran?id_proyek=' . $idProyek);
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -82,7 +82,7 @@ class PenawaranFilterProyekTest extends TestCase
         $this->makePenawaran($idProyek, 'draft');
         $disetujui = $this->makePenawaran($idProyek, 'disetujui');
 
-        $res = $this->getJson('/api/v1/penawaran?id_proyek=' . $idProyek . '&status=disetujui');
+        $res = $this->getJson('/api/penawaran?id_proyek=' . $idProyek . '&status=disetujui');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -97,7 +97,7 @@ class PenawaranFilterProyekTest extends TestCase
         $this->makePenawaran($this->makeProyek());
         $this->makePenawaran(null);
 
-        $res = $this->getJson('/api/v1/penawaran');
+        $res = $this->getJson('/api/penawaran');
 
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));

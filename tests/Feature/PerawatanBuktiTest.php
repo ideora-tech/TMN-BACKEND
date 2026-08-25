@@ -47,7 +47,7 @@ class PerawatanBuktiTest extends TestCase
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada);
 
-        $res = $this->post("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/bukti", [
+        $res = $this->post("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/bukti", [
             'bukti' => [
                 UploadedFile::fake()->image('kerusakan.jpg'),
                 UploadedFile::fake()->image('nota.png'),
@@ -62,7 +62,7 @@ class PerawatanBuktiTest extends TestCase
         $this->assertCount(2, Storage::disk('public')->files('perawatan'));
         $this->assertDatabaseCount('perawatan_armada_bukti', 2);
 
-        $detail = $this->getJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}");
+        $detail = $this->getJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}");
         $detail->assertStatus(200)->assertJsonCount(2, 'data.bukti');
 
         $tersimpan = (string) DB::table('perawatan_armada_bukti')->orderByDesc('dibuat_pada')->value('url_file');
@@ -78,21 +78,21 @@ class PerawatanBuktiTest extends TestCase
         $perawatanA = $this->makePerawatan($armada->id_armada);
         $perawatanB = $this->makePerawatan($armada->id_armada);
 
-        $this->post("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatanA->id_perawatan}/bukti", [
+        $this->post("/api/armada/{$armada->id_armada}/perawatan/{$perawatanA->id_perawatan}/bukti", [
             'bukti' => [UploadedFile::fake()->image('foto.jpg')],
         ])->assertStatus(200);
 
         $idBukti = DB::table('perawatan_armada_bukti')->value('id_bukti');
 
-        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatanB->id_perawatan}/bukti/{$idBukti}")
+        $this->deleteJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatanB->id_perawatan}/bukti/{$idBukti}")
             ->assertStatus(404);
 
-        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatanA->id_perawatan}/bukti/{$idBukti}")
+        $this->deleteJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatanA->id_perawatan}/bukti/{$idBukti}")
             ->assertStatus(200);
 
         $this->assertSoftDeleted('perawatan_armada_bukti', ['id_bukti' => $idBukti]);
 
-        $this->getJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatanA->id_perawatan}")
+        $this->getJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatanA->id_perawatan}")
             ->assertStatus(200)
             ->assertJsonCount(0, 'data.bukti');
     }
@@ -103,7 +103,7 @@ class PerawatanBuktiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada);
-        $url = "/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/bukti";
+        $url = "/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/bukti";
 
         $this->postJson($url, [])->assertStatus(422);
 

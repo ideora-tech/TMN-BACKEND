@@ -98,14 +98,14 @@ class AlokasiArmadaOverrideTest extends TestCase
         $shift = $this->makeShift();
         $tanggal = now()->addDays(5)->toDateString();
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => $tanggal, 'supir' => [$supir],
         ])->assertStatus(200);
 
         $idJadwal = (string) DB::table('jadwal_shift')
             ->where('id_proyek', $proyek->id_proyek)->where('id_supir', $supir)->value('id_jadwal_shift');
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_armada_override' => $armadaOverride->id_armada,
         ])->assertStatus(200)
             ->assertJsonPath('data.id_armada_override', $armadaOverride->id_armada)

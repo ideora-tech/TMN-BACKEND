@@ -66,7 +66,7 @@ class LaporanBbmTest extends TestCase
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -93,7 +93,7 @@ class LaporanBbmTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -110,7 +110,7 @@ class LaporanBbmTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -133,7 +133,7 @@ class LaporanBbmTest extends TestCase
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -141,7 +141,7 @@ class LaporanBbmTest extends TestCase
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');
 
-        $res = $this->putJson("/api/v1/laporan-perjalanan/{$idLaporan}", [
+        $res = $this->putJson("/api/laporan-perjalanan/{$idLaporan}", [
             'id_jenis_bbm' => $jenis->id_jenis_bbm,
             'jumlah_liter' => 60.5,
         ]);
@@ -156,7 +156,7 @@ class LaporanBbmTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip(self::PERUSAHAAN_ID);
 
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -164,7 +164,7 @@ class LaporanBbmTest extends TestCase
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');
 
-        $res = $this->putJson("/api/v1/laporan-perjalanan/{$idLaporan}", [
+        $res = $this->putJson("/api/laporan-perjalanan/{$idLaporan}", [
             'id_jenis_bbm' => (string) Str::uuid(),
         ]);
 

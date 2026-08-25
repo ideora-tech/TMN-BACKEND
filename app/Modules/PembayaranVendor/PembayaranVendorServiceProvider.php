@@ -18,7 +18,7 @@ class PembayaranVendorServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:invoice-vendor'])
             ->group(function () {
                 Route::get('invoice-vendor/{idInvoice}/pembayaran', [PembayaranVendorController::class, 'indexByInvoice']);

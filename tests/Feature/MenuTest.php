@@ -29,7 +29,7 @@ class MenuTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $indukBerPath = $this->buatMenu(null, '/menu-berpath', 'Menu Berpath');
 
-        $res = $this->postJson('/api/v1/menu', [
+        $res = $this->postJson('/api/menu', [
             'nama_menu'     => 'Anak Salah',
             'path'          => '/anak-salah',
             'id_menu_induk' => $indukBerPath,
@@ -43,7 +43,7 @@ class MenuTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $indukGrup = $this->buatMenu(null, null, 'Grup Benar');
 
-        $res = $this->postJson('/api/v1/menu', [
+        $res = $this->postJson('/api/menu', [
             'nama_menu'     => 'Anak Benar',
             'path'          => '/anak-benar',
             'id_menu_induk' => $indukGrup,
@@ -58,7 +58,7 @@ class MenuTest extends TestCase
         $indukBerPath = $this->buatMenu(null, '/menu-berpath-2', 'Menu Berpath Dua');
         $menu = $this->buatMenu(null, '/menu-biasa', 'Menu Biasa');
 
-        $res = $this->putJson("/api/v1/menu/{$menu}", [
+        $res = $this->putJson("/api/menu/{$menu}", [
             'id_menu_induk' => $indukBerPath,
         ]);
 

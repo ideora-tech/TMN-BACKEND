@@ -106,17 +106,17 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $idJabatan  = $this->buatJabatan('Manager Keuangan');
         $idPengguna = $this->buatPengguna('budi_approver');
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(201);
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'        => 'pengguna',
             'id_pengguna' => $idPengguna,
         ])->assertStatus(201);
 
-        $res = $this->getJson('/api/v1/arus-kas/approver');
+        $res = $this->getJson('/api/arus-kas/approver');
         $res->assertStatus(200);
 
         $data = $res->json('data');
@@ -136,12 +136,12 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idJabatan = $this->buatJabatan();
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(201);
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(409);
@@ -151,9 +151,9 @@ class ApprovalKeuanganKonfigTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $this->postJson('/api/v1/arus-kas/approver', ['tipe' => 'jabatan'])->assertStatus(422);
-        $this->postJson('/api/v1/arus-kas/approver', ['tipe' => 'pengguna'])->assertStatus(422);
-        $this->postJson('/api/v1/arus-kas/approver', ['tipe' => 'tidak_dikenal'])->assertStatus(422);
+        $this->postJson('/api/arus-kas/approver', ['tipe' => 'jabatan'])->assertStatus(422);
+        $this->postJson('/api/arus-kas/approver', ['tipe' => 'pengguna'])->assertStatus(422);
+        $this->postJson('/api/arus-kas/approver', ['tipe' => 'tidak_dikenal'])->assertStatus(422);
     }
 
     public function test_hapus_approver_hilang_dari_list(): void
@@ -161,7 +161,7 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idJabatan = $this->buatJabatan();
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(201);
@@ -171,9 +171,9 @@ class ApprovalKeuanganKonfigTest extends TestCase
             ->where('id_jabatan', $idJabatan)
             ->value('id_approver');
 
-        $this->deleteJson("/api/v1/arus-kas/approver/{$idApprover}")->assertStatus(200);
+        $this->deleteJson("/api/arus-kas/approver/{$idApprover}")->assertStatus(200);
 
-        $data = $this->getJson('/api/v1/arus-kas/approver')->json('data');
+        $data = $this->getJson('/api/arus-kas/approver')->json('data');
         $this->assertCount(0, $data);
         $this->assertSoftDeleted('approver_keuangan', ['id_approver' => $idApprover]);
     }
@@ -181,22 +181,22 @@ class ApprovalKeuanganKonfigTest extends TestCase
     public function test_hapus_approver_tidak_ada_404(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->deleteJson('/api/v1/arus-kas/approver/' . Str::uuid())->assertStatus(404);
+        $this->deleteJson('/api/arus-kas/approver/' . Str::uuid())->assertStatus(404);
     }
 
     public function test_set_dan_get_batas_approval(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $this->getJson('/api/v1/arus-kas/pengaturan-approval')
+        $this->getJson('/api/arus-kas/pengaturan-approval')
             ->assertStatus(200)
             ->assertJsonPath('data.batas', 0);
 
-        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 5000000])
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 5000000])
             ->assertStatus(200)
             ->assertJsonPath('data.batas', 5000000);
 
-        $this->getJson('/api/v1/arus-kas/pengaturan-approval')
+        $this->getJson('/api/arus-kas/pengaturan-approval')
             ->assertStatus(200)
             ->assertJsonPath('data.batas', 5000000);
     }
@@ -205,8 +205,8 @@ class ApprovalKeuanganKonfigTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => -100])->assertStatus(422);
-        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 'bukan_angka'])->assertStatus(422);
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => -100])->assertStatus(422);
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 'bukan_angka'])->assertStatus(422);
     }
 
     public function test_role_keuangan_akses_post_approver_ditolak_403(): void
@@ -214,7 +214,7 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $this->actingAsRole('KEUANGAN');
         $idJabatan = $this->buatJabatan();
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(403);
@@ -225,13 +225,13 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $this->actingAsRole('ADMIN');
         $idJabatan = $this->buatJabatan();
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(201);
 
-        $this->getJson('/api/v1/arus-kas/approver')->assertStatus(200);
-        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 1000])->assertStatus(200);
+        $this->getJson('/api/arus-kas/approver')->assertStatus(200);
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 1000])->assertStatus(200);
     }
 
     public function test_resolusi_approver_jabatan_melalui_karyawan_dan_pengguna_langsung(): void
@@ -251,17 +251,17 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $idPenggunaLangsungNonaktif = $this->buatPengguna('nonaktif_approver');
         DB::table('pengguna')->where('id_pengguna', $idPenggunaLangsungNonaktif)->update(['aktif' => 0]);
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(201);
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'        => 'pengguna',
             'id_pengguna' => $idPenggunaLangsung,
         ])->assertStatus(201);
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'        => 'pengguna',
             'id_pengguna' => $idPenggunaLangsungNonaktif,
         ])->assertStatus(201);
@@ -281,7 +281,7 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $idPerusahaanLain = $this->buatPerusahaanLain();
         $idJabatanLain = $this->buatJabatanUntuk($idPerusahaanLain);
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatanLain,
         ])->assertStatus(404);
@@ -295,7 +295,7 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $idPerusahaanLain = $this->buatPerusahaanLain();
         $idPenggunaLain = $this->buatPengguna('pengguna_lain', null, $idPerusahaanLain);
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'        => 'pengguna',
             'id_pengguna' => $idPenggunaLain,
         ])->assertStatus(404);
@@ -308,7 +308,7 @@ class ApprovalKeuanganKonfigTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idJabatan = $this->buatJabatan('Manager Keuangan');
 
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(201);

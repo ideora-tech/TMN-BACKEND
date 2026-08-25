@@ -77,7 +77,7 @@ class RekapBiayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai', 1000000);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -86,7 +86,7 @@ class RekapBiayaTest extends TestCase
             ],
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}/rekap-biaya");
 
         $res->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -107,7 +107,7 @@ class RekapBiayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('berjalan', 500000);
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}/rekap-biaya");
 
         $res->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -127,7 +127,7 @@ class RekapBiayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('berjalan', null);
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}/rekap-biaya");
 
         $res->assertStatus(200);
 
@@ -143,7 +143,7 @@ class RekapBiayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('belum_mulai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan");
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/batalkan");
 
         $res->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -160,7 +160,7 @@ class RekapBiayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan");
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/batalkan");
 
         $res->assertStatus(422);
 
@@ -175,7 +175,7 @@ class RekapBiayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripUntukPerusahaanLain('belum_mulai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/batalkan");
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/batalkan");
 
         $res->assertStatus(404);
 
@@ -190,7 +190,7 @@ class RekapBiayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripUntukPerusahaanLain('selesai');
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}/rekap-biaya");
 
         $res->assertStatus(404);
     }
@@ -201,7 +201,7 @@ class RekapBiayaTest extends TestCase
         $tripA = $this->makeTrip('belum_mulai');
         $this->makeTrip('belum_mulai');
 
-        $res = $this->getJson("/api/v1/trip?id_jadwal={$tripA->id_jadwal}");
+        $res = $this->getJson("/api/trip?id_jadwal={$tripA->id_jadwal}");
 
         $res->assertStatus(200);
 

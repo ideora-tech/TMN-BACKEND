@@ -37,7 +37,7 @@ class ApprovalKeuanganAlurTest extends TestCase
 
     private function buatPengajuan(array $override = []): string
     {
-        $res = $this->postJson('/api/v1/arus-kas/pengajuan', $this->payload($override));
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload($override));
         return $res->json('data.id_pengajuan');
     }
 
@@ -90,7 +90,7 @@ class ApprovalKeuanganAlurTest extends TestCase
 
     private function tambahApproverPengguna(string $idPengguna): void
     {
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'        => 'pengguna',
             'id_pengguna' => $idPengguna,
         ])->assertStatus(201);
@@ -98,7 +98,7 @@ class ApprovalKeuanganAlurTest extends TestCase
 
     private function tambahApproverJabatan(string $idJabatan): void
     {
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'       => 'jabatan',
             'id_jabatan' => $idJabatan,
         ])->assertStatus(201);
@@ -106,7 +106,7 @@ class ApprovalKeuanganAlurTest extends TestCase
 
     private function setBatas(float $batas): void
     {
-        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => $batas])->assertStatus(200);
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => $batas])->assertStatus(200);
     }
 
     private function actingAsPengguna(string $idPengguna): Pengguna
@@ -157,7 +157,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $res = $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek");
+        $res = $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek");
         $res->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
@@ -186,7 +186,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $res = $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek");
+        $res = $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek");
         $res->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->assertSame(0, DB::table('pengajuan_approval')->where('id_pengajuan', $id)->count());
@@ -198,7 +198,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(422);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(422);
 
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
         $this->assertSame('diajukan', $row->status);
@@ -218,7 +218,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
@@ -239,7 +239,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
@@ -257,11 +257,11 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get()->keyBy('id_pengguna');
@@ -269,7 +269,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->assertSame('menunggu', $baris[$idApprover2]->status);
 
         $this->actingAsPengguna($idApprover2);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'disetujui')
             ->assertJsonPath('data.disetujui_oleh', $idApprover2);
@@ -288,13 +288,13 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
 
         $this->actingAsPengguna($idApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'tolak'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'tolak'])
             ->assertStatus(422);
 
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", [
             'keputusan' => 'tolak',
             'catatan'   => 'Nominal terlalu besar',
         ])->assertStatus(200)
@@ -315,10 +315,10 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
 
         $this->actingAsPengguna($idBukanApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(403);
     }
 
@@ -332,12 +332,12 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
 
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(409);
     }
 
@@ -355,7 +355,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         ]);
 
         $this->actingAsPengguna($idApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
@@ -378,7 +378,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->update(['status' => 'dicek']);
 
         $this->actingAsPengguna($idApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->assertSame(0, DB::table('pengajuan_approval')->where('id_pengajuan', $id)->count());
@@ -395,7 +395,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->update(['status' => 'dicek']);
 
         $this->actingAsPengguna($idBukanApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(403);
 
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
@@ -415,14 +415,14 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
 
         $this->actingAsPengguna($idApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString()])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString()])
             ->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
     }
 
@@ -432,7 +432,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idApprover = $this->buatPengguna('approver_sparepart');
         $this->tambahApproverPengguna($idApprover);
 
-        $res = $this->postJson('/api/v1/pembelian-sparepart', [
+        $res = $this->postJson('/api/pembelian-sparepart', [
             'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [
@@ -444,11 +444,11 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->value('id_pengajuan');
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->actingAsPengguna($idApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $rowPembelian = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
@@ -463,7 +463,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->tambahApproverPengguna($idApproverA);
         $this->tambahApproverPengguna($idApproverB);
 
-        $res = $this->postJson('/api/v1/pembelian-sparepart', [
+        $res = $this->postJson('/api/pembelian-sparepart', [
             'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [
@@ -475,7 +475,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->value('id_pengajuan');
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         DB::table('pengajuan_approval')->where('id_pengajuan', $idPengajuan)->where('id_pengguna', $idApproverB)
@@ -486,7 +486,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         ]);
 
         $this->actingAsPengguna($idApproverA);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(409);
 
         $rowPengajuan = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->first();
@@ -522,7 +522,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->assertSame(2, $jumlahSnapshot);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(409);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(409);
 
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
         $this->assertSame('menunggu_approval', $row->status);
@@ -579,7 +579,7 @@ class ApprovalKeuanganAlurTest extends TestCase
             'status'    => 'aktif',
         ]);
 
-        $res = $this->postJson('/api/v1/trip/mulai', [
+        $res = $this->postJson('/api/trip/mulai', [
             'id_penugasan'       => $penugasan->id_penugasan,
             'uang_jalan_alokasi' => $alokasi,
         ]);
@@ -599,13 +599,13 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'menunggu_approval')
             ->assertJsonPath('message', 'Pengajuan menunggu approval');
 
         $this->actingAsPengguna($idApprover1);
-        $this->getJson("/api/v1/arus-kas/pengajuan/{$id}")
+        $this->getJson("/api/arus-kas/pengajuan/{$id}")
             ->assertStatus(200)
             ->assertJsonCount(2, 'data.approval')
             ->assertJsonPath('data.approval_progress.disetujui', 0)
@@ -613,22 +613,22 @@ class ApprovalKeuanganAlurTest extends TestCase
             ->assertJsonPath('data.bisa_approve', true);
 
         $this->actingAsPengguna($idBukanApprover);
-        $this->getJson("/api/v1/arus-kas/pengajuan/{$id}")
+        $this->getJson("/api/arus-kas/pengajuan/{$id}")
             ->assertStatus(200)
             ->assertJsonPath('data.bisa_approve', false);
 
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->actingAsPengguna($idApprover2);
-        $this->getJson("/api/v1/arus-kas/pengajuan/{$id}")
+        $this->getJson("/api/arus-kas/pengajuan/{$id}")
             ->assertStatus(200)
             ->assertJsonPath('data.approval_progress.disetujui', 1)
             ->assertJsonPath('data.approval_progress.total', 2)
             ->assertJsonPath('data.bisa_approve', true);
 
-        $resIndex = $this->getJson('/api/v1/arus-kas/pengajuan');
+        $resIndex = $this->getJson('/api/arus-kas/pengajuan');
         $resIndex->assertStatus(200);
         $item = collect($resIndex->json('data'))->firstWhere('id_pengajuan', $id);
         $this->assertNotNull($item);
@@ -650,15 +650,15 @@ class ApprovalKeuanganAlurTest extends TestCase
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['id_trip' => $idTrip]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->actingAsRole('SUPERADMIN');
-        $res = $this->getJson("/api/v1/trip/{$idTrip}");
+        $res = $this->getJson("/api/trip/{$idTrip}");
         $res->assertStatus(200)
             ->assertJsonPath('data.pengajuan_uang_jalan.status', 'menunggu_approval');
 
@@ -684,23 +684,23 @@ class ApprovalKeuanganAlurTest extends TestCase
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['id_trip' => $idTrip]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->actingAsPengguna($idApprover2);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", ['tanggal_transfer' => now()->toDateString()])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", ['tanggal_transfer' => now()->toDateString()])
             ->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
         $this->actingAsRole('SUPERADMIN');
-        $res = $this->getJson("/api/v1/trip/{$idTrip}");
+        $res = $this->getJson("/api/trip/{$idTrip}");
         $res->assertStatus(200)->assertJsonPath('data.pengajuan_uang_jalan.status', 'ditransfer');
 
         $riwayat = $res->json('data.pengajuan_uang_jalan.riwayat');
@@ -729,13 +729,13 @@ class ApprovalKeuanganAlurTest extends TestCase
         $id = $this->buatPengajuan(['nominal' => 500000]);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
 
         DB::table('pengajuan_approval')->where('id_pengajuan', $id)->where('id_pengguna', $idApprover)
             ->update(['status' => 'disetujui', 'waktu_aksi' => now()]);
 
         $this->actingAsPengguna($idApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(409);
 
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();

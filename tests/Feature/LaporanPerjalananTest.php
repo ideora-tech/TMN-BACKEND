@@ -131,13 +131,13 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripVendorMekanisme('unit_driver');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'uang_jalan' => 50000,
         ]);
         $res->assertStatus(422);
         $this->assertStringContainsString('ditanggung vendor', (string) $res->json('message'));
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm' => 100000,
             'uang_tol'  => 20000,
         ])->assertStatus(201);
@@ -148,15 +148,15 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripVendorMekanisme('full');
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm' => 100000,
         ])->assertStatus(422);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_lain' => [['nama_biaya' => 'Parkir', 'nominal' => 10000]],
         ])->assertStatus(422);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'jarak_tempuh_km' => 120,
             'catatan_insiden' => 'aman',
         ])->assertStatus(201);
@@ -167,7 +167,7 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -197,10 +197,10 @@ class LaporanPerjalananTest extends TestCase
             'uang_jalan'      => 200000,
         ];
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", $payload)
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", $payload)
             ->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", $payload);
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", $payload);
 
         $res->assertStatus(409);
     }
@@ -210,7 +210,7 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripUntukPerusahaanLain('selesai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -225,7 +225,7 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripUntukPerusahaanLain('selesai');
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}/laporan-perjalanan");
 
         $res->assertStatus(404);
     }
@@ -235,7 +235,7 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('belum_mulai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -249,7 +249,7 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -258,7 +258,7 @@ class LaporanPerjalananTest extends TestCase
             ],
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}/laporan-perjalanan");
 
         $res->assertStatus(200)
             ->assertJsonPath('success', true);
@@ -274,7 +274,7 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -285,7 +285,7 @@ class LaporanPerjalananTest extends TestCase
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');
 
-        $res = $this->putJson("/api/v1/laporan-perjalanan/{$idLaporan}", [
+        $res = $this->putJson("/api/laporan-perjalanan/{$idLaporan}", [
             'biaya_lain' => [
                 ['nama_biaya' => 'Parkir', 'nominal' => 20000],
             ],
@@ -337,7 +337,7 @@ class LaporanPerjalananTest extends TestCase
             'dibuat_pada'     => now(),
         ]);
 
-        $res = $this->putJson("/api/v1/laporan-perjalanan/{$idLaporan}", [
+        $res = $this->putJson("/api/laporan-perjalanan/{$idLaporan}", [
             'biaya_bbm' => 200000,
         ]);
 
@@ -355,7 +355,7 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
@@ -363,7 +363,7 @@ class LaporanPerjalananTest extends TestCase
         $createRes->assertStatus(201);
         $idLaporan = $createRes->json('data.id_laporan');
 
-        $res = $this->postJson("/api/v1/laporan-perjalanan/{$idLaporan}/foto", [
+        $res = $this->postJson("/api/laporan-perjalanan/{$idLaporan}/foto", [
             'foto'       => [UploadedFile::fake()->image('muatan.jpg')],
             'keterangan' => 'Muatan depan',
         ]);
@@ -390,14 +390,14 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,
         ]);
         $idLaporan = $createRes->json('data.id_laporan');
 
-        $res = $this->postJson("/api/v1/laporan-perjalanan/{$idLaporan}/foto", [
+        $res = $this->postJson("/api/laporan-perjalanan/{$idLaporan}/foto", [
             'foto' => [
                 UploadedFile::fake()->image('muatan-1.jpg'),
                 UploadedFile::fake()->image('muatan-2.jpg'),
@@ -416,7 +416,7 @@ class LaporanPerjalananTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'       => 500000,
             'jarak_tempuh_km' => 120,
             'uang_jalan'      => 200000,

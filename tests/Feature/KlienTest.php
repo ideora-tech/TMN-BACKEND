@@ -38,7 +38,7 @@ class KlienTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/klien', [
+        $res = $this->postJson('/api/klien', [
             'kode_klien' => 'KLN-BARU',
             'nama_klien' => 'PT Contoh Jaya',
         ]);
@@ -56,7 +56,7 @@ class KlienTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-DUP');
 
-        $res = $this->postJson('/api/v1/klien', [
+        $res = $this->postJson('/api/klien', [
             'kode_klien' => 'KLN-DUP',
             'nama_klien' => 'Duplikat',
         ]);
@@ -71,7 +71,7 @@ class KlienTest extends TestCase
         $idLain = $this->makePerusahaanLain();
         $this->makeKlien($idLain, 'KLN-02', 'Milik Lain');
 
-        $res = $this->getJson('/api/v1/klien');
+        $res = $this->getJson('/api/klien');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -84,7 +84,7 @@ class KlienTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKlien(self::PERUSAHAAN_ID);
 
-        $res = $this->getJson("/api/v1/klien/{$item->id_klien}");
+        $res = $this->getJson("/api/klien/{$item->id_klien}");
 
         $res->assertStatus(200)->assertJsonPath('data.id_klien', $item->id_klien);
     }
@@ -94,7 +94,7 @@ class KlienTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKlien(self::PERUSAHAAN_ID);
 
-        $res = $this->putJson("/api/v1/klien/{$item->id_klien}", [
+        $res = $this->putJson("/api/klien/{$item->id_klien}", [
             'nama_klien' => 'Nama Diperbarui',
         ]);
 
@@ -106,7 +106,7 @@ class KlienTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKlien(self::PERUSAHAAN_ID);
 
-        $res = $this->deleteJson("/api/v1/klien/{$item->id_klien}");
+        $res = $this->deleteJson("/api/klien/{$item->id_klien}");
         $res->assertStatus(200);
 
         $row = DB::table('klien')->where('id_klien', $item->id_klien)->first();

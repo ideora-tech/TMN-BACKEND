@@ -18,7 +18,7 @@ class KonsolidasiKlienServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:faktur'])
             ->group(function () {
                 Route::get('konsolidasi-klien', [KonsolidasiKlienController::class, 'index']);

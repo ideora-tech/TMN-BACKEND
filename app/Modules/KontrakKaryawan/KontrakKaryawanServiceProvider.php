@@ -18,7 +18,7 @@ class KontrakKaryawanServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
             ->group(function () {
                 Route::get('karyawan/{idKaryawan}/kontrak', [KontrakKaryawanController::class, 'index']);

@@ -34,7 +34,7 @@ class KaryawanExitTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan();
 
-        $res = $this->postJson('/api/v1/karyawan-exit', [
+        $res = $this->postJson('/api/karyawan-exit', [
             'id_karyawan'     => $idKaryawan,
             'jenis_exit'      => 'resign',
             'tanggal_efektif' => '2026-08-01',
@@ -59,7 +59,7 @@ class KaryawanExitTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan();
 
-        $res = $this->postJson('/api/v1/karyawan-exit', [
+        $res = $this->postJson('/api/karyawan-exit', [
             'id_karyawan'     => $idKaryawan,
             'tanggal_efektif' => '2026-08-01',
         ]);
@@ -72,13 +72,13 @@ class KaryawanExitTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan();
 
-        $this->postJson('/api/v1/karyawan-exit', [
+        $this->postJson('/api/karyawan-exit', [
             'id_karyawan'     => $idKaryawan,
             'jenis_exit'      => 'pensiun',
             'tanggal_efektif' => '2026-09-01',
         ]);
 
-        $res = $this->getJson("/api/v1/karyawan/{$idKaryawan}/exit-history");
+        $res = $this->getJson("/api/karyawan/{$idKaryawan}/exit-history");
 
         $res->assertStatus(200);
         $data = $res->json('data');

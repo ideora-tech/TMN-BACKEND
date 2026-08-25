@@ -90,7 +90,7 @@ class PenawaranRevisiTest extends TestCase
 
     private function kirimkan(string $idPenawaran): void
     {
-        $this->putJson("/api/v1/penawaran/{$idPenawaran}/status", ['status' => 'terkirim'])
+        $this->putJson("/api/penawaran/{$idPenawaran}/status", ['status' => 'terkirim'])
             ->assertStatus(200);
     }
 
@@ -119,7 +119,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
             'harga_penawaran'    => 500000,
@@ -140,7 +140,7 @@ class PenawaranRevisiTest extends TestCase
         $idBaris = $this->makeProyekRute($proyek->id_proyek, $idRute, $idJenis, 500000);
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek);
 
-        $res = $this->putJson("/api/v1/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
+        $res = $this->putJson("/api/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
             'harga_penawaran' => 900000,
         ]);
 
@@ -162,7 +162,7 @@ class PenawaranRevisiTest extends TestCase
         $idBaris = $this->makeProyekRute($proyek->id_proyek, $idRute, $idJenis, 500000, 2);
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek);
 
-        $res = $this->putJson("/api/v1/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
+        $res = $this->putJson("/api/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
             'estimasi_ritase' => 5,
         ]);
 
@@ -180,7 +180,7 @@ class PenawaranRevisiTest extends TestCase
         $idBaris = $this->makeProyekRute($proyek->id_proyek, $idRute, $idJenis, 500000);
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek);
 
-        $res = $this->putJson("/api/v1/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
+        $res = $this->putJson("/api/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
             'uang_jalan'          => 200000,
             'estimasi_tol'        => 50000,
             'estimasi_bbm'        => 300000,
@@ -203,7 +203,7 @@ class PenawaranRevisiTest extends TestCase
         $idBaris = $this->makeProyekRute($proyek->id_proyek, $idRute, $idJenis, 500000, 2);
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek);
 
-        $res = $this->putJson("/api/v1/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
+        $res = $this->putJson("/api/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
             'harga_penawaran' => 500000,
             'estimasi_ritase' => 2,
             'uang_jalan'      => 150000,
@@ -221,7 +221,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
             'harga_penawaran'    => 500000,
@@ -229,7 +229,7 @@ class PenawaranRevisiTest extends TestCase
         $res->assertStatus(201);
         $idBaris = $res->json('data.id_proyek_rute');
 
-        $update = $this->putJson("/api/v1/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
+        $update = $this->putJson("/api/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
             'harga_penawaran' => 750000,
         ]);
         $update->assertStatus(200)->assertJsonPath('data.harga_penawaran', 750000);
@@ -244,7 +244,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000, 'estimasi_ritase' => 2],
             ],
@@ -268,7 +268,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute     = $this->makeRute();
         $idJenis    = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 500000, 'estimasi_ritase' => 1],
             ],
@@ -287,7 +287,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'judul' => 'Revisi Harga BBM Naik',
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 500000, 'estimasi_ritase' => 1],
@@ -304,7 +304,7 @@ class PenawaranRevisiTest extends TestCase
         $klien  = $this->makeKlien();
         $proyek = $this->makeProyek($klien);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [],
         ]);
 
@@ -320,7 +320,7 @@ class PenawaranRevisiTest extends TestCase
         $proyek = $this->makeProyek($klien);
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [],
         ]);
 
@@ -336,7 +336,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'estimasi_ritase' => 1],
             ],
@@ -354,7 +354,7 @@ class PenawaranRevisiTest extends TestCase
         $proyek = $this->makeProyek($klien, 'borongan');
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek, 'borongan', 40000000);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [],
         ]);
 
@@ -368,7 +368,7 @@ class PenawaranRevisiTest extends TestCase
         $proyek = $this->makeProyek($klien, 'borongan');
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek, 'borongan', 40000000);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'nilai_penawaran' => 45000000,
         ]);
 
@@ -390,7 +390,7 @@ class PenawaranRevisiTest extends TestCase
             'nama_proyek'   => 'Proyek Perusahaan Lain',
         ]);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyekLain->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyekLain->id_proyek}/penawaran-revisi", [
             'items' => [],
         ]);
 
@@ -411,7 +411,7 @@ class PenawaranRevisiTest extends TestCase
         $idRuteBaru  = $this->makeRute();
         $idJenisBaru = $this->makeJenisKendaraan();
 
-        $revisi = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRuteLama, 'id_jenis_kendaraan' => $idJenisLama, 'harga_satuan' => 800000, 'estimasi_ritase' => 3],
                 ['id_rute' => $idRuteBaru, 'id_jenis_kendaraan' => $idJenisBaru, 'harga_satuan' => 650000, 'estimasi_ritase' => 2],
@@ -422,7 +422,7 @@ class PenawaranRevisiTest extends TestCase
         $nilaiRevisi = $revisi->json('data.nilai_penawaran');
 
         $this->kirimkan($idRevisi);
-        $res = $this->putJson("/api/v1/penawaran/{$idRevisi}/status", ['status' => 'disetujui']);
+        $res = $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'disetujui']);
         $res->assertStatus(200);
 
         $this->assertDatabaseHas('proyek_rute', [
@@ -451,14 +451,14 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $revisi = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 700000, 'estimasi_ritase' => 4],
             ],
         ]);
         $idRevisi = $revisi->json('data.id_penawaran');
 
-        $res = $this->putJson("/api/v1/penawaran/{$idRevisi}/status", ['status' => 'terkirim']);
+        $res = $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'terkirim']);
         $res->assertStatus(200);
 
         $items = $res->json('data.items');
@@ -482,7 +482,7 @@ class PenawaranRevisiTest extends TestCase
         $idJenisDihapus = $this->makeJenisKendaraan();
         $idBarisDihapus = $this->makeProyekRute($proyek->id_proyek, $idRuteDihapus, $idJenisDihapus, 10000000, 30);
 
-        $revisi = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRuteDipertahankan, 'id_jenis_kendaraan' => $idJenisDipertahankan, 'harga_satuan' => 100000000, 'estimasi_ritase' => 10],
             ],
@@ -492,7 +492,7 @@ class PenawaranRevisiTest extends TestCase
         $this->assertEquals(1000000000, $nilaiRevisi);
 
         $this->kirimkan($idRevisi);
-        $this->putJson("/api/v1/penawaran/{$idRevisi}/status", ['status' => 'disetujui'])->assertStatus(200);
+        $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'disetujui'])->assertStatus(200);
 
         $this->assertDatabaseHas('proyek_rute', ['id_proyek_rute' => $idBarisDipertahankan, 'dihapus_pada' => null]);
         $this->assertSoftDeleted('proyek_rute', ['id_proyek_rute' => $idBarisDihapus]);
@@ -518,7 +518,7 @@ class PenawaranRevisiTest extends TestCase
 
         $hargaProyekAwal = DB::table('proyek')->where('id_proyek', $proyek->id_proyek)->value('harga_penawaran');
 
-        $revisi = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 999999, 'estimasi_ritase' => 9],
             ],
@@ -526,7 +526,7 @@ class PenawaranRevisiTest extends TestCase
         $idRevisi = $revisi->json('data.id_penawaran');
 
         $this->kirimkan($idRevisi);
-        $res = $this->putJson("/api/v1/penawaran/{$idRevisi}/status", ['status' => 'ditolak']);
+        $res = $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'ditolak']);
         $res->assertStatus(200);
 
         $this->assertDatabaseHas('proyek_rute', [
@@ -547,14 +547,14 @@ class PenawaranRevisiTest extends TestCase
         $idJenis = $this->makeJenisKendaraan();
         $idBaris = $this->makeProyekRute($proyek->id_proyek, $idRute, $idJenis, 0, 1);
 
-        $revisi = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'nilai_penawaran' => 55000000,
         ]);
         $revisi->assertStatus(201);
         $idRevisi = $revisi->json('data.id_penawaran');
 
         $this->kirimkan($idRevisi);
-        $this->putJson("/api/v1/penawaran/{$idRevisi}/status", ['status' => 'disetujui'])
+        $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'disetujui'])
             ->assertStatus(200);
 
         $this->assertEquals(55000000, (float) DB::table('proyek')->where('id_proyek', $proyek->id_proyek)->value('harga_penawaran'));
@@ -574,16 +574,16 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $revisi = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000, 'estimasi_ritase' => 1],
             ],
         ]);
         $idRevisi = $revisi->json('data.id_penawaran');
         $this->kirimkan($idRevisi);
-        $this->putJson("/api/v1/penawaran/{$idRevisi}/status", ['status' => 'disetujui'])->assertStatus(200);
+        $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'disetujui'])->assertStatus(200);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien,
             'nama_proyek'  => 'Proyek Dari Revisi Seharusnya Gagal',
             'id_penawaran' => $idRevisi,
@@ -691,7 +691,7 @@ class PenawaranRevisiTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $res = $this->putJson("/api/v1/penawaran/{$idRevisiLain}/status", ['status' => 'disetujui']);
+        $res = $this->putJson("/api/penawaran/{$idRevisiLain}/status", ['status' => 'disetujui']);
 
         $res->assertStatus(404)
             ->assertJsonPath('message', 'Penawaran tidak ditemukan');
@@ -716,14 +716,14 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $revisi1 = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi1 = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000, 'estimasi_ritase' => 1],
             ],
         ]);
         $revisi1->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 700000, 'estimasi_ritase' => 1],
             ],
@@ -743,16 +743,16 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $revisi1 = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi1 = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000, 'estimasi_ritase' => 1],
             ],
         ]);
         $idRevisi1 = $revisi1->json('data.id_penawaran');
         $this->kirimkan($idRevisi1);
-        $this->putJson("/api/v1/penawaran/{$idRevisi1}/status", ['status' => 'disetujui'])->assertStatus(200);
+        $this->putJson("/api/penawaran/{$idRevisi1}/status", ['status' => 'disetujui'])->assertStatus(200);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 700000, 'estimasi_ritase' => 1],
             ],
@@ -770,16 +770,16 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $revisi1 = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi1 = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000, 'estimasi_ritase' => 1],
             ],
         ]);
         $idRevisi1 = $revisi1->json('data.id_penawaran');
         $this->kirimkan($idRevisi1);
-        $this->putJson("/api/v1/penawaran/{$idRevisi1}/status", ['status' => 'ditolak'])->assertStatus(200);
+        $this->putJson("/api/penawaran/{$idRevisi1}/status", ['status' => 'ditolak'])->assertStatus(200);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 700000, 'estimasi_ritase' => 1],
             ],
@@ -797,7 +797,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000, 'estimasi_ritase' => 1],
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 700000, 'estimasi_ritase' => 2],
@@ -818,7 +818,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => null, 'harga_satuan' => 500000, 'estimasi_ritase' => 1],
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000, 'estimasi_ritase' => 1],
@@ -837,7 +837,7 @@ class PenawaranRevisiTest extends TestCase
         $idRute  = $this->makeRute();
         $idJenis = $this->makeJenisKendaraan();
 
-        $revisi1 = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi1 = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000, 'estimasi_ritase' => 1],
             ],
@@ -846,9 +846,9 @@ class PenawaranRevisiTest extends TestCase
         $this->assertSame($idInduk, $revisi1->json('data.id_penawaran_induk'));
 
         $this->kirimkan($idRevisi1);
-        $this->putJson("/api/v1/penawaran/{$idRevisi1}/status", ['status' => 'disetujui'])->assertStatus(200);
+        $this->putJson("/api/penawaran/{$idRevisi1}/status", ['status' => 'disetujui'])->assertStatus(200);
 
-        $revisi2 = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi2 = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 800000, 'estimasi_ritase' => 1],
             ],
@@ -870,7 +870,7 @@ class PenawaranRevisiTest extends TestCase
         $idJenis = $this->makeJenisKendaraan();
         $idBaris = $this->makeProyekRute($proyek->id_proyek, $idRute, $idJenis, 500000, 1);
 
-        $revisi = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+        $revisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
             'items' => [
                 ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 700000, 'estimasi_ritase' => 2],
             ],
@@ -880,7 +880,7 @@ class PenawaranRevisiTest extends TestCase
 
         DB::table('penawaran')->where('id_penawaran', $idRevisi)->update(['status' => 'ditolak']);
 
-        $res = $this->putJson("/api/v1/penawaran/{$idRevisi}/status", ['status' => 'disetujui']);
+        $res = $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'disetujui']);
 
         $res->assertStatus(422)
             ->assertJsonPath('message', 'Transisi status tidak valid');

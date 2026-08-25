@@ -114,7 +114,7 @@ class JadwalShiftOverrideTest extends TestCase
 
     private function buatJadwal(string $idProyek, string $idShift, string $idSupir, string $tanggal): string
     {
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $idProyek, 'id_shift' => $idShift,
             'tanggal' => $tanggal, 'supir' => [$idSupir],
         ])->assertStatus(200);
@@ -136,14 +136,14 @@ class JadwalShiftOverrideTest extends TestCase
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supir, $tanggal);
 
-        $res = $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $res = $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_armada_override' => $armadaOverride->id_armada,
         ]);
         $res->assertStatus(200)
             ->assertJsonPath('data.id_armada_override', $armadaOverride->id_armada)
             ->assertJsonPath('data.nopol_override', 'B 2000 BB');
 
-        $list = $this->getJson("/api/v1/jadwal-shift?id_proyek={$proyek->id_proyek}&dari={$tanggal}&sampai={$tanggal}");
+        $list = $this->getJson("/api/jadwal-shift?id_proyek={$proyek->id_proyek}&dari={$tanggal}&sampai={$tanggal}");
         $list->assertStatus(200)->assertJsonPath('data.0.nopol_override', 'B 2000 BB');
     }
 
@@ -158,7 +158,7 @@ class JadwalShiftOverrideTest extends TestCase
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supirAsal, $tanggal);
 
-        $res = $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $res = $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_supir_pengganti' => $supirPengganti,
         ]);
         $res->assertStatus(200)
@@ -176,7 +176,7 @@ class JadwalShiftOverrideTest extends TestCase
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supir, $tanggal);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_supir_pengganti' => $supir,
         ])->assertStatus(422);
     }
@@ -193,7 +193,7 @@ class JadwalShiftOverrideTest extends TestCase
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supirAsal, $tanggal);
         $this->buatCutiDisetujui($supirPengganti, $tanggal);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_supir_pengganti' => $supirPengganti,
         ])->assertStatus(422);
     }
@@ -212,7 +212,7 @@ class JadwalShiftOverrideTest extends TestCase
         $idJadwalA = $this->buatJadwal($proyekA->id_proyek, $shift, $supirAsal, $tanggal);
         $this->buatJadwal($proyekB->id_proyek, $shift, $supirPengganti, $tanggal);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwalA}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwalA}", [
             'id_shift' => $shift, 'id_supir_pengganti' => $supirPengganti,
         ])->assertStatus(422);
     }
@@ -227,13 +227,13 @@ class JadwalShiftOverrideTest extends TestCase
         $tanggal = now()->addDays(5)->toDateString();
         $idJadwal = $this->buatJadwal($proyek->id_proyek, $shift, $supir, $tanggal);
 
-        $res = $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $res = $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'titik_drop_override' => ['Gudang A', 'Gudang B'],
         ]);
         $res->assertStatus(200)
             ->assertJsonPath('data.titik_drop_override', ['Gudang A', 'Gudang B']);
 
-        $res2 = $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $res2 = $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'titik_drop_override' => null,
         ]);
         $res2->assertStatus(200)->assertJsonPath('data.titik_drop_override', []);
@@ -258,7 +258,7 @@ class JadwalShiftOverrideTest extends TestCase
             'waktu_checkin' => now(), 'waktu_checkout' => now(),
         ]);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_armada_override' => (string) Str::uuid(),
         ])->assertStatus(422);
     }
@@ -300,10 +300,10 @@ class JadwalShiftOverrideTest extends TestCase
 
         Sanctum::actingAs($penggunaA, ['*']);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwalB}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwalB}", [
             'id_shift' => $shiftA,
         ])->assertStatus(404);
 
-        $this->deleteJson("/api/v1/jadwal-shift/{$idJadwalB}")->assertStatus(404);
+        $this->deleteJson("/api/jadwal-shift/{$idJadwalB}")->assertStatus(404);
     }
 }

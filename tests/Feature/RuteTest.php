@@ -38,7 +38,7 @@ class RuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/rute', [
+        $res = $this->postJson('/api/rute', [
             'nama_rute' => 'Jakarta - Bandung',
         ]);
 
@@ -55,7 +55,7 @@ class RuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/rute', [
+        $res = $this->postJson('/api/rute', [
             'kode_rute' => 'MANUAL-999',
             'nama_rute' => 'Jakarta - Bekasi',
         ]);
@@ -69,7 +69,7 @@ class RuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeRute(self::PERUSAHAAN_ID, 'RT-0001');
 
-        $res = $this->postJson('/api/v1/rute', [
+        $res = $this->postJson('/api/rute', [
             'nama_rute' => 'Duplikat',
         ]);
 
@@ -80,7 +80,7 @@ class RuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $this->getJson('/api/v1/tarif-rute')->assertStatus(404);
+        $this->getJson('/api/tarif-rute')->assertStatus(404);
     }
 
     public function test_list_rute_hanya_menampilkan_milik_perusahaan_sendiri(): void
@@ -90,7 +90,7 @@ class RuteTest extends TestCase
         $idLain = $this->makePerusahaanLain();
         $this->makeRute($idLain, 'RUT-01', 'Milik Lain');
 
-        $res = $this->getJson('/api/v1/rute');
+        $res = $this->getJson('/api/rute');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -104,7 +104,7 @@ class RuteTest extends TestCase
         $this->makeRute(self::PERUSAHAAN_ID, 'RUT-S1', 'Jakarta Surabaya');
         $this->makeRute(self::PERUSAHAAN_ID, 'RUT-S2', 'Bandung Semarang');
 
-        $res = $this->getJson('/api/v1/rute?search=Jakarta');
+        $res = $this->getJson('/api/rute?search=Jakarta');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -117,7 +117,7 @@ class RuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeRute(self::PERUSAHAAN_ID);
 
-        $res = $this->putJson("/api/v1/rute/{$item->id_rute}", [
+        $res = $this->putJson("/api/rute/{$item->id_rute}", [
             'nama_rute' => 'Nama Diperbarui',
         ]);
 
@@ -129,7 +129,7 @@ class RuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeRute(self::PERUSAHAAN_ID);
 
-        $res = $this->deleteJson("/api/v1/rute/{$item->id_rute}");
+        $res = $this->deleteJson("/api/rute/{$item->id_rute}");
         $res->assertStatus(200);
 
         $row = DB::table('rute')->where('id_rute', $item->id_rute)->first();

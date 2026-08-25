@@ -222,7 +222,7 @@ class TripRekapSupirExportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->seedRekap();
 
-        $res = $this->get('/api/v1/trip/rekap-supir/export/excel?dari=2026-03-01&sampai=2026-03-31');
+        $res = $this->get('/api/trip/rekap-supir/export/excel?dari=2026-03-01&sampai=2026-03-31');
 
         $res->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', (string) $res->headers->get('content-type'));
@@ -234,7 +234,7 @@ class TripRekapSupirExportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->seedRekap();
 
-        $res = $this->get('/api/v1/trip/rekap-supir/export/pdf');
+        $res = $this->get('/api/trip/rekap-supir/export/pdf');
 
         $res->assertStatus(200);
         $this->assertSame('application/pdf', $res->headers->get('content-type'));

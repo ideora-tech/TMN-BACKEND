@@ -69,7 +69,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         $armada = $this->makeArmada();
         $idSupir = $this->makeSupir();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'id_supir'  => $idSupir,
@@ -84,7 +84,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         $proyek = $this->makeProyek();
         $armada = $this->makeArmada();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
         ]);
@@ -98,7 +98,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         $proyek = $this->makeProyek();
         $idSupir = $this->makeSupir();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_supir'  => $idSupir,
         ]);
@@ -111,7 +111,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
         ]);
 
@@ -125,7 +125,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         $armada = $this->makeArmada();
         $idSupir = $this->makeSupir();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'id_supir'  => $idSupir,
@@ -142,7 +142,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         $armada = $this->makeArmada();
         $idSupir = $this->makeSupir();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'id_supir'  => $idSupir,
@@ -158,13 +158,13 @@ class PenugasanStatusOtomatisTest extends TestCase
         $proyek = $this->makeProyek();
         $idSupir = $this->makeSupir();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
         ]);
         $create->assertStatus(201)->assertJsonPath('data.status', 'pending');
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$id}", [
+        $res = $this->putJson("/api/penugasan/{$id}", [
             'id_supir' => $idSupir,
         ]);
 
@@ -177,12 +177,12 @@ class PenugasanStatusOtomatisTest extends TestCase
         $proyek = $this->makeProyek();
         $armada = $this->makeArmada();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
         ]);
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$id}", [
+        $res = $this->putJson("/api/penugasan/{$id}", [
             'id_armada' => $armada->id_armada,
         ]);
 
@@ -196,7 +196,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         $armada = $this->makeArmada();
         $idSupir = $this->makeSupir();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'id_supir'  => $idSupir,
@@ -204,7 +204,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         $create->assertStatus(201)->assertJsonPath('data.status', 'aktif');
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$id}", [
+        $res = $this->putJson("/api/penugasan/{$id}", [
             'estimasi_biaya' => 150000,
         ]);
 
@@ -220,14 +220,14 @@ class PenugasanStatusOtomatisTest extends TestCase
         $armada = $this->makeArmada();
         $idSupir = $this->makeSupir();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
             'id_supir'  => $idSupir,
         ]);
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$id}", [
+        $res = $this->putJson("/api/penugasan/{$id}", [
             'status' => 'pending',
         ]);
 
@@ -257,7 +257,7 @@ class PenugasanStatusOtomatisTest extends TestCase
             'nama'      => 'Supir Vendor Status Otomatis Test',
         ]);
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
@@ -288,7 +288,7 @@ class PenugasanStatusOtomatisTest extends TestCase
         ]);
         $idSupir = $this->makeSupir();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,

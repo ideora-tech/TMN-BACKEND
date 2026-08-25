@@ -50,7 +50,7 @@ class CutiTest extends TestCase
 
     private function buatPengajuan(string $idJenis, ?string $idKaryawan = null, ?string $idSupir = null, string $mulai = '2026-08-03', string $selesai = '2026-08-05'): string
     {
-        $res = $this->postJson('/api/v1/pengajuan-cuti', [
+        $res = $this->postJson('/api/pengajuan-cuti', [
             'id_karyawan'     => $idKaryawan,
             'id_supir'        => $idSupir,
             'id_jenis_cuti'   => $idJenis,
@@ -68,7 +68,7 @@ class CutiTest extends TestCase
         $idJenis = $this->makeJenisCuti();
         $idKaryawan = $this->makeKaryawan();
 
-        $res = $this->postJson('/api/v1/pengajuan-cuti', [
+        $res = $this->postJson('/api/pengajuan-cuti', [
             'id_karyawan'     => $idKaryawan,
             'id_jenis_cuti'   => $idJenis,
             'tanggal_mulai'   => '2026-08-03',
@@ -88,7 +88,7 @@ class CutiTest extends TestCase
         $idKaryawan = $this->makeKaryawan();
         $this->buatPengajuan($idJenis, $idKaryawan);
 
-        $res = $this->postJson('/api/v1/pengajuan-cuti', [
+        $res = $this->postJson('/api/pengajuan-cuti', [
             'id_karyawan'     => $idKaryawan,
             'id_jenis_cuti'   => $idJenis,
             'tanggal_mulai'   => '2026-08-05',
@@ -105,9 +105,9 @@ class CutiTest extends TestCase
         $idKaryawan = $this->makeKaryawan();
         $idPengajuan = $this->buatPengajuan($idJenis, $idKaryawan); // 3 hari
 
-        $this->postJson("/api/v1/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(200);
+        $this->postJson("/api/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(200);
 
-        $res = $this->getJson("/api/v1/saldo-cuti?id_karyawan={$idKaryawan}&tahun=2026");
+        $res = $this->getJson("/api/saldo-cuti?id_karyawan={$idKaryawan}&tahun=2026");
         $res->assertStatus(200)
             ->assertJsonPath('data.jatah', 12)
             ->assertJsonPath('data.terpakai', 3)
@@ -122,7 +122,7 @@ class CutiTest extends TestCase
         // 20 hari > jatah 12
         $idPengajuan = $this->buatPengajuan($idJenis, $idKaryawan, null, '2026-08-03', '2026-08-22');
 
-        $this->postJson("/api/v1/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(422);
+        $this->postJson("/api/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(422);
     }
 
     public function test_jenis_tanpa_potong_saldo_tidak_mendebit(): void
@@ -132,9 +132,9 @@ class CutiTest extends TestCase
         $idKaryawan = $this->makeKaryawan();
         $idPengajuan = $this->buatPengajuan($idJenis, $idKaryawan);
 
-        $this->postJson("/api/v1/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(200);
+        $this->postJson("/api/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(200);
 
-        $res = $this->getJson("/api/v1/saldo-cuti?id_karyawan={$idKaryawan}&tahun=2026");
+        $res = $this->getJson("/api/saldo-cuti?id_karyawan={$idKaryawan}&tahun=2026");
         $res->assertStatus(200)->assertJsonPath('data.terpakai', 0)->assertJsonPath('data.sisa', 12);
     }
 
@@ -145,10 +145,10 @@ class CutiTest extends TestCase
         $idKaryawan = $this->makeKaryawan();
         $idPengajuan = $this->buatPengajuan($idJenis, $idKaryawan);
 
-        $this->postJson("/api/v1/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(200);
-        $this->postJson("/api/v1/pengajuan-cuti/{$idPengajuan}/batalkan")->assertStatus(200);
+        $this->postJson("/api/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(200);
+        $this->postJson("/api/pengajuan-cuti/{$idPengajuan}/batalkan")->assertStatus(200);
 
-        $res = $this->getJson("/api/v1/saldo-cuti?id_karyawan={$idKaryawan}&tahun=2026");
+        $res = $this->getJson("/api/saldo-cuti?id_karyawan={$idKaryawan}&tahun=2026");
         $res->assertStatus(200)->assertJsonPath('data.terpakai', 0)->assertJsonPath('data.sisa', 12);
     }
 
@@ -159,7 +159,7 @@ class CutiTest extends TestCase
         $idKaryawan = $this->makeKaryawan();
         $idPengajuan = $this->buatPengajuan($idJenis, $idKaryawan);
 
-        $res = $this->postJson("/api/v1/pengajuan-cuti/{$idPengajuan}/tolak", ['catatan' => 'Operasional padat']);
+        $res = $this->postJson("/api/pengajuan-cuti/{$idPengajuan}/tolak", ['catatan' => 'Operasional padat']);
         $res->assertStatus(200)
             ->assertJsonPath('data.status', 'ditolak')
             ->assertJsonPath('data.catatan_proses', 'Operasional padat');
@@ -170,14 +170,14 @@ class CutiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan();
 
-        $this->postJson('/api/v1/saldo-cuti/penyesuaian', [
+        $this->postJson('/api/saldo-cuti/penyesuaian', [
             'id_karyawan' => $idKaryawan,
             'tahun'       => 2026,
             'jumlah_hari' => 3,
             'keterangan'  => 'Carry forward 2025',
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/saldo-cuti?id_karyawan={$idKaryawan}&tahun=2026");
+        $res = $this->getJson("/api/saldo-cuti?id_karyawan={$idKaryawan}&tahun=2026");
         $res->assertStatus(200)->assertJsonPath('data.sisa', 15);
     }
 
@@ -187,7 +187,7 @@ class CutiTest extends TestCase
         $this->makeKaryawan('Andi Rekap', 'NIK-REKAP-01');
         $this->makeSupir('Supir Rekap');
 
-        $res = $this->getJson('/api/v1/saldo-cuti/rekap?tahun=2026');
+        $res = $this->getJson('/api/saldo-cuti/rekap?tahun=2026');
         $res->assertStatus(200);
         $data = $res->json('data');
         $tipe = array_column($data, 'tipe');
@@ -203,7 +203,7 @@ class CutiTest extends TestCase
 
         $hariIni = now()->toDateString();
         $idPengajuan = $this->buatPengajuan($idJenis, null, $idSupir, $hariIni, now()->addDays(2)->toDateString());
-        $this->postJson("/api/v1/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(200);
+        $this->postJson("/api/pengajuan-cuti/{$idPengajuan}/setujui")->assertStatus(200);
 
         $proyek = ProyekModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -222,7 +222,7 @@ class CutiTest extends TestCase
         ]);
         $trip = TripModel::create(['id_jadwal' => $jadwal->id_jadwal, 'status' => 'belum_mulai']);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin");
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/checkin");
         $res->assertStatus(422);
         $this->assertStringContainsString('cuti', strtolower($res->json('message')));
     }
@@ -231,18 +231,18 @@ class CutiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $resCreate = $this->postJson('/api/v1/jenis-cuti', [
+        $resCreate = $this->postJson('/api/jenis-cuti', [
             'nama_jenis'       => 'Cuti Melahirkan',
             'mengurangi_saldo' => false,
         ]);
         $resCreate->assertStatus(201)->assertJsonPath('data.mengurangi_saldo', false);
         $id = $resCreate->json('data.id_jenis_cuti');
 
-        $this->putJson("/api/v1/jenis-cuti/{$id}", ['nama_jenis' => 'Cuti Melahirkan 3 Bulan'])
+        $this->putJson("/api/jenis-cuti/{$id}", ['nama_jenis' => 'Cuti Melahirkan 3 Bulan'])
             ->assertStatus(200)
             ->assertJsonPath('data.nama_jenis', 'Cuti Melahirkan 3 Bulan');
 
-        $this->deleteJson("/api/v1/jenis-cuti/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/jenis-cuti/{$id}")->assertStatus(200);
         $this->assertSoftDeleted('jenis_cuti', ['id_jenis_cuti' => $id]);
     }
 }

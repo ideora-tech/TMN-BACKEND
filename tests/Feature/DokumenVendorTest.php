@@ -45,7 +45,7 @@ class DokumenVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $res = $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
+        $res = $this->postJson("/api/vendor/{$vendor->id_vendor}/dokumen", [
             'jenis_dokumen'  => 'SIUP',
             'nomor'          => 'SIUP-001',
             'berlaku_sampai' => now()->addDays(10)->toDateString(),
@@ -76,12 +76,12 @@ class DokumenVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
+        $this->postJson("/api/vendor/{$vendor->id_vendor}/dokumen", [
             'jenis_dokumen'  => 'NPWP',
             'berlaku_sampai' => now()->addDays(15)->toDateString(),
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen");
+        $res = $this->getJson("/api/vendor/{$vendor->id_vendor}/dokumen");
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -94,14 +94,14 @@ class DokumenVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $createRes = $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
+        $createRes = $this->postJson("/api/vendor/{$vendor->id_vendor}/dokumen", [
             'jenis_dokumen'  => 'NPWP',
             'berlaku_sampai' => now()->addDays(15)->toDateString(),
         ]);
         $createRes->assertStatus(201);
         $id = $createRes->json('data.id_dokumen_vendor');
 
-        $res = $this->putJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen/{$id}", [
+        $res = $this->putJson("/api/vendor/{$vendor->id_vendor}/dokumen/{$id}", [
             'nomor' => 'NPWP-999',
         ]);
 
@@ -130,7 +130,7 @@ class DokumenVendorTest extends TestCase
             'dibuat_pada'       => now(),
         ]);
 
-        $res = $this->putJson("/api/v1/vendor/{$vendorLain->id_vendor}/dokumen/{$idDokumen}", [
+        $res = $this->putJson("/api/vendor/{$vendorLain->id_vendor}/dokumen/{$idDokumen}", [
             'nomor' => 'SIUP-BARU',
         ]);
 
@@ -147,22 +147,22 @@ class DokumenVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $createRes = $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
+        $createRes = $this->postJson("/api/vendor/{$vendor->id_vendor}/dokumen", [
             'jenis_dokumen'  => 'NPWP',
             'berlaku_sampai' => now()->addDays(15)->toDateString(),
         ]);
         $createRes->assertStatus(201);
         $id = $createRes->json('data.id_dokumen_vendor');
 
-        $res = $this->deleteJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen/{$id}");
+        $res = $this->deleteJson("/api/vendor/{$vendor->id_vendor}/dokumen/{$id}");
         $res->assertStatus(200)->assertJsonPath('success', true);
 
         $row = DB::table('dokumen_vendor')->where('id_dokumen_vendor', $id)->first();
         $this->assertNotNull($row->dihapus_pada);
 
-        $this->getJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen")
+        $this->getJson("/api/vendor/{$vendor->id_vendor}/dokumen")
             ->assertStatus(200);
-        $this->assertCount(0, $this->getJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen")->json('data'));
+        $this->assertCount(0, $this->getJson("/api/vendor/{$vendor->id_vendor}/dokumen")->json('data'));
     }
 
     public function test_expiring_hanya_mengembalikan_dokumen_dalam_30_hari_milik_perusahaan_user(): void
@@ -171,13 +171,13 @@ class DokumenVendorTest extends TestCase
         $vendor = $this->makeVendor();
 
         // Dalam rentang 30 hari -> muncul
-        $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
+        $this->postJson("/api/vendor/{$vendor->id_vendor}/dokumen", [
             'jenis_dokumen'  => 'SIUP',
             'berlaku_sampai' => now()->addDays(20)->toDateString(),
         ])->assertStatus(201);
 
         // Lebih dari 30 hari -> tidak muncul
-        $this->postJson("/api/v1/vendor/{$vendor->id_vendor}/dokumen", [
+        $this->postJson("/api/vendor/{$vendor->id_vendor}/dokumen", [
             'jenis_dokumen'  => 'NPWP',
             'berlaku_sampai' => now()->addDays(60)->toDateString(),
         ])->assertStatus(201);
@@ -192,7 +192,7 @@ class DokumenVendorTest extends TestCase
             'dibuat_pada'       => now(),
         ]);
 
-        $res = $this->getJson('/api/v1/dokumen-vendor/expiring');
+        $res = $this->getJson('/api/dokumen-vendor/expiring');
 
         $res->assertStatus(200);
         $data = $res->json('data');

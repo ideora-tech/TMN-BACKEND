@@ -34,7 +34,7 @@ class PenggunaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $id = $this->makePengguna('SUPIR');
 
-        $this->getJson("/api/v1/pengguna/{$id}")
+        $this->getJson("/api/pengguna/{$id}")
             ->assertStatus(200)
             ->assertJsonPath('data.kode_peran', 'SUPIR');
     }
@@ -44,13 +44,13 @@ class PenggunaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $id = $this->makePengguna('SUPIR');
 
-        $this->putJson("/api/v1/pengguna/{$id}", ['kode_peran' => 'MANAGER'])
+        $this->putJson("/api/pengguna/{$id}", ['kode_peran' => 'MANAGER'])
             ->assertStatus(200)
             ->assertJsonPath('data.kode_peran', 'MANAGER');
 
         $this->assertSame('MANAGER', DB::table('pengguna')->where('id_pengguna', $id)->value('kode_peran'));
 
-        $this->putJson("/api/v1/pengguna/{$id}", ['username' => 'username_baru'])
+        $this->putJson("/api/pengguna/{$id}", ['username' => 'username_baru'])
             ->assertStatus(200)
             ->assertJsonPath('data.kode_peran', 'MANAGER');
     }
@@ -60,13 +60,13 @@ class PenggunaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $id = $this->makePengguna();
 
-        $this->putJson("/api/v1/pengguna/{$id}", ['password' => 'SandiBaru123!'])
+        $this->putJson("/api/pengguna/{$id}", ['password' => 'SandiBaru123!'])
             ->assertStatus(200);
 
         $hash = (string) DB::table('pengguna')->where('id_pengguna', $id)->value('kata_sandi');
         $this->assertTrue(Hash::check('SandiBaru123!', $hash));
 
-        $this->putJson("/api/v1/pengguna/{$id}", ['password' => 'pendek'])
+        $this->putJson("/api/pengguna/{$id}", ['password' => 'pendek'])
             ->assertStatus(422);
     }
 }

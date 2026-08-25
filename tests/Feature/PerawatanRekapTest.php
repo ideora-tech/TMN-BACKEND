@@ -62,7 +62,7 @@ class PerawatanRekapTest extends TestCase
         $this->makePerawatan($armadaA->id_armada, '2026-07-15', 200000);
         $this->makePerawatan($armadaB->id_armada, '2026-07-20', 300000);
 
-        $res = $this->getJson('/api/v1/perawatan-armada/rekap-per-unit');
+        $res = $this->getJson('/api/perawatan-armada/rekap-per-unit');
 
         $res->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -87,7 +87,7 @@ class PerawatanRekapTest extends TestCase
             ->update(['status' => 'dalam_proses']);
         $this->makePerawatan($armadaLama->id_armada, '2026-06-01', 50000); // status selesai — tidak boleh ikut
 
-        $res = $this->getJson('/api/v1/perawatan-armada?status=terjadwal,dalam_proses');
+        $res = $this->getJson('/api/perawatan-armada?status=terjadwal,dalam_proses');
 
         $res->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -101,11 +101,11 @@ class PerawatanRekapTest extends TestCase
         $armada = $this->makeArmada('B 4444 DD');
         $this->makePerawatan($armada->id_armada, '2026-07-01', 150000);
 
-        $this->get('/api/v1/perawatan-armada/rekap-per-unit/export/excel')->assertStatus(200);
-        $this->get('/api/v1/perawatan-armada/rekap-per-unit/export/pdf')->assertStatus(200)
+        $this->get('/api/perawatan-armada/rekap-per-unit/export/excel')->assertStatus(200);
+        $this->get('/api/perawatan-armada/rekap-per-unit/export/pdf')->assertStatus(200)
             ->assertHeader('content-type', 'application/pdf');
-        $this->get("/api/v1/armada/{$armada->id_armada}/perawatan/export/excel")->assertStatus(200);
-        $this->get("/api/v1/armada/{$armada->id_armada}/perawatan/export/pdf")->assertStatus(200)
+        $this->get("/api/armada/{$armada->id_armada}/perawatan/export/excel")->assertStatus(200);
+        $this->get("/api/armada/{$armada->id_armada}/perawatan/export/pdf")->assertStatus(200)
             ->assertHeader('content-type', 'application/pdf');
     }
 
@@ -116,7 +116,7 @@ class PerawatanRekapTest extends TestCase
         $this->makePerawatan($armada->id_armada, '2026-06-01', 100000);
         $this->makePerawatan($armada->id_armada, '2026-07-10', 250000);
 
-        $res = $this->getJson('/api/v1/perawatan-armada/rekap-per-unit?tanggal_dari=2026-07-01&tanggal_sampai=2026-07-31');
+        $res = $this->getJson('/api/perawatan-armada/rekap-per-unit?tanggal_dari=2026-07-01&tanggal_sampai=2026-07-31');
 
         $res->assertStatus(200)
             ->assertJsonCount(1, 'data')

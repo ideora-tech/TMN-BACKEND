@@ -50,7 +50,7 @@ class SupirVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $res = $this->postJson('/api/v1/supir-vendor', [
+        $res = $this->postJson('/api/supir-vendor', [
             'id_vendor' => $vendor->id_vendor,
             'nama'      => 'Andi Wijaya',
             'telepon'   => '081298765432',
@@ -75,7 +75,7 @@ class SupirVendorTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
 
-        $res = $this->postJson('/api/v1/supir-vendor', [
+        $res = $this->postJson('/api/supir-vendor', [
             'id_vendor' => $vendorLain->id_vendor,
             'nama'      => 'Coba Curang',
         ]);
@@ -99,13 +99,13 @@ class SupirVendorTest extends TestCase
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $this->makeSupirVendor($vendorLain->id_vendor, 'Supir Lain');
 
-        $res = $this->getJson('/api/v1/supir-vendor');
+        $res = $this->getJson('/api/supir-vendor');
         $res->assertStatus(200);
         $data = $res->json('data');
         $this->assertCount(2, $data);
         $this->assertSame(2, $res->json('meta.total'));
 
-        $resFiltered = $this->getJson('/api/v1/supir-vendor?id_vendor=' . $vendorA->id_vendor);
+        $resFiltered = $this->getJson('/api/supir-vendor?id_vendor=' . $vendorA->id_vendor);
         $resFiltered->assertStatus(200);
         $dataFiltered = $resFiltered->json('data');
         $this->assertCount(1, $dataFiltered);
@@ -119,7 +119,7 @@ class SupirVendorTest extends TestCase
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $supirLain = $this->makeSupirVendor($vendorLain->id_vendor);
 
-        $res = $this->getJson("/api/v1/supir-vendor/{$supirLain->id_supir_vendor}");
+        $res = $this->getJson("/api/supir-vendor/{$supirLain->id_supir_vendor}");
 
         $res->assertStatus(404);
     }
@@ -130,7 +130,7 @@ class SupirVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $supir = $this->makeSupirVendor($vendor->id_vendor);
 
-        $res = $this->putJson("/api/v1/supir-vendor/{$supir->id_supir_vendor}", [
+        $res = $this->putJson("/api/supir-vendor/{$supir->id_supir_vendor}", [
             'nama' => 'Budi Update',
         ]);
 
@@ -151,7 +151,7 @@ class SupirVendorTest extends TestCase
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $supirLain = $this->makeSupirVendor($vendorLain->id_vendor);
 
-        $res = $this->putJson("/api/v1/supir-vendor/{$supirLain->id_supir_vendor}", [
+        $res = $this->putJson("/api/supir-vendor/{$supirLain->id_supir_vendor}", [
             'nama' => 'Coba Update',
         ]);
 
@@ -167,7 +167,7 @@ class SupirVendorTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
 
-        $res = $this->putJson("/api/v1/supir-vendor/{$supir->id_supir_vendor}", [
+        $res = $this->putJson("/api/supir-vendor/{$supir->id_supir_vendor}", [
             'id_vendor' => $vendorLain->id_vendor,
         ]);
 
@@ -185,13 +185,13 @@ class SupirVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $supir = $this->makeSupirVendor($vendor->id_vendor);
 
-        $res = $this->deleteJson("/api/v1/supir-vendor/{$supir->id_supir_vendor}");
+        $res = $this->deleteJson("/api/supir-vendor/{$supir->id_supir_vendor}");
         $res->assertStatus(200)->assertJsonPath('success', true);
 
         $row = DB::table('supir_vendor')->where('id_supir_vendor', $supir->id_supir_vendor)->first();
         $this->assertNotNull($row->dihapus_pada);
 
-        $this->assertCount(0, $this->getJson('/api/v1/supir-vendor')->json('data'));
+        $this->assertCount(0, $this->getJson('/api/supir-vendor')->json('data'));
     }
 
     public function test_hapus_supir_vendor_milik_perusahaan_lain_mengembalikan_404(): void
@@ -201,7 +201,7 @@ class SupirVendorTest extends TestCase
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $supirLain = $this->makeSupirVendor($vendorLain->id_vendor);
 
-        $res = $this->deleteJson("/api/v1/supir-vendor/{$supirLain->id_supir_vendor}");
+        $res = $this->deleteJson("/api/supir-vendor/{$supirLain->id_supir_vendor}");
 
         $res->assertStatus(404);
     }

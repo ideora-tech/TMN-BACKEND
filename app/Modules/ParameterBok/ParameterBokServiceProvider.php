@@ -18,7 +18,7 @@ class ParameterBokServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:parameter-bok'])
             ->group(function () {
                 Route::apiResource('parameter-bok', ParameterBokController::class)

@@ -69,7 +69,7 @@ class SupirImportTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/supir/import/template');
+        $res = $this->get('/api/supir/import/template');
 
         $res->assertStatus(200);
         $res->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -85,7 +85,7 @@ class SupirImportTest extends TestCase
             ['Andi Wijaya', '9876543210', 'A', '2026-05-01', '081298765432', 'aktif', ''],
         ]);
 
-        $res = $this->postJson('/api/v1/supir/import', ['file' => $file]);
+        $res = $this->postJson('/api/supir/import', ['file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 2)
@@ -124,7 +124,7 @@ class SupirImportTest extends TestCase
             ['Status Salah', 'SIM-STATUS', '', '', '', 'salah', ''],         // baris 6: status salah
         ]);
 
-        $res = $this->postJson('/api/v1/supir/import', ['file' => $file]);
+        $res = $this->postJson('/api/supir/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
 
@@ -152,7 +152,7 @@ class SupirImportTest extends TestCase
             ['Dua', 'SIM-DUP', '', '', '', 'aktif', ''],
         ]);
 
-        $res = $this->postJson('/api/v1/supir/import', ['file' => $file]);
+        $res = $this->postJson('/api/supir/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 0);
         $gagal = $res->json('data.gagal');
@@ -170,7 +170,7 @@ class SupirImportTest extends TestCase
             ['', '', '', '', '', '', ''],
         ]);
 
-        $res = $this->postJson('/api/v1/supir/import', ['file' => $file]);
+        $res = $this->postJson('/api/supir/import', ['file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1)
@@ -183,7 +183,7 @@ class SupirImportTest extends TestCase
 
         $file = UploadedFile::fake()->create('data.txt', 10, 'text/plain');
 
-        $res = $this->postJson('/api/v1/supir/import', ['file' => $file]);
+        $res = $this->postJson('/api/supir/import', ['file' => $file]);
 
         $res->assertStatus(422);
     }
@@ -206,7 +206,7 @@ class SupirImportTest extends TestCase
             ['Rebut Armada', 'SIM-REBUT', '', '', '', 'aktif', 'B 5555 QQQ'],
         ]);
 
-        $res = $this->postJson('/api/v1/supir/import', ['file' => $file]);
+        $res = $this->postJson('/api/supir/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 0);
 
@@ -227,7 +227,7 @@ class SupirImportTest extends TestCase
             ['Dua', 'SIM-NOPOL2', '', '', '', 'aktif', 'B 7777 RRR'],
         ]);
 
-        $res = $this->postJson('/api/v1/supir/import', ['file' => $file]);
+        $res = $this->postJson('/api/supir/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 0);
         $gagal = $res->json('data.gagal');

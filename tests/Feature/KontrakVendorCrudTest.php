@@ -52,7 +52,7 @@ class KontrakVendorCrudTest extends TestCase
         $vendor  = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor);
 
-        $res = $this->putJson("/api/v1/kontrak-vendor/{$kontrak->id_kontrak_vendor}", [
+        $res = $this->putJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}", [
             'nomor_kontrak' => 'KV-2026-001',
             'jenis_layanan' => 'Angkutan kontainer',
             'rate'          => 150000,
@@ -81,7 +81,7 @@ class KontrakVendorCrudTest extends TestCase
         $vendor  = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor);
 
-        $this->deleteJson("/api/v1/kontrak-vendor/{$kontrak->id_kontrak_vendor}")
+        $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")
             ->assertStatus(200)
             ->assertJsonPath('success', true);
 
@@ -96,7 +96,7 @@ class KontrakVendorCrudTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $kontrakLain = $this->makeKontrak($this->makeVendorPerusahaanLain());
 
-        $this->getJson("/api/v1/kontrak-vendor/{$kontrakLain->id_kontrak_vendor}")
+        $this->getJson("/api/kontrak-vendor/{$kontrakLain->id_kontrak_vendor}")
             ->assertStatus(404);
     }
 
@@ -105,11 +105,11 @@ class KontrakVendorCrudTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $kontrakLain = $this->makeKontrak($this->makeVendorPerusahaanLain());
 
-        $this->putJson("/api/v1/kontrak-vendor/{$kontrakLain->id_kontrak_vendor}", [
+        $this->putJson("/api/kontrak-vendor/{$kontrakLain->id_kontrak_vendor}", [
             'rate' => 1,
         ])->assertStatus(404);
 
-        $this->deleteJson("/api/v1/kontrak-vendor/{$kontrakLain->id_kontrak_vendor}")
+        $this->deleteJson("/api/kontrak-vendor/{$kontrakLain->id_kontrak_vendor}")
             ->assertStatus(404);
 
         $row = DB::table('kontrak_vendor')
@@ -124,7 +124,7 @@ class KontrakVendorCrudTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendorLain = $this->makeVendorPerusahaanLain();
 
-        $this->postJson('/api/v1/kontrak-vendor', [
+        $this->postJson('/api/kontrak-vendor', [
             'id_vendor' => $vendorLain->id_vendor,
             'mekanisme' => 'unit_only',
         ])->assertStatus(404);
@@ -139,13 +139,13 @@ class KontrakVendorCrudTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $this->postJson('/api/v1/kontrak-vendor', [
+        $this->postJson('/api/kontrak-vendor', [
             'id_vendor' => $vendor->id_vendor,
             'mekanisme' => 'unit_only',
             'satuan'    => 'per kilo',
         ])->assertStatus(422);
 
-        $this->postJson('/api/v1/kontrak-vendor', [
+        $this->postJson('/api/kontrak-vendor', [
             'id_vendor' => $vendor->id_vendor,
             'mekanisme' => 'unit_only',
             'satuan'    => 'per trip',
@@ -157,7 +157,7 @@ class KontrakVendorCrudTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $res = $this->postJson('/api/v1/kontrak-vendor', [
+        $res = $this->postJson('/api/kontrak-vendor', [
             'id_vendor'     => $vendor->id_vendor,
             'nomor_kontrak' => 'KV-NULL-001',
             'mekanisme'     => 'unit_driver',
@@ -186,7 +186,7 @@ class KontrakVendorCrudTest extends TestCase
         $vendor  = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor);
 
-        $this->putJson("/api/v1/kontrak-vendor/{$kontrak->id_kontrak_vendor}", [
+        $this->putJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}", [
             'nilai_kontrak' => null,
         ])->assertStatus(200)
             ->assertJsonPath('data.nilai_kontrak', 0);
@@ -197,10 +197,10 @@ class KontrakVendorCrudTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendorLain = $this->makeVendorPerusahaanLain();
 
-        $this->getJson("/api/v1/vendor/{$vendorLain->id_vendor}")
+        $this->getJson("/api/vendor/{$vendorLain->id_vendor}")
             ->assertStatus(404);
 
-        $this->deleteJson("/api/v1/vendor/{$vendorLain->id_vendor}")
+        $this->deleteJson("/api/vendor/{$vendorLain->id_vendor}")
             ->assertStatus(404);
 
         $row = DB::table('vendor')->where('id_vendor', $vendorLain->id_vendor)->first();

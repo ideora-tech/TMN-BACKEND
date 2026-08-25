@@ -57,7 +57,7 @@ class ArmadaVendorTest extends TestCase
             'kode_jenis' => 'JK-AV1', 'nama_jenis' => 'Tronton', 'dibuat_pada' => now(),
         ]);
 
-        $this->postJson('/api/v1/armada-vendor', [
+        $this->postJson('/api/armada-vendor', [
             'id_vendor'          => $vendor->id_vendor,
             'nopol'              => 'B 7001 JK',
             'id_jenis_kendaraan' => $idJenis,
@@ -71,7 +71,7 @@ class ArmadaVendorTest extends TestCase
             'kode_jenis' => 'JK-AV2', 'nama_jenis' => 'Trailer', 'dibuat_pada' => now(),
         ]);
 
-        $this->postJson('/api/v1/armada-vendor', [
+        $this->postJson('/api/armada-vendor', [
             'id_vendor'          => $vendor->id_vendor,
             'nopol'              => 'B 7002 JK',
             'id_jenis_kendaraan' => $idJenisLain,
@@ -83,7 +83,7 @@ class ArmadaVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $res = $this->postJson('/api/v1/armada-vendor', [
+        $res = $this->postJson('/api/armada-vendor', [
             'id_vendor' => $vendor->id_vendor,
             'nopol'     => 'B 9999 ZZ',
             'merk'      => 'Hino',
@@ -109,7 +109,7 @@ class ArmadaVendorTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
 
-        $res = $this->postJson('/api/v1/armada-vendor', [
+        $res = $this->postJson('/api/armada-vendor', [
             'id_vendor' => $vendorLain->id_vendor,
             'nopol'     => 'B 8888 XX',
         ]);
@@ -133,13 +133,13 @@ class ArmadaVendorTest extends TestCase
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $this->makeArmadaVendor($vendorLain->id_vendor, 'B 3333 CC');
 
-        $res = $this->getJson('/api/v1/armada-vendor');
+        $res = $this->getJson('/api/armada-vendor');
         $res->assertStatus(200);
         $data = $res->json('data');
         $this->assertCount(2, $data);
         $this->assertSame(2, $res->json('meta.total'));
 
-        $resFiltered = $this->getJson('/api/v1/armada-vendor?id_vendor=' . $vendorA->id_vendor);
+        $resFiltered = $this->getJson('/api/armada-vendor?id_vendor=' . $vendorA->id_vendor);
         $resFiltered->assertStatus(200);
         $dataFiltered = $resFiltered->json('data');
         $this->assertCount(1, $dataFiltered);
@@ -153,7 +153,7 @@ class ArmadaVendorTest extends TestCase
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $armadaLain = $this->makeArmadaVendor($vendorLain->id_vendor);
 
-        $res = $this->getJson("/api/v1/armada-vendor/{$armadaLain->id_armada_vendor}");
+        $res = $this->getJson("/api/armada-vendor/{$armadaLain->id_armada_vendor}");
 
         $res->assertStatus(404);
     }
@@ -164,7 +164,7 @@ class ArmadaVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $armada = $this->makeArmadaVendor($vendor->id_vendor);
 
-        $res = $this->putJson("/api/v1/armada-vendor/{$armada->id_armada_vendor}", [
+        $res = $this->putJson("/api/armada-vendor/{$armada->id_armada_vendor}", [
             'nopol' => 'B 5555 UP',
         ]);
 
@@ -185,7 +185,7 @@ class ArmadaVendorTest extends TestCase
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $armadaLain = $this->makeArmadaVendor($vendorLain->id_vendor);
 
-        $res = $this->putJson("/api/v1/armada-vendor/{$armadaLain->id_armada_vendor}", [
+        $res = $this->putJson("/api/armada-vendor/{$armadaLain->id_armada_vendor}", [
             'nopol' => 'B 6666 UP',
         ]);
 
@@ -201,7 +201,7 @@ class ArmadaVendorTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $vendorLain = $this->makeVendor($idPerusahaanLain);
 
-        $res = $this->putJson("/api/v1/armada-vendor/{$armada->id_armada_vendor}", [
+        $res = $this->putJson("/api/armada-vendor/{$armada->id_armada_vendor}", [
             'id_vendor' => $vendorLain->id_vendor,
         ]);
 
@@ -219,13 +219,13 @@ class ArmadaVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $armada = $this->makeArmadaVendor($vendor->id_vendor);
 
-        $res = $this->deleteJson("/api/v1/armada-vendor/{$armada->id_armada_vendor}");
+        $res = $this->deleteJson("/api/armada-vendor/{$armada->id_armada_vendor}");
         $res->assertStatus(200)->assertJsonPath('success', true);
 
         $row = DB::table('armada_vendor')->where('id_armada_vendor', $armada->id_armada_vendor)->first();
         $this->assertNotNull($row->dihapus_pada);
 
-        $this->assertCount(0, $this->getJson('/api/v1/armada-vendor')->json('data'));
+        $this->assertCount(0, $this->getJson('/api/armada-vendor')->json('data'));
     }
 
     public function test_hapus_armada_vendor_milik_perusahaan_lain_mengembalikan_404(): void
@@ -235,7 +235,7 @@ class ArmadaVendorTest extends TestCase
         $vendorLain = $this->makeVendor($idPerusahaanLain);
         $armadaLain = $this->makeArmadaVendor($vendorLain->id_vendor);
 
-        $res = $this->deleteJson("/api/v1/armada-vendor/{$armadaLain->id_armada_vendor}");
+        $res = $this->deleteJson("/api/armada-vendor/{$armadaLain->id_armada_vendor}");
 
         $res->assertStatus(404);
     }

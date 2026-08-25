@@ -51,7 +51,7 @@ class IntervalPerawatanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/interval-perawatan', [
+        $res = $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'interval_hari'      => 180,
@@ -74,7 +74,7 @@ class IntervalPerawatanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/interval-perawatan', []);
+        $res = $this->postJson('/api/interval-perawatan', []);
 
         $res->assertStatus(422)->assertJsonValidationErrors(['id_jenis_perawatan', 'id_jenis_kendaraan', 'interval_km']);
     }
@@ -83,7 +83,7 @@ class IntervalPerawatanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/interval-perawatan', [
+        $res = $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'interval_km'        => 10000,
@@ -99,11 +99,11 @@ class IntervalPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
-        $this->postJson('/api/v1/interval-perawatan', [
+        $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'interval_hari' => 180, 'interval_km' => 10000,
         ])->assertStatus(201);
 
-        $res = $this->postJson('/api/v1/interval-perawatan', [
+        $res = $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'interval_hari' => 90, 'interval_km' => 5000,
         ]);
 
@@ -114,11 +114,11 @@ class IntervalPerawatanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisPerawatan();
-        $this->postJson('/api/v1/interval-perawatan', [
+        $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $this->makeJenisKendaraan('CDD'), 'interval_hari' => 180, 'interval_km' => 10000,
         ])->assertStatus(201);
 
-        $res = $this->postJson('/api/v1/interval-perawatan', [
+        $res = $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $this->makeJenisKendaraan('CDE'), 'interval_hari' => 150, 'interval_km' => 8000,
         ]);
 
@@ -130,7 +130,7 @@ class IntervalPerawatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
 
-        $res = $this->postJson('/api/v1/interval-perawatan', [
+        $res = $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan('Ganti Oli', $lain),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'interval_hari'      => 180,
@@ -143,14 +143,14 @@ class IntervalPerawatanTest extends TestCase
     public function test_list_memuat_nama_relasi(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson('/api/v1/interval-perawatan', [
+        $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'interval_hari'      => 180,
             'interval_km'        => 10000,
         ]);
 
-        $res = $this->getJson('/api/v1/interval-perawatan');
+        $res = $this->getJson('/api/interval-perawatan');
 
         $res->assertStatus(200);
         $row = $res->json('data')[0];
@@ -161,14 +161,14 @@ class IntervalPerawatanTest extends TestCase
     public function test_update_interval_berhasil(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/v1/interval-perawatan', [
+        $id = $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'interval_hari'      => 180,
             'interval_km'        => 10000,
         ])->json('data.id_interval_perawatan');
 
-        $res = $this->putJson("/api/v1/interval-perawatan/{$id}", ['interval_hari' => 200]);
+        $res = $this->putJson("/api/interval-perawatan/{$id}", ['interval_hari' => 200]);
 
         $res->assertStatus(200)->assertJsonPath('data.interval_hari', 200);
     }
@@ -179,14 +179,14 @@ class IntervalPerawatanTest extends TestCase
         $idJenisA = $this->makeJenisPerawatan('Ganti Oli');
         $idJenisB = $this->makeJenisPerawatan('Servis Besar');
         $idKendaraan = $this->makeJenisKendaraan();
-        $this->postJson('/api/v1/interval-perawatan', [
+        $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $idJenisA, 'id_jenis_kendaraan' => $idKendaraan, 'interval_hari' => 180, 'interval_km' => 10000,
         ])->assertStatus(201);
-        $idB = $this->postJson('/api/v1/interval-perawatan', [
+        $idB = $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $idJenisB, 'id_jenis_kendaraan' => $idKendaraan, 'interval_hari' => 600, 'interval_km' => 40000,
         ])->json('data.id_interval_perawatan');
 
-        $res = $this->putJson("/api/v1/interval-perawatan/{$idB}", ['id_jenis_perawatan' => $idJenisA]);
+        $res = $this->putJson("/api/interval-perawatan/{$idB}", ['id_jenis_perawatan' => $idJenisA]);
 
         $res->assertStatus(422);
     }
@@ -194,14 +194,14 @@ class IntervalPerawatanTest extends TestCase
     public function test_hapus_interval_soft_delete(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/v1/interval-perawatan', [
+        $id = $this->postJson('/api/interval-perawatan', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'interval_hari'      => 180,
             'interval_km'        => 10000,
         ])->json('data.id_interval_perawatan');
 
-        $this->deleteJson("/api/v1/interval-perawatan/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/interval-perawatan/{$id}")->assertStatus(200);
 
         $row = DB::table('interval_perawatan')->where('id_interval_perawatan', $id)->first();
         $this->assertNotNull($row->dihapus_pada);
@@ -222,9 +222,9 @@ class IntervalPerawatanTest extends TestCase
             'dibuat_pada'           => now(),
         ]);
 
-        $this->assertCount(0, $this->getJson('/api/v1/interval-perawatan')->json('data'));
-        $this->getJson("/api/v1/interval-perawatan/{$id}")->assertStatus(404);
-        $this->putJson("/api/v1/interval-perawatan/{$id}", ['interval_hari' => 1])->assertStatus(404);
-        $this->deleteJson("/api/v1/interval-perawatan/{$id}")->assertStatus(404);
+        $this->assertCount(0, $this->getJson('/api/interval-perawatan')->json('data'));
+        $this->getJson("/api/interval-perawatan/{$id}")->assertStatus(404);
+        $this->putJson("/api/interval-perawatan/{$id}", ['interval_hari' => 1])->assertStatus(404);
+        $this->deleteJson("/api/interval-perawatan/{$id}")->assertStatus(404);
     }
 }

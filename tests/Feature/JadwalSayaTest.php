@@ -16,7 +16,7 @@ class JadwalSayaTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Rute GET /api/v1/jadwal/saya dilindungi middleware `izin:jadwal`. Di
+     * Rute GET /api/jadwal/saya dilindungi middleware `izin:jadwal`. Di
      * produksi, IzinPeranSeeder memberi role SUPIR izin eksplisit 'lihat'
      * untuk menu '/jadwal' (lihat database/seeders/IzinPeranSeeder.php).
      * RefreshDatabase tidak menjalankan seeder otomatis, jadi izin itu perlu
@@ -74,7 +74,7 @@ class JadwalSayaTest extends TestCase
 
         Sanctum::actingAs($pengguna, ['*']);
 
-        $res = $this->getJson('/api/v1/jadwal/saya');
+        $res = $this->getJson('/api/jadwal/saya');
 
         // ApiResponse::paginated() mengembalikan amplop {data, meta} tanpa key
         // 'success' (lihat app/Helpers/ApiResponse.php dan kontrak paginated
@@ -100,7 +100,7 @@ class JadwalSayaTest extends TestCase
 
         Sanctum::actingAs($pengguna, ['*']);
 
-        $res = $this->getJson('/api/v1/jadwal/saya');
+        $res = $this->getJson('/api/jadwal/saya');
 
         $res->assertStatus(404);
     }

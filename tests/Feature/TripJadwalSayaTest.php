@@ -172,7 +172,7 @@ class TripJadwalSayaTest extends TestCase
         $idShift = $this->makeShift();
         $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-07-31');
 
-        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02');
+        $res = $this->getJson('/api/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02');
 
         $res->assertStatus(200)
             ->assertJsonCount(0, 'data');
@@ -186,7 +186,7 @@ class TripJadwalSayaTest extends TestCase
         $idShift = $this->makeShift();
         $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-07-31');
 
-        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02');
+        $res = $this->getJson('/api/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02');
 
         $res->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -203,7 +203,7 @@ class TripJadwalSayaTest extends TestCase
         $idShift = $this->makeShift();
         $this->makeJadwalShift($proyek->id_proyek, $idShift, $ctx->id_supir, '2026-07-31');
 
-        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02');
+        $res = $this->getJson('/api/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02');
 
         $res->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -222,7 +222,7 @@ class TripJadwalSayaTest extends TestCase
 
         $this->actingAsSupir();
 
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02')
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-07-27&sampai=2026-08-02')
             ->assertStatus(200)
             ->assertJsonCount(0, 'data');
     }
@@ -235,7 +235,7 @@ class TripJadwalSayaTest extends TestCase
         $a = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-03');
         $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-15');
 
-        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09');
+        $res = $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09');
 
         $res->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -256,7 +256,7 @@ class TripJadwalSayaTest extends TestCase
 
         $this->actingAsSupir();
 
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-01&sampai=2026-08-07')
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-08-01&sampai=2026-08-07')
             ->assertStatus(200)
             ->assertJsonCount(0, 'data');
     }
@@ -268,7 +268,7 @@ class TripJadwalSayaTest extends TestCase
         $p = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-03');
         $idTrip = $this->makeTrip($p->id_penugasan, 'berjalan', '2026-08-03 08:15:00');
 
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
             ->assertStatus(200)
             ->assertJsonPath('data.0.trip_berjalan.id_trip', $idTrip)
             ->assertJsonPath('data.0.trip_berjalan.status', 'berjalan')
@@ -281,7 +281,7 @@ class TripJadwalSayaTest extends TestCase
             'dibuat_pada'   => now(),
         ]);
 
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
             ->assertStatus(200)
             ->assertJsonPath('data.0.trip_berjalan.punya_laporan', true);
     }
@@ -295,7 +295,7 @@ class TripJadwalSayaTest extends TestCase
         $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-05');
         $idTrip = $this->makeTrip($p2->id_penugasan, 'berjalan', '2026-08-04 09:00:00');
 
-        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-05');
+        $res = $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-05');
 
         $res->assertStatus(200)
             ->assertJsonCount(3, 'data')
@@ -316,7 +316,7 @@ class TripJadwalSayaTest extends TestCase
         $this->makeTrip($p->id_penugasan, 'selesai', '2026-08-03 08:30:00', '2026-08-03 17:00:00');
         $this->makeTrip($p->id_penugasan, 'selesai', '2026-08-03 18:00:00', '2026-08-03 20:00:00');
 
-        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-04');
+        $res = $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-04');
 
         $res->assertStatus(200)
             ->assertJsonPath('data.0.tanggal_tugas', '2026-08-03')
@@ -341,7 +341,7 @@ class TripJadwalSayaTest extends TestCase
             'dibuat_pada'   => now(),
         ]);
 
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
             ->assertStatus(200)
             ->assertJsonPath('data.0.jumlah_trip_selesai', 2)
             ->assertJsonPath('data.0.jumlah_laporan_terisi', 1);
@@ -354,7 +354,7 @@ class TripJadwalSayaTest extends TestCase
         $p = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-05');
         $idTrip = $this->makeTrip($p->id_penugasan, 'berjalan', '2026-08-03 07:45:00');
 
-        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09');
+        $res = $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09');
 
         $res->assertStatus(200)
             ->assertJsonCount(2, 'data')
@@ -389,7 +389,7 @@ class TripJadwalSayaTest extends TestCase
             'dibuat_pada' => now(),
         ]);
 
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-03')
             ->assertStatus(200)
             ->assertJsonPath('data.0.armada.nopol', 'B 777 PJ');
     }
@@ -417,7 +417,7 @@ class TripJadwalSayaTest extends TestCase
             'tanggal_tugas' => '2026-08-05',
         ]);
 
-        $res = $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09');
+        $res = $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09');
 
         $res->assertStatus(200)
             ->assertJsonCount(1, 'data')
@@ -430,17 +430,17 @@ class TripJadwalSayaTest extends TestCase
     {
         $this->actingAsSupir();
 
-        $this->getJson('/api/v1/trip/jadwal-saya')->assertStatus(422);
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=03-08-2026&sampai=2026-08-09')->assertStatus(422);
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-09&sampai=2026-08-03')->assertStatus(422);
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-01-01&sampai=2026-12-31')->assertStatus(422);
+        $this->getJson('/api/trip/jadwal-saya')->assertStatus(422);
+        $this->getJson('/api/trip/jadwal-saya?dari=03-08-2026&sampai=2026-08-09')->assertStatus(422);
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-08-09&sampai=2026-08-03')->assertStatus(422);
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-01-01&sampai=2026-12-31')->assertStatus(422);
     }
 
     public function test_jadwal_saya_pengguna_tanpa_data_supir_404(): void
     {
         $this->actingAsPenggunaTanpaSupir();
 
-        $this->getJson('/api/v1/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09')
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-08-03&sampai=2026-08-09')
             ->assertStatus(404);
     }
 }

@@ -43,7 +43,7 @@ class PenugasanIdRuteTest extends TestCase
         $proyek = $this->makeProyek();
         $idRute = $this->makeRute();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_rute'   => $idRute,
         ]);
@@ -61,16 +61,16 @@ class PenugasanIdRuteTest extends TestCase
         $proyek = $this->makeProyek();
         $idRute = $this->makeRute();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_rute'   => $idRute,
         ]);
         $id = $create->json('data.id_penugasan');
 
-        $this->getJson("/api/v1/penugasan/{$id}")
+        $this->getJson("/api/penugasan/{$id}")
             ->assertStatus(200)->assertJsonPath('data.id_rute', $idRute);
 
-        $this->getJson('/api/v1/penugasan?id_proyek=' . $proyek->id_proyek)
+        $this->getJson('/api/penugasan?id_proyek=' . $proyek->id_proyek)
             ->assertStatus(200)->assertJsonPath('data.0.id_rute', $idRute);
     }
 
@@ -81,13 +81,13 @@ class PenugasanIdRuteTest extends TestCase
         $idRuteAwal = $this->makeRute();
         $idRuteBaru = $this->makeRute();
 
-        $create = $this->postJson('/api/v1/penugasan', [
+        $create = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_rute'   => $idRuteAwal,
         ]);
         $id = $create->json('data.id_penugasan');
 
-        $res = $this->putJson("/api/v1/penugasan/{$id}", ['id_rute' => $idRuteBaru]);
+        $res = $this->putJson("/api/penugasan/{$id}", ['id_rute' => $idRuteBaru]);
 
         $res->assertStatus(200)->assertJsonPath('data.id_rute', $idRuteBaru);
     }

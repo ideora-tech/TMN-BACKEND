@@ -32,7 +32,7 @@ class DepartemenTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/departemen', [
+        $res = $this->postJson('/api/departemen', [
             'nama_departemen' => 'Operasional',
         ]);
 
@@ -51,7 +51,7 @@ class DepartemenTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/departemen', [
+        $res = $this->postJson('/api/departemen', [
             'kode_departemen' => 'KODE-BEBAS',
             'nama_departemen' => 'Keuangan',
         ]);
@@ -67,7 +67,7 @@ class DepartemenTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeDepartemen(self::PERUSAHAAN_ID, 'HR');
 
-        $res = $this->getJson('/api/v1/departemen');
+        $res = $this->getJson('/api/departemen');
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -78,7 +78,7 @@ class DepartemenTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Keuangan');
 
-        $res = $this->getJson("/api/v1/departemen/{$item->id_departemen}");
+        $res = $this->getJson("/api/departemen/{$item->id_departemen}");
 
         $res->assertStatus(200)->assertJsonPath('data.nama_departemen', 'Keuangan');
     }
@@ -88,7 +88,7 @@ class DepartemenTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Lama');
 
-        $res = $this->putJson("/api/v1/departemen/{$item->id_departemen}", [
+        $res = $this->putJson("/api/departemen/{$item->id_departemen}", [
             'nama_departemen' => 'Baru',
         ]);
 
@@ -100,7 +100,7 @@ class DepartemenTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Dihapus');
 
-        $res = $this->deleteJson("/api/v1/departemen/{$item->id_departemen}");
+        $res = $this->deleteJson("/api/departemen/{$item->id_departemen}");
         $res->assertStatus(200);
 
         $row = DB::table('departemen')->where('id_departemen', $item->id_departemen)->first();
@@ -113,7 +113,7 @@ class DepartemenTest extends TestCase
         $induk = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Operasional');
         $anak = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Armada', $induk->id_departemen);
 
-        $res = $this->getJson('/api/v1/departemen/tree');
+        $res = $this->getJson('/api/departemen/tree');
 
         $res->assertStatus(200);
         $data = $res->json('data');

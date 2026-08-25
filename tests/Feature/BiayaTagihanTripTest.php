@@ -82,7 +82,7 @@ class BiayaTagihanTripTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'      => 500000,
             'uang_jalan'     => 200000,
             'biaya_tagihan'  => [
@@ -104,7 +104,7 @@ class BiayaTagihanTripTest extends TestCase
             'dihapus_pada' => null,
         ]);
 
-        $updateRes = $this->putJson("/api/v1/laporan-perjalanan/{$idLaporan}", [
+        $updateRes = $this->putJson("/api/laporan-perjalanan/{$idLaporan}", [
             'biaya_tagihan' => [
                 ['nama_biaya' => 'TKBM', 'nominal' => 100000],
             ],
@@ -133,14 +133,14 @@ class BiayaTagihanTripTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'uang_jalan'    => 100000,
             'biaya_tagihan' => [
                 ['nama_biaya' => 'Multidrop', 'nominal' => 150000],
             ],
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}/rekap-biaya");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}/rekap-biaya");
 
         $res->assertStatus(200);
         $this->assertEquals(100000, $res->json('data.total_keseluruhan'));
@@ -151,7 +151,7 @@ class BiayaTagihanTripTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTrip('selesai');
 
-        $createRes = $this->postJson("/api/v1/trip/{$trip->id_trip}/laporan-perjalanan", [
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
             'biaya_bbm'  => 500000,
             'uang_jalan' => 200000,
         ]);
@@ -175,7 +175,7 @@ class BiayaTagihanTripTest extends TestCase
             'dibuat_pada'    => now(),
         ]);
 
-        $res = $this->putJson("/api/v1/laporan-perjalanan/{$idLaporan}", [
+        $res = $this->putJson("/api/laporan-perjalanan/{$idLaporan}", [
             'biaya_bbm'     => 999999,
             'biaya_tagihan' => [
                 ['nama_biaya' => 'Multidrop', 'nominal' => 150000],

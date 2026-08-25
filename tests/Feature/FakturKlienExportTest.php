@@ -57,7 +57,7 @@ class FakturKlienExportTest extends TestCase
         $idKlien = $this->makeKlien('PT Klien Excel');
         $faktur  = $this->makeFaktur($idKlien);
 
-        $res = $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/excel");
+        $res = $this->get("/api/faktur/{$faktur->id_faktur}/export/excel");
 
         $res->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', $res->headers->get('Content-Type'));
@@ -70,7 +70,7 @@ class FakturKlienExportTest extends TestCase
         $idKlien = $this->makeKlien('PT Klien PDF');
         $faktur  = $this->makeFaktur($idKlien);
 
-        $res = $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/pdf");
+        $res = $this->get("/api/faktur/{$faktur->id_faktur}/export/pdf");
 
         $res->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $res->headers->get('Content-Type'));
@@ -91,7 +91,7 @@ class FakturKlienExportTest extends TestCase
             'tanggal_faktur' => now()->toDateString(),
         ]);
 
-        $res = $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/pdf");
+        $res = $this->get("/api/faktur/{$faktur->id_faktur}/export/pdf");
 
         $res->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $res->headers->get('Content-Type'));
@@ -120,7 +120,7 @@ class FakturKlienExportTest extends TestCase
 
         $faktur = $this->makeFaktur($idKlienLain, $idPerusahaanLain);
 
-        $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/excel")->assertStatus(404);
-        $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/pdf")->assertStatus(404);
+        $this->get("/api/faktur/{$faktur->id_faktur}/export/excel")->assertStatus(404);
+        $this->get("/api/faktur/{$faktur->id_faktur}/export/pdf")->assertStatus(404);
     }
 }

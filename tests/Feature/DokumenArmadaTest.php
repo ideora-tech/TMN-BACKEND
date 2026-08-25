@@ -44,7 +44,7 @@ class DokumenArmadaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
-        $res = $this->post("/api/v1/armada/{$armada->id_armada}/dokumen", [
+        $res = $this->post("/api/armada/{$armada->id_armada}/dokumen", [
             'jenis_dokumen'  => 'KIR',
             'nomor'          => 'KIR-001',
             'berlaku_sampai' => '2027-01-01',
@@ -75,12 +75,12 @@ class DokumenArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $dokumen = $this->makeDokumen($armada->id_armada);
 
-        $resUpdate = $this->putJson("/api/v1/armada/{$armada->id_armada}/dokumen/{$dokumen->id_dokumen_armada}", [
+        $resUpdate = $this->putJson("/api/armada/{$armada->id_armada}/dokumen/{$dokumen->id_dokumen_armada}", [
             'nomor' => 'STNK-UPDATED',
         ]);
         $resUpdate->assertStatus(200)->assertJsonPath('data.nomor', 'STNK-UPDATED');
 
-        $resDelete = $this->deleteJson("/api/v1/armada/{$armada->id_armada}/dokumen/{$dokumen->id_dokumen_armada}");
+        $resDelete = $this->deleteJson("/api/armada/{$armada->id_armada}/dokumen/{$dokumen->id_dokumen_armada}");
         $resDelete->assertStatus(200);
 
         $this->assertSoftDeleted('dokumen_armada', ['id_dokumen_armada' => $dokumen->id_dokumen_armada]);
@@ -101,7 +101,7 @@ class DokumenArmadaTest extends TestCase
         ]);
         $this->makeDokumen($idArmadaLain);
 
-        $res = $this->getJson('/api/v1/dokumen-armada');
+        $res = $this->getJson('/api/dokumen-armada');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -118,11 +118,11 @@ class DokumenArmadaTest extends TestCase
         $this->makeDokumen($armadaA->id_armada, 'STNK');
         $this->makeDokumen($armadaB->id_armada, 'KIR');
 
-        $resByArmada = $this->getJson("/api/v1/dokumen-armada?id_armada={$armadaA->id_armada}");
+        $resByArmada = $this->getJson("/api/dokumen-armada?id_armada={$armadaA->id_armada}");
         $resByArmada->assertStatus(200);
         $this->assertCount(1, $resByArmada->json('data'));
 
-        $resByJenis = $this->getJson('/api/v1/dokumen-armada?jenis_dokumen=KIR');
+        $resByJenis = $this->getJson('/api/dokumen-armada?jenis_dokumen=KIR');
         $resByJenis->assertStatus(200);
         $this->assertCount(1, $resByJenis->json('data'));
         $this->assertSame('KIR', $resByJenis->json('data.0.jenis_dokumen'));
@@ -134,7 +134,7 @@ class DokumenArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $this->makeDokumen($armada->id_armada, 'STNK', now()->addDays(10)->toDateString());
 
-        $res = $this->getJson('/api/v1/dokumen-armada/expiring?days=30');
+        $res = $this->getJson('/api/dokumen-armada/expiring?days=30');
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));

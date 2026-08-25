@@ -73,7 +73,7 @@ class PembelianRiwayatApprovalTest extends TestCase
             'disetujui_pada' => '2026-08-12 10:00:00',
         ]);
 
-        $res = $this->getJson("/api/v1/pembelian-sparepart/{$pembelian}");
+        $res = $this->getJson("/api/pembelian-sparepart/{$pembelian}");
         $res->assertStatus(200);
 
         $info = $res->json('data.pengajuan_keuangan');
@@ -94,7 +94,7 @@ class PembelianRiwayatApprovalTest extends TestCase
         $supplier  = $this->buatSupplier();
         $pembelian = $this->buatPembelian($supplier, ['id_perawatan' => (string) Str::uuid()]);
 
-        $res = $this->getJson("/api/v1/pembelian-sparepart/{$pembelian}");
+        $res = $this->getJson("/api/pembelian-sparepart/{$pembelian}");
         $res->assertStatus(200);
         $this->assertNull($res->json('data.pengajuan_keuangan'));
     }
@@ -110,7 +110,7 @@ class PembelianRiwayatApprovalTest extends TestCase
             'diubah_pada'    => '2026-08-11 11:00:00',
         ]);
 
-        $res = $this->getJson("/api/v1/pembelian-sparepart/{$pembelian}");
+        $res = $this->getJson("/api/pembelian-sparepart/{$pembelian}");
         $res->assertStatus(200);
 
         $riwayat = $res->json('data.pengajuan_keuangan.riwayat');

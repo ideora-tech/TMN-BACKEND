@@ -47,7 +47,7 @@ class GabungAksesMenuIzinTest extends TestCase
 
     private function namaMenuTree(): array
     {
-        $res = $this->getJson('/api/v1/menu/tree')->assertStatus(200);
+        $res = $this->getJson('/api/menu/tree')->assertStatus(200);
         $ambil = function (array $nodes) use (&$ambil): array {
             $hasil = [];
             foreach ($nodes as $n) {
@@ -135,8 +135,8 @@ class GabungAksesMenuIzinTest extends TestCase
     public function test_endpoint_akses_peran_sudah_hilang(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->getJson('/api/v1/menu/akses-peran')->assertStatus(404);
-        $this->putJson('/api/v1/menu/akses-peran/MANAGER', ['id_menu' => []])->assertStatus(404);
+        $this->getJson('/api/menu/akses-peran')->assertStatus(404);
+        $this->putJson('/api/menu/akses-peran/MANAGER', ['id_menu' => []])->assertStatus(404);
     }
 
     public function test_migrasi_materialisasi_menyalin_menu_peran_tanpa_menimpa_revoke(): void

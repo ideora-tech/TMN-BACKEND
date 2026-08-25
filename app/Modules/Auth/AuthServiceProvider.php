@@ -17,7 +17,7 @@ class AuthServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1/auth')
+        Route::prefix('api/auth')
             ->middleware('api')
             ->group(function () {
                 Route::post('login', [AuthController::class, 'login']);

@@ -97,7 +97,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('tersedia', 'selesai');
 
-        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
+        $res = $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
 
         $res->assertStatus(422);
         $this->assertStringContainsString('selesai', $res->json('message'));
@@ -109,7 +109,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('tersedia', 'batal');
 
-        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
+        $res = $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
 
         $res->assertStatus(422);
         $this->assertStringContainsString('batal', $res->json('message'));
@@ -120,7 +120,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $pending = $this->makePenugasan('digunakan', 'pending');
-        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $pending->id_penugasan]);
+        $res = $this->postJson('/api/trip/mulai', ['id_penugasan' => $pending->id_penugasan]);
 
         $res->assertStatus(422);
         $this->assertStringContainsString('pending', $res->json('message'));
@@ -132,7 +132,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $aktif = $this->makePenugasan('digunakan', 'aktif');
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $aktif->id_penugasan])->assertStatus(201);
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $aktif->id_penugasan])->assertStatus(201);
     }
 
     public function test_checkout_dengan_selesaikan_penugasan_menyelesaikan_penugasan_dan_melepas_armada(): void
@@ -142,7 +142,7 @@ class TripPenugasanSinkronTest extends TestCase
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
         $this->buatLaporanKosong($trip->id_trip);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
 
         $res->assertStatus(200)->assertJsonPath('data.status', 'selesai');
         $this->assertDatabaseHas('penugasan', [
@@ -162,7 +162,7 @@ class TripPenugasanSinkronTest extends TestCase
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
         $this->buatLaporanKosong($trip->id_trip);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkout")->assertStatus(200);
 
         $this->assertDatabaseHas('penugasan', [
             'id_penugasan' => $penugasan->id_penugasan,
@@ -186,7 +186,7 @@ class TripPenugasanSinkronTest extends TestCase
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
         $this->buatLaporanKosong($trip->id_trip);
 
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true])
+        $this->postJson("/api/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true])
             ->assertStatus(200);
 
         $this->assertDatabaseHas('penugasan', [
@@ -209,10 +209,10 @@ class TripPenugasanSinkronTest extends TestCase
         $tripBerjalan  = $this->makeTripUntukPenugasan($penugasanLain, 'berjalan');
         $tripBelum     = $this->makeTripUntukPenugasan($this->makePenugasan('digunakan', 'aktif', $idPerusahaanLain), 'belum_mulai');
 
-        $this->getJson("/api/v1/trip/{$tripBerjalan->id_trip}")->assertStatus(404);
-        $this->postJson("/api/v1/trip/{$tripBelum->id_trip}/checkin")->assertStatus(404);
-        $this->postJson("/api/v1/trip/{$tripBerjalan->id_trip}/checkout")->assertStatus(404);
-        $this->deleteJson("/api/v1/trip/{$tripBerjalan->id_trip}")->assertStatus(404);
+        $this->getJson("/api/trip/{$tripBerjalan->id_trip}")->assertStatus(404);
+        $this->postJson("/api/trip/{$tripBelum->id_trip}/checkin")->assertStatus(404);
+        $this->postJson("/api/trip/{$tripBerjalan->id_trip}/checkout")->assertStatus(404);
+        $this->deleteJson("/api/trip/{$tripBerjalan->id_trip}")->assertStatus(404);
 
         $this->assertDatabaseHas('trip', [
             'id_trip'      => $tripBerjalan->id_trip,
@@ -227,10 +227,10 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'belum_mulai');
 
-        $this->getJson("/api/v1/trip/{$trip->id_trip}")->assertStatus(200);
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin")->assertStatus(200);
+        $this->getJson("/api/trip/{$trip->id_trip}")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkin")->assertStatus(200);
         $this->buatLaporanKosong($trip->id_trip);
-        $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout")->assertStatus(200);
+        $this->postJson("/api/trip/{$trip->id_trip}/checkout")->assertStatus(200);
     }
 
     public function test_checkout_selesaikan_ditolak_bila_masih_ada_trip_lain_non_final(): void
@@ -241,7 +241,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->makeTripUntukPenugasan($penugasan, 'belum_mulai');
         $this->buatLaporanKosong($tripA->id_trip);
 
-        $res = $this->postJson("/api/v1/trip/{$tripA->id_trip}/checkout", ['selesaikan_penugasan' => true]);
+        $res = $this->postJson("/api/trip/{$tripA->id_trip}/checkout", ['selesaikan_penugasan' => true]);
 
         $res->assertStatus(422);
         $this->assertStringContainsString('trip lain', $res->json('message'));
@@ -256,7 +256,7 @@ class TripPenugasanSinkronTest extends TestCase
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
         $this->buatLaporanKosong($trip->id_trip);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
 
         $res->assertStatus(422);
         $this->assertDatabaseHas('trip', ['id_trip' => $trip->id_trip, 'status' => 'berjalan']);
@@ -316,7 +316,7 @@ class TripPenugasanSinkronTest extends TestCase
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
         $this->buatLaporanKosong($trip->id_trip);
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/checkout", ['selesaikan_penugasan' => true]);
 
         $res->assertStatus(200)->assertJsonPath('data.status', 'selesai');
         $this->assertDatabaseHas('penugasan', [
@@ -336,7 +336,7 @@ class TripPenugasanSinkronTest extends TestCase
             'waktu_berangkat' => now(),
         ]);
 
-        $this->postJson('/api/v1/trip', ['id_jadwal' => $jadwalLain->id_jadwal])->assertStatus(404);
+        $this->postJson('/api/trip', ['id_jadwal' => $jadwalLain->id_jadwal])->assertStatus(404);
         $this->assertSame(0, DB::table('trip')->count());
     }
 
@@ -349,7 +349,7 @@ class TripPenugasanSinkronTest extends TestCase
             'waktu_berangkat' => now(),
         ]);
 
-        $res = $this->postJson('/api/v1/trip', ['id_jadwal' => $jadwal->id_jadwal]);
+        $res = $this->postJson('/api/trip', ['id_jadwal' => $jadwal->id_jadwal]);
 
         $res->assertStatus(422);
         $this->assertStringContainsString('selesai', $res->json('message'));
@@ -361,7 +361,7 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasan = $this->makePenugasan('tersedia', 'batal');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'belum_mulai');
 
-        $res = $this->postJson("/api/v1/trip/{$trip->id_trip}/checkin");
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/checkin");
 
         $res->assertStatus(422);
         $this->assertDatabaseHas('trip', ['id_trip' => $trip->id_trip, 'status' => 'belum_mulai']);
@@ -373,7 +373,7 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasan = $this->makePenugasan('tersedia', 'batal');
 
         foreach (['aktif', 'pending', 'selesai'] as $statusBaru) {
-            $res = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", ['status' => $statusBaru]);
+            $res = $this->putJson("/api/penugasan/{$penugasan->id_penugasan}", ['status' => $statusBaru]);
             $res->assertStatus(422);
             $this->assertStringContainsString('dibatalkan', $res->json('message'));
         }
@@ -386,7 +386,7 @@ class TripPenugasanSinkronTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('tersedia', 'selesai');
 
-        $res = $this->putJson("/api/v1/penugasan/{$penugasan->id_penugasan}", ['status' => 'aktif']);
+        $res = $this->putJson("/api/penugasan/{$penugasan->id_penugasan}", ['status' => 'aktif']);
 
         $res->assertStatus(200);
         $this->assertDatabaseHas('penugasan', ['id_penugasan' => $penugasan->id_penugasan, 'status' => 'aktif']);
@@ -398,7 +398,7 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $this->makeTripUntukPenugasan($penugasan, 'berjalan');
 
-        $res = $this->deleteJson("/api/v1/penugasan/{$penugasan->id_penugasan}");
+        $res = $this->deleteJson("/api/penugasan/{$penugasan->id_penugasan}");
 
         $res->assertStatus(422);
         $this->assertDatabaseHas('penugasan', ['id_penugasan' => $penugasan->id_penugasan, 'dihapus_pada' => null]);
@@ -410,7 +410,7 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $this->makeTripUntukPenugasan($penugasan, 'selesai');
 
-        $this->deleteJson("/api/v1/penugasan/{$penugasan->id_penugasan}")->assertStatus(200);
+        $this->deleteJson("/api/penugasan/{$penugasan->id_penugasan}")->assertStatus(200);
     }
 
     public function test_hapus_penugasan_selesai_ditolak(): void
@@ -419,7 +419,7 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasan = $this->makePenugasan('tersedia', 'selesai');
         $this->makeTripUntukPenugasan($penugasan, 'selesai');
 
-        $res = $this->deleteJson("/api/v1/penugasan/{$penugasan->id_penugasan}");
+        $res = $this->deleteJson("/api/penugasan/{$penugasan->id_penugasan}");
 
         $res->assertStatus(422);
         $this->assertStringContainsString('selesai', $res->json('message'));
@@ -432,7 +432,7 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $trip = $this->makeTripUntukPenugasan($penugasan, 'berjalan');
 
-        $res = $this->deleteJson("/api/v1/jadwal/{$trip->id_jadwal}");
+        $res = $this->deleteJson("/api/jadwal/{$trip->id_jadwal}");
 
         $res->assertStatus(422);
         $this->assertDatabaseHas('jadwal_keberangkatan', ['id_jadwal' => $trip->id_jadwal, 'dihapus_pada' => null]);
@@ -446,8 +446,8 @@ class TripPenugasanSinkronTest extends TestCase
         $penugasanLain = $this->makePenugasan('digunakan', 'aktif', $idPerusahaanLain);
         $tripLain = $this->makeTripUntukPenugasan($penugasanLain, 'berjalan');
 
-        $this->getJson("/api/v1/trip/{$tripLain->id_trip}/status")->assertStatus(404);
-        $this->postJson("/api/v1/trip/{$tripLain->id_trip}/status", ['status' => 'berangkat'])->assertStatus(404);
+        $this->getJson("/api/trip/{$tripLain->id_trip}/status")->assertStatus(404);
+        $this->postJson("/api/trip/{$tripLain->id_trip}/status", ['status' => 'berangkat'])->assertStatus(404);
         $this->assertSame(0, DB::table('status_trip')->count());
     }
 }

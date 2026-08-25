@@ -60,7 +60,7 @@ class PembayaranVendorTest extends TestCase
 
     private function bayar(string $idInvoice, float $nominal, array $extra = [])
     {
-        return $this->postJson("/api/v1/invoice-vendor/{$idInvoice}/pembayaran", array_merge([
+        return $this->postJson("/api/invoice-vendor/{$idInvoice}/pembayaran", array_merge([
             'tanggal_bayar' => now()->toDateString(),
             'nominal'       => $nominal,
             'metode'        => 'transfer',
@@ -72,7 +72,7 @@ class PembayaranVendorTest extends TestCase
         $this->actingAsRole('KEUANGAN');
         $vendor = $this->makeVendor();
 
-        $create = $this->postJson('/api/v1/invoice-vendor', [
+        $create = $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-ALUR-001',
             'tanggal_invoice' => now()->toDateString(),
@@ -85,7 +85,7 @@ class PembayaranVendorTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('message', 'Invoice belum diverifikasi');
 
-        $this->patchJson("/api/v1/invoice-vendor/{$idInvoice}/verifikasi", ['aksi' => 'verifikasi'])
+        $this->patchJson("/api/invoice-vendor/{$idInvoice}/verifikasi", ['aksi' => 'verifikasi'])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'diverifikasi');
 
@@ -101,7 +101,7 @@ class PembayaranVendorTest extends TestCase
             'status_pembayaran' => 'lunas',
         ]);
 
-        $detail = $this->getJson("/api/v1/invoice-vendor/{$idInvoice}");
+        $detail = $this->getJson("/api/invoice-vendor/{$idInvoice}");
         $this->assertSame(10000000.0, (float) $detail->json('data.total_dibayar'));
         $this->assertSame(0.0, (float) $detail->json('data.sisa'));
         $this->assertCount(2, $detail->json('data.pembayaran'));
@@ -187,7 +187,7 @@ class PembayaranVendorTest extends TestCase
         $this->bayar($idInvoice, 2000000)->assertStatus(201);
         $this->bayar($idInvoiceLain, 3000000)->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/invoice-vendor/{$idInvoice}/pembayaran");
+        $res = $this->getJson("/api/invoice-vendor/{$idInvoice}/pembayaran");
 
         $res->assertStatus(200)->assertJsonPath('success', true);
         $this->assertCount(2, $res->json('data'));
@@ -209,7 +209,7 @@ class PembayaranVendorTest extends TestCase
             'status_pembayaran' => 'lunas',
         ]);
 
-        $this->deleteJson("/api/v1/invoice-vendor/{$idInvoice}/pembayaran/{$idPembayaran}")
+        $this->deleteJson("/api/invoice-vendor/{$idInvoice}/pembayaran/{$idPembayaran}")
             ->assertStatus(200)
             ->assertJsonPath('success', true);
 
@@ -232,7 +232,7 @@ class PembayaranVendorTest extends TestCase
         $bayar->assertStatus(201);
         $idPembayaran = $bayar->json('data.id_pembayaran_vendor');
 
-        $this->deleteJson("/api/v1/invoice-vendor/{$idInvoice}/pembayaran/{$idPembayaran}")
+        $this->deleteJson("/api/invoice-vendor/{$idInvoice}/pembayaran/{$idPembayaran}")
             ->assertStatus(200);
 
         $this->assertDatabaseHas('invoice_vendor', [
@@ -259,9 +259,9 @@ class PembayaranVendorTest extends TestCase
             'dibuat_pada'          => now(),
         ]);
 
-        $this->getJson("/api/v1/invoice-vendor/{$idInvoiceLain}/pembayaran")->assertStatus(404);
+        $this->getJson("/api/invoice-vendor/{$idInvoiceLain}/pembayaran")->assertStatus(404);
         $this->bayar($idInvoiceLain, 1000000)->assertStatus(404);
-        $this->deleteJson("/api/v1/invoice-vendor/{$idInvoiceLain}/pembayaran/{$idPembayaranLain}")
+        $this->deleteJson("/api/invoice-vendor/{$idInvoiceLain}/pembayaran/{$idPembayaranLain}")
             ->assertStatus(404);
 
         $row = DB::table('pembayaran_vendor')->where('id_pembayaran_vendor', $idPembayaranLain)->first();
@@ -283,7 +283,7 @@ class PembayaranVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $idInvoice = $this->insertInvoice($vendor->id_vendor);
 
-        $this->getJson("/api/v1/invoice-vendor/{$idInvoice}/pembayaran")->assertStatus(200);
+        $this->getJson("/api/invoice-vendor/{$idInvoice}/pembayaran")->assertStatus(200);
         $this->bayar($idInvoice, 5000000)->assertStatus(403);
     }
 

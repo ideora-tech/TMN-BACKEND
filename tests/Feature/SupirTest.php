@@ -39,7 +39,7 @@ class SupirTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama'   => 'Budi Santoso',
             'no_sim' => 'SIM-12345',
         ]);
@@ -67,7 +67,7 @@ class SupirTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawanTaut();
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama'        => 'Supir Tertaut',
             'no_sim'      => 'SIM-TAUT-1',
             'id_karyawan' => $idKaryawan,
@@ -81,11 +81,11 @@ class SupirTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawanTaut('NIK-TAUT-02');
 
-        $this->postJson('/api/v1/supir', [
+        $this->postJson('/api/supir', [
             'nama' => 'Supir Pertama', 'no_sim' => 'SIM-TAUT-2', 'id_karyawan' => $idKaryawan,
         ])->assertStatus(201);
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama' => 'Supir Kedua', 'no_sim' => 'SIM-TAUT-3', 'id_karyawan' => $idKaryawan,
         ]);
 
@@ -102,7 +102,7 @@ class SupirTest extends TestCase
             'nik' => 'NIK-LAIN-TAUT', 'nama_karyawan' => 'Orang Lain', 'aktif' => 1, 'dibuat_pada' => now(),
         ]);
 
-        $this->postJson('/api/v1/supir', [
+        $this->postJson('/api/supir', [
             'nama' => 'Supir Nakal', 'no_sim' => 'SIM-TAUT-4', 'id_karyawan' => $idKaryawanLain,
         ])->assertStatus(404);
     }
@@ -127,7 +127,7 @@ class SupirTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idPengguna = $this->makePenggunaSupir();
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama' => 'Supir Mobile', 'no_sim' => 'SIM-AKUN-1', 'id_pengguna' => $idPengguna,
         ]);
         $res->assertStatus(201)->assertJsonPath('data.id_pengguna', $idPengguna);
@@ -135,13 +135,13 @@ class SupirTest extends TestCase
         $idSupir = $res->json('data.id_supir');
         $idPenggunaBaru = $this->makePenggunaSupir();
 
-        $this->putJson("/api/v1/supir/{$idSupir}", ['id_pengguna' => $idPenggunaBaru])
+        $this->putJson("/api/supir/{$idSupir}", ['id_pengguna' => $idPenggunaBaru])
             ->assertStatus(200)->assertJsonPath('data.id_pengguna', $idPenggunaBaru);
 
-        $this->putJson("/api/v1/supir/{$idSupir}", ['id_pengguna' => $idPenggunaBaru])
+        $this->putJson("/api/supir/{$idSupir}", ['id_pengguna' => $idPenggunaBaru])
             ->assertStatus(200)->assertJsonPath('data.id_pengguna', $idPenggunaBaru);
 
-        $this->putJson("/api/v1/supir/{$idSupir}", ['id_pengguna' => null])
+        $this->putJson("/api/supir/{$idSupir}", ['id_pengguna' => null])
             ->assertStatus(200)->assertJsonPath('data.id_pengguna', null);
     }
 
@@ -150,11 +150,11 @@ class SupirTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idPengguna = $this->makePenggunaSupir();
 
-        $this->postJson('/api/v1/supir', [
+        $this->postJson('/api/supir', [
             'nama' => 'Supir Pertama', 'no_sim' => 'SIM-AKUN-2', 'id_pengguna' => $idPengguna,
         ])->assertStatus(201);
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama' => 'Supir Kedua', 'no_sim' => 'SIM-AKUN-3', 'id_pengguna' => $idPengguna,
         ]);
         $res->assertStatus(422);
@@ -167,7 +167,7 @@ class SupirTest extends TestCase
         $idLain = $this->makePerusahaanLain();
         $idPenggunaLain = $this->makePenggunaSupir($idLain);
 
-        $this->postJson('/api/v1/supir', [
+        $this->postJson('/api/supir', [
             'nama' => 'Supir Nakal', 'no_sim' => 'SIM-AKUN-4', 'id_pengguna' => $idPenggunaLain,
         ])->assertStatus(404);
     }
@@ -181,11 +181,11 @@ class SupirTest extends TestCase
         $this->makePenggunaSupir(null, 'SUPIR', 0);
         $this->makePenggunaSupir($this->makePerusahaanLain());
 
-        $this->postJson('/api/v1/supir', [
+        $this->postJson('/api/supir', [
             'nama' => 'Supir Tertaut Akun', 'no_sim' => 'SIM-AKUN-5', 'id_pengguna' => $idTertaut,
         ])->assertStatus(201);
 
-        $res = $this->getJson('/api/v1/supir/opsi-pengguna');
+        $res = $this->getJson('/api/supir/opsi-pengguna');
 
         $res->assertStatus(200);
         $data = collect($res->json('data'))->keyBy('id_pengguna');
@@ -201,7 +201,7 @@ class SupirTest extends TestCase
         $idLain = $this->makePerusahaanLain();
         $this->makeSupir($idLain, 'Milik Lain');
 
-        $res = $this->getJson('/api/v1/supir');
+        $res = $this->getJson('/api/supir');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -214,7 +214,7 @@ class SupirTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeSupir(self::PERUSAHAAN_ID);
 
-        $res = $this->getJson("/api/v1/supir/{$item->id_supir}");
+        $res = $this->getJson("/api/supir/{$item->id_supir}");
 
         $res->assertStatus(200)->assertJsonPath('data.id_supir', $item->id_supir);
     }
@@ -224,7 +224,7 @@ class SupirTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeSupir(self::PERUSAHAAN_ID);
 
-        $res = $this->putJson("/api/v1/supir/{$item->id_supir}", [
+        $res = $this->putJson("/api/supir/{$item->id_supir}", [
             'nama' => 'Nama Diperbarui',
         ]);
 
@@ -236,7 +236,7 @@ class SupirTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeSupir(self::PERUSAHAAN_ID);
 
-        $res = $this->deleteJson("/api/v1/supir/{$item->id_supir}");
+        $res = $this->deleteJson("/api/supir/{$item->id_supir}");
         $res->assertStatus(200);
 
         $row = DB::table('supir')->where('id_supir', $item->id_supir)->first();

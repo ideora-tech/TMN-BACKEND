@@ -53,7 +53,7 @@ class PaketPerawatanSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $res = $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'id_sparepart'       => $this->makeSparepart(),
@@ -72,7 +72,7 @@ class PaketPerawatanSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/paket-perawatan-sparepart', []);
+        $res = $this->postJson('/api/paket-perawatan-sparepart', []);
 
         $res->assertStatus(422)->assertJsonValidationErrors(['id_jenis_perawatan', 'id_jenis_kendaraan', 'id_sparepart', 'qty_standar']);
     }
@@ -84,11 +84,11 @@ class PaketPerawatanSparepartTest extends TestCase
         $idKendaraan = $this->makeJenisKendaraan();
         $idSparepart = $this->makeSparepart();
 
-        $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'id_sparepart' => $idSparepart, 'qty_standar' => 6,
         ])->assertStatus(201);
 
-        $res = $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $res = $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'id_sparepart' => $idSparepart, 'qty_standar' => 10,
         ]);
 
@@ -100,7 +100,7 @@ class PaketPerawatanSparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $lain = $this->makePerusahaanLain();
 
-        $res = $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $res = $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan('Ganti Oli', $lain),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'id_sparepart'       => $this->makeSparepart(),
@@ -113,17 +113,17 @@ class PaketPerawatanSparepartTest extends TestCase
     public function test_update_dan_hapus_paket(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $id = $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $this->makeJenisPerawatan(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'id_sparepart'       => $this->makeSparepart(),
             'qty_standar'        => 6,
         ])->json('data.id_paket_perawatan_sparepart');
 
-        $this->putJson("/api/v1/paket-perawatan-sparepart/{$id}", ['qty_standar' => 8])
+        $this->putJson("/api/paket-perawatan-sparepart/{$id}", ['qty_standar' => 8])
             ->assertStatus(200)->assertJsonPath('data.qty_standar', 8);
 
-        $this->deleteJson("/api/v1/paket-perawatan-sparepart/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/paket-perawatan-sparepart/{$id}")->assertStatus(200);
         $this->assertSoftDeleted('paket_perawatan_sparepart', ['id_paket_perawatan_sparepart' => $id]);
     }
 
@@ -143,10 +143,10 @@ class PaketPerawatanSparepartTest extends TestCase
             'dibuat_pada'                  => now(),
         ]);
 
-        $this->assertCount(0, $this->getJson('/api/v1/paket-perawatan-sparepart')->json('data'));
-        $this->getJson("/api/v1/paket-perawatan-sparepart/{$id}")->assertStatus(404);
-        $this->putJson("/api/v1/paket-perawatan-sparepart/{$id}", ['qty_standar' => 1])->assertStatus(404);
-        $this->deleteJson("/api/v1/paket-perawatan-sparepart/{$id}")->assertStatus(404);
+        $this->assertCount(0, $this->getJson('/api/paket-perawatan-sparepart')->json('data'));
+        $this->getJson("/api/paket-perawatan-sparepart/{$id}")->assertStatus(404);
+        $this->putJson("/api/paket-perawatan-sparepart/{$id}", ['qty_standar' => 1])->assertStatus(404);
+        $this->deleteJson("/api/paket-perawatan-sparepart/{$id}")->assertStatus(404);
     }
 
     public function test_paket_difilter_saat_sparepart_soft_deleted(): void
@@ -157,7 +157,7 @@ class PaketPerawatanSparepartTest extends TestCase
         $idJenis = $this->makeJenisPerawatan();
         $idKendaraan = $this->makeJenisKendaraan();
 
-        $createRes = $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $createRes = $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $idJenis,
             'id_jenis_kendaraan' => $idKendaraan,
             'id_sparepart'       => $idSparepart,
@@ -166,15 +166,15 @@ class PaketPerawatanSparepartTest extends TestCase
         $paketId = $createRes->json('data.id_paket_perawatan_sparepart');
         $createRes->assertStatus(201)->assertJsonPath('data.nama_sparepart', 'Oli Mesin');
 
-        $listBefore = $this->getJson('/api/v1/paket-perawatan-sparepart')->json('data');
+        $listBefore = $this->getJson('/api/paket-perawatan-sparepart')->json('data');
         $this->assertCount(1, $listBefore);
 
         DB::table('sparepart')->where('id_sparepart', $idSparepart)->update(['dihapus_pada' => now()]);
 
-        $listAfter = $this->getJson('/api/v1/paket-perawatan-sparepart')->json('data');
+        $listAfter = $this->getJson('/api/paket-perawatan-sparepart')->json('data');
         $this->assertCount(0, $listAfter);
 
-        $detailRes = $this->getJson("/api/v1/paket-perawatan-sparepart/{$paketId}");
+        $detailRes = $this->getJson("/api/paket-perawatan-sparepart/{$paketId}");
         $detailRes->assertStatus(404);
     }
 
@@ -186,7 +186,7 @@ class PaketPerawatanSparepartTest extends TestCase
         $idKendaraan = $this->makeJenisKendaraan();
         $idSparepart = $this->makeSparepart();
 
-        $createRes = $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $createRes = $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $idJenis,
             'id_jenis_kendaraan' => $idKendaraan,
             'id_sparepart'       => $idSparepart,
@@ -195,15 +195,15 @@ class PaketPerawatanSparepartTest extends TestCase
         $paketId = $createRes->json('data.id_paket_perawatan_sparepart');
         $createRes->assertStatus(201)->assertJsonPath('data.nama_jenis_perawatan', 'Ganti Oli Mesin');
 
-        $listBefore = $this->getJson('/api/v1/paket-perawatan-sparepart')->json('data');
+        $listBefore = $this->getJson('/api/paket-perawatan-sparepart')->json('data');
         $this->assertCount(1, $listBefore);
 
         DB::table('jenis_perawatan')->where('id_jenis_perawatan', $idJenis)->update(['dihapus_pada' => now()]);
 
-        $listAfter = $this->getJson('/api/v1/paket-perawatan-sparepart')->json('data');
+        $listAfter = $this->getJson('/api/paket-perawatan-sparepart')->json('data');
         $this->assertCount(0, $listAfter);
 
-        $detailRes = $this->getJson("/api/v1/paket-perawatan-sparepart/{$paketId}");
+        $detailRes = $this->getJson("/api/paket-perawatan-sparepart/{$paketId}");
         $detailRes->assertStatus(404);
     }
 }

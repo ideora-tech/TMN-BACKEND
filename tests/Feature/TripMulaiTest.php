@@ -110,7 +110,7 @@ class TripMulaiTest extends TestCase
         $idRute    = $this->makeRute('Jakarta - Bandung');
         $this->daftarkanRuteKeProyek($penugasan->id_proyek, $idRute);
 
-        $res = $this->postJson('/api/v1/trip/mulai', [
+        $res = $this->postJson('/api/trip/mulai', [
             'id_penugasan' => $penugasan->id_penugasan,
             'id_rute'      => $idRute,
         ]);
@@ -130,7 +130,7 @@ class TripMulaiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
             ->assertStatus(201)
             ->assertJsonPath('data.status', 'berjalan');
     }
@@ -140,9 +140,9 @@ class TripMulaiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])->assertStatus(201);
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])->assertStatus(201);
 
-        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
+        $res = $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan]);
         $res->assertStatus(422);
         $this->assertStringContainsString('trip aktif', $res->json('message'));
         $this->assertStringContainsString('Proyek Mulai Trip', $res->json('message'));
@@ -170,7 +170,7 @@ class TripMulaiTest extends TestCase
             'id_supir'  => $idSupir,
             'status'    => 'aktif',
         ]);
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanLama->id_penugasan])
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasanLama->id_penugasan])
             ->assertStatus(201);
 
         $proyekBaru = ProyekModel::create([
@@ -191,7 +191,7 @@ class TripMulaiTest extends TestCase
             'status'    => 'aktif',
         ]);
 
-        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanBaru->id_penugasan]);
+        $res = $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasanBaru->id_penugasan]);
 
         $res->assertStatus(422);
         $this->assertStringContainsString('Proyek Lama Nyangkut', $res->json('message'));
@@ -203,7 +203,7 @@ class TripMulaiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
 
-        $idTrip = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
+        $idTrip = $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
             ->json('data.id_trip');
         DB::table('laporan_perjalanan')->insert([
             'id_laporan'    => (string) Str::uuid(),
@@ -211,9 +211,9 @@ class TripMulaiTest extends TestCase
             'id_trip'       => $idTrip,
             'dibuat_pada'   => now(),
         ]);
-        $this->postJson("/api/v1/trip/{$idTrip}/checkout")->assertStatus(200);
+        $this->postJson("/api/trip/{$idTrip}/checkout")->assertStatus(200);
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])->assertStatus(201);
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])->assertStatus(201);
     }
 
     public function test_mulai_trip_penugasan_perusahaan_lain_404(): void
@@ -223,7 +223,7 @@ class TripMulaiTest extends TestCase
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
         $penugasanLain = $this->makePenugasan($idPerusahaanLain);
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanLain->id_penugasan])
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasanLain->id_penugasan])
             ->assertStatus(404);
     }
 
@@ -235,7 +235,7 @@ class TripMulaiTest extends TestCase
         $ruteLain  = $this->makeRute('Rute Rahasia Perusahaan Lain', $idPerusahaanLain);
         $penugasan = $this->makePenugasan();
 
-        $res = $this->postJson('/api/v1/trip/mulai', [
+        $res = $this->postJson('/api/trip/mulai', [
             'id_penugasan' => $penugasan->id_penugasan,
             'id_rute'      => $ruteLain,
         ]);
@@ -254,7 +254,7 @@ class TripMulaiTest extends TestCase
         $idRute    = $this->makeRute('Jakarta - Bandung');
         // sengaja tidak didaftarkan ke proyek_rute
 
-        $res = $this->postJson('/api/v1/trip/mulai', [
+        $res = $this->postJson('/api/trip/mulai', [
             'id_penugasan' => $penugasan->id_penugasan,
             'id_rute'      => $idRute,
         ]);
@@ -272,14 +272,14 @@ class TripMulaiTest extends TestCase
         $penugasanA = $this->makePenugasan();
         $penugasanB = $this->makePenugasan();
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanA->id_penugasan])->assertStatus(201);
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanB->id_penugasan])->assertStatus(201);
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasanA->id_penugasan])->assertStatus(201);
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasanB->id_penugasan])->assertStatus(201);
 
-        $byPenugasan = $this->getJson("/api/v1/trip?id_penugasan={$penugasanA->id_penugasan}");
+        $byPenugasan = $this->getJson("/api/trip?id_penugasan={$penugasanA->id_penugasan}");
         $byPenugasan->assertStatus(200);
         $this->assertCount(1, $byPenugasan->json('data'));
 
-        $bySupir = $this->getJson("/api/v1/trip?id_supir={$penugasanB->id_supir}");
+        $bySupir = $this->getJson("/api/trip?id_supir={$penugasanB->id_supir}");
         $bySupir->assertStatus(200);
         $this->assertCount(1, $bySupir->json('data'));
     }

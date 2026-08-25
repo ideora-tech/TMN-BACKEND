@@ -109,7 +109,7 @@ class JadwalShiftImportTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
 
-        $this->get("/api/v1/jadwal-shift/import/template?id_proyek={$proyek->id_proyek}&dari=2026-08-01&sampai=2026-08-31")
+        $this->get("/api/jadwal-shift/import/template?id_proyek={$proyek->id_proyek}&dari=2026-08-01&sampai=2026-08-31")
             ->assertStatus(200);
     }
 
@@ -135,7 +135,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-IMPORT-1', 'Supir Import', 'Pagi', 'H', 'L', 'H'],
         ]);
 
-        $res = $this->post('/api/v1/jadwal-shift/import', [
+        $res = $this->post('/api/jadwal-shift/import', [
             'id_proyek' => $proyek->id_proyek,
             'file'      => $file,
         ]);
@@ -163,7 +163,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-JUDUL-1', 'Supir Judul', 'Pagi', 'H'],
         ]);
 
-        $this->post('/api/v1/jadwal-shift/import', [
+        $this->post('/api/jadwal-shift/import', [
             'id_proyek' => $proyek->id_proyek,
             'file'      => $file,
         ])->assertStatus(200)->assertJsonPath('data.sukses', 1);
@@ -185,7 +185,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-SERIAL-1', 'Supir Serial', 'Pagi', 'H'],
         ]);
 
-        $this->post('/api/v1/jadwal-shift/import', [
+        $this->post('/api/jadwal-shift/import', [
             'id_proyek' => $proyek->id_proyek,
             'file'      => $file,
         ])->assertStatus(200)->assertJsonPath('data.sukses', 1);
@@ -223,7 +223,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-LOCK-1', 'Supir Terkunci', 'Malam', 'H'],
         ]);
 
-        $res = $this->post('/api/v1/jadwal-shift/import', [
+        $res = $this->post('/api/jadwal-shift/import', [
             'id_proyek' => $proyek->id_proyek,
             'file'      => $file,
         ]);
@@ -241,14 +241,14 @@ class JadwalShiftImportTest extends TestCase
         $idSupir = $this->makeSupir('Supir Roundtrip', 'SIM-RT-1');
         $this->makeSupirProyek($proyek->id_proyek, $idSupir);
 
-        $res = $this->get("/api/v1/jadwal-shift/import/template?id_proyek={$proyek->id_proyek}&dari=2026-08-01&sampai=2026-08-31");
+        $res = $this->get("/api/jadwal-shift/import/template?id_proyek={$proyek->id_proyek}&dari=2026-08-01&sampai=2026-08-31");
         $res->assertStatus(200);
 
         $path = tempnam(sys_get_temp_dir(), 'tpl') . '.xlsx';
         copy($res->baseResponse->getFile()->getPathname(), $path);
         $file = new UploadedFile($path, 'template.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
 
-        $this->post('/api/v1/jadwal-shift/import', [
+        $this->post('/api/jadwal-shift/import', [
             'id_proyek' => $proyek->id_proyek,
             'file'      => $file,
         ])->assertStatus(200)->assertJsonPath('data.sukses', 0)->assertJsonPath('data.gagal', []);
@@ -272,7 +272,7 @@ class JadwalShiftImportTest extends TestCase
         $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupirTerjadwal, '2026-08-05');
         $this->makeJadwal($proyek->id_proyek, $idShiftPagi, $idSupirTerjadwal, '2026-08-07');
 
-        $res = $this->get("/api/v1/jadwal-shift/import/template?id_proyek={$proyek->id_proyek}&dari=2026-08-01&sampai=2026-08-31");
+        $res = $this->get("/api/jadwal-shift/import/template?id_proyek={$proyek->id_proyek}&dari=2026-08-01&sampai=2026-08-31");
         $res->assertStatus(200);
 
         $path = tempnam(sys_get_temp_dir(), 'tpl') . '.xlsx';
@@ -316,7 +316,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-VALID-1', 'Supir Valid', 'Shift Aneh', 'H'],
         ]);
 
-        $res = $this->post('/api/v1/jadwal-shift/import', [
+        $res = $this->post('/api/jadwal-shift/import', [
             'id_proyek' => $proyek->id_proyek,
             'file'      => $file,
         ]);
@@ -349,7 +349,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-TIMPA-1', 'Supir Timpa', 'Siang', 'H'],
         ]);
 
-        $res = $this->post('/api/v1/jadwal-shift/import', ['id_proyek' => $proyek->id_proyek, 'file' => $file]);
+        $res = $this->post('/api/jadwal-shift/import', ['id_proyek' => $proyek->id_proyek, 'file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.sukses', 0)
@@ -383,7 +383,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-IDENTIK-1', 'Supir Identik', 'Pagi', 'H'],
         ]);
 
-        $res = $this->post('/api/v1/jadwal-shift/import', ['id_proyek' => $proyek->id_proyek, 'file' => $file]);
+        $res = $this->post('/api/jadwal-shift/import', ['id_proyek' => $proyek->id_proyek, 'file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.sukses', 1)
@@ -410,7 +410,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-LINTAS-1', 'Supir Lintas', 'Siang', 'H'],
         ]);
 
-        $res = $this->post('/api/v1/jadwal-shift/import', ['id_proyek' => $proyekTujuan->id_proyek, 'file' => $file]);
+        $res = $this->post('/api/jadwal-shift/import', ['id_proyek' => $proyekTujuan->id_proyek, 'file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.sukses', 0)
@@ -458,7 +458,7 @@ class JadwalShiftImportTest extends TestCase
             ['SIM-TRIP-1', 'Supir Trip', 'Siang', 'H'],
         ]);
 
-        $res = $this->post('/api/v1/jadwal-shift/import', ['id_proyek' => $proyek->id_proyek, 'file' => $file]);
+        $res = $this->post('/api/jadwal-shift/import', ['id_proyek' => $proyek->id_proyek, 'file' => $file]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.sukses', 0)

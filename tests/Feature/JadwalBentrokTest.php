@@ -93,7 +93,7 @@ class JadwalBentrokTest extends TestCase
 
         $penugasanB = $this->makePenugasan($idArmada, (string) Str::uuid());
 
-        $res = $this->postJson('/api/v1/jadwal', [
+        $res = $this->postJson('/api/jadwal', [
             'id_penugasan'    => $penugasanB->id_penugasan,
             'waktu_berangkat' => '2026-08-01 10:00:00',
             'estimasi_tiba'   => '2026-08-01 14:00:00',
@@ -113,7 +113,7 @@ class JadwalBentrokTest extends TestCase
 
         $penugasanB = $this->makePenugasan($idArmada, (string) Str::uuid());
 
-        $res = $this->postJson('/api/v1/jadwal', [
+        $res = $this->postJson('/api/jadwal', [
             'id_penugasan'    => $penugasanB->id_penugasan,
             'waktu_berangkat' => '2026-08-01 13:00:00',
             'estimasi_tiba'   => '2026-08-01 17:00:00',
@@ -131,7 +131,7 @@ class JadwalBentrokTest extends TestCase
 
         $penugasanB = $this->makePenugasan((string) Str::uuid(), (string) Str::uuid());
 
-        $res = $this->postJson('/api/v1/jadwal', [
+        $res = $this->postJson('/api/jadwal', [
             'id_penugasan'    => $penugasanB->id_penugasan,
             'waktu_berangkat' => '2026-08-01 08:00:00',
             'estimasi_tiba'   => '2026-08-01 12:00:00',
@@ -151,7 +151,7 @@ class JadwalBentrokTest extends TestCase
 
         $penugasanB = $this->makePenugasan($idArmada, (string) Str::uuid());
 
-        $res = $this->postJson('/api/v1/jadwal', [
+        $res = $this->postJson('/api/jadwal', [
             'id_penugasan'    => $penugasanB->id_penugasan,
             'waktu_berangkat' => '2026-08-01 15:00:00',
             'estimasi_tiba'   => '2026-08-01 18:00:00',
@@ -172,7 +172,7 @@ class JadwalBentrokTest extends TestCase
         $penugasanC = $this->makePenugasan($idArmada, (string) Str::uuid());
         $this->makeJadwal($penugasanC->id_penugasan, '2026-08-01 13:00:00', '2026-08-01 17:00:00');
 
-        $res = $this->putJson("/api/v1/jadwal/{$jadwalA->id_jadwal}", [
+        $res = $this->putJson("/api/jadwal/{$jadwalA->id_jadwal}", [
             'waktu_berangkat' => '2026-08-01 14:00:00',
             'estimasi_tiba'   => '2026-08-01 16:00:00',
         ]);
@@ -189,7 +189,7 @@ class JadwalBentrokTest extends TestCase
         $penugasanA = $this->makePenugasan($idArmada, (string) Str::uuid());
         $jadwalA = $this->makeJadwal($penugasanA->id_penugasan, '2026-08-01 08:00:00', '2026-08-01 12:00:00');
 
-        $res = $this->putJson("/api/v1/jadwal/{$jadwalA->id_jadwal}", [
+        $res = $this->putJson("/api/jadwal/{$jadwalA->id_jadwal}", [
             'waktu_berangkat' => '2026-08-01 08:00:00',
             'estimasi_tiba'   => '2026-08-01 12:00:00',
             'rute'            => 'Rute diperbarui',
@@ -212,7 +212,7 @@ class JadwalBentrokTest extends TestCase
 
         $penugasanB = $this->makePenugasanVendor($kontrak->id_kontrak_vendor, $armadaVendor->id_armada_vendor);
 
-        $res = $this->postJson('/api/v1/jadwal', [
+        $res = $this->postJson('/api/jadwal', [
             'id_penugasan'    => $penugasanB->id_penugasan,
             'waktu_berangkat' => '2026-08-01 10:00:00',
             'estimasi_tiba'   => '2026-08-01 14:00:00',
@@ -236,7 +236,7 @@ class JadwalBentrokTest extends TestCase
 
         $penugasanB = $this->makePenugasanVendor($kontrak->id_kontrak_vendor, $armadaVendorB->id_armada_vendor);
 
-        $res = $this->postJson('/api/v1/jadwal', [
+        $res = $this->postJson('/api/jadwal', [
             'id_penugasan'    => $penugasanB->id_penugasan,
             'waktu_berangkat' => '2026-08-01 10:00:00',
             'estimasi_tiba'   => '2026-08-01 14:00:00',

@@ -37,7 +37,7 @@ class JenisBbmTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/jenis-bbm', [
+        $res = $this->postJson('/api/jenis-bbm', [
             'nama_bbm' => 'Solar',
         ]);
 
@@ -57,7 +57,7 @@ class JenisBbmTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/jenis-bbm', []);
+        $res = $this->postJson('/api/jenis-bbm', []);
 
         $res->assertStatus(422)->assertJsonValidationErrors(['nama_bbm']);
     }
@@ -70,7 +70,7 @@ class JenisBbmTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
-        $res = $this->getJson('/api/v1/jenis-bbm');
+        $res = $this->getJson('/api/jenis-bbm');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -84,7 +84,7 @@ class JenisBbmTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
-        $res = $this->getJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}");
+        $res = $this->getJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}");
 
         $res->assertStatus(200)->assertJsonPath('data.id_jenis_bbm', $jenis->id_jenis_bbm);
     }
@@ -95,7 +95,7 @@ class JenisBbmTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
-        $res = $this->getJson("/api/v1/jenis-bbm/{$jenisLain->id_jenis_bbm}");
+        $res = $this->getJson("/api/jenis-bbm/{$jenisLain->id_jenis_bbm}");
 
         $res->assertStatus(404);
     }
@@ -105,7 +105,7 @@ class JenisBbmTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
-        $res = $this->putJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}", [
+        $res = $this->putJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}", [
             'nama_bbm' => 'Solar Diperbarui',
         ]);
 
@@ -122,7 +122,7 @@ class JenisBbmTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
-        $res = $this->putJson("/api/v1/jenis-bbm/{$jenisLain->id_jenis_bbm}", [
+        $res = $this->putJson("/api/jenis-bbm/{$jenisLain->id_jenis_bbm}", [
             'nama_bbm' => 'Coba Ubah',
         ]);
 
@@ -134,20 +134,20 @@ class JenisBbmTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
-        $res = $this->deleteJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}");
+        $res = $this->deleteJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}");
         $res->assertStatus(200)->assertJsonPath('success', true);
 
         $row = DB::table('jenis_bbm')->where('id_jenis_bbm', $jenis->id_jenis_bbm)->first();
         $this->assertNotNull($row->dihapus_pada);
 
-        $this->assertCount(0, $this->getJson('/api/v1/jenis-bbm')->json('data'));
+        $this->assertCount(0, $this->getJson('/api/jenis-bbm')->json('data'));
     }
 
     public function test_hapus_jenis_bbm_tidak_ditemukan_mengembalikan_404(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->deleteJson('/api/v1/jenis-bbm/' . Str::uuid()->toString());
+        $res = $this->deleteJson('/api/jenis-bbm/' . Str::uuid()->toString());
 
         $res->assertStatus(404);
     }
@@ -158,10 +158,10 @@ class JenisBbmTest extends TestCase
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
         // Belum ada harga -> null
-        $this->getJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}")
+        $this->getJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}")
             ->assertJsonPath('data.harga_per_liter', null);
 
-        $res = $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
+        $res = $this->postJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
             'harga_per_liter' => 6800.50,
             'berlaku_mulai'   => now()->subDays(5)->toDateString(),
         ]);
@@ -170,16 +170,16 @@ class JenisBbmTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.harga_per_liter', 6800.50);
 
-        $show = $this->getJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}");
+        $show = $this->getJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}");
         $show->assertStatus(200)->assertJsonPath('data.harga_per_liter', 6800.50);
 
         // Tambah harga baru dengan berlaku_mulai lebih baru -> harga efektif berubah
-        $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
+        $this->postJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
             'harga_per_liter' => 7200.75,
             'berlaku_mulai'   => now()->toDateString(),
         ])->assertStatus(201);
 
-        $show2 = $this->getJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}");
+        $show2 = $this->getJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}");
         $show2->assertStatus(200)->assertJsonPath('data.harga_per_liter', 7200.75);
     }
 
@@ -188,17 +188,17 @@ class JenisBbmTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
-        $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
+        $this->postJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
             'harga_per_liter' => 6800.50,
             'berlaku_mulai'   => now()->toDateString(),
         ])->assertStatus(201);
 
-        $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
+        $this->postJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
             'harga_per_liter' => 9999.25,
             'berlaku_mulai'   => now()->addDay()->toDateString(),
         ])->assertStatus(201);
 
-        $show = $this->getJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}");
+        $show = $this->getJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}");
         $show->assertStatus(200)->assertJsonPath('data.harga_per_liter', 6800.50);
     }
 
@@ -207,17 +207,17 @@ class JenisBbmTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
-        $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
+        $this->postJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
             'harga_per_liter' => 6500,
             'berlaku_mulai'   => now()->subDays(10)->toDateString(),
         ])->assertStatus(201);
 
-        $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
+        $this->postJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}/harga", [
             'harga_per_liter' => 6800,
             'berlaku_mulai'   => now()->toDateString(),
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga");
+        $res = $this->getJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}/harga");
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -232,7 +232,7 @@ class JenisBbmTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
-        $res = $this->postJson("/api/v1/jenis-bbm/{$jenisLain->id_jenis_bbm}/harga", [
+        $res = $this->postJson("/api/jenis-bbm/{$jenisLain->id_jenis_bbm}/harga", [
             'harga_per_liter' => 6800,
             'berlaku_mulai'   => now()->toDateString(),
         ]);
@@ -246,7 +246,7 @@ class JenisBbmTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $jenisLain = $this->makeJenisBbm($idPerusahaanLain, 'Pertalite');
 
-        $res = $this->getJson("/api/v1/jenis-bbm/{$jenisLain->id_jenis_bbm}/harga");
+        $res = $this->getJson("/api/jenis-bbm/{$jenisLain->id_jenis_bbm}/harga");
 
         $res->assertStatus(404);
     }
@@ -256,7 +256,7 @@ class JenisBbmTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jenis = $this->makeJenisBbm(self::PERUSAHAAN_ID);
 
-        $res = $this->postJson("/api/v1/jenis-bbm/{$jenis->id_jenis_bbm}/harga", []);
+        $res = $this->postJson("/api/jenis-bbm/{$jenis->id_jenis_bbm}/harga", []);
 
         $res->assertStatus(422)->assertJsonValidationErrors(['harga_per_liter', 'berlaku_mulai']);
     }

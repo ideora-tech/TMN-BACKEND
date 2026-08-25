@@ -100,7 +100,7 @@ class KonsolidasiVendorTest extends TestCase
         $this->buatTripVendor('berjalan', true);
         $this->buatTripVendor('selesai', false);
 
-        $res = $this->getJson("/api/v1/konsolidasi-vendor?id_vendor={$this->vendor->id_vendor}");
+        $res = $this->getJson("/api/konsolidasi-vendor?id_vendor={$this->vendor->id_vendor}");
         $res->assertStatus(200)
             ->assertJsonPath('data.vendor.nama_vendor', 'PT Vendor Konsolidasi')
             ->assertJsonPath('data.ringkasan.total_rit', 2)
@@ -118,7 +118,7 @@ class KonsolidasiVendorTest extends TestCase
 
         $this->buatTripVendor();
 
-        $res = $this->getJson("/api/v1/konsolidasi-vendor?id_vendor={$this->vendor->id_vendor}");
+        $res = $this->getJson("/api/konsolidasi-vendor?id_vendor={$this->vendor->id_vendor}");
         $res->assertStatus(200)
             ->assertJsonPath('data.ringkasan.kontrak.0.nilai_seharusnya', null)
             ->assertJsonPath('data.ringkasan.kontrak.0.satuan', 'per bulan');
@@ -138,7 +138,7 @@ class KonsolidasiVendorTest extends TestCase
             'nama_vendor'   => 'Vendor Lain',
         ]);
 
-        $this->getJson("/api/v1/konsolidasi-vendor?id_vendor={$vendorLain->id_vendor}")->assertStatus(404);
-        $this->get("/api/v1/konsolidasi-vendor/export/excel?id_vendor={$this->vendor->id_vendor}")->assertStatus(200);
+        $this->getJson("/api/konsolidasi-vendor?id_vendor={$vendorLain->id_vendor}")->assertStatus(404);
+        $this->get("/api/konsolidasi-vendor/export/excel?id_vendor={$this->vendor->id_vendor}")->assertStatus(200);
     }
 }

@@ -123,7 +123,7 @@ class UangJalanJadwalTest extends TestCase
         $this->makeSupirProyek($proyek->id_proyek, $supirB);
         $shift = $this->makeShift();
 
-        $res = $this->postJson('/api/v1/jadwal-shift', [
+        $res = $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $proyek->id_proyek, 'id_shift' => $shift,
             'tanggal' => '2026-09-01', 'tanggal_sampai' => '2026-09-03',
             'supir' => [$supirA, $supirB],
@@ -208,7 +208,7 @@ class UangJalanJadwalTest extends TestCase
             'dibuat_pada'     => now(),
         ]);
 
-        $res = $this->getJson("/api/v1/trip/{$trip->id_trip}");
+        $res = $this->getJson("/api/trip/{$trip->id_trip}");
         $res->assertStatus(200)
             ->assertJsonPath('data.pengajuan_uang_jalan.id_pengajuan', $idPengajuan)
             ->assertJsonPath('data.pengajuan_uang_jalan.periode.jumlah_hari', 1)

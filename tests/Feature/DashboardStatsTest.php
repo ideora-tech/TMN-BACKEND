@@ -87,7 +87,7 @@ class DashboardStatsTest extends TestCase
         $this->makeArmada('tersedia');
         $this->makeArmada('digunakan');
 
-        $res = $this->getJson('/api/v1/dashboard/stats');
+        $res = $this->getJson('/api/dashboard/stats');
 
         $res->assertStatus(200)
             ->assertJsonPath('data.armadaTersedia', 2)
@@ -127,7 +127,7 @@ class DashboardStatsTest extends TestCase
             'dibuat_pada'       => now(),
         ]);
 
-        $res = $this->getJson('/api/v1/dashboard/stats');
+        $res = $this->getJson('/api/dashboard/stats');
 
         $res->assertStatus(200)
             ->assertJsonPath('data.alerts.dokumenExpiring.total', 2);
@@ -151,7 +151,7 @@ class DashboardStatsTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $trip = $this->makeTripBerjalan(now()->subHours(30)->toDateTimeString());
 
-        $res = $this->getJson('/api/v1/dashboard/stats');
+        $res = $this->getJson('/api/dashboard/stats');
 
         $res->assertStatus(200)
             ->assertJsonPath('data.alerts.tripTerlambat.total', 1);
@@ -172,7 +172,7 @@ class DashboardStatsTest extends TestCase
         // Checkin 30 jam lalu tapi sudah checkout -> tidak lagi dianggap terlambat
         $this->makeTripBerjalan(now()->subHours(30)->toDateTimeString(), now()->subHour()->toDateTimeString());
 
-        $res = $this->getJson('/api/v1/dashboard/stats');
+        $res = $this->getJson('/api/dashboard/stats');
 
         $res->assertStatus(200)
             ->assertJsonPath('data.alerts.tripTerlambat.total', 0);
@@ -198,7 +198,7 @@ class DashboardStatsTest extends TestCase
         // servis terbaru dalam window -> ini yang harus muncul
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(15)->toDateString(), 'Servis Besar');
 
-        $res = $this->getJson('/api/v1/dashboard/stats');
+        $res = $this->getJson('/api/dashboard/stats');
 
         $res->assertStatus(200)->assertJsonPath('data.alerts.servisJatuhTempo.total', 1);
         $items = $res->json('data.alerts.servisJatuhTempo.items');
@@ -213,7 +213,7 @@ class DashboardStatsTest extends TestCase
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(45)->toDateString());
 
-        $res = $this->getJson('/api/v1/dashboard/stats');
+        $res = $this->getJson('/api/dashboard/stats');
 
         $res->assertStatus(200)->assertJsonPath('data.alerts.servisJatuhTempo.total', 0);
     }

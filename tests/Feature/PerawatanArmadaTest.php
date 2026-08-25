@@ -43,7 +43,7 @@ class PerawatanArmadaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
-        $res = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
             'tanggal'                  => '2026-02-01',
             'jenis_perawatan'          => 'Servis Besar',
             'biaya'                    => 1500000,
@@ -68,12 +68,12 @@ class PerawatanArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'terjadwal');
 
-        $resUpdate = $this->putJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+        $resUpdate = $this->putJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
             'status' => 'dalam_proses',
         ]);
         $resUpdate->assertStatus(200)->assertJsonPath('data.status', 'dalam_proses');
 
-        $resDelete = $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+        $resDelete = $this->deleteJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
             'alasan' => 'Data duplikat',
         ]);
         $resDelete->assertStatus(200);
@@ -87,10 +87,10 @@ class PerawatanArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'terjadwal');
 
-        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}")
+        $this->deleteJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}")
             ->assertStatus(422);
 
-        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+        $this->deleteJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
             'alasan' => 'Salah input data biaya',
         ])->assertStatus(200);
 
@@ -107,7 +107,7 @@ class PerawatanArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'selesai');
 
-        $this->putJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+        $this->putJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
             'status' => 'dalam_proses',
         ])->assertStatus(422);
     }
@@ -118,7 +118,7 @@ class PerawatanArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'selesai');
 
-        $this->deleteJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+        $this->deleteJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
             'alasan' => 'Coba hapus riwayat',
         ])->assertStatus(422);
 
@@ -131,10 +131,10 @@ class PerawatanArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'terjadwal');
 
-        $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal")
+        $this->postJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal")
             ->assertStatus(422);
 
-        $res = $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
+        $res = $this->postJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
             'alasan' => 'Armada dipakai trip mendadak',
         ]);
 
@@ -152,7 +152,7 @@ class PerawatanArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'selesai');
 
-        $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
+        $this->postJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
             'alasan' => 'Coba batalkan',
         ])->assertStatus(422);
     }
@@ -163,11 +163,11 @@ class PerawatanArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $perawatan = $this->makePerawatan($armada->id_armada, '2026-01-10', 'terjadwal');
 
-        $this->postJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
+        $this->postJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}/batal", [
             'alasan' => 'Tidak jadi servis',
         ])->assertStatus(200);
 
-        $this->putJson("/api/v1/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
+        $this->putJson("/api/armada/{$armada->id_armada}/perawatan/{$perawatan->id_perawatan}", [
             'biaya' => 999999,
         ])->assertStatus(422);
     }
@@ -187,7 +187,7 @@ class PerawatanArmadaTest extends TestCase
         ]);
         $this->makePerawatan($idArmadaLain);
 
-        $res = $this->getJson('/api/v1/perawatan-armada');
+        $res = $this->getJson('/api/perawatan-armada');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -204,12 +204,12 @@ class PerawatanArmadaTest extends TestCase
         $this->makePerawatan($armadaA->id_armada, '2026-01-01', 'selesai');
         $this->makePerawatan($armadaB->id_armada, '2026-01-02', 'terjadwal');
 
-        $resByArmada = $this->getJson("/api/v1/perawatan-armada?id_armada={$armadaA->id_armada}");
+        $resByArmada = $this->getJson("/api/perawatan-armada?id_armada={$armadaA->id_armada}");
         $resByArmada->assertStatus(200);
         $this->assertCount(1, $resByArmada->json('data'));
         $this->assertSame($armadaA->id_armada, $resByArmada->json('data.0.id_armada'));
 
-        $resByStatus = $this->getJson('/api/v1/perawatan-armada?status=terjadwal');
+        $resByStatus = $this->getJson('/api/perawatan-armada?status=terjadwal');
         $resByStatus->assertStatus(200);
         $this->assertCount(1, $resByStatus->json('data'));
         $this->assertSame('terjadwal', $resByStatus->json('data.0.status'));
@@ -223,16 +223,16 @@ class PerawatanArmadaTest extends TestCase
         $this->makePerawatan($armada->id_armada, '2026-02-15');
         $this->makePerawatan($armada->id_armada, '2026-03-20');
 
-        $res = $this->getJson('/api/v1/perawatan-armada?tanggal_dari=2026-02-01&tanggal_sampai=2026-02-28');
+        $res = $this->getJson('/api/perawatan-armada?tanggal_dari=2026-02-01&tanggal_sampai=2026-02-28');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
         $this->assertSame('2026-02-15', $res->json('data.0.tanggal'));
 
-        $resDariSaja = $this->getJson('/api/v1/perawatan-armada?tanggal_dari=2026-02-01');
+        $resDariSaja = $this->getJson('/api/perawatan-armada?tanggal_dari=2026-02-01');
         $resDariSaja->assertStatus(200);
         $this->assertCount(2, $resDariSaja->json('data'));
 
-        $resSampaiSaja = $this->getJson('/api/v1/perawatan-armada?tanggal_sampai=2026-01-31');
+        $resSampaiSaja = $this->getJson('/api/perawatan-armada?tanggal_sampai=2026-01-31');
         $resSampaiSaja->assertStatus(200);
         $this->assertCount(1, $resSampaiSaja->json('data'));
         $this->assertSame('2026-01-05', $resSampaiSaja->json('data.0.tanggal'));
@@ -245,7 +245,7 @@ class PerawatanArmadaTest extends TestCase
         $this->makePerawatan($armada->id_armada, '2026-01-01');
         $this->makePerawatan($armada->id_armada, '2026-03-01');
 
-        $res = $this->getJson('/api/v1/perawatan-armada');
+        $res = $this->getJson('/api/perawatan-armada');
 
         $res->assertStatus(200);
         $this->assertSame('2026-03-01', $res->json('data.0.tanggal'));
@@ -264,7 +264,7 @@ class PerawatanArmadaTest extends TestCase
         // Armada B: servis terbaru dalam window -> harus muncul
         $this->makePerawatanDenganJadwal($armadaB->id_armada, '2026-06-01', now()->addDays(15)->toDateString());
 
-        $res = $this->getJson('/api/v1/perawatan-armada?jatuh_tempo=1');
+        $res = $this->getJson('/api/perawatan-armada?jatuh_tempo=1');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -278,7 +278,7 @@ class PerawatanArmadaTest extends TestCase
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-06-01');
 
-        $res = $this->getJson('/api/v1/perawatan-armada');
+        $res = $this->getJson('/api/perawatan-armada');
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));

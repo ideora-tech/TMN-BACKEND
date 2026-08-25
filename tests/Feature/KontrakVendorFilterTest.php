@@ -42,12 +42,12 @@ class KontrakVendorFilterTest extends TestCase
         $this->makeKontrakVendor($vendorB->id_vendor);
 
         // Tanpa filter: kedua kontrak vendor muncul.
-        $resAll = $this->getJson('/api/v1/kontrak-vendor');
+        $resAll = $this->getJson('/api/kontrak-vendor');
         $resAll->assertStatus(200);
         $this->assertSame(2, $resAll->json('meta.total'));
 
         // Dengan filter id_vendor: hanya kontrak milik vendor A.
-        $resFiltered = $this->getJson('/api/v1/kontrak-vendor?id_vendor=' . $vendorA->id_vendor);
+        $resFiltered = $this->getJson('/api/kontrak-vendor?id_vendor=' . $vendorA->id_vendor);
         $resFiltered->assertStatus(200);
         $dataFiltered = $resFiltered->json('data');
         $this->assertCount(1, $dataFiltered);
@@ -73,21 +73,21 @@ class KontrakVendorFilterTest extends TestCase
         $this->makeKontrakVendor($vendorB->id_vendor, 'full');
 
         // Search berdasarkan nama vendor (join), meski data ada di "halaman lain".
-        $resNama = $this->getJson('/api/v1/kontrak-vendor?search=Cahaya&limit=1');
+        $resNama = $this->getJson('/api/kontrak-vendor?search=Cahaya&limit=1');
         $resNama->assertStatus(200);
         $dataNama = $resNama->json('data');
         $this->assertSame(1, $resNama->json('meta.total'));
         $this->assertSame($vendorA->id_vendor, $dataNama[0]['id_vendor']);
 
         // Search berdasarkan mekanisme.
-        $resMekanisme = $this->getJson('/api/v1/kontrak-vendor?search=full');
+        $resMekanisme = $this->getJson('/api/kontrak-vendor?search=full');
         $resMekanisme->assertStatus(200);
         $dataMekanisme = $resMekanisme->json('data');
         $this->assertSame(1, $resMekanisme->json('meta.total'));
         $this->assertSame($vendorB->id_vendor, $dataMekanisme[0]['id_vendor']);
 
         // Search tanpa hasil.
-        $resKosong = $this->getJson('/api/v1/kontrak-vendor?search=tidak-ada-begini');
+        $resKosong = $this->getJson('/api/kontrak-vendor?search=tidak-ada-begini');
         $resKosong->assertStatus(200);
         $this->assertSame(0, $resKosong->json('meta.total'));
     }

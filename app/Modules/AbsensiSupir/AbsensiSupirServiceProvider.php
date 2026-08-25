@@ -18,7 +18,7 @@ class AbsensiSupirServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:trip'])
             ->group(function () {
                 Route::get('absensi-supir/hari-ini-saya', [AbsensiSupirController::class, 'hariIniSaya']);

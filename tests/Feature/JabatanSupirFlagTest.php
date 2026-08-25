@@ -17,7 +17,7 @@ class JabatanSupirFlagTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/jabatan', [
+        $res = $this->postJson('/api/jabatan', [
             'kode_jabatan' => 'SPR', 'nama_jabatan' => 'Supir Truk', 'is_supir' => true,
         ]);
 
@@ -27,7 +27,7 @@ class JabatanSupirFlagTest extends TestCase
         $id = $res->json('data.id_jabatan');
         $this->assertSame(1, (int) DB::table('jabatan')->where('id_jabatan', $id)->value('is_supir'));
 
-        $resUpdate = $this->putJson("/api/v1/jabatan/{$id}", ['is_supir' => false]);
+        $resUpdate = $this->putJson("/api/jabatan/{$id}", ['is_supir' => false]);
         $resUpdate->assertStatus(200);
         $this->assertFalse($resUpdate->json('data.is_supir'));
     }
@@ -36,7 +36,7 @@ class JabatanSupirFlagTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/jabatan', [
+        $res = $this->postJson('/api/jabatan', [
             'kode_jabatan' => 'ADM', 'nama_jabatan' => 'Staf Admin',
         ]);
 
@@ -58,7 +58,7 @@ class JabatanSupirFlagTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/supir', ['nama' => 'Supir Manual']);
+        $res = $this->postJson('/api/supir', ['nama' => 'Supir Manual']);
 
         $res->assertStatus(422);
         $this->assertArrayHasKey('no_sim', $res->json('errors'));

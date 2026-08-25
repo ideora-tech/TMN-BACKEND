@@ -53,7 +53,7 @@ class ArmadaKolomLengkapTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'               => 'B 5678 DTL',
             'merk'                => 'Hino',
             'model'               => 'Dutro',
@@ -91,7 +91,7 @@ class ArmadaKolomLengkapTest extends TestCase
             'nomor_rangka'  => 'MHFXW42G5N0000003',
         ]);
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'        => 'B 2222 RGK',
             'nomor_rangka' => 'MHFXW42G5N0000003',
         ]);
@@ -109,7 +109,7 @@ class ArmadaKolomLengkapTest extends TestCase
             'nomor_rangka'  => 'MHFXW42G5N0000004',
         ]);
 
-        $res = $this->putJson("/api/v1/armada/{$armada->id_armada}", [
+        $res = $this->putJson("/api/armada/{$armada->id_armada}", [
             'nomor_rangka' => 'MHFXW42G5N0000004',
             'warna'        => 'Merah',
         ]);
@@ -128,7 +128,7 @@ class ArmadaKolomLengkapTest extends TestCase
             'harga_beli'    => 100000000,
         ]);
 
-        $res = $this->putJson("/api/v1/armada/{$armada->id_armada}", [
+        $res = $this->putJson("/api/armada/{$armada->id_armada}", [
             'merk' => 'Isuzu',
         ]);
 
@@ -141,7 +141,7 @@ class ArmadaKolomLengkapTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'             => 'B 5555 BBM',
             'jenis_bahan_bakar' => 'nuklir',
         ]);
@@ -153,7 +153,7 @@ class ArmadaKolomLengkapTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'        => 'B 6666 KND',
             'kondisi_beli' => 'rongsok',
         ]);
@@ -166,7 +166,7 @@ class ArmadaKolomLengkapTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         Storage::fake('public');
 
-        $res = $this->post('/api/v1/armada', [
+        $res = $this->post('/api/armada', [
             'nopol' => 'B 7777 FTO',
             'merk'  => 'Hino',
             'foto'  => UploadedFile::fake()->create('foto.jpg', 100, 'image/jpeg'),
@@ -192,7 +192,7 @@ class ArmadaKolomLengkapTest extends TestCase
             'nopol'         => 'B 8888 FTO',
         ]);
 
-        $res = $this->post("/api/v1/armada/{$armada->id_armada}", [
+        $res = $this->post("/api/armada/{$armada->id_armada}", [
             '_method' => 'PUT',
             'warna'   => 'Biru',
             'foto'    => UploadedFile::fake()->create('foto-baru.png', 100, 'image/png'),
@@ -206,7 +206,7 @@ class ArmadaKolomLengkapTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->post('/api/v1/armada', [
+        $res = $this->post('/api/armada', [
             'nopol' => 'B 9990 FTO',
             'foto'  => UploadedFile::fake()->create('virus.pdf', 100, 'application/pdf'),
         ], ['Accept' => 'application/json']);
@@ -218,7 +218,7 @@ class ArmadaKolomLengkapTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'              => 'B 1212 JNS',
             'id_jenis_kendaraan' => (string) \Illuminate\Support\Str::uuid(),
         ]);
@@ -239,7 +239,7 @@ class ArmadaKolomLengkapTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'              => 'B 1313 JNS',
             'id_jenis_kendaraan' => $idJenis,
         ]);

@@ -17,7 +17,7 @@ class IzinPeranController extends Controller
     public function __construct(private readonly IzinPeranService $service) {}
 
     /**
-     * GET /api/v1/izin-peran?kode_peran=xxx
+     * GET /api/izin-peran?kode_peran=xxx
      * List all permissions for a given role within the authenticated user's company.
      */
     public function index(Request $request): JsonResponse
@@ -33,7 +33,7 @@ class IzinPeranController extends Controller
     }
 
     /**
-     * POST /api/v1/izin-peran/bulk
+     * POST /api/izin-peran/bulk
      * Bulk set (upsert) permissions for a role.
      */
     public function bulk(BulkSetIzinPeranRequest $request): JsonResponse
@@ -51,7 +51,7 @@ class IzinPeranController extends Controller
     }
 
     /**
-     * PUT /api/v1/izin-peran/{id}
+     * PUT /api/izin-peran/{id}
      * Update a single permission record.
      */
     public function update(UpdateIzinPeranRequest $request, string $id): JsonResponse

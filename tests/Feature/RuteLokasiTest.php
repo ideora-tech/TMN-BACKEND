@@ -39,7 +39,7 @@ class RuteLokasiTest extends TestCase
         $asal = $this->makeLokasi(self::PERUSAHAAN_ID, 'Pelabuhan Tanjung Priok');
         $tujuan = $this->makeLokasi(self::PERUSAHAAN_ID, 'Gudang Cikarang');
 
-        $res = $this->postJson('/api/v1/rute', [
+        $res = $this->postJson('/api/rute', [
             'nama_rute'         => 'Rute Priok-Cikarang',
             'id_lokasi_asal'    => $asal->id_lokasi,
             'id_lokasi_tujuan'  => $tujuan->id_lokasi,
@@ -66,7 +66,7 @@ class RuteLokasiTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
-        $res = $this->postJson('/api/v1/rute', [
+        $res = $this->postJson('/api/rute', [
             'kode_rute'      => 'RUT-LOK-2',
             'nama_rute'      => 'Rute Gagal',
             'id_lokasi_asal' => $lokasiLain->id_lokasi,
@@ -82,7 +82,7 @@ class RuteLokasiTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
-        $res = $this->postJson('/api/v1/rute', [
+        $res = $this->postJson('/api/rute', [
             'kode_rute'        => 'RUT-LOK-3',
             'nama_rute'        => 'Rute Gagal Tujuan',
             'id_lokasi_tujuan' => $lokasiLain->id_lokasi,
@@ -96,7 +96,7 @@ class RuteLokasiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/rute', [
+        $res = $this->postJson('/api/rute', [
             'kode_rute' => 'RUT-LAMA-1',
             'nama_rute' => 'Rute Lama',
             'asal'      => 'Jakarta',
@@ -113,7 +113,7 @@ class RuteLokasiTest extends TestCase
     public function test_update_rute_dengan_id_lokasi_mengisi_asal_tujuan_otomatis(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $rute = $this->postJson('/api/v1/rute', [
+        $rute = $this->postJson('/api/rute', [
             'kode_rute' => 'RUT-UPD-1',
             'nama_rute' => 'Rute Update',
             'asal'      => 'Lama Asal',
@@ -122,7 +122,7 @@ class RuteLokasiTest extends TestCase
 
         $lokasiBaru = $this->makeLokasi(self::PERUSAHAAN_ID, 'Terminal Baru');
 
-        $res = $this->putJson("/api/v1/rute/{$rute['id_rute']}", [
+        $res = $this->putJson("/api/rute/{$rute['id_rute']}", [
             'id_lokasi_asal' => $lokasiBaru->id_lokasi,
         ]);
 
@@ -135,7 +135,7 @@ class RuteLokasiTest extends TestCase
     public function test_update_rute_dengan_id_lokasi_perusahaan_lain_mengembalikan_404(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $rute = $this->postJson('/api/v1/rute', [
+        $rute = $this->postJson('/api/rute', [
             'kode_rute' => 'RUT-UPD-2',
             'nama_rute' => 'Rute Update Gagal',
             'asal'      => 'Lama Asal',
@@ -145,7 +145,7 @@ class RuteLokasiTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $lokasiLain = $this->makeLokasi($idPerusahaanLain, 'Lokasi Perusahaan Lain');
 
-        $res = $this->putJson("/api/v1/rute/{$rute['id_rute']}", [
+        $res = $this->putJson("/api/rute/{$rute['id_rute']}", [
             'id_lokasi_tujuan' => $lokasiLain->id_lokasi,
         ]);
 
@@ -161,14 +161,14 @@ class RuteLokasiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $asal = $this->makeLokasi(self::PERUSAHAAN_ID, 'Terminal Utama');
 
-        $rute = $this->postJson('/api/v1/rute', [
+        $rute = $this->postJson('/api/rute', [
             'kode_rute'      => 'RUT-NULL-1',
             'nama_rute'      => 'Rute Null Test',
             'id_lokasi_asal' => $asal->id_lokasi,
             'tujuan'         => 'Tujuan Manual',
         ])->json('data');
 
-        $res = $this->putJson("/api/v1/rute/{$rute['id_rute']}", [
+        $res = $this->putJson("/api/rute/{$rute['id_rute']}", [
             'id_lokasi_asal'   => null,
             'estimasi_jarak_km' => 99,
         ]);

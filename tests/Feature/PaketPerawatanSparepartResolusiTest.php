@@ -50,14 +50,14 @@ class PaketPerawatanSparepartResolusiTest extends TestCase
         $idOli = $this->makeSparepart('Oli Mesin Diesel 15W-40');
         $idFilter = $this->makeSparepart('Filter Oli');
 
-        $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'id_sparepart' => $idOli, 'qty_standar' => 6,
         ])->assertStatus(201);
-        $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'id_sparepart' => $idFilter, 'qty_standar' => 1,
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/paket-perawatan-sparepart/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");
+        $res = $this->getJson("/api/paket-perawatan-sparepart/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");
 
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));
@@ -69,7 +69,7 @@ class PaketPerawatanSparepartResolusiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/paket-perawatan-sparepart/resolusi?id_jenis_perawatan=' . $this->makeJenisPerawatan()
+        $res = $this->getJson('/api/paket-perawatan-sparepart/resolusi?id_jenis_perawatan=' . $this->makeJenisPerawatan()
             . '&id_jenis_kendaraan=' . $this->makeJenisKendaraan());
 
         $res->assertStatus(200)->assertJsonPath('data', []);
@@ -82,11 +82,11 @@ class PaketPerawatanSparepartResolusiTest extends TestCase
         $idKendaraan = $this->makeJenisKendaraan();
         $idNonaktif = $this->makeSparepart('Sparepart Nonaktif', self::PERUSAHAAN_ID, 0);
 
-        $this->postJson('/api/v1/paket-perawatan-sparepart', [
+        $this->postJson('/api/paket-perawatan-sparepart', [
             'id_jenis_perawatan' => $idJenis, 'id_jenis_kendaraan' => $idKendaraan, 'id_sparepart' => $idNonaktif, 'qty_standar' => 1,
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/paket-perawatan-sparepart/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");
+        $res = $this->getJson("/api/paket-perawatan-sparepart/resolusi?id_jenis_perawatan={$idJenis}&id_jenis_kendaraan={$idKendaraan}");
 
         $res->assertStatus(200)->assertJsonPath('data', []);
     }
@@ -95,7 +95,7 @@ class PaketPerawatanSparepartResolusiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/paket-perawatan-sparepart/resolusi');
+        $res = $this->getJson('/api/paket-perawatan-sparepart/resolusi');
 
         $res->assertStatus(422);
     }

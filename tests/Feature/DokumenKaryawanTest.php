@@ -48,7 +48,7 @@ class DokumenKaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
-        $res = $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
+        $res = $this->postJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen", [
             'jenis_dokumen'  => 'Kontrak Kerja',
             'nomor'          => 'DOC/2026/01',
             'berlaku_sampai' => '2027-06-30',
@@ -75,7 +75,7 @@ class DokumenKaryawanTest extends TestCase
         $this->makeDokumen($karyawan->id_karyawan, 'KTP');
         $this->makeDokumen($karyawan->id_karyawan, 'NPWP');
 
-        $res = $this->getJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen");
+        $res = $this->getJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen");
 
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));
@@ -93,11 +93,11 @@ class DokumenKaryawanTest extends TestCase
         $karyawanLain = $this->makeKaryawan($idPerusahaanLain, 'NIK-LAIN-02', 'Orang Lain');
         $this->makeDokumen($karyawanLain->id_karyawan, 'KTP');
 
-        $resAll = $this->getJson('/api/v1/dokumen-karyawan');
+        $resAll = $this->getJson('/api/dokumen-karyawan');
         $resAll->assertStatus(200);
         $this->assertCount(2, $resAll->json('data'));
 
-        $resFilter = $this->getJson('/api/v1/dokumen-karyawan?jenis_dokumen=NPWP');
+        $resFilter = $this->getJson('/api/dokumen-karyawan?jenis_dokumen=NPWP');
         $resFilter->assertStatus(200);
         $this->assertCount(1, $resFilter->json('data'));
         $this->assertSame('NPWP', $resFilter->json('data.0.jenis_dokumen'));
@@ -109,12 +109,12 @@ class DokumenKaryawanTest extends TestCase
         $karyawan = $this->makeKaryawan();
         $dokumen  = $this->makeDokumen($karyawan->id_karyawan, 'Sertifikat', '2026-12-31');
 
-        $resUpdate = $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen/{$dokumen->id_dokumen_karyawan}", [
+        $resUpdate = $this->putJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen/{$dokumen->id_dokumen_karyawan}", [
             'nomor' => 'SERT-999',
         ]);
         $resUpdate->assertStatus(200)->assertJsonPath('data.nomor', 'SERT-999');
 
-        $resDelete = $this->deleteJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen/{$dokumen->id_dokumen_karyawan}");
+        $resDelete = $this->deleteJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen/{$dokumen->id_dokumen_karyawan}");
         $resDelete->assertStatus(200);
 
         $this->assertSoftDeleted('dokumen_karyawan', ['id_dokumen_karyawan' => $dokumen->id_dokumen_karyawan]);
@@ -129,8 +129,8 @@ class DokumenKaryawanTest extends TestCase
         $karyawanLain = $this->makeKaryawan($idPerusahaanLain, 'NIK-LAIN-03');
         $dokumenLain  = $this->makeDokumen($karyawanLain->id_karyawan);
 
-        $this->getJson("/api/v1/karyawan/{$karyawanLain->id_karyawan}/dokumen")->assertStatus(404);
-        $this->putJson("/api/v1/karyawan/{$karyawanLain->id_karyawan}/dokumen/{$dokumenLain->id_dokumen_karyawan}", ['nomor' => 'X'])->assertStatus(404);
+        $this->getJson("/api/karyawan/{$karyawanLain->id_karyawan}/dokumen")->assertStatus(404);
+        $this->putJson("/api/karyawan/{$karyawanLain->id_karyawan}/dokumen/{$dokumenLain->id_dokumen_karyawan}", ['nomor' => 'X'])->assertStatus(404);
     }
 
     public function test_menolak_file_selain_pdf_dan_gambar(): void
@@ -139,7 +139,7 @@ class DokumenKaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
-        $res = $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
+        $res = $this->postJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen", [
             'jenis_dokumen' => 'KTP',
             'file'          => UploadedFile::fake()->create('virus.exe', 100, 'application/octet-stream'),
         ]);
@@ -176,7 +176,7 @@ class DokumenKaryawanTest extends TestCase
         $karyawan = $this->makeKaryawan();
         $idSupir  = $this->makeSupir($karyawan->id_karyawan);
 
-        $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
+        $this->postJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen", [
             'jenis_dokumen'  => 'SIM',
             'nomor'          => '12345678',
             'berlaku_sampai' => '2030-08-07',
@@ -192,7 +192,7 @@ class DokumenKaryawanTest extends TestCase
         $idSupir  = $this->makeSupir($karyawan->id_karyawan);
         $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2030-08-07');
 
-        $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
+        $this->postJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen", [
             'jenis_dokumen'  => 'SIM',
             'berlaku_sampai' => '2027-01-01',
         ])->assertStatus(201);
@@ -208,7 +208,7 @@ class DokumenKaryawanTest extends TestCase
         $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2028-05-01');
         $baru = $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2030-08-07');
 
-        $this->deleteJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen/{$baru->id_dokumen_karyawan}")
+        $this->deleteJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen/{$baru->id_dokumen_karyawan}")
             ->assertStatus(200);
 
         $this->assertSame('2028-05-01', $this->tglSimSupir($idSupir));
@@ -220,7 +220,7 @@ class DokumenKaryawanTest extends TestCase
         $karyawan = $this->makeKaryawan();
         $idSupir  = $this->makeSupir($karyawan->id_karyawan);
 
-        $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen", [
+        $this->postJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen", [
             'jenis_dokumen'  => 'KTP',
             'berlaku_sampai' => '2031-01-01',
         ])->assertStatus(201);
@@ -248,7 +248,7 @@ class DokumenKaryawanTest extends TestCase
         $idSupir  = $this->makeSupir($karyawan->id_karyawan);
         $dok = $this->makeDokumen($karyawan->id_karyawan, 'SIM', '2029-03-01');
 
-        $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}/dokumen/{$dok->id_dokumen_karyawan}", [
+        $this->putJson("/api/karyawan/{$karyawan->id_karyawan}/dokumen/{$dok->id_dokumen_karyawan}", [
             'jenis_dokumen'  => 'SIM',
             'berlaku_sampai' => '2031-03-01',
         ])->assertStatus(200);

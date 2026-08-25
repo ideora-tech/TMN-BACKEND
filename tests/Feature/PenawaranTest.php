@@ -36,7 +36,7 @@ class PenawaranTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idLain = $this->makePenawaranPerusahaanLain();
 
-        $res = $this->getJson("/api/v1/penawaran/{$idLain}");
+        $res = $this->getJson("/api/penawaran/{$idLain}");
 
         $res->assertStatus(404);
     }
@@ -46,7 +46,7 @@ class PenawaranTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idLain = $this->makePenawaranPerusahaanLain();
 
-        $res = $this->putJson("/api/v1/penawaran/{$idLain}", [
+        $res = $this->putJson("/api/penawaran/{$idLain}", [
             'judul' => 'Coba Ubah Punya Perusahaan Lain',
         ]);
 
@@ -62,7 +62,7 @@ class PenawaranTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idLain = $this->makePenawaranPerusahaanLain();
 
-        $res = $this->deleteJson("/api/v1/penawaran/{$idLain}");
+        $res = $this->deleteJson("/api/penawaran/{$idLain}");
 
         $res->assertStatus(404);
         $this->assertDatabaseHas('penawaran', [
@@ -75,7 +75,7 @@ class PenawaranTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/penawaran', [
+        $res = $this->postJson('/api/penawaran', [
             'nomor_penawaran' => 'PNW-INPUT-BEBAS',
             'judul'           => 'Penawaran Nomor Otomatis',
         ]);
@@ -89,7 +89,7 @@ class PenawaranTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/penawaran', [
+        $res = $this->postJson('/api/penawaran', [
             'judul' => 'Penawaran Tanpa Nomor Input',
         ]);
 
@@ -102,11 +102,11 @@ class PenawaranTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $pertama = $this->postJson('/api/v1/penawaran', [
+        $pertama = $this->postJson('/api/penawaran', [
             'judul' => 'Penawaran Urut Satu',
         ])->json('data.nomor_penawaran');
 
-        $kedua = $this->postJson('/api/v1/penawaran', [
+        $kedua = $this->postJson('/api/penawaran', [
             'judul' => 'Penawaran Urut Dua',
         ])->json('data.nomor_penawaran');
 

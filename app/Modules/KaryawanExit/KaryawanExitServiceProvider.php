@@ -18,7 +18,7 @@ class KaryawanExitServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
             ->group(function () {
                 Route::post('karyawan-exit', [KaryawanExitController::class, 'store']);

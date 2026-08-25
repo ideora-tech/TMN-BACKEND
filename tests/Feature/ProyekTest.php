@@ -43,7 +43,7 @@ class ProyekTest extends TestCase
         $klien = $this->makeKlien();
         $this->makeProyek($klien->id_klien, '123');
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => '123',
             'nama_proyek' => 'Proyek Baru',
@@ -59,7 +59,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'nama_proyek' => 'Proyek Tanpa Kode',
         ]);
@@ -73,12 +73,12 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $pertama = $this->postJson('/api/v1/proyek', [
+        $pertama = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'nama_proyek' => 'Proyek Urut Satu',
         ])->json('data.kode_proyek');
 
-        $kedua = $this->postJson('/api/v1/proyek', [
+        $kedua = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'nama_proyek' => 'Proyek Urut Dua',
         ])->json('data.kode_proyek');
@@ -93,7 +93,7 @@ class ProyekTest extends TestCase
         $this->makeProyek($klien->id_klien, 'KODE-A');
         $proyekB = $this->makeProyek($klien->id_klien, 'KODE-B');
 
-        $res = $this->putJson("/api/v1/proyek/{$proyekB->id_proyek}", [
+        $res = $this->putJson("/api/proyek/{$proyekB->id_proyek}", [
             'kode_proyek' => 'KODE-A',
         ]);
 
@@ -107,7 +107,7 @@ class ProyekTest extends TestCase
         $klien = $this->makeKlien();
         $proyek = $this->makeProyek($klien->id_klien, 'KODE-SENDIRI');
 
-        $res = $this->putJson("/api/v1/proyek/{$proyek->id_proyek}", [
+        $res = $this->putJson("/api/proyek/{$proyek->id_proyek}", [
             'kode_proyek' => 'KODE-SENDIRI',
             'nama_proyek' => 'Nama Diperbarui',
         ]);
@@ -156,7 +156,7 @@ class ProyekTest extends TestCase
         $klien = $this->makeKlien();
         $idPenawaran = $this->makePenawaranDisetujui($klien->id_klien);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'kode_proyek'  => 'PRJ-DARI-PNW',
             'nama_proyek'  => 'Proyek Dari Penawaran',
@@ -177,7 +177,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'nama_proyek' => 'Proyek Manual',
         ]);
@@ -192,7 +192,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'kode_proyek'  => 'PRJ-PNW-NGAWUR',
             'nama_proyek'  => 'Proyek Test',
@@ -266,7 +266,7 @@ class ProyekTest extends TestCase
             'dibuat_pada'       => now(),
         ]);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'kode_proyek'  => 'PRJ-AUTOCOPY',
             'nama_proyek'  => 'Proyek Auto Copy Test',
@@ -289,7 +289,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-NOCOPY',
             'nama_proyek' => 'Proyek Tanpa Penawaran',
@@ -320,7 +320,7 @@ class ProyekTest extends TestCase
             'dibuat_pada'     => now(),
         ]);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'nama_proyek'  => 'Proyek Test Tenant Lain',
             'id_penawaran' => $idPenawaranLain,
@@ -342,7 +342,7 @@ class ProyekTest extends TestCase
         $klien       = $this->makeKlien();
         $idPenawaran = $this->makePenawaranDenganStatus($klien->id_klien, 'terkirim');
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'nama_proyek'  => 'Proyek Dari Penawaran Belum Disetujui',
             'id_penawaran' => $idPenawaran,
@@ -360,7 +360,7 @@ class ProyekTest extends TestCase
         $proyekTerkait = $this->makeProyek($klien->id_klien, 'PRJ-SUDAH-ADA');
         $idPenawaran   = $this->makePenawaranDenganStatus($klien->id_klien, 'disetujui', $proyekTerkait->id_proyek);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'nama_proyek'  => 'Proyek Dari Penawaran Sudah Ber-Proyek',
             'id_penawaran' => $idPenawaran,
@@ -384,7 +384,7 @@ class ProyekTest extends TestCase
         $jumlahProyekSebelum     = DB::table('proyek')->count();
         $jumlahProyekRuteSebelum = DB::table('proyek_rute')->count();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'nama_proyek'  => 'Proyek Race Dobel',
             'id_penawaran' => $idPenawaran,
@@ -407,7 +407,7 @@ class ProyekTest extends TestCase
         $klien       = $this->makeKlien();
         $idPenawaran = $this->makePenawaranDenganStatus($klien->id_klien, 'disetujui', null, 'borongan', 45000000);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'nama_proyek'  => 'Proyek Jadikan Dari Penawaran',
             'id_penawaran' => $idPenawaran,
@@ -428,7 +428,7 @@ class ProyekTest extends TestCase
         $klien       = $this->makeKlien();
         $idPenawaran = $this->makePenawaranDisetujui($klien->id_klien);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'nama_proyek'  => 'Proyek Dari Penawaran Tanpa id_klien',
             'id_penawaran' => $idPenawaran,
         ]);
@@ -441,7 +441,7 @@ class ProyekTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'nama_proyek' => 'Proyek Tanpa Klien',
         ]);
 
@@ -469,7 +469,7 @@ class ProyekTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'nama_proyek'  => 'Proyek Salin Keterangan',
             'id_penawaran' => $idPenawaran,
@@ -490,7 +490,7 @@ class ProyekTest extends TestCase
         $idRute  = $this->makeRuteUntukProyekTest();
         $idJenis = $this->makeJenisKendaraanUntukProyekTest();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-RUTE-MANUAL',
             'nama_proyek' => 'Proyek Rute Manual',
@@ -515,7 +515,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'nama_proyek' => 'Proyek Rute Invalid',
             'rute' => [
@@ -560,7 +560,7 @@ class ProyekTest extends TestCase
             'dibuat_pada'       => now(),
         ]);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'kode_proyek'  => 'PRJ-HARGA-PNW',
             'nama_proyek'  => 'Proyek Harga Dari Penawaran',
@@ -607,7 +607,7 @@ class ProyekTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'     => $klien->id_klien,
             'kode_proyek'  => 'PRJ-RITASE-COPY',
             'nama_proyek'  => 'Proyek Ritase Copy',
@@ -629,7 +629,7 @@ class ProyekTest extends TestCase
         $idRute  = $this->makeRuteUntukProyekTest();
         $idJenis = $this->makeJenisKendaraanUntukProyekTest();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-RITASE-MANUAL',
             'nama_proyek' => 'Proyek Ritase Manual',
@@ -655,7 +655,7 @@ class ProyekTest extends TestCase
         $idRute  = $this->makeRuteUntukProyekTest();
         $idJenis = $this->makeJenisKendaraanUntukProyekTest();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-RITASE-DEFAULT',
             'nama_proyek' => 'Proyek Ritase Default',
@@ -680,7 +680,7 @@ class ProyekTest extends TestCase
         $idRute  = $this->makeRuteUntukProyekTest();
         $idJenis = $this->makeJenisKendaraanUntukProyekTest();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-RITASE-NOL',
             'nama_proyek' => 'Proyek Ritase Nol',
@@ -703,7 +703,7 @@ class ProyekTest extends TestCase
         $idRuteB  = $this->makeRuteUntukProyekTest();
         $idJenis  = $this->makeJenisKendaraanUntukProyekTest();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-SUBTOTAL',
             'nama_proyek' => 'Proyek Subtotal',
@@ -723,7 +723,7 @@ class ProyekTest extends TestCase
         $res->assertStatus(201);
         $idProyek = $res->json('data.id_proyek');
 
-        $list = $this->getJson("/api/v1/proyek/{$idProyek}/rute");
+        $list = $this->getJson("/api/proyek/{$idProyek}/rute");
         $list->assertStatus(200);
         $data = collect($list->json('data'));
 
@@ -735,7 +735,7 @@ class ProyekTest extends TestCase
         $this->assertSame(1, $tanpaHarga['estimasi_ritase']);
         $this->assertNull($tanpaHarga['subtotal']);
 
-        $update = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$denganHarga['id_proyek_rute']}", [
+        $update = $this->putJson("/api/proyek/{$idProyek}/rute/{$denganHarga['id_proyek_rute']}", [
             'estimasi_ritase' => 5,
         ]);
         $update->assertStatus(200)
@@ -749,7 +749,7 @@ class ProyekTest extends TestCase
         $klien  = $this->makeKlien();
         $proyek = $this->makeProyek($klien->id_klien, 'PRJ-PDF-1');
 
-        $res = $this->get("/api/v1/proyek/{$proyek->id_proyek}/pdf");
+        $res = $this->get("/api/proyek/{$proyek->id_proyek}/pdf");
 
         $res->assertStatus(200);
         $this->assertSame('application/pdf', $res->headers->get('content-type'));
@@ -765,7 +765,7 @@ class ProyekTest extends TestCase
             'nama_proyek'   => 'Proyek Perusahaan Lain',
         ]);
 
-        $this->get("/api/v1/proyek/{$proyekLain->id_proyek}/pdf")->assertStatus(404);
+        $this->get("/api/proyek/{$proyekLain->id_proyek}/pdf")->assertStatus(404);
     }
 
     public function test_membuat_dan_mengubah_harga_penawaran_dan_harga_proyek(): void
@@ -773,7 +773,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'        => $klien->id_klien,
             'kode_proyek'     => 'PRJ-HARGA',
             'nama_proyek'     => 'Proyek Harga',
@@ -787,7 +787,7 @@ class ProyekTest extends TestCase
 
         $idProyek = $res->json('data.id_proyek');
 
-        $ubah = $this->putJson("/api/v1/proyek/{$idProyek}", ['harga_proyek' => 13500000]);
+        $ubah = $this->putJson("/api/proyek/{$idProyek}", ['harga_proyek' => 13500000]);
         $ubah->assertStatus(200)
             ->assertJsonPath('data.harga_proyek', 13500000)
             ->assertJsonPath('data.harga_penawaran', 15000000);
@@ -799,7 +799,7 @@ class ProyekTest extends TestCase
         $klien  = $this->makeKlien();
         $proyek = $this->makeProyek($klien->id_klien, 'PRJ-SHOW');
 
-        $res = $this->getJson("/api/v1/proyek/{$proyek->id_proyek}");
+        $res = $this->getJson("/api/proyek/{$proyek->id_proyek}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.nama_klien', 'Klien Test');
@@ -828,7 +828,7 @@ class ProyekTest extends TestCase
             'nama_proyek'   => 'Proyek Lain',
         ]);
 
-        $res = $this->getJson("/api/v1/proyek?id_klien={$idKlienLain}");
+        $res = $this->getJson("/api/proyek?id_klien={$idKlienLain}");
 
         $res->assertStatus(200);
         $this->assertSame([], $res->json('data'));
@@ -839,7 +839,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-TIPE-DEFAULT',
             'nama_proyek' => 'Proyek Tipe Default',
@@ -853,7 +853,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-BORONGAN',
             'nama_proyek' => 'Proyek Borongan',
@@ -868,7 +868,7 @@ class ProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-TIPE-INVALID',
             'nama_proyek' => 'Proyek Tipe Invalid',
@@ -892,7 +892,7 @@ class ProyekTest extends TestCase
         $klien  = $this->makeKlien();
         $idRute = $this->makeRuteUntukProyekTest();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-RUTE-SEMUA-JENIS',
             'nama_proyek' => 'Proyek Rute Semua Jenis',
@@ -930,7 +930,7 @@ class ProyekTest extends TestCase
         $klien  = $this->makeKlien();
         $idRute = $this->makeRuteUntukProyekTest();
 
-        $res = $this->postJson('/api/v1/proyek', [
+        $res = $this->postJson('/api/proyek', [
             'id_klien'    => $klien->id_klien,
             'kode_proyek' => 'PRJ-RUTE-TANPA-JENIS-KEY',
             'nama_proyek' => 'Proyek Rute Tanpa Jenis Key',

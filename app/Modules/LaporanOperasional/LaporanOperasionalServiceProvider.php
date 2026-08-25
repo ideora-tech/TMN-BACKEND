@@ -18,7 +18,7 @@ class LaporanOperasionalServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:laporan'])
             ->group(function () {
                 Route::get('laporan/trip/ringkasan', [LaporanOperasionalController::class, 'ringkasanTrip']);
@@ -29,14 +29,14 @@ class LaporanOperasionalServiceProvider extends ServiceProvider
 
         // Export master menumpang izin menu masternya — tombolnya ada di halaman
         // Karyawan/Armada, bukan di halaman Laporan.
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
             ->group(function () {
                 Route::get('laporan/karyawan/export/excel', [LaporanOperasionalController::class, 'exportKaryawanExcel']);
                 Route::get('laporan/karyawan/export/pdf', [LaporanOperasionalController::class, 'exportKaryawanPdf']);
             });
 
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:armada'])
             ->group(function () {
                 Route::get('laporan/armada/export/excel', [LaporanOperasionalController::class, 'exportArmadaExcel']);

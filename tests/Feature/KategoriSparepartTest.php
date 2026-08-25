@@ -37,7 +37,7 @@ class KategoriSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/kategori-sparepart', ['nama' => 'Filter']);
+        $res = $this->postJson('/api/kategori-sparepart', ['nama' => 'Filter']);
 
         $res->assertStatus(201)
             ->assertJsonPath('data.nama', 'Filter')
@@ -54,7 +54,7 @@ class KategoriSparepartTest extends TestCase
         $this->makeKategori('Milik Sendiri');
         $this->makeKategori('Milik Orang', $this->makePerusahaanLain());
 
-        $res = $this->getJson('/api/v1/kategori-sparepart');
+        $res = $this->getJson('/api/kategori-sparepart');
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -66,14 +66,14 @@ class KategoriSparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $kategori = $this->makeKategori();
 
-        $resUpdate = $this->putJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}", [
+        $resUpdate = $this->putJson("/api/kategori-sparepart/{$kategori->id_kategori_sparepart}", [
             'nama' => 'Oli & Pelumas Mesin', 'aktif' => false,
         ]);
         $resUpdate->assertStatus(200)
             ->assertJsonPath('data.nama', 'Oli & Pelumas Mesin')
             ->assertJsonPath('data.aktif', false);
 
-        $resShow = $this->getJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}");
+        $resShow = $this->getJson("/api/kategori-sparepart/{$kategori->id_kategori_sparepart}");
         $resShow->assertStatus(200)->assertJsonPath('data.nama', 'Oli & Pelumas Mesin');
     }
 
@@ -82,11 +82,11 @@ class KategoriSparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $kategori = $this->makeKategori();
 
-        $res = $this->deleteJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}");
+        $res = $this->deleteJson("/api/kategori-sparepart/{$kategori->id_kategori_sparepart}");
         $res->assertStatus(200);
 
         $this->assertSoftDeleted('kategori_sparepart', ['id_kategori_sparepart' => $kategori->id_kategori_sparepart]);
-        $this->getJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}")->assertStatus(404);
+        $this->getJson("/api/kategori-sparepart/{$kategori->id_kategori_sparepart}")->assertStatus(404);
     }
 
     public function test_delete_ditolak_jika_masih_dipakai_sparepart(): void
@@ -106,7 +106,7 @@ class KategoriSparepartTest extends TestCase
             'dibuat_pada'           => now(),
         ]);
 
-        $res = $this->deleteJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}");
+        $res = $this->deleteJson("/api/kategori-sparepart/{$kategori->id_kategori_sparepart}");
 
         $res->assertStatus(422);
     }
@@ -117,8 +117,8 @@ class KategoriSparepartTest extends TestCase
         $lain = $this->makePerusahaanLain();
         $kategori = $this->makeKategori('Milik Orang', $lain);
 
-        $this->getJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}")->assertStatus(404);
-        $this->putJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}", ['nama' => 'x'])->assertStatus(404);
-        $this->deleteJson("/api/v1/kategori-sparepart/{$kategori->id_kategori_sparepart}")->assertStatus(404);
+        $this->getJson("/api/kategori-sparepart/{$kategori->id_kategori_sparepart}")->assertStatus(404);
+        $this->putJson("/api/kategori-sparepart/{$kategori->id_kategori_sparepart}", ['nama' => 'x'])->assertStatus(404);
+        $this->deleteJson("/api/kategori-sparepart/{$kategori->id_kategori_sparepart}")->assertStatus(404);
     }
 }

@@ -40,7 +40,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(10)->toDateString(), 'Servis Besar');
 
-        $res = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
+        $res = $this->getJson('/api/armada/servis-jatuh-tempo');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -56,7 +56,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
         $this->makePerawatan($armada->id_armada, '2026-01-01', now()->addDays(5)->toDateString());
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(90)->toDateString());
 
-        $res = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
+        $res = $this->getJson('/api/armada/servis-jatuh-tempo');
 
         $res->assertStatus(200);
         $this->assertCount(0, $res->json('data'));
@@ -68,11 +68,11 @@ class ArmadaServisJatuhTempoTest extends TestCase
         $armada = $this->makeArmada();
         $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(45)->toDateString());
 
-        $resDefault = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
+        $resDefault = $this->getJson('/api/armada/servis-jatuh-tempo');
         $resDefault->assertStatus(200);
         $this->assertCount(0, $resDefault->json('data'));
 
-        $resCustom = $this->getJson('/api/v1/armada/servis-jatuh-tempo?days=60');
+        $resCustom = $this->getJson('/api/armada/servis-jatuh-tempo?days=60');
         $resCustom->assertStatus(200);
         $this->assertCount(1, $resCustom->json('data'));
     }
@@ -85,7 +85,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
         $armadaLain = ArmadaModel::create(['id_perusahaan' => $lain, 'nopol' => 'D 9999 ZZ', 'status' => 'tersedia']);
         $this->makePerawatan($armadaLain->id_armada, '2026-06-01', now()->addDays(10)->toDateString());
 
-        $res = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
+        $res = $this->getJson('/api/armada/servis-jatuh-tempo');
 
         $res->assertStatus(200);
         $this->assertCount(0, $res->json('data'));
@@ -95,7 +95,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         // Memastikan 'servis-jatuh-tempo' tidak tertangkap sebagai {id} pada GET armada/{id}
-        $res = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
+        $res = $this->getJson('/api/armada/servis-jatuh-tempo');
         $res->assertStatus(200); // bukan 404 "Armada tidak ditemukan"
     }
 
@@ -147,7 +147,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
         $this->makePerawatanKm($idArmada, '2026-05-01', 50000, $idJenis);
         $this->makePerawatanKm($idArmada, '2026-08-01', 59500);
 
-        $res = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
+        $res = $this->getJson('/api/armada/servis-jatuh-tempo');
 
         $res->assertStatus(200);
         $km = collect($res->json('data'))->firstWhere('basis', 'km');
@@ -166,12 +166,12 @@ class ArmadaServisJatuhTempoTest extends TestCase
 
         // odometer 57.000 → sisa 3.000 > ambang 1.000 → tidak ada warning km
         $this->makePerawatanKm($idArmada, '2026-07-01', 57000);
-        $resJauh = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
+        $resJauh = $this->getJson('/api/armada/servis-jatuh-tempo');
         $this->assertNull(collect($resJauh->json('data'))->firstWhere('basis', 'km'));
 
         // odometer 61.000 → sisa -1.000 → lewat, warning muncul
         $this->makePerawatanKm($idArmada, '2026-08-01', 61000);
-        $resLewat = $this->getJson('/api/v1/armada/servis-jatuh-tempo');
+        $resLewat = $this->getJson('/api/armada/servis-jatuh-tempo');
         $km = collect($resLewat->json('data'))->firstWhere('basis', 'km');
         $this->assertNotNull($km);
         $this->assertSame(-1000, $km['sisa_km']);
@@ -187,7 +187,7 @@ class ArmadaServisJatuhTempoTest extends TestCase
         $this->makePerawatanKm($idArmada, '2026-08-01', 50000, $idJenis);
         $this->makePerawatanKm($idArmada, '2026-08-05', 61000);
 
-        $res = $this->getJson("/api/v1/armada/{$idArmada}/prediksi-perawatan");
+        $res = $this->getJson("/api/armada/{$idArmada}/prediksi-perawatan");
 
         $res->assertStatus(200);
         $item = collect($res->json('data'))->firstWhere('id_jenis_perawatan', $idJenis);

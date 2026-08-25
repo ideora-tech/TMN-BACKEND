@@ -59,7 +59,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $this->actingAsRole('KEUANGAN');
         $this->seedMenuTrip();
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
 
         $res->assertStatus(403)
             ->assertJsonPath('message', 'Anda tidak memiliki izin untuk aksi ini');
@@ -71,10 +71,10 @@ class IzinPeranMiddlewareTest extends TestCase
         $idMenu = $this->seedMenuTrip();
         $this->seedIzin($idMenu, 'KEUANGAN', 'lihat', 1);
 
-        $get = $this->getJson('/api/v1/trip');
+        $get = $this->getJson('/api/trip');
         $get->assertStatus(200);
 
-        $post = $this->postJson('/api/v1/trip', []);
+        $post = $this->postJson('/api/trip', []);
         $post->assertStatus(403);
     }
 
@@ -83,7 +83,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->seedMenuTrip();
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
 
         $res->assertStatus(200);
     }
@@ -93,7 +93,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $this->actingAsRole('ADMIN');
         $this->seedMenuTrip();
 
-        $this->getJson('/api/v1/trip')->assertStatus(403);
+        $this->getJson('/api/trip')->assertStatus(403);
     }
 
     public function test_admin_dengan_baris_izin_diizinkan(): void
@@ -102,7 +102,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $idMenu = $this->seedMenuTrip();
         $this->seedIzin($idMenu, 'ADMIN', 'lihat', 1);
 
-        $this->getJson('/api/v1/trip')->assertStatus(200);
+        $this->getJson('/api/trip')->assertStatus(200);
     }
 
     public function test_dispatcher_dengan_semua_aksi_diizinkan_boleh_post(): void
@@ -113,7 +113,7 @@ class IzinPeranMiddlewareTest extends TestCase
             $this->seedIzin($idMenu, 'DISPATCHER', $aksi, 1);
         }
 
-        $res = $this->postJson('/api/v1/trip', []);
+        $res = $this->postJson('/api/trip', []);
 
         $this->assertContains($res->status(), [201, 422]);
     }
@@ -126,7 +126,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $idMenu = $this->seedMenuTrip();
         $this->seedIzin($idMenu, 'SUPIR', 'lihat', 1);
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
 
         $res->assertStatus(200);
     }
@@ -217,7 +217,7 @@ class IzinPeranMiddlewareTest extends TestCase
             'dibuat_pada'   => now(),
         ]);
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
 
         $res->assertStatus(403);
     }
@@ -228,7 +228,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $idMenu = $this->seedMenuTrip();
         $this->seedIzin($idMenu, 'KEUANGAN', 'lihat', 1);
 
-        $res = $this->getJson('/api/v1/trip');
+        $res = $this->getJson('/api/trip');
 
         $res->assertStatus(200);
     }
@@ -241,7 +241,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $idMenu = $this->seedMenuVendor();
         $this->seedIzin($idMenu, 'DISPATCHER', 'lihat', 1);
 
-        $res = $this->getJson('/api/v1/armada-vendor');
+        $res = $this->getJson('/api/armada-vendor');
 
         $res->assertStatus(200);
     }
@@ -252,7 +252,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $idMenu = $this->seedMenuVendor();
         $this->seedIzin($idMenu, 'DISPATCHER', 'lihat', 1);
 
-        $res = $this->getJson('/api/v1/supir-vendor');
+        $res = $this->getJson('/api/supir-vendor');
 
         $res->assertStatus(200);
     }
@@ -262,7 +262,7 @@ class IzinPeranMiddlewareTest extends TestCase
         $this->actingAsRole('DISPATCHER');
         $this->seedMenuVendor();
 
-        $res = $this->getJson('/api/v1/armada-vendor');
+        $res = $this->getJson('/api/armada-vendor');
 
         $res->assertStatus(403)
             ->assertJsonPath('message', 'Anda tidak memiliki izin untuk aksi ini');

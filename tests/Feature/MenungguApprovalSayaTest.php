@@ -44,10 +44,10 @@ class MenungguApprovalSayaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idApprover1 = $this->buatPengguna('approver_saya_1');
         $idApprover2 = $this->buatPengguna('approver_saya_2');
-        $this->postJson('/api/v1/arus-kas/approver', ['tipe' => 'pengguna', 'id_pengguna' => $idApprover1])->assertStatus(201);
-        $this->postJson('/api/v1/arus-kas/approver', ['tipe' => 'pengguna', 'id_pengguna' => $idApprover2])->assertStatus(201);
+        $this->postJson('/api/arus-kas/approver', ['tipe' => 'pengguna', 'id_pengguna' => $idApprover1])->assertStatus(201);
+        $this->postJson('/api/arus-kas/approver', ['tipe' => 'pengguna', 'id_pengguna' => $idApprover2])->assertStatus(201);
 
-        $idPengajuan = $this->postJson('/api/v1/arus-kas/pengajuan', [
+        $idPengajuan = $this->postJson('/api/arus-kas/pengajuan', [
             'kategori'          => 'uang_jalan',
             'nominal'           => $nominal,
             'tanggal_pengajuan' => now()->toDateString(),
@@ -56,7 +56,7 @@ class MenungguApprovalSayaTest extends TestCase
         ])->json('data.id_pengajuan');
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         return [$idPengajuan, $idApprover1, $idApprover2];
@@ -67,7 +67,7 @@ class MenungguApprovalSayaTest extends TestCase
         [$idPengajuan, $idApprover1] = $this->siapkanPengajuanMenungguApproval(750000);
 
         $this->actingAsPengguna($idApprover1);
-        $res = $this->getJson('/api/v1/arus-kas/pengajuan/menunggu-approval-saya');
+        $res = $this->getJson('/api/arus-kas/pengajuan/menunggu-approval-saya');
         $res->assertStatus(200)
             ->assertJsonPath('data.ringkasan.jumlah', 1)
             ->assertJsonPath('data.pengajuan.0.id_pengajuan', $idPengajuan)
@@ -75,7 +75,7 @@ class MenungguApprovalSayaTest extends TestCase
         $this->assertEquals(750000, $res->json('data.ringkasan.total_nominal'));
 
         $this->actingAsRole('MANAGER');
-        $this->getJson('/api/v1/arus-kas/pengajuan/menunggu-approval-saya')
+        $this->getJson('/api/arus-kas/pengajuan/menunggu-approval-saya')
             ->assertStatus(200)
             ->assertJsonPath('data.ringkasan.jumlah', 0)
             ->assertJsonPath('data.pengajuan', []);
@@ -86,15 +86,15 @@ class MenungguApprovalSayaTest extends TestCase
         [$idPengajuan, $idApprover1, $idApprover2] = $this->siapkanPengajuanMenungguApproval();
 
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200);
 
-        $this->getJson('/api/v1/arus-kas/pengajuan/menunggu-approval-saya')
+        $this->getJson('/api/arus-kas/pengajuan/menunggu-approval-saya')
             ->assertStatus(200)
             ->assertJsonPath('data.ringkasan.jumlah', 0);
 
         $this->actingAsPengguna($idApprover2);
-        $this->getJson('/api/v1/arus-kas/pengajuan/menunggu-approval-saya')
+        $this->getJson('/api/arus-kas/pengajuan/menunggu-approval-saya')
             ->assertStatus(200)
             ->assertJsonPath('data.ringkasan.jumlah', 1);
     }
@@ -104,7 +104,7 @@ class MenungguApprovalSayaTest extends TestCase
         [$idPengajuan, $idApprover1] = $this->siapkanPengajuanMenungguApproval();
 
         $this->actingAsPengguna($idApprover1);
-        $res = $this->getJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/riwayat");
+        $res = $this->getJson("/api/arus-kas/pengajuan/{$idPengajuan}/riwayat");
         $res->assertStatus(200)
             ->assertJsonPath('data.id_pengajuan', $idPengajuan)
             ->assertJsonPath('data.riwayat.0.status', 'diajukan');
@@ -116,17 +116,17 @@ class MenungguApprovalSayaTest extends TestCase
         [$idPengajuan, $idApprover1, $idApprover2] = $this->siapkanPengajuanMenungguApproval();
 
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", [
             'keputusan' => 'tolak',
             'catatan'   => 'Nominal tidak sesuai',
         ])->assertStatus(200);
 
-        $this->getJson('/api/v1/arus-kas/pengajuan/menunggu-approval-saya')
+        $this->getJson('/api/arus-kas/pengajuan/menunggu-approval-saya')
             ->assertStatus(200)
             ->assertJsonPath('data.ringkasan.jumlah', 0);
 
         $this->actingAsPengguna($idApprover2);
-        $this->getJson('/api/v1/arus-kas/pengajuan/menunggu-approval-saya')
+        $this->getJson('/api/arus-kas/pengajuan/menunggu-approval-saya')
             ->assertStatus(200)
             ->assertJsonPath('data.ringkasan.jumlah', 0);
     }

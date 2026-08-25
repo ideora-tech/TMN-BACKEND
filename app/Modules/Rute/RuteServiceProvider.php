@@ -10,7 +10,7 @@ class RuteServiceProvider extends ServiceProvider {
         $this->app->bind(RuteService::class);
     }
     public function boot(): void {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:rute'])
             ->group(function () {
                 Route::get('rute/estimasi-bok', [RuteController::class, 'estimasiBok']);

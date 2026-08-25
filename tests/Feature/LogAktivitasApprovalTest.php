@@ -28,7 +28,7 @@ class LogAktivitasApprovalTest extends TestCase
 
     private function buatPerawatanBerbiaya(string $idArmada): string
     {
-        $res = $this->postJson("/api/v1/armada/{$idArmada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$idArmada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Ganti Oli',
             'biaya'           => 250000,
@@ -49,7 +49,7 @@ class LogAktivitasApprovalTest extends TestCase
         $idArmada = $this->buatArmada();
         $idPerawatan = $this->buatPerawatanBerbiaya($idArmada);
 
-        $res = $this->getJson("/api/v1/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan");
+        $res = $this->getJson("/api/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan");
         $res->assertStatus(200);
 
         $this->assertNotNull($res->json('data.nomor_pengajuan'));
@@ -63,7 +63,7 @@ class LogAktivitasApprovalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idArmada = $this->buatArmada('B 5502 LOG');
 
-        $res = $this->postJson("/api/v1/armada/{$idArmada}/perawatan", [
+        $res = $this->postJson("/api/armada/{$idArmada}/perawatan", [
             'tanggal'         => '2026-08-10',
             'jenis_perawatan' => 'Cek Rutin',
             'biaya'           => 0,
@@ -72,7 +72,7 @@ class LogAktivitasApprovalTest extends TestCase
         $res->assertStatus(201);
         $idPerawatan = $res->json('data.id_perawatan');
 
-        $this->getJson("/api/v1/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan")
+        $this->getJson("/api/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan")
             ->assertStatus(200)
             ->assertJsonPath('data', null);
     }
@@ -80,7 +80,7 @@ class LogAktivitasApprovalTest extends TestCase
     public function test_info_pengajuan_periode_payroll_berisi_riwayat(): void
     {
         $pengguna = $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/payroll/pengaturan', [
+        $this->putJson('/api/payroll/pengaturan', [
             'tanggal_mulai_cutoff'       => 1,
             'hari_kerja_per_bulan'       => 25,
             'persen_bpjs_kesehatan'      => 1,
@@ -93,17 +93,17 @@ class LogAktivitasApprovalTest extends TestCase
             'nik' => 'NIK-LOG-01', 'nama_karyawan' => 'Log Payroll', 'aktif' => 1,
             'gaji_pokok' => 5000000, 'dibuat_pada' => now(),
         ]);
-        $idPeriode = $this->postJson('/api/v1/payroll/periode', ['bulan' => '2026-08'])
+        $idPeriode = $this->postJson('/api/payroll/periode', ['bulan' => '2026-08'])
             ->assertStatus(201)->json('data.id_periode');
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
-        $this->getJson("/api/v1/payroll/periode/{$idPeriode}/pengajuan")
+        $this->getJson("/api/payroll/periode/{$idPeriode}/pengajuan")
             ->assertStatus(200)
             ->assertJsonPath('data', null);
 
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(200);
 
-        $res = $this->getJson("/api/v1/payroll/periode/{$idPeriode}/pengajuan");
+        $res = $this->getJson("/api/payroll/periode/{$idPeriode}/pengajuan");
         $res->assertStatus(200);
         $this->assertSame('diajukan', $res->json('data.riwayat.0.status'));
         $this->assertSame($pengguna->username, $res->json('data.riwayat.0.oleh'));
@@ -116,11 +116,11 @@ class LogAktivitasApprovalTest extends TestCase
         $idPerawatan = $this->buatPerawatanBerbiaya($idArmada);
         $idPengajuan = $this->pengajuanPerawatan($idPerawatan)->id_pengajuan;
 
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/tolak", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/tolak", [
             'alasan' => 'Biaya tidak wajar',
         ])->assertStatus(200);
 
-        $res = $this->getJson("/api/v1/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan");
+        $res = $this->getJson("/api/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan");
         $res->assertStatus(200);
 
         $entriTolak = collect($res->json('data.riwayat'))->firstWhere('status', 'ditolak');
@@ -132,15 +132,15 @@ class LogAktivitasApprovalTest extends TestCase
     public function test_auto_approve_di_bawah_batas_mencatat_pengecek(): void
     {
         $pengguna = $this->actingAsRole('SUPERADMIN');
-        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
         $idArmada = $this->buatArmada('B 5504 LOG');
         $idPerawatan = $this->buatPerawatanBerbiaya($idArmada);
         $idPengajuan = $this->pengajuanPerawatan($idPerawatan)->id_pengajuan;
 
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
-        $res = $this->getJson("/api/v1/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan");
+        $res = $this->getJson("/api/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan");
         $entriSetuju = collect($res->json('data.riwayat'))->firstWhere('status', 'disetujui');
         $this->assertNotNull($entriSetuju);
         $this->assertSame($pengguna->username, $entriSetuju['oleh']);

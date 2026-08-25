@@ -200,7 +200,7 @@ class LaporanOperasionalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->seedTrips();
 
-        $res = $this->getJson('/api/v1/laporan/trip?dari=2026-01-01&sampai=2026-01-31');
+        $res = $this->getJson('/api/laporan/trip?dari=2026-01-01&sampai=2026-01-31');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -218,7 +218,7 @@ class LaporanOperasionalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips();
 
-        $res = $this->getJson('/api/v1/laporan/trip?id_klien=' . $seed['klien2']->id_klien);
+        $res = $this->getJson('/api/laporan/trip?id_klien=' . $seed['klien2']->id_klien);
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -234,7 +234,7 @@ class LaporanOperasionalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips();
 
-        $res = $this->getJson('/api/v1/laporan/trip?id_klien=' . $seed['klien1']->id_klien);
+        $res = $this->getJson('/api/laporan/trip?id_klien=' . $seed['klien1']->id_klien);
 
         $res->assertStatus(200);
         $data = collect($res->json('data'))->keyBy('id_trip');
@@ -250,7 +250,7 @@ class LaporanOperasionalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips();
 
-        $res = $this->getJson('/api/v1/laporan/trip/ringkasan?dari=2026-01-01&sampai=2026-01-31');
+        $res = $this->getJson('/api/laporan/trip/ringkasan?dari=2026-01-01&sampai=2026-01-31');
 
         $res->assertStatus(200)
             ->assertJsonPath('success', true)
@@ -263,7 +263,7 @@ class LaporanOperasionalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $seed = $this->seedTrips();
 
-        $res = $this->getJson('/api/v1/laporan/trip/ringkasan?id_klien=' . $seed['klien2']->id_klien);
+        $res = $this->getJson('/api/laporan/trip/ringkasan?id_klien=' . $seed['klien2']->id_klien);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.jumlah_trip', 1)
@@ -275,7 +275,7 @@ class LaporanOperasionalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->seedTrips();
 
-        $res = $this->get('/api/v1/laporan/trip/export/excel');
+        $res = $this->get('/api/laporan/trip/export/excel');
 
         $res->assertStatus(200);
         $contentType = $res->headers->get('content-type');
@@ -287,7 +287,7 @@ class LaporanOperasionalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->seedTrips();
 
-        $res = $this->get('/api/v1/laporan/trip/export/pdf');
+        $res = $this->get('/api/laporan/trip/export/pdf');
 
         $res->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));
@@ -306,11 +306,11 @@ class LaporanOperasionalTest extends TestCase
             'dibuat_pada'         => now(),
         ]);
 
-        $resExcel = $this->get('/api/v1/laporan/karyawan/export/excel');
+        $resExcel = $this->get('/api/laporan/karyawan/export/excel');
         $resExcel->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', $resExcel->headers->get('content-type'));
 
-        $resPdf = $this->get('/api/v1/laporan/karyawan/export/pdf');
+        $resPdf = $this->get('/api/laporan/karyawan/export/pdf');
         $resPdf->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $resPdf->headers->get('content-type'));
     }
@@ -320,11 +320,11 @@ class LaporanOperasionalTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeArmada();
 
-        $resExcel = $this->get('/api/v1/laporan/armada/export/excel');
+        $resExcel = $this->get('/api/laporan/armada/export/excel');
         $resExcel->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', $resExcel->headers->get('content-type'));
 
-        $resPdf = $this->get('/api/v1/laporan/armada/export/pdf');
+        $resPdf = $this->get('/api/laporan/armada/export/pdf');
         $resPdf->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $resPdf->headers->get('content-type'));
     }
@@ -335,7 +335,7 @@ class LaporanOperasionalTest extends TestCase
         $this->seedTrips();
 
         // Memastikan laporan/trip tidak ditangkap oleh laporan/{id} milik modul LaporanProyek.
-        $res = $this->getJson('/api/v1/laporan/trip');
+        $res = $this->getJson('/api/laporan/trip');
 
         $res->assertStatus(200);
         $this->assertArrayHasKey('meta', $res->json());
@@ -358,7 +358,7 @@ class LaporanOperasionalTest extends TestCase
             '2026-03-01 08:00:00'
         );
 
-        $res = $this->getJson('/api/v1/laporan/trip?id_klien=' . $klien->id_klien);
+        $res = $this->getJson('/api/laporan/trip?id_klien=' . $klien->id_klien);
 
         $res->assertStatus(200);
         $data = collect($res->json('data'))->keyBy('id_trip');
@@ -387,7 +387,7 @@ class LaporanOperasionalTest extends TestCase
             '2026-03-01 08:00:00'
         );
 
-        $res = $this->getJson('/api/v1/laporan/trip?sumber=vendor');
+        $res = $this->getJson('/api/laporan/trip?sumber=vendor');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -413,7 +413,7 @@ class LaporanOperasionalTest extends TestCase
             '2026-03-01 08:00:00'
         );
 
-        $res = $this->getJson('/api/v1/laporan/trip?sumber=internal');
+        $res = $this->getJson('/api/laporan/trip?sumber=internal');
 
         $res->assertStatus(200);
         $data = $res->json('data');

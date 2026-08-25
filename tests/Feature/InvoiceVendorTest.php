@@ -91,7 +91,7 @@ class InvoiceVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $res = $this->postJson('/api/v1/invoice-vendor', [
+        $res = $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-2026-001',
             'tanggal_invoice' => '2026-07-01',
@@ -124,7 +124,7 @@ class InvoiceVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $res = $this->postJson('/api/v1/invoice-vendor', [
+        $res = $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-2026-002',
             'tanggal_invoice' => '2026-07-01',
@@ -142,7 +142,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $idKontrak = $this->makeKontrak($vendor->id_vendor, 30);
 
-        $res = $this->postJson('/api/v1/invoice-vendor', [
+        $res = $this->postJson('/api/invoice-vendor', [
             'id_vendor'         => $vendor->id_vendor,
             'id_kontrak_vendor' => $idKontrak,
             'nomor_invoice'     => 'INV-2026-003',
@@ -160,7 +160,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $idKontrak = $this->makeKontrak($vendor->id_vendor, 30);
 
-        $res = $this->postJson('/api/v1/invoice-vendor', [
+        $res = $this->postJson('/api/invoice-vendor', [
             'id_vendor'         => $vendor->id_vendor,
             'id_kontrak_vendor' => $idKontrak,
             'nomor_invoice'     => 'INV-2026-004',
@@ -179,7 +179,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $this->insertInvoice($vendor->id_vendor, ['nomor_invoice' => 'INV-DOBEL']);
 
-        $res = $this->postJson('/api/v1/invoice-vendor', [
+        $res = $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-DOBEL',
             'tanggal_invoice' => '2026-07-01',
@@ -195,7 +195,7 @@ class InvoiceVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendorLain = $this->makeVendorPerusahaanLain();
 
-        $this->postJson('/api/v1/invoice-vendor', [
+        $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendorLain->id_vendor,
             'nomor_invoice'   => 'INV-2026-005',
             'tanggal_invoice' => '2026-07-01',
@@ -210,7 +210,7 @@ class InvoiceVendorTest extends TestCase
         $vendorLain = $this->makeVendorPerusahaanLain();
         $idKontrakLain = $this->makeKontrak($vendorLain->id_vendor, 30, $vendorLain->id_perusahaan);
 
-        $this->postJson('/api/v1/invoice-vendor', [
+        $this->postJson('/api/invoice-vendor', [
             'id_vendor'         => $vendor->id_vendor,
             'id_kontrak_vendor' => $idKontrakLain,
             'nomor_invoice'     => 'INV-2026-006',
@@ -226,7 +226,7 @@ class InvoiceVendorTest extends TestCase
         $vendorB = $this->makeVendor();
         $idKontrakB = $this->makeKontrak($vendorB->id_vendor, 30);
 
-        $this->postJson('/api/v1/invoice-vendor', [
+        $this->postJson('/api/invoice-vendor', [
             'id_vendor'         => $vendorA->id_vendor,
             'id_kontrak_vendor' => $idKontrakB,
             'nomor_invoice'     => 'INV-2026-007',
@@ -244,23 +244,23 @@ class InvoiceVendorTest extends TestCase
         $this->insertInvoice($vendorA->id_vendor, ['nomor_invoice' => 'INV-A2', 'status' => 'diverifikasi', 'status_pembayaran' => 'sebagian']);
         $this->insertInvoice($vendorB->id_vendor, ['nomor_invoice' => 'INV-B1', 'status' => 'draft']);
 
-        $semua = $this->getJson('/api/v1/invoice-vendor');
+        $semua = $this->getJson('/api/invoice-vendor');
         $semua->assertStatus(200);
         $this->assertCount(3, $semua->json('data'));
         $this->assertArrayHasKey('meta', $semua->json());
 
-        $byStatus = $this->getJson('/api/v1/invoice-vendor?status=diverifikasi');
+        $byStatus = $this->getJson('/api/invoice-vendor?status=diverifikasi');
         $this->assertCount(1, $byStatus->json('data'));
         $this->assertSame('INV-A2', $byStatus->json('data.0.nomor_invoice'));
 
-        $byStatusPembayaran = $this->getJson('/api/v1/invoice-vendor?status_pembayaran=sebagian');
+        $byStatusPembayaran = $this->getJson('/api/invoice-vendor?status_pembayaran=sebagian');
         $this->assertCount(1, $byStatusPembayaran->json('data'));
 
-        $byVendor = $this->getJson("/api/v1/invoice-vendor?id_vendor={$vendorB->id_vendor}");
+        $byVendor = $this->getJson("/api/invoice-vendor?id_vendor={$vendorB->id_vendor}");
         $this->assertCount(1, $byVendor->json('data'));
         $this->assertSame('INV-B1', $byVendor->json('data.0.nomor_invoice'));
 
-        $bySearch = $this->getJson('/api/v1/invoice-vendor?search=INV-A1');
+        $bySearch = $this->getJson('/api/invoice-vendor?search=INV-A1');
         $this->assertCount(1, $bySearch->json('data'));
     }
 
@@ -275,7 +275,7 @@ class InvoiceVendorTest extends TestCase
             'id_perusahaan' => $vendorLain->id_perusahaan,
         ]);
 
-        $res = $this->getJson('/api/v1/invoice-vendor');
+        $res = $this->getJson('/api/invoice-vendor');
         $this->assertCount(1, $res->json('data'));
         $this->assertSame('INV-SENDIRI', $res->json('data.0.nomor_invoice'));
     }
@@ -294,7 +294,7 @@ class InvoiceVendorTest extends TestCase
         ]);
         $this->insertPembayaran($id, 4000000);
 
-        $res = $this->getJson("/api/v1/invoice-vendor/{$id}");
+        $res = $this->getJson("/api/invoice-vendor/{$id}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.id_invoice_vendor', $id)
@@ -328,7 +328,7 @@ class InvoiceVendorTest extends TestCase
             'dibuat_pada'          => now(),
         ]);
 
-        $res = $this->getJson("/api/v1/invoice-vendor/{$id}");
+        $res = $this->getJson("/api/invoice-vendor/{$id}");
 
         $res->assertStatus(200);
         $urlBukti = $res->json('data.pembayaran.0.url_bukti');
@@ -342,7 +342,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor);
 
-        $res = $this->getJson("/api/v1/invoice-vendor/{$id}");
+        $res = $this->getJson("/api/invoice-vendor/{$id}");
 
         $res->assertStatus(200);
         $this->assertNull($res->json('data.kontrak'));
@@ -355,7 +355,7 @@ class InvoiceVendorTest extends TestCase
         $vendorLain = $this->makeVendorPerusahaanLain();
         $id = $this->insertInvoice($vendorLain->id_vendor, ['id_perusahaan' => $vendorLain->id_perusahaan]);
 
-        $this->getJson("/api/v1/invoice-vendor/{$id}")->assertStatus(404);
+        $this->getJson("/api/invoice-vendor/{$id}")->assertStatus(404);
     }
 
     public function test_update_invoice_draft_total_dihitung_ulang(): void
@@ -364,7 +364,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor, ['dpp' => 1000000, 'total' => 1000000]);
 
-        $res = $this->putJson("/api/v1/invoice-vendor/{$id}", [
+        $res = $this->putJson("/api/invoice-vendor/{$id}", [
             'dpp' => 2000000,
             'ppn' => 220000,
         ]);
@@ -387,7 +387,7 @@ class InvoiceVendorTest extends TestCase
             'catatan_verifikasi' => 'Nominal tidak sesuai',
         ]);
 
-        $res = $this->putJson("/api/v1/invoice-vendor/{$id}", [
+        $res = $this->putJson("/api/invoice-vendor/{$id}", [
             'dpp' => 1500000,
         ]);
 
@@ -402,7 +402,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor, ['status' => 'diverifikasi']);
 
-        $this->putJson("/api/v1/invoice-vendor/{$id}", ['dpp' => 999])
+        $this->putJson("/api/invoice-vendor/{$id}", ['dpp' => 999])
             ->assertStatus(409)
             ->assertJsonPath('message', 'Invoice yang sudah diverifikasi tidak dapat diubah');
     }
@@ -413,7 +413,7 @@ class InvoiceVendorTest extends TestCase
         $vendorLain = $this->makeVendorPerusahaanLain();
         $id = $this->insertInvoice($vendorLain->id_vendor, ['id_perusahaan' => $vendorLain->id_perusahaan]);
 
-        $this->putJson("/api/v1/invoice-vendor/{$id}", ['dpp' => 999])->assertStatus(404);
+        $this->putJson("/api/invoice-vendor/{$id}", ['dpp' => 999])->assertStatus(404);
     }
 
     public function test_hapus_invoice_draft_soft_delete(): void
@@ -422,7 +422,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor);
 
-        $this->deleteJson("/api/v1/invoice-vendor/{$id}")
+        $this->deleteJson("/api/invoice-vendor/{$id}")
             ->assertStatus(200)
             ->assertJsonPath('success', true);
 
@@ -436,7 +436,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor, ['status' => 'diverifikasi']);
 
-        $this->deleteJson("/api/v1/invoice-vendor/{$id}")->assertStatus(409);
+        $this->deleteJson("/api/invoice-vendor/{$id}")->assertStatus(409);
 
         $row = DB::table('invoice_vendor')->where('id_invoice_vendor', $id)->first();
         $this->assertNull($row->dihapus_pada);
@@ -448,7 +448,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor);
 
-        $res = $this->patchJson("/api/v1/invoice-vendor/{$id}/verifikasi", [
+        $res = $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", [
             'aksi' => 'verifikasi',
         ]);
 
@@ -465,7 +465,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor);
 
-        $this->patchJson("/api/v1/invoice-vendor/{$id}/verifikasi", [
+        $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", [
             'aksi' => 'tolak',
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['catatan']);
@@ -477,7 +477,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor);
 
-        $this->patchJson("/api/v1/invoice-vendor/{$id}/verifikasi", [
+        $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", [
             'aksi'    => 'tolak',
             'catatan' => 'Dokumen tidak lengkap',
         ])->assertStatus(200)
@@ -491,7 +491,7 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor, ['status' => 'diverifikasi']);
 
-        $this->patchJson("/api/v1/invoice-vendor/{$id}/verifikasi", [
+        $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", [
             'aksi' => 'verifikasi',
         ])->assertStatus(409);
     }
@@ -534,7 +534,7 @@ class InvoiceVendorTest extends TestCase
             'total'         => 9000000,
         ]);
 
-        $res = $this->getJson('/api/v1/invoice-vendor/monitoring');
+        $res = $this->getJson('/api/invoice-vendor/monitoring');
 
         $res->assertStatus(200)
             ->assertJsonPath('data.ringkasan.jumlah_invoice', 5)
@@ -579,7 +579,7 @@ class InvoiceVendorTest extends TestCase
             'id_menu'    => 'm0000001-0000-4000-8000-000000000034',
         ]);
 
-        $this->postJson('/api/v1/invoice-vendor', [
+        $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-KEU-001',
             'tanggal_invoice' => '2026-07-01',
@@ -593,9 +593,9 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $this->insertInvoice($vendor->id_vendor);
 
-        $this->getJson('/api/v1/invoice-vendor')->assertStatus(200);
+        $this->getJson('/api/invoice-vendor')->assertStatus(200);
 
-        $this->postJson('/api/v1/invoice-vendor', [
+        $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-MGR-001',
             'tanggal_invoice' => '2026-07-01',
@@ -614,7 +614,7 @@ class InvoiceVendorTest extends TestCase
             ->where('aksi', 'tambah')
             ->update(['diizinkan' => 1]);
 
-        $this->postJson('/api/v1/invoice-vendor', [
+        $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-MGR-002',
             'tanggal_invoice' => '2026-07-01',
@@ -629,9 +629,9 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor, ['nomor_invoice' => 'INV-REUSE-001']);
 
-        $this->deleteJson("/api/v1/invoice-vendor/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/invoice-vendor/{$id}")->assertStatus(200);
 
-        $this->postJson('/api/v1/invoice-vendor', [
+        $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-REUSE-001',
             'tanggal_invoice' => '2026-07-01',
@@ -651,7 +651,7 @@ class InvoiceVendorTest extends TestCase
             ->where('id_kontrak_vendor', $idKontrak)
             ->update(['dihapus_pada' => now()]);
 
-        $this->putJson("/api/v1/invoice-vendor/{$id}", [
+        $this->putJson("/api/invoice-vendor/{$id}", [
             'no_po' => 'PO-BARU-001',
         ])->assertStatus(200)
             ->assertJsonPath('data.no_po', 'PO-BARU-001');
@@ -663,12 +663,12 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor, ['dpp' => 0, 'total' => 0]);
 
-        $this->patchJson("/api/v1/invoice-vendor/{$id}/verifikasi", ['aksi' => 'verifikasi'])
+        $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", ['aksi' => 'verifikasi'])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'diverifikasi')
             ->assertJsonPath('data.status_pembayaran', 'lunas');
 
-        $monitoring = $this->getJson('/api/v1/invoice-vendor/monitoring')->assertStatus(200);
+        $monitoring = $this->getJson('/api/invoice-vendor/monitoring')->assertStatus(200);
         $this->assertSame([], array_filter(
             $monitoring->json('data.outstanding'),
             fn ($row) => $row['id_invoice_vendor'] === $id
@@ -680,7 +680,7 @@ class InvoiceVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
 
-        $this->postJson('/api/v1/invoice-vendor', [
+        $this->postJson('/api/invoice-vendor', [
             'id_vendor'       => $vendor->id_vendor,
             'nomor_invoice'   => 'INV-DESIMAL-001',
             'tanggal_invoice' => '2026-07-01',

@@ -10,7 +10,7 @@ class DashboardServiceProvider extends ServiceProvider {
         $this->app->bind(DashboardService::class);
     }
     public function boot(): void {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum'])
             ->group(function () {
                 Route::get('dashboard/stats', [DashboardController::class, 'stats']);

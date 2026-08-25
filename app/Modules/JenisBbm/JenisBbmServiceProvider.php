@@ -18,7 +18,7 @@ class JenisBbmServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:jenis-bbm'])
             ->group(function () {
                 // Route riwayat harga sebelum apiResource agar tidak tertimpa route show/destroy.

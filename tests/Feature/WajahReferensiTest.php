@@ -40,7 +40,7 @@ class WajahReferensiTest extends TestCase
 
     private function daftarWajah(): \Illuminate\Testing\TestResponse
     {
-        return $this->post('/api/v1/wajah/saya', [
+        return $this->post('/api/wajah/saya', [
             'foto'        => UploadedFile::fake()->create('wajah.jpg', 100, 'image/jpeg'),
             'embedding'   => $this->embeddingValid(),
             'model_versi' => 'mobilefacenet-v1',
@@ -51,7 +51,7 @@ class WajahReferensiTest extends TestCase
     {
         $this->actingAsPengguna();
 
-        $this->getJson('/api/v1/wajah/saya')
+        $this->getJson('/api/wajah/saya')
             ->assertStatus(200)
             ->assertJsonPath('data.terdaftar', false)
             ->assertJsonPath('data.embedding', null)
@@ -75,7 +75,7 @@ class WajahReferensiTest extends TestCase
         $this->assertStringStartsWith('wajah-referensi/', $row->path_foto);
         Storage::disk('public')->assertExists($row->path_foto);
 
-        $this->getJson('/api/v1/wajah/saya')
+        $this->getJson('/api/wajah/saya')
             ->assertStatus(200)
             ->assertJsonPath('data.terdaftar', true)
             ->assertJsonCount(192, 'data.embedding');
@@ -103,7 +103,7 @@ class WajahReferensiTest extends TestCase
         Storage::fake('public');
         $this->actingAsPengguna();
 
-        $this->post('/api/v1/wajah/saya', [
+        $this->post('/api/wajah/saya', [
             'foto'        => UploadedFile::fake()->create('wajah.jpg', 100, 'image/jpeg'),
             'embedding'   => json_encode([0.1, 0.2, 0.3]),
             'model_versi' => 'mobilefacenet-v1',
@@ -115,7 +115,7 @@ class WajahReferensiTest extends TestCase
         Storage::fake('public');
         $this->actingAsPengguna();
 
-        $this->post('/api/v1/wajah/saya', [
+        $this->post('/api/wajah/saya', [
             'foto'        => UploadedFile::fake()->create('wajah.jpg', 100, 'image/jpeg'),
             'embedding'   => 'bukan-json',
             'model_versi' => 'mobilefacenet-v1',
@@ -126,7 +126,7 @@ class WajahReferensiTest extends TestCase
     {
         $this->actingAsPengguna();
 
-        $this->post('/api/v1/wajah/saya', [
+        $this->post('/api/wajah/saya', [
             'embedding'   => $this->embeddingValid(),
             'model_versi' => 'mobilefacenet-v1',
         ], ['Accept' => 'application/json'])->assertStatus(422);
@@ -134,6 +134,6 @@ class WajahReferensiTest extends TestCase
 
     public function test_tanpa_login_401(): void
     {
-        $this->getJson('/api/v1/wajah/saya')->assertStatus(401);
+        $this->getJson('/api/wajah/saya')->assertStatus(401);
     }
 }

@@ -79,7 +79,7 @@ class PembelianLaporanTest extends TestCase
         $id = $this->pembelianDibeli(100000);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/pembelian-sparepart/{$id}/lunas", ['tanggal_pembayaran' => now()->toDateString()])
+        $this->patchJson("/api/pembelian-sparepart/{$id}/lunas", ['tanggal_pembayaran' => now()->toDateString()])
             ->assertStatus(404);
     }
 
@@ -88,9 +88,9 @@ class PembelianLaporanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->pembelianDibeli(100000);
         $this->pembelianDibeli(50000);
-        $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPengajuan());
+        $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan());
 
-        $res = $this->getJson('/api/v1/pembelian-sparepart/laporan');
+        $res = $this->getJson('/api/pembelian-sparepart/laporan');
         $res->assertStatus(200);
         $this->assertEquals(150000.0, $res->json('data.ringkasan.total_aktual'));
         $this->assertSame(2, $res->json('data.ringkasan.jumlah'));
@@ -101,7 +101,7 @@ class PembelianLaporanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $this->pembelianDibeli(100000);
-        $res = $this->getJson('/api/v1/pembelian-sparepart/laporan?dari=2020-01-01&sampai=2020-01-31');
+        $res = $this->getJson('/api/pembelian-sparepart/laporan?dari=2020-01-01&sampai=2020-01-31');
         $this->assertSame(0, $res->json('data.ringkasan.jumlah'));
     }
 
@@ -110,7 +110,7 @@ class PembelianLaporanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->pembelianDibeli(100000);
 
-        $res = $this->get('/api/v1/pembelian-sparepart/laporan/export/excel');
+        $res = $this->get('/api/pembelian-sparepart/laporan/export/excel');
 
         $res->assertStatus(200);
         $this->assertStringContainsString('spreadsheetml', $res->headers->get('content-type'));
@@ -121,7 +121,7 @@ class PembelianLaporanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->pembelianDibeli(100000);
 
-        $res = $this->get('/api/v1/pembelian-sparepart/laporan/export/pdf?dari=2020-01-01&sampai=' . now()->toDateString());
+        $res = $this->get('/api/pembelian-sparepart/laporan/export/pdf?dari=2020-01-01&sampai=' . now()->toDateString());
 
         $res->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));

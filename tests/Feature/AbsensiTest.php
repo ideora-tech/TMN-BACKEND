@@ -47,7 +47,7 @@ class AbsensiTest extends TestCase
         $this->makeKaryawan('Orang Nonaktif', 'NIK-ABS-C', 0);
         $this->makeCutiDisetujui($idCuti, now()->toDateString(), now()->toDateString());
 
-        $res = $this->getJson('/api/v1/absensi/harian?tanggal=' . now()->toDateString());
+        $res = $this->getJson('/api/absensi/harian?tanggal=' . now()->toDateString());
 
         $res->assertStatus(200);
         $data = collect($res->json('data'));
@@ -64,7 +64,7 @@ class AbsensiTest extends TestCase
         $tanggal = now()->toDateString();
         $this->makeCutiDisetujui($idCuti, $tanggal, $tanggal);
 
-        $res = $this->postJson('/api/v1/absensi/harian', [
+        $res = $this->postJson('/api/absensi/harian', [
             'tanggal' => $tanggal,
             'entries' => [
                 ['id_karyawan' => $idBiasa, 'status' => 'hadir', 'jam_masuk' => '08:00'],
@@ -80,7 +80,7 @@ class AbsensiTest extends TestCase
         $this->assertDatabaseMissing('absensi', ['id_karyawan' => $idCuti]);
 
         // Upsert: simpan ulang dengan status berbeda tidak menduplikasi baris
-        $this->postJson('/api/v1/absensi/harian', [
+        $this->postJson('/api/absensi/harian', [
             'tanggal' => $tanggal,
             'entries' => [['id_karyawan' => $idBiasa, 'status' => 'terlambat']],
         ])->assertStatus(200);
@@ -96,12 +96,12 @@ class AbsensiTest extends TestCase
         $idKaryawan = $this->makeKaryawan('Andi Hapus', 'NIK-ABS-F');
         $tanggal = now()->toDateString();
 
-        $this->postJson('/api/v1/absensi/harian', [
+        $this->postJson('/api/absensi/harian', [
             'tanggal' => $tanggal,
             'entries' => [['id_karyawan' => $idKaryawan, 'status' => 'hadir']],
         ])->assertStatus(200);
 
-        $this->postJson('/api/v1/absensi/harian', [
+        $this->postJson('/api/absensi/harian', [
             'tanggal' => $tanggal,
             'entries' => [['id_karyawan' => $idKaryawan, 'status' => null]],
         ])->assertStatus(200);
@@ -114,7 +114,7 @@ class AbsensiTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan('Andi Invalid', 'NIK-ABS-G');
 
-        $res = $this->postJson('/api/v1/absensi/harian', [
+        $res = $this->postJson('/api/absensi/harian', [
             'tanggal' => now()->toDateString(),
             'entries' => [['id_karyawan' => $idKaryawan, 'status' => 'bolos']],
         ]);
@@ -126,20 +126,20 @@ class AbsensiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $resDefault = $this->getJson('/api/v1/absensi/pengaturan');
+        $resDefault = $this->getJson('/api/absensi/pengaturan');
         $resDefault->assertStatus(200)
             ->assertJsonPath('data.jam_masuk', '08:00')
             ->assertJsonPath('data.jam_pulang', '17:00')
             ->assertJsonPath('data.toleransi_terlambat_menit', 15);
 
-        $resSimpan = $this->putJson('/api/v1/absensi/pengaturan', [
+        $resSimpan = $this->putJson('/api/absensi/pengaturan', [
             'jam_masuk'  => '08:30',
             'jam_pulang' => '16:30',
             'toleransi_terlambat_menit' => 10,
         ]);
         $resSimpan->assertStatus(200)->assertJsonPath('data.jam_masuk', '08:30');
 
-        $this->getJson('/api/v1/absensi/pengaturan')
+        $this->getJson('/api/absensi/pengaturan')
             ->assertJsonPath('data.jam_pulang', '16:30')
             ->assertJsonPath('data.toleransi_terlambat_menit', 10);
     }
@@ -148,7 +148,7 @@ class AbsensiTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $this->putJson('/api/v1/absensi/pengaturan', [
+        $this->putJson('/api/absensi/pengaturan', [
             'jam_masuk'  => '17:00',
             'jam_pulang' => '08:00',
             'toleransi_terlambat_menit' => 0,
@@ -181,7 +181,7 @@ class AbsensiTest extends TestCase
             ],
         ]);
 
-        $res = $this->getJson('/api/v1/absensi/rekap?bulan=' . $bulan);
+        $res = $this->getJson('/api/absensi/rekap?bulan=' . $bulan);
 
         $res->assertStatus(200);
         $row = collect($res->json('data'))->firstWhere('id_karyawan', $idKaryawan);
@@ -212,7 +212,7 @@ class AbsensiTest extends TestCase
         ]);
         $this->makeCutiDisetujui($idKaryawan, $bulan . '-10', $bulan . '-12');
 
-        $res = $this->getJson('/api/v1/absensi/rekap?bulan=' . $bulan);
+        $res = $this->getJson('/api/absensi/rekap?bulan=' . $bulan);
 
         $res->assertStatus(200);
         $row = collect($res->json('data'))->firstWhere('id_karyawan', $idKaryawan);

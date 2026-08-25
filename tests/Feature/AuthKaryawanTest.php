@@ -41,7 +41,7 @@ class AuthKaryawanTest extends TestCase
             'aktif'         => 1,
         ]);
 
-        $res = $this->postJson('/api/v1/auth/login', [
+        $res = $this->postJson('/api/auth/login', [
             'username' => 'rina_test',
             'password' => 'Password123!',
         ]);
@@ -65,7 +65,7 @@ class AuthKaryawanTest extends TestCase
             'aktif'         => 1,
         ]);
 
-        $res = $this->postJson('/api/v1/auth/login', [
+        $res = $this->postJson('/api/auth/login', [
             'username' => 'admin_test',
             'password' => 'Password123!',
         ]);
@@ -88,7 +88,7 @@ class AuthKaryawanTest extends TestCase
             'aktif'         => 1,
         ]);
 
-        $res = $this->postJson('/api/v1/auth/login', [
+        $res = $this->postJson('/api/auth/login', [
             'username' => 'salah_test',
             'password' => 'PasswordSalah!',
         ]);

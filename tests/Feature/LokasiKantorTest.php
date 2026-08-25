@@ -43,7 +43,7 @@ class LokasiKantorTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/lokasi-kantor', [
+        $res = $this->postJson('/api/lokasi-kantor', [
             'kode_lokasi' => 'LOK-01',
             'nama_lokasi' => 'Gudang Bekasi',
             'kota'        => 'Bekasi',
@@ -70,7 +70,7 @@ class LokasiKantorTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $this->makeLokasiKantor($idPerusahaanLain, 'Milik Lain');
 
-        $res = $this->getJson('/api/v1/lokasi-kantor');
+        $res = $this->getJson('/api/lokasi-kantor');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -83,7 +83,7 @@ class LokasiKantorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeLokasiKantor(self::PERUSAHAAN_ID);
 
-        $res = $this->getJson("/api/v1/lokasi-kantor/{$item->id_lokasi}");
+        $res = $this->getJson("/api/lokasi-kantor/{$item->id_lokasi}");
 
         $res->assertStatus(200)->assertJsonPath('data.id_lokasi', $item->id_lokasi);
     }
@@ -92,7 +92,7 @@ class LokasiKantorTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/lokasi-kantor/' . Str::uuid()->toString());
+        $res = $this->getJson('/api/lokasi-kantor/' . Str::uuid()->toString());
 
         $res->assertStatus(404);
     }
@@ -102,7 +102,7 @@ class LokasiKantorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeLokasiKantor(self::PERUSAHAAN_ID);
 
-        $res = $this->putJson("/api/v1/lokasi-kantor/{$item->id_lokasi}", [
+        $res = $this->putJson("/api/lokasi-kantor/{$item->id_lokasi}", [
             'nama_lokasi' => 'Nama Diperbarui',
         ]);
 
@@ -118,12 +118,12 @@ class LokasiKantorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeLokasiKantor(self::PERUSAHAAN_ID);
 
-        $res = $this->deleteJson("/api/v1/lokasi-kantor/{$item->id_lokasi}");
+        $res = $this->deleteJson("/api/lokasi-kantor/{$item->id_lokasi}");
         $res->assertStatus(200)->assertJsonPath('success', true);
 
         $row = DB::table('lokasi_kantor')->where('id_lokasi', $item->id_lokasi)->first();
         $this->assertNotNull($row->dihapus_pada);
 
-        $this->assertCount(0, $this->getJson('/api/v1/lokasi-kantor')->json('data'));
+        $this->assertCount(0, $this->getJson('/api/lokasi-kantor')->json('data'));
     }
 }

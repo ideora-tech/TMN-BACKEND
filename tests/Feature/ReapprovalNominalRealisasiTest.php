@@ -82,7 +82,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
     private function tambahApproverPengguna(string $idPengguna): void
     {
-        $this->postJson('/api/v1/arus-kas/approver', [
+        $this->postJson('/api/arus-kas/approver', [
             'tipe'        => 'pengguna',
             'id_pengguna' => $idPengguna,
         ])->assertStatus(201);
@@ -90,7 +90,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
     private function setBatas(float $batas): void
     {
-        $this->putJson('/api/v1/arus-kas/pengaturan-approval', ['batas' => $batas])->assertStatus(200);
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => $batas])->assertStatus(200);
     }
 
     private function actingAsPengguna(string $idPengguna): void
@@ -100,7 +100,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
     private function buatPembelian(): array
     {
-        $create = $this->postJson('/api/v1/pembelian-sparepart', $this->payloadPembelian());
+        $create = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian());
         $create->assertStatus(201);
         $idPembelian = $create->json('data.id_pembelian');
         $items = $create->json('data.items');
@@ -111,7 +111,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
     private function setujuiSebagaiApprover(string $idPengajuan, string $idApprover): void
     {
         $this->actingAsPengguna($idApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200);
     }
 
@@ -119,10 +119,10 @@ class ReapprovalNominalRealisasiTest extends TestCase
     {
         Storage::fake('public');
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson("/api/v1/pembelian-sparepart/{$idPembelian}/bukti", [
+        $this->postJson("/api/pembelian-sparepart/{$idPembelian}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(200);
-        return $this->patchJson("/api/v1/pembelian-sparepart/{$idPembelian}/realisasi", [
+        return $this->patchJson("/api/pembelian-sparepart/{$idPembelian}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items'             => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => $hargaAktual1],
@@ -149,7 +149,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
         $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
@@ -190,7 +190,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
@@ -210,7 +210,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
@@ -230,7 +230,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
 
@@ -256,16 +256,16 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, , $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200);
 
         $this->actingAsRole('SUPERADMIN');
         $payload = $this->payloadPembelian();
         $payload['items'][0]['harga_estimasi'] = 70000;
-        $this->putJson("/api/v1/pembelian-sparepart/{$idPembelian}", $payload)->assertStatus(200);
+        $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $payload)->assertStatus(200);
 
         $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
         $this->assertSame('menunggu_approval', $pengajuan->status);
@@ -290,16 +290,16 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, , $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->actingAsPengguna($idApprover1);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200);
 
         $this->actingAsRole('SUPERADMIN');
         $payload = $this->payloadPembelian();
         $payload['items'][0]['harga_estimasi'] = 50000;
-        $this->putJson("/api/v1/pembelian-sparepart/{$idPembelian}", $payload)->assertStatus(200);
+        $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $payload)->assertStatus(200);
 
         $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
         $this->assertSame('menunggu_approval', $pengajuan->status);
@@ -321,7 +321,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         $payload = $this->payloadPembelian();
         $payload['items'][0]['harga_estimasi'] = 70000;
-        $this->putJson("/api/v1/pembelian-sparepart/{$idPembelian}", $payload)->assertStatus(200);
+        $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $payload)->assertStatus(200);
 
         $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
         $this->assertSame('dicek', $pengajuan->status);
@@ -334,9 +334,9 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(999999999);
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
         ])->assertStatus(200);
 
@@ -353,7 +353,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(201000);
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $stokSebelum = (float) DB::table('sparepart')
@@ -384,7 +384,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
 
@@ -405,7 +405,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->assertSame('dibeli', $rowPembelian->status);
 
         $this->actingAsRole('SUPERADMIN');
-        $this->patchJson("/api/v1/pembelian-sparepart/{$idPembelian}/realisasi", [
+        $this->patchJson("/api/pembelian-sparepart/{$idPembelian}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),
             'items'             => [
                 ['id_item' => $items[0]['id_item'], 'harga_aktual' => 65000],
@@ -414,7 +414,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         ])->assertStatus(422);
 
         $this->actingAsRole('KEUANGAN');
-        $transfer = $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $transfer = $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
         ]);
         $transfer->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
@@ -435,7 +435,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
 
@@ -448,7 +448,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $stokSebelumTolak = (float) DB::table('sparepart')->where('id_sparepart', $idSparepart)->value('stok');
 
         $this->actingAsPengguna($idApprover);
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/approval", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", [
             'keputusan' => 'tolak',
             'catatan'   => 'Kenaikan harga tidak wajar',
         ])->assertStatus(200);
@@ -470,13 +470,13 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(999999999);
         [$idPembelian, , $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)
             ->update(['status' => 'menunggu_approval']);
 
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
         ])->assertStatus(409);
 
@@ -493,7 +493,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/v1/arus-kas/pengajuan/{$idPengajuan}/cek")
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
 

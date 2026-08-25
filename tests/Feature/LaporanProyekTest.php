@@ -61,20 +61,20 @@ class LaporanProyekTest extends TestCase
         $proyek = $this->makeProyek();
         $this->buatTripSelesai($proyek->id_proyek, 100, 200000);
 
-        $this->postJson('/api/v1/laporan', ['id_proyek' => $proyek->id_proyek, 'ringkasan' => 'Uji'])
+        $this->postJson('/api/laporan', ['id_proyek' => $proyek->id_proyek, 'ringkasan' => 'Uji'])
             ->assertStatus(201)
             ->assertJsonPath('data.total_trip', 1);
 
         $this->buatTripSelesai($proyek->id_proyek, 50, 100000);
 
-        $res = $this->getJson('/api/v1/laporan');
+        $res = $this->getJson('/api/laporan');
         $res->assertStatus(200);
         $row = collect($res->json('data'))->firstWhere('id_proyek', $proyek->id_proyek);
         $this->assertSame('Proyek Laporan Uji', $row['nama_proyek']);
         $this->assertSame('Klien Laporan Proyek', $row['nama_klien']);
         $this->assertSame(2, (int) $row['total_trip_aktual']);
 
-        $cari = $this->getJson('/api/v1/laporan?search=Laporan Uji');
+        $cari = $this->getJson('/api/laporan?search=Laporan Uji');
         $this->assertCount(1, $cari->json('data'));
     }
 
@@ -83,11 +83,11 @@ class LaporanProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
         $this->buatTripSelesai($proyek->id_proyek, 100, 200000);
-        $this->postJson('/api/v1/laporan', ['id_proyek' => $proyek->id_proyek, 'ringkasan' => 'Uji export'])
+        $this->postJson('/api/laporan', ['id_proyek' => $proyek->id_proyek, 'ringkasan' => 'Uji export'])
             ->assertStatus(201);
 
-        $this->get('/api/v1/laporan/export/excel')->assertStatus(200);
-        $this->get('/api/v1/laporan/export/pdf')->assertStatus(200);
+        $this->get('/api/laporan/export/excel')->assertStatus(200);
+        $this->get('/api/laporan/export/pdf')->assertStatus(200);
     }
 
     public function test_detail_memuat_statistik_dan_scoped_perusahaan(): void
@@ -97,10 +97,10 @@ class LaporanProyekTest extends TestCase
         $this->buatTripSelesai($proyek->id_proyek, 100, 200000, 25000);
         $this->buatTripSelesai($proyek->id_proyek, 50, 100000);
 
-        $idLaporan = $this->postJson('/api/v1/laporan', ['id_proyek' => $proyek->id_proyek])
+        $idLaporan = $this->postJson('/api/laporan', ['id_proyek' => $proyek->id_proyek])
             ->json('data.id_laporan');
 
-        $res = $this->getJson("/api/v1/laporan/{$idLaporan}");
+        $res = $this->getJson("/api/laporan/{$idLaporan}");
         $res->assertStatus(200)
             ->assertJsonPath('data.kode_proyek', $proyek->kode_proyek)
             ->assertJsonPath('data.nama_klien', 'Klien Laporan Proyek')
@@ -117,6 +117,6 @@ class LaporanProyekTest extends TestCase
             'total_trip' => 0, 'dibuat_pada' => now(),
         ]);
 
-        $this->getJson("/api/v1/laporan/{$idLaporanLain}")->assertStatus(404);
+        $this->getJson("/api/laporan/{$idLaporanLain}")->assertStatus(404);
     }
 }

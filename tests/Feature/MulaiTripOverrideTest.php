@@ -150,7 +150,7 @@ class MulaiTripOverrideTest extends TestCase
     {
         $this->makeSupirProyek($idProyek, $idSupir);
 
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $idProyek, 'id_shift' => $idShift,
             'tanggal' => now()->toDateString(), 'supir' => [$idSupir],
         ])->assertStatus(200)->assertJsonPath('data.sukses', 1);
@@ -169,11 +169,11 @@ class MulaiTripOverrideTest extends TestCase
         $shift = $this->makeShift();
         $idJadwal = $this->buatJadwalHariIni($proyek->id_proyek, $shift, $supir);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_armada_override' => $armadaOverride->id_armada,
         ])->assertStatus(200);
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
             ->assertStatus(201);
 
         $tripAktif = DB::table('trip')
@@ -197,11 +197,11 @@ class MulaiTripOverrideTest extends TestCase
         $shift = $this->makeShift();
         $idJadwal = $this->buatJadwalHariIni($proyek->id_proyek, $shift, $supirAsal);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_supir_pengganti' => $supirPengganti,
         ])->assertStatus(200);
 
-        $res = $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanAsal->id_penugasan]);
+        $res = $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasanAsal->id_penugasan]);
         $res->assertStatus(201);
 
         $this->assertDatabaseMissing('penugasan', ['id_supir' => $supirPengganti]);
@@ -224,11 +224,11 @@ class MulaiTripOverrideTest extends TestCase
         $shift = $this->makeShift();
         $idJadwal = $this->buatJadwalHariIni($proyek->id_proyek, $shift, $supirAsal);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_supir_pengganti' => $supirPengganti,
         ])->assertStatus(200);
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasanAsal->id_penugasan])
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasanAsal->id_penugasan])
             ->assertStatus(201);
 
         $tripNempelKe = DB::table('trip')
@@ -254,11 +254,11 @@ class MulaiTripOverrideTest extends TestCase
         $shift = $this->makeShift();
         $idJadwal = $this->buatJadwalHariIni($proyek->id_proyek, $shift, $supir);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'titik_drop_override' => ['Gudang Baru 1', 'Gudang Baru 2'],
         ])->assertStatus(200);
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
             ->assertStatus(201);
 
         $idTrip = (string) DB::table('trip')->value('id_trip');
@@ -278,7 +278,7 @@ class MulaiTripOverrideTest extends TestCase
             'urutan' => 1, 'lokasi' => 'Gudang Biasa', 'dibuat_pada' => now(),
         ]);
 
-        $this->postJson('/api/v1/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])
             ->assertStatus(201);
 
         $idTrip = (string) DB::table('trip')->value('id_trip');
@@ -298,7 +298,7 @@ class MulaiTripOverrideTest extends TestCase
         $shift = $this->makeShift();
         $idJadwal = $this->buatJadwalHariIni($proyek->id_proyek, $shift, $supirAsal->id_supir);
 
-        $this->putJson("/api/v1/jadwal-shift/{$idJadwal}", [
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
             'id_shift' => $shift, 'id_supir_pengganti' => $supirPengganti,
         ])->assertStatus(200);
 
@@ -306,7 +306,7 @@ class MulaiTripOverrideTest extends TestCase
         $this->absenHadir($supirAsal->id_supir);
         Sanctum::actingAs($supirAsal->pengguna, ['*']);
 
-        $this->postJson('/api/v1/trip/mulai-saya', ['id_penugasan' => $penugasanAsal->id_penugasan])
+        $this->postJson('/api/trip/mulai-saya', ['id_penugasan' => $penugasanAsal->id_penugasan])
             ->assertStatus(201);
 
         $tripNempelKe = DB::table('trip')

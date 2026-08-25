@@ -109,7 +109,7 @@ class EvaluasiVendorTest extends TestCase
         $kontrak = $this->makeKontrak($vendor->id_vendor);
         $idPenugasan = $this->insertPenugasanVendor($proyek->id_proyek, $kontrak);
 
-        $res = $this->postJson("/api/v1/penugasan/{$idPenugasan}/evaluasi", [
+        $res = $this->postJson("/api/penugasan/{$idPenugasan}/evaluasi", [
             'nilai_ketepatan_waktu' => 4,
             'nilai_kualitas'        => 5,
             'nilai_harga'           => 3,
@@ -134,7 +134,7 @@ class EvaluasiVendorTest extends TestCase
             'nilai_responsif'       => 2,
         ]);
 
-        $this->getJson("/api/v1/penugasan/{$idPenugasan}/evaluasi")
+        $this->getJson("/api/penugasan/{$idPenugasan}/evaluasi")
             ->assertStatus(200)
             ->assertJsonPath('data.nilai_ketepatan_waktu', 4)
             ->assertJsonPath('data.nilai_kualitas', 5)
@@ -151,14 +151,14 @@ class EvaluasiVendorTest extends TestCase
         $kontrak = $this->makeKontrak($vendor->id_vendor);
         $idPenugasan = $this->insertPenugasanVendor($proyek->id_proyek, $kontrak);
 
-        $idEvaluasi = $this->postJson("/api/v1/penugasan/{$idPenugasan}/evaluasi", [
+        $idEvaluasi = $this->postJson("/api/penugasan/{$idPenugasan}/evaluasi", [
             'nilai_ketepatan_waktu' => 4,
             'nilai_kualitas'        => 5,
             'nilai_harga'           => 3,
             'nilai_responsif'       => 2,
         ])->assertStatus(201)->json('data.id_evaluasi');
 
-        $res = $this->putJson("/api/v1/evaluasi/{$idEvaluasi}", [
+        $res = $this->putJson("/api/evaluasi/{$idEvaluasi}", [
             'nilai_ketepatan_waktu' => 1,
             'nilai_harga'           => 5,
         ]);
@@ -186,12 +186,12 @@ class EvaluasiVendorTest extends TestCase
         $kontrak = $this->makeKontrak($vendor->id_vendor);
         $idPenugasan = $this->insertPenugasanVendor($proyek->id_proyek, $kontrak);
 
-        $this->postJson("/api/v1/penugasan/{$idPenugasan}/evaluasi", [
+        $this->postJson("/api/penugasan/{$idPenugasan}/evaluasi", [
             'nilai_kualitas' => 6,
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['nilai_kualitas']);
 
-        $this->postJson("/api/v1/penugasan/{$idPenugasan}/evaluasi", [
+        $this->postJson("/api/penugasan/{$idPenugasan}/evaluasi", [
             'nilai_responsif' => 0,
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['nilai_responsif']);
@@ -235,7 +235,7 @@ class EvaluasiVendorTest extends TestCase
             'nilai_kualitas'        => 1,
         ]);
 
-        $res = $this->getJson('/api/v1/evaluasi-vendor/rekap');
+        $res = $this->getJson('/api/evaluasi-vendor/rekap');
 
         $res->assertStatus(200)->assertJsonPath('success', true);
         $data = $res->json('data');
@@ -276,7 +276,7 @@ class EvaluasiVendorTest extends TestCase
         $penugasanLain = $this->insertPenugasanVendor($proyekLain->id_proyek, $kontrakLain);
         $this->insertEvaluasi($penugasanLain, ['nilai_ketepatan_waktu' => 5]);
 
-        $res = $this->getJson('/api/v1/evaluasi-vendor/rekap');
+        $res = $this->getJson('/api/evaluasi-vendor/rekap');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -307,7 +307,7 @@ class EvaluasiVendorTest extends TestCase
             'catatan'               => 'Evaluasi baru',
         ], now()->toDateTimeString());
 
-        $res = $this->getJson("/api/v1/vendor/{$vendor->id_vendor}/evaluasi");
+        $res = $this->getJson("/api/vendor/{$vendor->id_vendor}/evaluasi");
 
         $res->assertStatus(200)->assertJsonPath('success', true);
         $data = $res->json('data');
@@ -336,7 +336,7 @@ class EvaluasiVendorTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $vendorLain = $this->makeVendorPerusahaanLain();
 
-        $this->getJson("/api/v1/vendor/{$vendorLain->id_vendor}/evaluasi")
+        $this->getJson("/api/vendor/{$vendorLain->id_vendor}/evaluasi")
             ->assertStatus(404);
     }
 }

@@ -31,7 +31,7 @@ class ArmadaStatusTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
             'status' => 'tersedia',
         ]);
@@ -43,7 +43,7 @@ class ArmadaStatusTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
             'status' => 'perawatan',
         ]);
@@ -55,7 +55,7 @@ class ArmadaStatusTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/armada', [
+        $res = $this->postJson('/api/armada', [
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
             'status' => 'aktif',
         ]);
@@ -68,7 +68,7 @@ class ArmadaStatusTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
 
-        $res = $this->putJson("/api/v1/armada/{$armada->id_armada}", [
+        $res = $this->putJson("/api/armada/{$armada->id_armada}", [
             'status' => 'digunakan',
         ]);
 
@@ -80,7 +80,7 @@ class ArmadaStatusTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('tersedia');
 
-        $res = $this->putJson("/api/v1/armada/{$armada->id_armada}", [
+        $res = $this->putJson("/api/armada/{$armada->id_armada}", [
             'status' => 'servis',
         ]);
 
@@ -93,7 +93,7 @@ class ArmadaStatusTest extends TestCase
         $armada = $this->makeArmada('tersedia');
         $proyek = $this->makeProyekPenugasan();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
         ]);
@@ -108,7 +108,7 @@ class ArmadaStatusTest extends TestCase
         $armada = $this->makeArmada('digunakan');
         $proyek = $this->makeProyekPenugasan();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_armada' => $armada->id_armada,
         ]);

@@ -57,7 +57,7 @@ class FakturTenantTest extends TestCase
         $idLain = $this->makePerusahaanLain();
         $faktur = $this->makeFaktur($idLain, $this->makeKlien($idLain), 'INV-LAIN-1');
 
-        $this->getJson("/api/v1/faktur/{$faktur->id_faktur}")->assertStatus(404);
+        $this->getJson("/api/faktur/{$faktur->id_faktur}")->assertStatus(404);
     }
 
     public function test_update_status_dan_hapus_faktur_perusahaan_lain_ditolak_404(): void
@@ -66,9 +66,9 @@ class FakturTenantTest extends TestCase
         $idLain = $this->makePerusahaanLain();
         $faktur = $this->makeFaktur($idLain, $this->makeKlien($idLain), 'INV-LAIN-2');
 
-        $this->patchJson("/api/v1/faktur/{$faktur->id_faktur}/status", ['status' => 'terkirim'])->assertStatus(404);
-        $this->putJson("/api/v1/faktur/{$faktur->id_faktur}", ['nomor_faktur' => 'INV-UBAH'])->assertStatus(404);
-        $this->deleteJson("/api/v1/faktur/{$faktur->id_faktur}")->assertStatus(404);
+        $this->patchJson("/api/faktur/{$faktur->id_faktur}/status", ['status' => 'terkirim'])->assertStatus(404);
+        $this->putJson("/api/faktur/{$faktur->id_faktur}", ['nomor_faktur' => 'INV-UBAH'])->assertStatus(404);
+        $this->deleteJson("/api/faktur/{$faktur->id_faktur}")->assertStatus(404);
 
         $this->assertSame('draft', $faktur->fresh()->status);
         $this->assertNull($faktur->fresh()->dihapus_pada);
@@ -81,7 +81,7 @@ class FakturTenantTest extends TestCase
         $idKlienLain = $this->makeKlien($idLain);
         $this->makeFaktur($idLain, $idKlienLain, 'INV-LAIN-3');
 
-        $res = $this->getJson("/api/v1/faktur?id_klien={$idKlienLain}");
+        $res = $this->getJson("/api/faktur?id_klien={$idKlienLain}");
 
         $res->assertStatus(200);
         $this->assertSame([], $res->json('data'));
@@ -93,11 +93,11 @@ class FakturTenantTest extends TestCase
         $idKlien = $this->makeKlien(self::PERUSAHAAN_ID);
         $faktur  = $this->makeFaktur(self::PERUSAHAAN_ID, $idKlien, '001/INV/TMN/VIII/2026');
 
-        $resExcel = $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/excel");
+        $resExcel = $this->get("/api/faktur/{$faktur->id_faktur}/export/excel");
         $resExcel->assertStatus(200);
         $this->assertStringContainsString('invoice-001-INV-TMN-VIII-2026.xlsx', $resExcel->headers->get('Content-Disposition'));
 
-        $resPdf = $this->get("/api/v1/faktur/{$faktur->id_faktur}/export/pdf");
+        $resPdf = $this->get("/api/faktur/{$faktur->id_faktur}/export/pdf");
         $resPdf->assertStatus(200);
         $this->assertStringContainsString('invoice-001-INV-TMN-VIII-2026.pdf', $resPdf->headers->get('Content-Disposition'));
     }

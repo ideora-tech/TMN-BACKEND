@@ -32,7 +32,7 @@ class ShiftTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/shift', [
+        $res = $this->postJson('/api/shift', [
             'nama'         => 'Shift Pagi',
             'jam_mulai'    => '08:00',
             'jam_selesai'  => '16:00',
@@ -63,7 +63,7 @@ class ShiftTest extends TestCase
         DB::table('perusahaan')->insert(['id_perusahaan' => $idLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
         $this->makeShift('Milik Orang', $idLain);
 
-        $res = $this->getJson('/api/v1/shift');
+        $res = $this->getJson('/api/shift');
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -75,7 +75,7 @@ class ShiftTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $shift = $this->makeShift();
 
-        $resUpdate = $this->putJson("/api/v1/shift/{$shift->id_shift}", [
+        $resUpdate = $this->putJson("/api/shift/{$shift->id_shift}", [
             'nama'        => 'Shift Malam',
             'jam_selesai' => '04:00',
         ]);
@@ -83,7 +83,7 @@ class ShiftTest extends TestCase
             ->assertJsonPath('data.nama', 'Shift Malam');
         $this->assertStringStartsWith('04:00', $resUpdate->json('data.jam_selesai'));
 
-        $resShow = $this->getJson("/api/v1/shift/{$shift->id_shift}");
+        $resShow = $this->getJson("/api/shift/{$shift->id_shift}");
         $resShow->assertStatus(200)->assertJsonPath('data.nama', 'Shift Malam');
     }
 
@@ -92,10 +92,10 @@ class ShiftTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $shift = $this->makeShift();
 
-        $res = $this->deleteJson("/api/v1/shift/{$shift->id_shift}");
+        $res = $this->deleteJson("/api/shift/{$shift->id_shift}");
         $res->assertStatus(200);
 
         $this->assertSoftDeleted('shift', ['id_shift' => $shift->id_shift]);
-        $this->getJson("/api/v1/shift/{$shift->id_shift}")->assertStatus(404);
+        $this->getJson("/api/shift/{$shift->id_shift}")->assertStatus(404);
     }
 }

@@ -18,7 +18,7 @@ class KontrakVendorController extends Controller
 
     /**
      * List all kontrak vendor for the authenticated perusahaan.
-     * GET /api/v1/kontrak-vendor
+     * GET /api/kontrak-vendor
      */
     public function index(Request $request): JsonResponse
     {
@@ -40,7 +40,7 @@ class KontrakVendorController extends Controller
 
     /**
      * List kontrak vendor scoped to a specific proyek.
-     * GET /api/v1/proyek/{idProyek}/kontrak
+     * GET /api/proyek/{idProyek}/kontrak
      */
     public function indexByProyek(Request $request, string $idProyek): JsonResponse
     {
@@ -67,7 +67,7 @@ class KontrakVendorController extends Controller
 
     /**
      * Create kontrak vendor (scoped to a proyek via URL or body).
-     * POST /api/v1/proyek/{idProyek}/kontrak
+     * POST /api/proyek/{idProyek}/kontrak
      */
     public function storeForProyek(StoreKontrakVendorRequest $request, string $idProyek): JsonResponse
     {
@@ -85,7 +85,7 @@ class KontrakVendorController extends Controller
 
     /**
      * Create kontrak vendor without a proyek (standalone).
-     * POST /api/v1/kontrak-vendor
+     * POST /api/kontrak-vendor
      */
     public function store(StoreKontrakVendorRequest $request): JsonResponse
     {

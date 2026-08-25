@@ -18,7 +18,7 @@ class EvaluasiTripServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:trip'])
             ->group(function () {
                 Route::get('penugasan/{idPenugasan}/evaluasi', [EvaluasiTripController::class, 'showByPenugasan']);
@@ -26,7 +26,7 @@ class EvaluasiTripServiceProvider extends ServiceProvider
                 Route::put('evaluasi/{id}', [EvaluasiTripController::class, 'update']);
             });
 
-        Route::prefix('api/v1')
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:vendor'])
             ->group(function () {
                 Route::get('evaluasi-vendor/rekap', [EvaluasiTripController::class, 'rekapVendor']);

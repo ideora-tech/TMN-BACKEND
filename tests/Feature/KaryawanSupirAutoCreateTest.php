@@ -30,7 +30,7 @@ class KaryawanSupirAutoCreateTest extends TestCase
             'nik' => 'K-' . Str::random(8), 'nama_karyawan' => 'Budi Santoso', 'telepon' => '0812000111',
         ], $override);
 
-        $res = $this->postJson('/api/v1/karyawan', $payload);
+        $res = $this->postJson('/api/karyawan', $payload);
         $res->assertStatus(201);
         return $res->json('data');
     }
@@ -68,7 +68,7 @@ class KaryawanSupirAutoCreateTest extends TestCase
         $supirJab = $this->makeJabatan(true);
         $karyawan = $this->buatKaryawan(['id_jabatan' => $biasa]);
 
-        $res = $this->putJson('/api/v1/karyawan/' . $karyawan['id_karyawan'], ['id_jabatan' => $supirJab]);
+        $res = $this->putJson('/api/karyawan/' . $karyawan['id_karyawan'], ['id_jabatan' => $supirJab]);
         $res->assertStatus(200);
 
         $this->assertSame(1, DB::table('supir')->where('id_karyawan', $karyawan['id_karyawan'])->count());
@@ -81,7 +81,7 @@ class KaryawanSupirAutoCreateTest extends TestCase
         $biasa = $this->makeJabatan(false);
         $karyawan = $this->buatKaryawan(['id_jabatan' => $supirJab]);
 
-        $res = $this->putJson('/api/v1/karyawan/' . $karyawan['id_karyawan'], ['id_jabatan' => $biasa]);
+        $res = $this->putJson('/api/karyawan/' . $karyawan['id_karyawan'], ['id_jabatan' => $biasa]);
         $res->assertStatus(200);
 
         $supir = DB::table('supir')->where('id_karyawan', $karyawan['id_karyawan'])->first();
@@ -97,8 +97,8 @@ class KaryawanSupirAutoCreateTest extends TestCase
         $karyawan = $this->buatKaryawan(['id_jabatan' => $supirJab]);
         $this->assertSame(1, DB::table('supir')->where('id_karyawan', $karyawan['id_karyawan'])->count());
 
-        $this->putJson('/api/v1/karyawan/' . $karyawan['id_karyawan'], ['id_jabatan' => $biasa])->assertStatus(200);
-        $this->putJson('/api/v1/karyawan/' . $karyawan['id_karyawan'], ['id_jabatan' => $supirJab])->assertStatus(200);
+        $this->putJson('/api/karyawan/' . $karyawan['id_karyawan'], ['id_jabatan' => $biasa])->assertStatus(200);
+        $this->putJson('/api/karyawan/' . $karyawan['id_karyawan'], ['id_jabatan' => $supirJab])->assertStatus(200);
 
         $this->assertSame(1, DB::table('supir')->where('id_karyawan', $karyawan['id_karyawan'])->count());
     }

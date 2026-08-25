@@ -35,7 +35,7 @@ class PayrollImportTest extends TestCase
 
     private function buatPeriode(?string $bulan = null): string
     {
-        $this->putJson('/api/v1/payroll/pengaturan', [
+        $this->putJson('/api/payroll/pengaturan', [
             'tanggal_mulai_cutoff'       => 1,
             'hari_kerja_per_bulan'       => 25,
             'persen_bpjs_kesehatan'      => 1,
@@ -44,7 +44,7 @@ class PayrollImportTest extends TestCase
             'plafon_gaji_bpjs_kesehatan' => 12000000,
         ])->assertStatus(200);
 
-        $res = $this->postJson('/api/v1/payroll/periode', ['bulan' => $bulan ?? now()->format('Y-m')]);
+        $res = $this->postJson('/api/payroll/periode', ['bulan' => $bulan ?? now()->format('Y-m')]);
         $res->assertStatus(201);
         return $res->json('data.id_periode');
     }
@@ -96,12 +96,12 @@ class PayrollImportTest extends TestCase
             ]),
         ]);
 
-        $res = $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file]);
+        $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file]);
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1)
             ->assertJsonPath('data.gagal', []);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
             ->firstWhere('id_karyawan', $idKaryawan);
         $this->assertNotNull($slip);
         $this->assertEquals(2500000, $slip['gaji_pokok']);
@@ -134,11 +134,11 @@ class PayrollImportTest extends TestCase
             ]),
         ]);
 
-        $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file])
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file])
             ->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
             ->firstWhere('id_karyawan', $idKaryawan);
         $this->assertEquals(2030769.23, $slip['gaji_pokok']);
         $this->assertSame('16', $slip['absen_masuk']);
@@ -161,11 +161,11 @@ class PayrollImportTest extends TestCase
             ]),
         ]);
 
-        $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file])
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file])
             ->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1);
 
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
             ->firstWhere('id_karyawan', $idKaryawan);
         $this->assertEquals(1250000, $slip['uang_makan_mingguan']);
         $this->assertEquals(1250000, $slip['total_potongan']);
@@ -178,7 +178,7 @@ class PayrollImportTest extends TestCase
 
         $file = $this->fileGaji([$this->barisGaji('Tidak Ada Orangnya')]);
 
-        $res = $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file]);
+        $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file]);
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 0);
 
@@ -199,7 +199,7 @@ class PayrollImportTest extends TestCase
         ]);
         $idPeriode = $this->buatPeriode();
 
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
 
         $file = $this->fileGaji([
             $this->barisGaji('Budi Timpa', [
@@ -207,11 +207,11 @@ class PayrollImportTest extends TestCase
                 'UANG MAKAN MINGGUAN' => 0, 'KASBON' => 200000,
             ]),
         ]);
-        $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file])
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file])
             ->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1);
 
-        $slips = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))
+        $slips = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
             ->where('id_karyawan', $idKaryawan);
         $this->assertCount(1, $slips);
 
@@ -232,11 +232,11 @@ class PayrollImportTest extends TestCase
         $this->makeKaryawan('Dodi Final Import', 'NIK-IMP-04', 5000000);
         $idPeriode = $this->buatPeriode();
 
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $this->postJson("/api/payroll/periode/{$idPeriode}/finalisasi")->assertStatus(200);
 
         $file = $this->fileGaji([$this->barisGaji('Dodi Final Import')]);
-        $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file])->assertStatus(422);
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file])->assertStatus(422);
     }
 
     public function test_import_excel_tanpa_header_nama_ditolak(): void
@@ -246,7 +246,7 @@ class PayrollImportTest extends TestCase
         $idPeriode = $this->buatPeriode();
 
         $file = $this->fileGaji([$this->barisGaji('Eka Tanpa Header')], denganHeader: false);
-        $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file])->assertStatus(422);
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file])->assertStatus(422);
     }
 
     public function test_import_excel_nama_duplikat_dalam_file_gagal(): void
@@ -260,7 +260,7 @@ class PayrollImportTest extends TestCase
             $this->barisGaji('Fani Dobel'),
         ]);
 
-        $res = $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file]);
+        $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file]);
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 0);
         $this->assertCount(2, $res->json('data.gagal'));
@@ -276,7 +276,7 @@ class PayrollImportTest extends TestCase
 
         $file = $this->fileGaji([$this->barisGaji('Gani Kembar')]);
 
-        $res = $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file]);
+        $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file]);
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 0);
         $this->assertCount(1, $res->json('data.gagal'));
@@ -285,7 +285,7 @@ class PayrollImportTest extends TestCase
 
     private function unduhTemplate(string $idPeriode): array
     {
-        $res = $this->get("/api/v1/payroll/periode/{$idPeriode}/import/template");
+        $res = $this->get("/api/payroll/periode/{$idPeriode}/import/template");
         $res->assertStatus(200);
 
         $path = tempnam(sys_get_temp_dir(), 'tpl-gaji') . '.xlsx';
@@ -333,7 +333,7 @@ class PayrollImportTest extends TestCase
         $this->assertSame('2880705027', trim((string) $barisAldi[7]));
         $this->assertEquals(5000000, $barisAldi[9]);
 
-        $this->post("/api/v1/payroll/periode/{$idPeriode}/import", ['file' => $file])
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file])
             ->assertStatus(200)
             ->assertJsonPath('data.berhasil', 2)
             ->assertJsonPath('data.gagal', []);
@@ -345,10 +345,10 @@ class PayrollImportTest extends TestCase
         $idKaryawan = $this->makeKaryawan('Dini Prefill', 'NIK-TPL-04', 5000000);
         $idPeriode = $this->buatPeriode();
 
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
             ->firstWhere('id_karyawan', $idKaryawan);
-        $this->putJson("/api/v1/payroll/slip/{$slip['id_slip']}", [
+        $this->putJson("/api/payroll/slip/{$slip['id_slip']}", [
             'uang_makan' => 300000, 'kasbon' => 100000,
         ])->assertStatus(200);
 
@@ -367,10 +367,10 @@ class PayrollImportTest extends TestCase
         $this->makeKaryawan('Hani Edit Komponen', 'NIK-IMP-09', 4000000);
         $idPeriode = $this->buatPeriode();
 
-        $this->postJson("/api/v1/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
-        $slip = collect($this->getJson("/api/v1/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))->first();
 
-        $res = $this->putJson("/api/v1/payroll/slip/{$slip['id_slip']}", [
+        $res = $this->putJson("/api/payroll/slip/{$slip['id_slip']}", [
             'uang_makan'          => 300000,
             'uang_makan_mingguan' => 25000,
             'kasbon'              => 100000,

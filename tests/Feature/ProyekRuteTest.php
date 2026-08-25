@@ -95,7 +95,7 @@ class ProyekRuteTest extends TestCase
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
 
-        $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
             'uang_jalan'         => 150000,
@@ -104,7 +104,7 @@ class ProyekRuteTest extends TestCase
             'estimasi_biaya_lain'=> 25000,
         ]);
 
-        $res = $this->getJson("/api/v1/proyek/{$idProyek}/rute");
+        $res = $this->getJson("/api/proyek/{$idProyek}/rute");
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -120,7 +120,7 @@ class ProyekRuteTest extends TestCase
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
             'keterangan'         => 'Rute utama',
@@ -144,7 +144,7 @@ class ProyekRuteTest extends TestCase
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
             'harga_penawaran'    => 750000,
@@ -164,7 +164,7 @@ class ProyekRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ]);
@@ -177,7 +177,7 @@ class ProyekRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'             => $this->makeRute(),
             'id_jenis_kendaraan'  => $this->makeJenisKendaraan(),
             'uang_jalan'          => 175000,
@@ -198,13 +198,13 @@ class ProyekRuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
-        $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'harga_penawaran'    => 500000,
         ])->json('data.id_proyek_rute');
 
-        $res = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$id}", [
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
             'harga_penawaran' => 900000,
         ]);
 
@@ -216,12 +216,12 @@ class ProyekRuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
-        $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ])->json('data.id_proyek_rute');
 
-        $res = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$id}", [
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
             'uang_jalan'   => 200000,
             'estimasi_tol' => 70000,
         ]);
@@ -236,7 +236,7 @@ class ProyekRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => (string) Str::uuid(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ]);
@@ -249,7 +249,7 @@ class ProyekRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => (string) Str::uuid(),
         ]);
@@ -262,12 +262,12 @@ class ProyekRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
-        $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ]);
 
-        $res = $this->getJson("/api/v1/proyek/{$idProyek}/rute");
+        $res = $this->getJson("/api/proyek/{$idProyek}/rute");
 
         $res->assertStatus(200)->assertJsonPath('data.0.estimasi_biaya', null);
     }
@@ -277,14 +277,14 @@ class ProyekRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
 
-        $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'estimasi_tol'       => 50000,
             'uang_jalan'         => 150000,
         ]);
 
-        $res = $this->getJson("/api/v1/proyek/{$idProyek}/rute");
+        $res = $this->getJson("/api/proyek/{$idProyek}/rute");
 
         $res->assertStatus(200);
         $this->assertEquals(200000, $res->json('data.0.estimasi_biaya'));
@@ -294,12 +294,12 @@ class ProyekRuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
-        $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ])->json('data.id_proyek_rute');
 
-        $res = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$id}", [
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
             'keterangan' => 'Diperbarui',
         ]);
 
@@ -310,12 +310,12 @@ class ProyekRuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
-        $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ])->json('data.id_proyek_rute');
 
-        $res = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$id}", [
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
             'id_rute' => (string) Str::uuid(),
         ]);
 
@@ -326,17 +326,17 @@ class ProyekRuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
-        $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ])->json('data.id_proyek_rute');
 
-        $res = $this->deleteJson("/api/v1/proyek/{$idProyek}/rute/{$id}");
+        $res = $this->deleteJson("/api/proyek/{$idProyek}/rute/{$id}");
 
         $res->assertStatus(200);
         $this->assertDatabaseHas('proyek_rute', ['id_proyek_rute' => $id]);
         $this->assertNotNull(DB::table('proyek_rute')->where('id_proyek_rute', $id)->value('dihapus_pada'));
-        $this->getJson("/api/v1/proyek/{$idProyek}/rute")->assertJsonCount(0, 'data');
+        $this->getJson("/api/proyek/{$idProyek}/rute")->assertJsonCount(0, 'data');
     }
 
     public function test_update_rute_milik_proyek_lain_ditolak_404(): void
@@ -344,12 +344,12 @@ class ProyekRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idProyekA = $this->makeProyek();
         $idProyekB = $this->makeProyek();
-        $id = $this->postJson("/api/v1/proyek/{$idProyekA}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyekA}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ])->json('data.id_proyek_rute');
 
-        $res = $this->putJson("/api/v1/proyek/{$idProyekB}/rute/{$id}", [
+        $res = $this->putJson("/api/proyek/{$idProyekB}/rute/{$id}", [
             'keterangan' => 'Coba ubah dari proyek lain',
         ]);
 
@@ -361,12 +361,12 @@ class ProyekRuteTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idProyekA = $this->makeProyek();
         $idProyekB = $this->makeProyek();
-        $id = $this->postJson("/api/v1/proyek/{$idProyekA}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyekA}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ])->json('data.id_proyek_rute');
 
-        $res = $this->deleteJson("/api/v1/proyek/{$idProyekB}/rute/{$id}");
+        $res = $this->deleteJson("/api/proyek/{$idProyekB}/rute/{$id}");
 
         $res->assertStatus(404);
         $this->assertDatabaseHas('proyek_rute', ['id_proyek_rute' => $id, 'dihapus_pada' => null]);
@@ -379,12 +379,12 @@ class ProyekRuteTest extends TestCase
         $idRute   = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
 
-        $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
         ])->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
         ]);
@@ -400,12 +400,12 @@ class ProyekRuteTest extends TestCase
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
 
-        $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ])->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ]);
@@ -419,11 +419,11 @@ class ProyekRuteTest extends TestCase
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
 
-        $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute' => $idRute,
         ])->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute' => $idRute,
         ]);
 
@@ -437,11 +437,11 @@ class ProyekRuteTest extends TestCase
         $idProyek = $this->makeProyek();
         $idRute   = $this->makeRute();
 
-        $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute' => $idRute,
         ])->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ]);
@@ -457,12 +457,12 @@ class ProyekRuteTest extends TestCase
         $idRute    = $this->makeRute();
         $idJenis   = $this->makeJenisKendaraan();
 
-        $this->postJson("/api/v1/proyek/{$idProyekA}/rute", [
+        $this->postJson("/api/proyek/{$idProyekA}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
         ])->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyekB}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyekB}/rute", [
             'id_rute'            => $idRute,
             'id_jenis_kendaraan' => $idJenis,
         ]);
@@ -478,14 +478,14 @@ class ProyekRuteTest extends TestCase
         $idRuteB  = $this->makeRute();
         $idJenis  = $this->makeJenisKendaraan();
 
-        $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute' => $idRuteA, 'id_jenis_kendaraan' => $idJenis,
         ])->assertStatus(201);
-        $idKedua = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $idKedua = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute' => $idRuteB, 'id_jenis_kendaraan' => $idJenis,
         ])->json('data.id_proyek_rute');
 
-        $res = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$idKedua}", [
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$idKedua}", [
             'id_rute' => $idRuteA,
         ]);
 
@@ -497,12 +497,12 @@ class ProyekRuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
-        $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ])->json('data.id_proyek_rute');
 
-        $res = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$id}", [
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
             'harga_penawaran' => 850000,
         ]);
 
@@ -515,7 +515,7 @@ class ProyekRuteTest extends TestCase
         $idProyek = $this->makeProyek('borongan');
         $this->makePenawaranDisetujui($idProyek);
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'harga_penawaran'    => 500000,
@@ -531,7 +531,7 @@ class ProyekRuteTest extends TestCase
         $idProyek = $this->makeProyek('per_rit');
         $this->makePenawaranDisetujui($idProyek);
 
-        $res = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'harga_penawaran'    => 500000,
@@ -545,14 +545,14 @@ class ProyekRuteTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek('borongan');
-        $id = $this->postJson("/api/v1/proyek/{$idProyek}/rute", [
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
             'id_rute'            => $this->makeRute(),
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
             'harga_penawaran'    => 500000,
         ])->json('data.id_proyek_rute');
         $this->makePenawaranDisetujui($idProyek);
 
-        $res = $this->putJson("/api/v1/proyek/{$idProyek}/rute/{$id}", [
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
             'harga_penawaran' => 900000,
         ]);
 

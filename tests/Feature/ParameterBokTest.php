@@ -57,7 +57,7 @@ class ParameterBokTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/parameter-bok', $this->payloadValid());
+        $res = $this->postJson('/api/parameter-bok', $this->payloadValid());
 
         $res->assertStatus(201)
             ->assertJsonPath('success', true)
@@ -70,7 +70,7 @@ class ParameterBokTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/parameter-bok', []);
+        $res = $this->postJson('/api/parameter-bok', []);
 
         $res->assertStatus(422)->assertJsonValidationErrors([
             'id_jenis_kendaraan', 'id_jenis_bbm', 'konsumsi_km_per_liter', 'utilisasi_km_per_bulan',
@@ -81,10 +81,10 @@ class ParameterBokTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idJenis = $this->makeJenisKendaraan();
-        $this->postJson('/api/v1/parameter-bok', $this->payloadValid(['id_jenis_kendaraan' => $idJenis]))
+        $this->postJson('/api/parameter-bok', $this->payloadValid(['id_jenis_kendaraan' => $idJenis]))
             ->assertStatus(201);
 
-        $res = $this->postJson('/api/v1/parameter-bok', $this->payloadValid(['id_jenis_kendaraan' => $idJenis]));
+        $res = $this->postJson('/api/parameter-bok', $this->payloadValid(['id_jenis_kendaraan' => $idJenis]));
 
         $res->assertStatus(422);
     }
@@ -95,7 +95,7 @@ class ParameterBokTest extends TestCase
         $lain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $lain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
 
-        $res = $this->postJson('/api/v1/parameter-bok', $this->payloadValid([
+        $res = $this->postJson('/api/parameter-bok', $this->payloadValid([
             'id_jenis_bbm' => $this->makeJenisBbm($lain),
         ]));
 
@@ -105,13 +105,13 @@ class ParameterBokTest extends TestCase
     public function test_update_dan_hapus(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $created = $this->postJson('/api/v1/parameter-bok', $this->payloadValid())->json('data');
+        $created = $this->postJson('/api/parameter-bok', $this->payloadValid())->json('data');
         $id = $created['id_parameter_bok'];
 
-        $this->putJson("/api/v1/parameter-bok/{$id}", ['margin_persen' => 20])
+        $this->putJson("/api/parameter-bok/{$id}", ['margin_persen' => 20])
             ->assertStatus(200)->assertJsonPath('data.margin_persen', 20);
 
-        $this->deleteJson("/api/v1/parameter-bok/{$id}")->assertStatus(200);
+        $this->deleteJson("/api/parameter-bok/{$id}")->assertStatus(200);
         $row = DB::table('parameter_bok')->where('id_parameter_bok', $id)->first();
         $this->assertNotNull($row->dihapus_pada);
     }
@@ -133,7 +133,7 @@ class ParameterBokTest extends TestCase
             'dibuat_pada'            => now(),
         ]);
 
-        $this->assertCount(0, $this->getJson('/api/v1/parameter-bok')->json('data'));
-        $this->getJson("/api/v1/parameter-bok/{$idParam}")->assertStatus(404);
+        $this->assertCount(0, $this->getJson('/api/parameter-bok')->json('data'));
+        $this->getJson("/api/parameter-bok/{$idParam}")->assertStatus(404);
     }
 }

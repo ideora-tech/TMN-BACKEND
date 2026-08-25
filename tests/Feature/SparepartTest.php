@@ -34,7 +34,7 @@ class SparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/sparepart', [
+        $res = $this->postJson('/api/sparepart', [
             'kode'          => 'SP-100',
             'nama'          => 'Kampas Rem',
             'satuan'        => 'set',
@@ -52,7 +52,7 @@ class SparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeSparepart('SP-001');
 
-        $resDup = $this->postJson('/api/v1/sparepart', ['kode' => 'SP-001', 'nama' => 'Duplikat']);
+        $resDup = $this->postJson('/api/sparepart', ['kode' => 'SP-001', 'nama' => 'Duplikat']);
         $resDup->assertStatus(409);
 
         $idLain = (string) Str::uuid();
@@ -67,7 +67,7 @@ class SparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart('SP-001', 'Filter Oli', 10);
 
-        $res = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
+        $res = $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", [
             'jenis'      => 'penyesuaian',
             'qty'        => 5,
             'harga'      => 45000,
@@ -88,19 +88,19 @@ class SparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart('SP-001', 'Filter Oli', 10);
 
-        $resOk = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
+        $resOk = $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", [
             'jenis' => 'penyesuaian', 'qty' => -3, 'keterangan' => 'Stok opname',
         ]);
         $resOk->assertStatus(200)->assertJsonPath('data.stok', 7);
 
-        $resMinus = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
+        $resMinus = $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", [
             'jenis' => 'penyesuaian', 'qty' => -12, 'keterangan' => 'Koreksi darurat',
         ]);
         $resMinus->assertStatus(200)->assertJsonPath('data.stok', -5);
         $this->assertSame(-5, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
 
         // koreksi naik dari posisi minus tetap boleh walau hasil masih minus
-        $resNaik = $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", [
+        $resNaik = $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", [
             'jenis' => 'penyesuaian', 'qty' => 2, 'keterangan' => 'Koreksi bertahap',
         ]);
         $resNaik->assertStatus(200)->assertJsonPath('data.stok', -3);
@@ -111,9 +111,9 @@ class SparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart();
 
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'masuk', 'qty' => 5, 'keterangan' => 'Barang masuk manual'])->assertStatus(422);
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 0, 'keterangan' => 'Nol'])->assertStatus(422);
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 3])->assertStatus(422);
+        $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'masuk', 'qty' => 5, 'keterangan' => 'Barang masuk manual'])->assertStatus(422);
+        $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 0, 'keterangan' => 'Nol'])->assertStatus(422);
+        $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 3])->assertStatus(422);
     }
 
     public function test_riwayat_mutasi_terbaru_dulu(): void
@@ -121,11 +121,11 @@ class SparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $sp = $this->makeSparepart();
 
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 5, 'keterangan' => 'Saldo awal']);
+        $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => 5, 'keterangan' => 'Saldo awal']);
         $this->travel(1)->seconds();
-        $this->postJson("/api/v1/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => -1, 'keterangan' => 'Stok opname']);
+        $this->postJson("/api/sparepart/{$sp->id_sparepart}/stok", ['jenis' => 'penyesuaian', 'qty' => -1, 'keterangan' => 'Stok opname']);
 
-        $res = $this->getJson("/api/v1/sparepart/{$sp->id_sparepart}/mutasi");
+        $res = $this->getJson("/api/sparepart/{$sp->id_sparepart}/mutasi");
 
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));
@@ -142,11 +142,11 @@ class SparepartTest extends TestCase
         DB::table('perusahaan')->insert(['id_perusahaan' => $idLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
         $this->makeSparepart('SP-003', 'Punya Orang', 5, $idLain);
 
-        $resAll = $this->getJson('/api/v1/sparepart');
+        $resAll = $this->getJson('/api/sparepart');
         $resAll->assertStatus(200);
         $this->assertCount(2, $resAll->json('data'));
 
-        $resSearch = $this->getJson('/api/v1/sparepart?search=kampas');
+        $resSearch = $this->getJson('/api/sparepart?search=kampas');
         $this->assertCount(1, $resSearch->json('data'));
         $this->assertSame('SP-002', $resSearch->json('data.0.kode'));
     }
@@ -163,7 +163,7 @@ class SparepartTest extends TestCase
             'dibuat_pada'           => now(),
         ]);
 
-        $res = $this->postJson('/api/v1/sparepart', [
+        $res = $this->postJson('/api/sparepart', [
             'kode' => 'SP-200', 'nama' => 'Filter Oli', 'id_kategori_sparepart' => $idKategori,
         ]);
         $res->assertStatus(201)
@@ -172,7 +172,7 @@ class SparepartTest extends TestCase
 
         $this->makeSparepart('SP-201', 'Kampas Rem');
 
-        $resFilter = $this->getJson("/api/v1/sparepart?id_kategori_sparepart={$idKategori}");
+        $resFilter = $this->getJson("/api/sparepart?id_kategori_sparepart={$idKategori}");
         $resFilter->assertStatus(200);
         $this->assertCount(1, $resFilter->json('data'));
         $this->assertSame('SP-200', $resFilter->json('data.0.kode'));
@@ -199,7 +199,7 @@ class SparepartTest extends TestCase
             ->where('id_kategori_sparepart', $idKategori)
             ->update(['dihapus_pada' => now()]);
 
-        $res = $this->getJson("/api/v1/sparepart/{$sp->id_sparepart}");
+        $res = $this->getJson("/api/sparepart/{$sp->id_sparepart}");
         $res->assertStatus(200);
         $this->assertSame('SP-300', $res->json('data.kode'));
         $this->assertNull($res->json('data.nama_kategori_sparepart'));
@@ -210,7 +210,7 @@ class SparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idKategoriTidakAda = (string) Str::uuid();
 
-        $res = $this->postJson('/api/v1/sparepart', [
+        $res = $this->postJson('/api/sparepart', [
             'kode' => 'SP-400', 'nama' => 'Spare Part', 'id_kategori_sparepart' => $idKategoriTidakAda,
         ]);
 

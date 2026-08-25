@@ -92,7 +92,7 @@ class NotifikasiPenugasanPushTest extends TestCase
         $supir = $this->makeSupir();
         $this->daftarkanToken($supir['id_pengguna']);
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_supir'  => $supir['id_supir'],
         ])->assertStatus(201);
@@ -116,13 +116,13 @@ class NotifikasiPenugasanPushTest extends TestCase
         $lama = $this->makeSupir();
         $baru = $this->makeSupir();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_supir'  => $lama['id_supir'],
         ])->assertStatus(201);
         $idPenugasan = $res->json('data.id_penugasan');
 
-        $this->putJson("/api/v1/penugasan/{$idPenugasan}", [
+        $this->putJson("/api/penugasan/{$idPenugasan}", [
             'id_supir' => $baru['id_supir'],
         ])->assertStatus(200);
 
@@ -137,14 +137,14 @@ class NotifikasiPenugasanPushTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir();
 
-        $res = $this->postJson('/api/v1/penugasan', [
+        $res = $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_supir'  => $supir['id_supir'],
         ])->assertStatus(201);
         $idPenugasan = $res->json('data.id_penugasan');
         $jumlahAwal = NotifikasiModel::count();
 
-        $this->putJson("/api/v1/penugasan/{$idPenugasan}", [
+        $this->putJson("/api/penugasan/{$idPenugasan}", [
             'tanggal_tugas' => now()->addDay()->toDateString(),
         ])->assertStatus(200);
 
@@ -158,7 +158,7 @@ class NotifikasiPenugasanPushTest extends TestCase
         $proyek = $this->makeProyek();
         $supir = $this->makeSupir(denganAkun: false);
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_supir'  => $supir['id_supir'],
         ])->assertStatus(201);
@@ -174,7 +174,7 @@ class NotifikasiPenugasanPushTest extends TestCase
         $supir = $this->makeSupir();
         $this->daftarkanToken($supir['id_pengguna']);
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_supir'  => $supir['id_supir'],
         ])->assertStatus(201);
@@ -195,7 +195,7 @@ class NotifikasiPenugasanPushTest extends TestCase
         $supir = $this->makeSupir();
         $this->daftarkanToken($supir['id_pengguna'], 'fcm-mati');
 
-        $this->postJson('/api/v1/penugasan', [
+        $this->postJson('/api/penugasan', [
             'id_proyek' => $proyek->id_proyek,
             'id_supir'  => $supir['id_supir'],
         ])->assertStatus(201);

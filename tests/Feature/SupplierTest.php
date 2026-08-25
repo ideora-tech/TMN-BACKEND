@@ -37,7 +37,7 @@ class SupplierTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/supplier', [
+        $res = $this->postJson('/api/supplier', [
             'nama' => 'Sinar Motor', 'telepon' => '0811111111', 'alamat' => 'Jl. Raya 1',
         ]);
 
@@ -50,7 +50,7 @@ class SupplierTest extends TestCase
     public function test_validasi_nama_wajib(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson('/api/v1/supplier', ['telepon' => '08'])->assertStatus(422);
+        $this->postJson('/api/supplier', ['telepon' => '08'])->assertStatus(422);
     }
 
     public function test_list_search_dan_scope_perusahaan(): void
@@ -59,13 +59,13 @@ class SupplierTest extends TestCase
         $this->makeSupplier('Milik Sendiri');
         $this->makeSupplier('Milik Orang', $this->makePerusahaanLain());
 
-        $res = $this->getJson('/api/v1/supplier');
+        $res = $this->getJson('/api/supplier');
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
 
-        $resSearch = $this->getJson('/api/v1/supplier?search=Sendiri');
+        $resSearch = $this->getJson('/api/supplier?search=Sendiri');
         $this->assertCount(1, $resSearch->json('data'));
-        $this->getJson('/api/v1/supplier?search=TidakAda')->assertStatus(200)->assertJsonCount(0, 'data');
+        $this->getJson('/api/supplier?search=TidakAda')->assertStatus(200)->assertJsonCount(0, 'data');
     }
 
     public function test_filter_aktif(): void
@@ -75,7 +75,7 @@ class SupplierTest extends TestCase
         $nonaktif = $this->makeSupplier('Nonaktif');
         DB::table('supplier')->where('id_supplier', $nonaktif->id_supplier)->update(['aktif' => 0]);
 
-        $res = $this->getJson('/api/v1/supplier?aktif=1');
+        $res = $this->getJson('/api/supplier?aktif=1');
         $this->assertCount(1, $res->json('data'));
         $this->assertSame('Aktif Satu', $res->json('data.0.nama'));
     }
@@ -85,12 +85,12 @@ class SupplierTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $supplier = $this->makeSupplier();
 
-        $this->putJson("/api/v1/supplier/{$supplier->id_supplier}", ['nama' => 'Jaya Abadi', 'aktif' => false])
+        $this->putJson("/api/supplier/{$supplier->id_supplier}", ['nama' => 'Jaya Abadi', 'aktif' => false])
             ->assertStatus(200)
             ->assertJsonPath('data.nama', 'Jaya Abadi')
             ->assertJsonPath('data.aktif', false);
 
-        $this->getJson("/api/v1/supplier/{$supplier->id_supplier}")
+        $this->getJson("/api/supplier/{$supplier->id_supplier}")
             ->assertStatus(200)->assertJsonPath('data.nama', 'Jaya Abadi');
     }
 
@@ -99,9 +99,9 @@ class SupplierTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $supplier = $this->makeSupplier();
 
-        $this->deleteJson("/api/v1/supplier/{$supplier->id_supplier}")->assertStatus(200);
+        $this->deleteJson("/api/supplier/{$supplier->id_supplier}")->assertStatus(200);
         $this->assertSoftDeleted('supplier', ['id_supplier' => $supplier->id_supplier]);
-        $this->getJson("/api/v1/supplier/{$supplier->id_supplier}")->assertStatus(404);
+        $this->getJson("/api/supplier/{$supplier->id_supplier}")->assertStatus(404);
     }
 
     public function test_isolasi_tenant(): void
@@ -109,8 +109,8 @@ class SupplierTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $supplier = $this->makeSupplier('Milik Orang', $this->makePerusahaanLain());
 
-        $this->getJson("/api/v1/supplier/{$supplier->id_supplier}")->assertStatus(404);
-        $this->putJson("/api/v1/supplier/{$supplier->id_supplier}", ['nama' => 'x'])->assertStatus(404);
-        $this->deleteJson("/api/v1/supplier/{$supplier->id_supplier}")->assertStatus(404);
+        $this->getJson("/api/supplier/{$supplier->id_supplier}")->assertStatus(404);
+        $this->putJson("/api/supplier/{$supplier->id_supplier}", ['nama' => 'x'])->assertStatus(404);
+        $this->deleteJson("/api/supplier/{$supplier->id_supplier}")->assertStatus(404);
     }
 }

@@ -40,7 +40,7 @@ class KaryawanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/karyawan', [
+        $res = $this->postJson('/api/karyawan', [
             'nik'                => 'NIK-001',
             'nama_karyawan'      => 'Andi Wijaya',
             'status_kepegawaian' => 'tetap',
@@ -60,7 +60,7 @@ class KaryawanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $resTanpaOverride = $this->postJson('/api/v1/karyawan', [
+        $resTanpaOverride = $this->postJson('/api/karyawan', [
             'nik' => 'NIK-OVR-01', 'nama_karyawan' => 'Tanpa Override',
         ]);
         $resTanpaOverride->assertStatus(201)
@@ -68,7 +68,7 @@ class KaryawanTest extends TestCase
             ->assertJsonPath('data.override_persen_bpjs_jht', null)
             ->assertJsonPath('data.override_tunjangan_jabatan', null);
 
-        $resDenganOverride = $this->postJson('/api/v1/karyawan', [
+        $resDenganOverride = $this->postJson('/api/karyawan', [
             'nik' => 'NIK-OVR-02', 'nama_karyawan' => 'Dengan Override',
             'override_persen_bpjs_kesehatan' => 2,
             'override_persen_bpjs_jht'       => 3,
@@ -88,7 +88,7 @@ class KaryawanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/karyawan', [
+        $res = $this->postJson('/api/karyawan', [
             'nik'                => 'NIK-HR-001',
             'nik_ktp'            => '3171012345678901',
             'nama_karyawan'      => 'Budi Santoso',
@@ -127,7 +127,7 @@ class KaryawanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/karyawan', [
+        $res = $this->postJson('/api/karyawan', [
             'nik'           => 'NIK-HR-002',
             'nama_karyawan' => 'Coba PTKP',
             'status_ptkp'   => 'K/9',
@@ -149,13 +149,13 @@ class KaryawanTest extends TestCase
         ]);
 
         // set jabatan pertama (null -> A), lalu promosi (A -> B)
-        $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}", ['id_jabatan' => $idJabatanA])->assertStatus(200);
+        $this->putJson("/api/karyawan/{$karyawan->id_karyawan}", ['id_jabatan' => $idJabatanA])->assertStatus(200);
         $this->travel(2)->seconds();
-        $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}", ['id_jabatan' => $idJabatanB])->assertStatus(200);
+        $this->putJson("/api/karyawan/{$karyawan->id_karyawan}", ['id_jabatan' => $idJabatanB])->assertStatus(200);
         // update tanpa ganti jabatan tidak menambah riwayat
-        $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}", ['telepon' => '0811111111', 'id_jabatan' => $idJabatanB])->assertStatus(200);
+        $this->putJson("/api/karyawan/{$karyawan->id_karyawan}", ['telepon' => '0811111111', 'id_jabatan' => $idJabatanB])->assertStatus(200);
 
-        $res = $this->getJson("/api/v1/karyawan/{$karyawan->id_karyawan}/riwayat-jabatan");
+        $res = $this->getJson("/api/karyawan/{$karyawan->id_karyawan}/riwayat-jabatan");
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -171,7 +171,7 @@ class KaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-DUP');
 
-        $res = $this->postJson('/api/v1/karyawan', [
+        $res = $this->postJson('/api/karyawan', [
             'nik'                => 'NIK-DUP',
             'nama_karyawan'      => 'Duplikat',
             'status_kepegawaian' => 'tetap',
@@ -187,7 +187,7 @@ class KaryawanTest extends TestCase
         $idLain = $this->makePerusahaanLain();
         $this->makeKaryawan($idLain, 'NIK-B', 'Milik Lain');
 
-        $res = $this->getJson('/api/v1/karyawan');
+        $res = $this->getJson('/api/karyawan');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -200,7 +200,7 @@ class KaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-SHOW');
 
-        $res = $this->getJson("/api/v1/karyawan/{$item->id_karyawan}");
+        $res = $this->getJson("/api/karyawan/{$item->id_karyawan}");
 
         $res->assertStatus(200)->assertJsonPath('data.id_karyawan', $item->id_karyawan);
     }
@@ -209,7 +209,7 @@ class KaryawanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/karyawan/' . Str::uuid()->toString());
+        $res = $this->getJson('/api/karyawan/' . Str::uuid()->toString());
 
         $res->assertStatus(404);
     }
@@ -219,7 +219,7 @@ class KaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-UPD');
 
-        $res = $this->putJson("/api/v1/karyawan/{$item->id_karyawan}", [
+        $res = $this->putJson("/api/karyawan/{$item->id_karyawan}", [
             'nama_karyawan' => 'Nama Diperbarui',
         ]);
 
@@ -232,7 +232,7 @@ class KaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeKaryawan(self::PERUSAHAAN_ID, 'NIK-DEL');
 
-        $res = $this->deleteJson("/api/v1/karyawan/{$item->id_karyawan}");
+        $res = $this->deleteJson("/api/karyawan/{$item->id_karyawan}");
         $res->assertStatus(200);
 
         $row = DB::table('karyawan')->where('id_karyawan', $item->id_karyawan)->first();

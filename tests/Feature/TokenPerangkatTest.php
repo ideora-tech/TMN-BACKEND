@@ -16,7 +16,7 @@ class TokenPerangkatTest extends TestCase
     {
         $user = $this->actingAsRole('SUPERADMIN');
 
-        $this->postJson('/api/v1/token-perangkat', ['token' => 'fcm-abc', 'platform' => 'android'])
+        $this->postJson('/api/token-perangkat', ['token' => 'fcm-abc', 'platform' => 'android'])
             ->assertStatus(200);
 
         $baris = DB::table('token_perangkat')->where('token', 'fcm-abc')->first();
@@ -29,8 +29,8 @@ class TokenPerangkatTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $this->postJson('/api/v1/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
-        $this->postJson('/api/v1/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
+        $this->postJson('/api/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
+        $this->postJson('/api/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
 
         $this->assertSame(1, DB::table('token_perangkat')->where('token', 'fcm-abc')->count());
     }
@@ -38,10 +38,10 @@ class TokenPerangkatTest extends TestCase
     public function test_token_pindah_kepemilikan_saat_pengguna_lain_mendaftar(): void
     {
         $a = $this->actingAsRole('SUPERADMIN');
-        $this->postJson('/api/v1/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
+        $this->postJson('/api/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
 
         $b = $this->actingAsRole('ADMIN');
-        $this->postJson('/api/v1/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
+        $this->postJson('/api/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
 
         $this->assertSame(1, DB::table('token_perangkat')->where('token', 'fcm-abc')->count());
         $baris = DB::table('token_perangkat')->where('token', 'fcm-abc')->first();
@@ -53,18 +53,18 @@ class TokenPerangkatTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $this->postJson('/api/v1/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
-        $this->deleteJson('/api/v1/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
+        $this->postJson('/api/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
+        $this->deleteJson('/api/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
 
         $this->assertNotNull(DB::table('token_perangkat')->where('token', 'fcm-abc')->value('dihapus_pada'));
 
-        $this->postJson('/api/v1/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
+        $this->postJson('/api/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(200);
         $this->assertNull(DB::table('token_perangkat')->where('token', 'fcm-abc')->value('dihapus_pada'));
         $this->assertSame(1, DB::table('token_perangkat')->where('token', 'fcm-abc')->count());
     }
 
     public function test_tanpa_login_401(): void
     {
-        $this->postJson('/api/v1/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(401);
+        $this->postJson('/api/token-perangkat', ['token' => 'fcm-abc'])->assertStatus(401);
     }
 }

@@ -69,7 +69,7 @@ class AbsensiSupirTest extends TestCase
     {
         $this->actingAsSupir();
 
-        $this->getJson('/api/v1/absensi-supir/hari-ini-saya')
+        $this->getJson('/api/absensi-supir/hari-ini-saya')
             ->assertStatus(200)
             ->assertJsonPath('data', null);
     }
@@ -78,14 +78,14 @@ class AbsensiSupirTest extends TestCase
     {
         $this->actingAsSupir();
 
-        $response = $this->postJson('/api/v1/absensi-supir', [
+        $response = $this->postJson('/api/absensi-supir', [
             'status' => 'hadir',
         ]);
 
         $response->assertStatus(201)
             ->assertJsonPath('data.status', 'hadir');
 
-        $this->getJson('/api/v1/absensi-supir/hari-ini-saya')
+        $this->getJson('/api/absensi-supir/hari-ini-saya')
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'hadir');
     }
@@ -94,7 +94,7 @@ class AbsensiSupirTest extends TestCase
     {
         $this->actingAsSupir();
 
-        $response = $this->postJson('/api/v1/absensi-supir', [
+        $response = $this->postJson('/api/absensi-supir', [
             'status'     => 'berhalangan',
             'keterangan' => 'Kendaraan mogok di jalan',
         ]);
@@ -108,15 +108,15 @@ class AbsensiSupirTest extends TestCase
     {
         $ctx = $this->actingAsSupir();
 
-        $this->postJson('/api/v1/absensi-supir', ['status' => 'berhalangan'])->assertStatus(201);
-        $this->postJson('/api/v1/absensi-supir', ['status' => 'hadir'])->assertStatus(201);
+        $this->postJson('/api/absensi-supir', ['status' => 'berhalangan'])->assertStatus(201);
+        $this->postJson('/api/absensi-supir', ['status' => 'hadir'])->assertStatus(201);
 
         $this->assertSame(1, DB::table('absensi_supir')
             ->where('id_supir', $ctx->id_supir)
             ->whereNull('dihapus_pada')
             ->count());
 
-        $this->getJson('/api/v1/absensi-supir/hari-ini-saya')
+        $this->getJson('/api/absensi-supir/hari-ini-saya')
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'hadir');
     }
@@ -126,7 +126,7 @@ class AbsensiSupirTest extends TestCase
         \Illuminate\Support\Facades\Storage::fake('public');
         $ctx = $this->actingAsSupir();
 
-        $res = $this->post('/api/v1/absensi-supir', [
+        $res = $this->post('/api/absensi-supir', [
             'status'      => 'hadir',
             'foto'        => \Illuminate\Http\UploadedFile::fake()->create('selfie.jpg', 100, 'image/jpeg'),
             'skor_wajah'  => 0.7654,
@@ -147,7 +147,7 @@ class AbsensiSupirTest extends TestCase
     {
         $ctx = $this->actingAsSupir();
 
-        $this->postJson('/api/v1/absensi-supir', ['status' => 'hadir'])->assertStatus(201);
+        $this->postJson('/api/absensi-supir', ['status' => 'hadir'])->assertStatus(201);
 
         $baris = DB::table('absensi_supir')->where('id_supir', $ctx->id_supir)->first();
         $this->assertNull($baris->foto);
@@ -158,7 +158,7 @@ class AbsensiSupirTest extends TestCase
     {
         $this->actingAsSupir();
 
-        $this->postJson('/api/v1/absensi-supir', ['status' => 'ngawur'])
+        $this->postJson('/api/absensi-supir', ['status' => 'ngawur'])
             ->assertStatus(422);
     }
 
@@ -195,7 +195,7 @@ class AbsensiSupirTest extends TestCase
 
         Sanctum::actingAs($pengguna, ['*']);
 
-        $this->postJson('/api/v1/absensi-supir', ['status' => 'hadir'])
+        $this->postJson('/api/absensi-supir', ['status' => 'hadir'])
             ->assertStatus(404);
     }
 }

@@ -65,7 +65,7 @@ class PenugasanOpsiArmadaVendorTest extends TestCase
         $this->makeKontrak($vendorB->id_vendor, 'unit_driver');
         $this->makeArmadaVendor($vendorB->id_vendor);
 
-        $res = $this->getJson('/api/v1/penugasan/opsi-armada-vendor');
+        $res = $this->getJson('/api/penugasan/opsi-armada-vendor');
         $res->assertStatus(200);
 
         $data = $res->json('data');
@@ -82,7 +82,7 @@ class PenugasanOpsiArmadaVendorTest extends TestCase
         $this->makeKontrak($vendor->id_vendor, 'unit_only');
         $this->makeArmadaVendor($vendor->id_vendor, ['aktif' => 0]);
 
-        $res = $this->getJson('/api/v1/penugasan/opsi-armada-vendor');
+        $res = $this->getJson('/api/penugasan/opsi-armada-vendor');
         $res->assertStatus(200);
         $this->assertCount(0, $res->json('data'));
     }
@@ -101,7 +101,7 @@ class PenugasanOpsiArmadaVendorTest extends TestCase
         $this->makeKontrak($vendorLain->id_vendor, 'unit_only', $idPerusahaanLain);
         $this->makeArmadaVendor($vendorLain->id_vendor);
 
-        $res = $this->getJson('/api/v1/penugasan/opsi-armada-vendor');
+        $res = $this->getJson('/api/penugasan/opsi-armada-vendor');
         $res->assertStatus(200);
         $this->assertCount(0, $res->json('data'));
     }
@@ -112,7 +112,7 @@ class PenugasanOpsiArmadaVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $this->makeArmadaVendor($vendor->id_vendor);
 
-        $res = $this->getJson('/api/v1/penugasan/opsi-armada-vendor');
+        $res = $this->getJson('/api/penugasan/opsi-armada-vendor');
         $res->assertStatus(200);
         $this->assertCount(0, $res->json('data'));
     }
@@ -145,7 +145,7 @@ class PenugasanOpsiArmadaVendorTest extends TestCase
             'id_supir_vendor'   => (string) Str::uuid(),
         ]);
 
-        $res = $this->getJson('/api/v1/penugasan?id_proyek=' . $proyek->id_proyek . '&sumber=operasional');
+        $res = $this->getJson('/api/penugasan?id_proyek=' . $proyek->id_proyek . '&sumber=operasional');
         $res->assertStatus(200);
 
         $ids = collect($res->json('data'))->pluck('id_penugasan')->all();

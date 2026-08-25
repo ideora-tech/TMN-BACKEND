@@ -114,7 +114,7 @@ class AlokasiArmadaTest extends TestCase
 
     private function buatJadwal(string $idProyek, string $idShift, array $idSupir, string $tanggal): void
     {
-        $this->postJson('/api/v1/jadwal-shift', [
+        $this->postJson('/api/jadwal-shift', [
             'id_proyek' => $idProyek,
             'id_shift'  => $idShift,
             'tanggal'   => $tanggal,
@@ -148,7 +148,7 @@ class AlokasiArmadaTest extends TestCase
         $idShift = $this->makeShift();
         $this->buatJadwal($proyek->id_proyek, $idShift, [$idSupir], $this->tanggalUji);
 
-        $res = $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
+        $res = $this->postJson('/api/alokasi-armada/hitung-ulang', [
             'id_proyek' => $proyek->id_proyek,
             'dari'      => now()->toDateString(),
             'sampai'    => now()->addDays(30)->toDateString(),
@@ -162,7 +162,7 @@ class AlokasiArmadaTest extends TestCase
         $this->assertSame(1, DB::table('alokasi_armada')->where('id_supir', $idSupir)->count());
 
         // Idempoten — dipanggil ulang tanpa ada perubahan tidak menghasilkan churn.
-        $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
+        $this->postJson('/api/alokasi-armada/hitung-ulang', [
             'id_proyek' => $proyek->id_proyek,
             'dari'      => now()->toDateString(),
             'sampai'    => now()->addDays(30)->toDateString(),
@@ -184,7 +184,7 @@ class AlokasiArmadaTest extends TestCase
             'nama_proyek'   => 'Proyek Perusahaan Lain',
         ]);
 
-        $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
+        $this->postJson('/api/alokasi-armada/hitung-ulang', [
             'id_proyek' => $proyekLain->id_proyek, 'dari' => now()->toDateString(), 'sampai' => now()->addDays(30)->toDateString(),
         ])->assertStatus(404);
     }
@@ -194,9 +194,9 @@ class AlokasiArmadaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada('B 9300 LL');
 
-        $this->get("/api/v1/alokasi-armada/export/excel?id_armada={$armada->id_armada}")
+        $this->get("/api/alokasi-armada/export/excel?id_armada={$armada->id_armada}")
             ->assertStatus(200);
-        $this->get("/api/v1/alokasi-armada/export/pdf?id_armada={$armada->id_armada}")
+        $this->get("/api/alokasi-armada/export/pdf?id_armada={$armada->id_armada}")
             ->assertStatus(200)
             ->assertHeader('content-type', 'application/pdf');
     }
@@ -216,13 +216,13 @@ class AlokasiArmadaTest extends TestCase
         $idShift = $this->makeShift();
         $this->buatJadwal($proyek->id_proyek, $idShift, [$supirA, $supirB], $this->tanggalUji);
 
-        $this->postJson('/api/v1/alokasi-armada/hitung-ulang', [
+        $this->postJson('/api/alokasi-armada/hitung-ulang', [
             'id_proyek' => $proyek->id_proyek,
             'dari'      => $this->tanggalUji,
             'sampai'    => $this->tanggalUji,
         ])->assertStatus(200);
 
-        $this->getJson("/api/v1/alokasi-armada?id_armada={$armadaA->id_armada}")
+        $this->getJson("/api/alokasi-armada?id_armada={$armadaA->id_armada}")
             ->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.armada_nopol', 'B 9400 MM');
@@ -233,9 +233,9 @@ class AlokasiArmadaTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idAlokasiPalsu = (string) Str::uuid();
 
-        $this->putJson("/api/v1/alokasi-armada/{$idAlokasiPalsu}", ['id_armada' => (string) Str::uuid()])
+        $this->putJson("/api/alokasi-armada/{$idAlokasiPalsu}", ['id_armada' => (string) Str::uuid()])
             ->assertStatus(404);
-        $this->getJson("/api/v1/alokasi-armada/armada-tersedia?tanggal={$this->tanggalUji}")
+        $this->getJson("/api/alokasi-armada/armada-tersedia?tanggal={$this->tanggalUji}")
             ->assertStatus(404);
     }
 
@@ -273,12 +273,12 @@ class AlokasiArmadaTest extends TestCase
             ],
         ]);
 
-        $tanpaFilter = $this->getJson("/api/v1/alokasi-armada?tanggal_dari={$this->tanggalUji}&tanggal_sampai={$this->tanggalUji}");
+        $tanpaFilter = $this->getJson("/api/alokasi-armada?tanggal_dari={$this->tanggalUji}&tanggal_sampai={$this->tanggalUji}");
         $tanpaFilter->assertStatus(200);
         $this->assertCount(1, $tanpaFilter->json('data'));
         $this->assertNull($tanpaFilter->json('data.0.dihapus_pada'));
 
-        $denganFilter = $this->getJson("/api/v1/alokasi-armada?tanggal_dari={$this->tanggalUji}&tanggal_sampai={$this->tanggalUji}&id_armada={$armada->id_armada}");
+        $denganFilter = $this->getJson("/api/alokasi-armada?tanggal_dari={$this->tanggalUji}&tanggal_sampai={$this->tanggalUji}&id_armada={$armada->id_armada}");
         $denganFilter->assertStatus(200);
         $this->assertCount(2, $denganFilter->json('data'));
         $this->assertCount(1, collect($denganFilter->json('data'))->filter(fn ($r) => $r['dihapus_pada'] !== null));

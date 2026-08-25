@@ -150,7 +150,7 @@ class FakturBoronganTest extends TestCase
         $klien  = $this->makeKlien();
         $proyek = $this->makeProyekBorongan($klien->id_klien, 50000000);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 20000000,
             'uraian'         => 'Termin 1',
             'tanggal_faktur' => now()->toDateString(),
@@ -176,13 +176,13 @@ class FakturBoronganTest extends TestCase
         $klien  = $this->makeKlien();
         $proyek = $this->makeProyekBorongan($klien->id_klien, 50000000);
 
-        $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 30000000,
             'uraian'         => 'Termin 1',
             'tanggal_faktur' => now()->toDateString(),
         ])->assertStatus(201);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 25000000,
             'uraian'         => 'Termin 2',
             'tanggal_faktur' => now()->toDateString(),
@@ -200,23 +200,23 @@ class FakturBoronganTest extends TestCase
         $klien  = $this->makeKlien();
         $proyek = $this->makeProyekBorongan($klien->id_klien, 10000000);
 
-        $pertama = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $pertama = $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 10000000,
             'uraian'         => 'Termin Penuh',
             'tanggal_faktur' => now()->toDateString(),
         ]);
         $pertama->assertStatus(201);
 
-        $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 1,
             'uraian'         => 'Termin Kelebihan',
             'tanggal_faktur' => now()->toDateString(),
         ])->assertStatus(422);
 
         $idFakturPertama = $pertama->json('data.id_faktur');
-        $this->patchJson("/api/v1/faktur/{$idFakturPertama}/status", ['status' => 'batal'])->assertStatus(200);
+        $this->patchJson("/api/faktur/{$idFakturPertama}/status", ['status' => 'batal'])->assertStatus(200);
 
-        $kedua = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $kedua = $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 10000000,
             'uraian'         => 'Termin Setelah Batal',
             'tanggal_faktur' => now()->toDateString(),
@@ -230,7 +230,7 @@ class FakturBoronganTest extends TestCase
         $klien  = $this->makeKlien();
         $proyek = $this->makeProyekPerRit($klien->id_klien, 50000000);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 5000000,
             'uraian'         => 'Termin 1',
             'tanggal_faktur' => now()->toDateString(),
@@ -258,7 +258,7 @@ class FakturBoronganTest extends TestCase
             'dibuat_pada'    => now(),
         ]);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $res = $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 1,
             'uraian'         => 'Termin Race',
             'tanggal_faktur' => now()->toDateString(),
@@ -279,7 +279,7 @@ class FakturBoronganTest extends TestCase
         $klienLain  = $this->makeKlien($idPerusahaanLain);
         $proyekLain = $this->makeProyekBorongan($klienLain->id_klien, 10000000, $idPerusahaanLain);
 
-        $res = $this->postJson("/api/v1/proyek/{$proyekLain->id_proyek}/faktur-borongan", [
+        $res = $this->postJson("/api/proyek/{$proyekLain->id_proyek}/faktur-borongan", [
             'nominal'        => 5000000,
             'uraian'         => 'Termin 1',
             'tanggal_faktur' => now()->toDateString(),
@@ -300,7 +300,7 @@ class FakturBoronganTest extends TestCase
         $this->buatTripSelesai($proyek->id_proyek, $idRute, $idJenis, 150000);
         $this->buatTripSelesai($proyek->id_proyek, $idRute, $idJenis, 0);
 
-        $res = $this->getJson("/api/v1/proyek/{$proyek->id_proyek}");
+        $res = $this->getJson("/api/proyek/{$proyek->id_proyek}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.realisasi.total_rit', 2)
@@ -360,7 +360,7 @@ class FakturBoronganTest extends TestCase
             'dibuat_pada' => now(),
         ]);
 
-        $res = $this->getJson("/api/v1/proyek/{$proyek->id_proyek}");
+        $res = $this->getJson("/api/proyek/{$proyek->id_proyek}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.realisasi.total_rit', 1)
@@ -373,13 +373,13 @@ class FakturBoronganTest extends TestCase
         $klien  = $this->makeKlien();
         $proyek = $this->makeProyekBorongan($klien->id_klien, 50000000);
 
-        $this->postJson("/api/v1/proyek/{$proyek->id_proyek}/faktur-borongan", [
+        $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
             'nominal'        => 20000000,
             'uraian'         => 'Termin 1',
             'tanggal_faktur' => now()->toDateString(),
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/proyek/{$proyek->id_proyek}");
+        $res = $this->getJson("/api/proyek/{$proyek->id_proyek}");
 
         $res->assertStatus(200)
             ->assertJsonPath('data.realisasi.total_rit', 0)

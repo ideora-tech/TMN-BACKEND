@@ -195,7 +195,7 @@ class KonsolidasiKlienTest extends TestCase
         $this->buatTrip($proyekA->id_proyek, true, 999, 'berjalan');
         $this->buatTrip($proyekA->id_proyek, true, 999, 'selesai', false);
 
-        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
         $res->assertStatus(200)
             ->assertJsonPath('data.klien.nama_klien', 'Klien Konsolidasi')
             ->assertJsonPath('data.ringkasan.total_rit', 3)
@@ -220,7 +220,7 @@ class KonsolidasiKlienTest extends TestCase
         $proyek = $this->buatProyek();
         $trip = $this->buatTripUnitOnlyDenganAlokasiInternal($proyek->id_proyek);
 
-        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
         $res->assertStatus(200);
         $baris = collect($res->json('data.trips'))->firstWhere('id_trip', $trip->id_trip);
 
@@ -228,9 +228,9 @@ class KonsolidasiKlienTest extends TestCase
         $this->assertSame(1000000.0, (float) $baris['tarif']['harga']);
         $this->assertSame('vendor', $baris['sumber']);
 
-        $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}&sumber=vendor")
+        $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}&sumber=vendor")
             ->assertStatus(200)->assertJsonPath('data.ringkasan.total_rit', 1);
-        $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}&sumber=internal")
+        $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}&sumber=internal")
             ->assertStatus(200)->assertJsonPath('data.ringkasan.total_rit', 0);
     }
 
@@ -243,13 +243,13 @@ class KonsolidasiKlienTest extends TestCase
         $this->buatProyekRute($proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
         $trip = $this->buatTrip($proyek->id_proyek);
 
-        $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $proyek->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
         ])->assertStatus(201);
 
-        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
         $res->assertStatus(200)->assertJsonPath('data.ringkasan.total_rit', 1);
         $this->assertTrue($res->json('data.trips.0.sudah_difakturkan'));
     }
@@ -268,8 +268,8 @@ class KonsolidasiKlienTest extends TestCase
             'kode_klien' => 'KLN-X', 'nama_klien' => 'Klien Lain', 'dibuat_pada' => now(),
         ]);
 
-        $this->getJson("/api/v1/konsolidasi-klien?id_klien={$idKlienLain}")->assertStatus(404);
-        $this->get("/api/v1/konsolidasi-klien/export/excel?id_klien={$this->idKlien}")->assertStatus(200);
+        $this->getJson("/api/konsolidasi-klien?id_klien={$idKlienLain}")->assertStatus(404);
+        $this->get("/api/konsolidasi-klien/export/excel?id_klien={$this->idKlien}")->assertStatus(200);
     }
 
     public function test_filter_id_proyek_menyaring_dan_baris_memuat_id(): void
@@ -281,11 +281,11 @@ class KonsolidasiKlienTest extends TestCase
         $this->buatTrip($proyekA->id_proyek);
         $this->buatTrip($proyekB->id_proyek);
 
-        $semua = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$proyekA->id_klien}");
+        $semua = $this->getJson("/api/konsolidasi-klien?id_klien={$proyekA->id_klien}");
         $semua->assertStatus(200);
         $this->assertCount(2, $semua->json('data.trips'));
 
-        $satu = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$proyekA->id_klien}&id_proyek={$proyekA->id_proyek}");
+        $satu = $this->getJson("/api/konsolidasi-klien?id_klien={$proyekA->id_klien}&id_proyek={$proyekA->id_proyek}");
         $satu->assertStatus(200);
         $this->assertCount(1, $satu->json('data.trips'));
         $this->assertSame($proyekA->id_proyek, $satu->json('data.trips.0.id_proyek'));
@@ -318,7 +318,7 @@ class KonsolidasiKlienTest extends TestCase
             'nama_biaya' => 'Bongkar Muat', 'nominal' => 150000, 'dibuat_pada' => now(),
         ]);
 
-        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
         $res->assertStatus(200)
             ->assertJsonPath('data.trips.0.titik_drop', ['JLB', 'MRY'])
             ->assertJsonPath('data.trips.0.biaya_tambahan', 150000)
@@ -334,7 +334,7 @@ class KonsolidasiKlienTest extends TestCase
         $this->buatProyekRute($proyek->id_proyek, $this->idRute, null, 800000);
         $trip = $this->buatTrip($proyek->id_proyek, true, 120);
 
-        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
         $res->assertStatus(200);
 
         $baris = collect($res->json('data.trips'))->firstWhere('id_trip', $trip->id_trip);
@@ -350,7 +350,7 @@ class KonsolidasiKlienTest extends TestCase
         $proyek = $this->buatProyek();
         $trip = $this->buatTrip($proyek->id_proyek, true, 120);
 
-        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
         $res->assertStatus(200)->assertJsonPath('data.ringkasan.tanpa_tarif', 1);
 
         $baris = collect($res->json('data.trips'))->firstWhere('id_trip', $trip->id_trip);
@@ -375,7 +375,7 @@ class KonsolidasiKlienTest extends TestCase
         $this->buatProyekRute($proyekPerRit->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
         $tripPerRit = $this->buatTrip($proyekPerRit->id_proyek, true, 100);
 
-        $res = $this->getJson("/api/v1/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
         $res->assertStatus(200)
             ->assertJsonPath('data.ringkasan.total_rit', 2)
             ->assertJsonPath('data.ringkasan.tanpa_tarif', 0)

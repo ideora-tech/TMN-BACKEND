@@ -209,14 +209,14 @@ class PenagihanTripTest extends TestCase
 
         $trip = $this->buatTripArmadaVendor();
 
-        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $res = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $res->assertStatus(200);
         $data = collect($res->json('data'))->keyBy('id_trip');
         $this->assertTrue($data[$trip->id_trip]['bisa_ditagih']);
         $this->assertSame(1500000.0, (float) $data[$trip->id_trip]['tarif']['harga']);
         $this->assertSame('vendor', $data[$trip->id_trip]['sumber']);
 
-        $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
@@ -235,7 +235,7 @@ class PenagihanTripTest extends TestCase
         $masihJalan   = $this->buatTrip('berjalan', true);
         $tanpaLaporan = $this->buatTrip('selesai', false);
 
-        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $res = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $res->assertStatus(200);
 
         $ids = collect($res->json('data'))->pluck('id_trip');
@@ -261,7 +261,7 @@ class PenagihanTripTest extends TestCase
         ]);
         $tripTanpaTarif = $this->buatTrip('selesai', true, $idRuteTanpaTarif);
 
-        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $res = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $res->assertStatus(200);
         $data = collect($res->json('data'))->keyBy('id_trip');
 
@@ -279,7 +279,7 @@ class PenagihanTripTest extends TestCase
 
         $trip = $this->buatTrip();
 
-        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $res = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $res->assertStatus(200);
         $baris = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
 
@@ -311,7 +311,7 @@ class PenagihanTripTest extends TestCase
         // Ops assign armada Colt Diesel — tidak cocok baris manapun.
         $trip = $this->buatTripJenisLain($idJenisColtDiesel);
 
-        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $res = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $res->assertStatus(200);
         $baris = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
 
@@ -320,7 +320,7 @@ class PenagihanTripTest extends TestCase
         $this->assertTrue($baris['tarif']['perkiraan']);
 
         // Tidak lagi macet — draft faktur berhasil dibuat pakai tarif termurah itu.
-        $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
@@ -335,7 +335,7 @@ class PenagihanTripTest extends TestCase
 
         $tripCocokPersis = $this->buatTrip();
 
-        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $res = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $baris = collect($res->json('data'))->firstWhere('id_trip', $tripCocokPersis->id_trip);
         $this->assertFalse($baris['tarif']['perkiraan']);
     }
@@ -349,7 +349,7 @@ class PenagihanTripTest extends TestCase
         $trip1 = $this->buatTrip();
         $trip2 = $this->buatTrip();
 
-        $res = $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $res = $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$trip1->id_trip, $trip2->id_trip],
             'tanggal_faktur' => now()->toDateString(),
@@ -369,7 +369,7 @@ class PenagihanTripTest extends TestCase
         $this->assertSame(3000000.0, (float) $item->harga_satuan);
         $this->assertStringContainsString('2 rit', $item->deskripsi);
 
-        $daftar = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+        $daftar = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
         $this->assertCount(0, $daftar->json('data'));
     }
 
@@ -400,7 +400,7 @@ class PenagihanTripTest extends TestCase
 
         $trip = $this->buatTrip();
 
-        $res = $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $res = $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
@@ -414,7 +414,7 @@ class PenagihanTripTest extends TestCase
         ]);
 
         // Detail faktur mengembalikan nomor & nilai penawaran + nama proyek/klien.
-        $detail = $this->getJson('/api/v1/faktur/' . $res->json('data.id_faktur'));
+        $detail = $this->getJson('/api/faktur/' . $res->json('data.id_faktur'));
         $detail->assertStatus(200)
             ->assertJsonPath('data.id_penawaran', $idRevisiDisetujui)
             ->assertJsonPath('data.nama_proyek', 'Proyek Penagihan')
@@ -431,7 +431,7 @@ class PenagihanTripTest extends TestCase
 
         $trip = $this->buatTrip();
 
-        $res = $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $res = $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
@@ -457,8 +457,8 @@ class PenagihanTripTest extends TestCase
             'tanggal_faktur' => now()->toDateString(),
         ];
 
-        $this->postJson('/api/v1/penagihan-trip/faktur', $payload)->assertStatus(201);
-        $this->postJson('/api/v1/penagihan-trip/faktur', $payload)->assertStatus(422);
+        $this->postJson('/api/penagihan-trip/faktur', $payload)->assertStatus(201);
+        $this->postJson('/api/penagihan-trip/faktur', $payload)->assertStatus(422);
         $this->assertSame(1, DB::table('faktur')->whereNull('dihapus_pada')->count());
 
         $idRuteTanpaTarif = (string) Str::uuid();
@@ -469,7 +469,7 @@ class PenagihanTripTest extends TestCase
         ]);
         $tripTanpaTarif = $this->buatTrip('selesai', true, $idRuteTanpaTarif);
 
-        $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$tripTanpaTarif->id_trip],
             'tanggal_faktur' => now()->toDateString(),
@@ -517,14 +517,14 @@ class PenagihanTripTest extends TestCase
             'id_trip' => $trip->id_trip, 'jarak_tempuh_km' => 100, 'dibuat_pada' => now(),
         ]);
 
-        $res = $this->getJson("/api/v1/penagihan-trip?id_proyek={$proyekBorongan->id_proyek}");
+        $res = $this->getJson("/api/penagihan-trip?id_proyek={$proyekBorongan->id_proyek}");
         $res->assertStatus(200);
         $baris = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
         $this->assertTrue($baris['borongan']);
         $this->assertNull($baris['tarif']);
         $this->assertFalse($baris['bisa_ditagih']);
 
-        $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $proyekBorongan->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
@@ -539,17 +539,17 @@ class PenagihanTripTest extends TestCase
 
         $trip = $this->buatTrip();
 
-        $idFaktur = $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $idFaktur = $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
         ])->json('data.id_faktur');
 
-        $this->assertCount(0, $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}")->json('data'));
+        $this->assertCount(0, $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}")->json('data'));
 
-        $this->patchJson("/api/v1/faktur/{$idFaktur}/status", ['status' => 'batal'])->assertStatus(200);
+        $this->patchJson("/api/faktur/{$idFaktur}/status", ['status' => 'batal'])->assertStatus(200);
 
-        $daftar = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}")->json('data');
+        $daftar = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}")->json('data');
         $this->assertCount(1, $daftar);
         $this->assertSame($trip->id_trip, $daftar[0]['id_trip']);
     }
@@ -568,14 +568,14 @@ class PenagihanTripTest extends TestCase
             'nama_biaya' => 'Multidrop', 'nominal' => 150000, 'dibuat_pada' => now(),
         ]);
 
-        $daftar = $this->getJson("/api/v1/penagihan-trip?id_proyek={$this->proyek->id_proyek}")->json('data');
+        $daftar = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}")->json('data');
         $baris = collect($daftar)->firstWhere('id_trip', $trip->id_trip);
         $this->assertSame(150000.0, (float) $baris['total_biaya_tagihan']);
         $this->assertCount(1, $baris['biaya_tagihan']);
         $this->assertSame('Multidrop', $baris['biaya_tagihan'][0]['nama_biaya']);
         $this->assertSame(150000.0, (float) $baris['biaya_tagihan'][0]['nominal']);
 
-        $res = $this->postJson('/api/v1/penagihan-trip/faktur', [
+        $res = $this->postJson('/api/penagihan-trip/faktur', [
             'id_proyek'      => $this->proyek->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),

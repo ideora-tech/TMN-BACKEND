@@ -50,7 +50,7 @@ class KontrakKaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
-        $res = $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak", [
+        $res = $this->postJson("/api/karyawan/{$karyawan->id_karyawan}/kontrak", [
             'jenis_kontrak'   => 'pkwt',
             'nomor_kontrak'   => 'PKWT/2026/001',
             'tanggal_mulai'   => '2026-01-01',
@@ -77,7 +77,7 @@ class KontrakKaryawanTest extends TestCase
         $this->makeKontrak($karyawan->id_karyawan, '2024-01-01', '2024-12-31');
         $this->makeKontrak($karyawan->id_karyawan, '2025-01-01', null);
 
-        $res = $this->getJson("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak");
+        $res = $this->getJson("/api/karyawan/{$karyawan->id_karyawan}/kontrak");
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -92,7 +92,7 @@ class KontrakKaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
-        $res = $this->postJson("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak", [
+        $res = $this->postJson("/api/karyawan/{$karyawan->id_karyawan}/kontrak", [
             'jenis_kontrak'   => 'pkwt',
             'tanggal_mulai'   => '2026-06-01',
             'tanggal_selesai' => '2026-01-01',
@@ -107,7 +107,7 @@ class KontrakKaryawanTest extends TestCase
         $karyawan = $this->makeKaryawan();
         $kontrak  = $this->makeKontrak($karyawan->id_karyawan);
 
-        $resUpdate = $this->putJson("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak/{$kontrak->id_kontrak}", [
+        $resUpdate = $this->putJson("/api/karyawan/{$karyawan->id_karyawan}/kontrak/{$kontrak->id_kontrak}", [
             'jenis_kontrak' => 'pkwtt',
             'tanggal_selesai' => null,
         ]);
@@ -115,7 +115,7 @@ class KontrakKaryawanTest extends TestCase
             ->assertJsonPath('data.jenis_kontrak', 'pkwtt')
             ->assertJsonPath('data.tanggal_selesai', null);
 
-        $resDelete = $this->deleteJson("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak/{$kontrak->id_kontrak}");
+        $resDelete = $this->deleteJson("/api/karyawan/{$karyawan->id_karyawan}/kontrak/{$kontrak->id_kontrak}");
         $resDelete->assertStatus(200);
 
         $this->assertSoftDeleted('kontrak_karyawan', ['id_kontrak' => $kontrak->id_kontrak]);
@@ -127,7 +127,7 @@ class KontrakKaryawanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $karyawan = $this->makeKaryawan();
 
-        $res = $this->post("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak", [
+        $res = $this->post("/api/karyawan/{$karyawan->id_karyawan}/kontrak", [
             'jenis_kontrak'   => 'pkwt',
             'tanggal_mulai'   => '2026-01-01',
             'tanggal_selesai' => '2026-12-31',
@@ -152,7 +152,7 @@ class KontrakKaryawanTest extends TestCase
         $karyawan = $this->makeKaryawan();
         $kontrak  = $this->makeKontrak($karyawan->id_karyawan);
 
-        $res = $this->post("/api/v1/karyawan/{$karyawan->id_karyawan}/kontrak/{$kontrak->id_kontrak}", [
+        $res = $this->post("/api/karyawan/{$karyawan->id_karyawan}/kontrak/{$kontrak->id_kontrak}", [
             '_method' => 'PUT',
             'file'    => UploadedFile::fake()->create('kontrak-baru.pdf', 100, 'application/pdf'),
         ], ['Accept' => 'application/json']);
@@ -170,10 +170,10 @@ class KontrakKaryawanTest extends TestCase
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
         $karyawanLain = $this->makeKaryawan($idPerusahaanLain, 'NIK-LAIN-01');
 
-        $resList = $this->getJson("/api/v1/karyawan/{$karyawanLain->id_karyawan}/kontrak");
+        $resList = $this->getJson("/api/karyawan/{$karyawanLain->id_karyawan}/kontrak");
         $resList->assertStatus(404);
 
-        $resStore = $this->postJson("/api/v1/karyawan/{$karyawanLain->id_karyawan}/kontrak", [
+        $resStore = $this->postJson("/api/karyawan/{$karyawanLain->id_karyawan}/kontrak", [
             'jenis_kontrak' => 'pkwt',
             'tanggal_mulai' => '2026-01-01',
         ]);

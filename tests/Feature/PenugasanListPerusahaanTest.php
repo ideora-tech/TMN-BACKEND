@@ -66,11 +66,11 @@ class PenugasanListPerusahaanTest extends TestCase
         $proyekLain = $this->makeProyek($idLain);
         $this->makePenugasan($proyekLain->id_proyek, $this->makeSupir($idLain, 'Supir Lain'), 'aktif');
 
-        $res = $this->getJson('/api/v1/penugasan');
+        $res = $this->getJson('/api/penugasan');
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));
 
-        $resAktif = $this->getJson('/api/v1/penugasan?status=aktif');
+        $resAktif = $this->getJson('/api/penugasan?status=aktif');
         $resAktif->assertStatus(200);
         $this->assertCount(1, $resAktif->json('data'));
         $this->assertSame('aktif', $resAktif->json('data.0.status'));

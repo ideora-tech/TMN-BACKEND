@@ -37,7 +37,7 @@ class LemburHoldTest extends TestCase
 
     private function setPengaturan(): void
     {
-        $this->putJson('/api/v1/absensi/pengaturan', [
+        $this->putJson('/api/absensi/pengaturan', [
             'jam_masuk' => '08:00', 'jam_pulang' => '17:00', 'toleransi_terlambat_menit' => 15,
         ])->assertStatus(200);
     }
@@ -47,13 +47,13 @@ class LemburHoldTest extends TestCase
         $idKaryawan = $this->loginSebagaiKaryawan();
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(200);
         Carbon::setTestNow(Carbon::parse('2026-08-06 20:00:00'));
-        $this->postJson('/api/v1/absensi/saya/pulang', [])->assertStatus(200);
+        $this->postJson('/api/absensi/saya/pulang', [])->assertStatus(200);
 
         $this->assertSame(1, (int) DB::table('absensi')->where('id_karyawan', $idKaryawan)->value('pulang_mandiri'));
 
-        $rekap = $this->getJson('/api/v1/absensi/rekap?bulan=2026-08')->assertStatus(200)->json('data');
+        $rekap = $this->getJson('/api/absensi/rekap?bulan=2026-08')->assertStatus(200)->json('data');
         $baris = collect($rekap)->firstWhere('id_karyawan', $idKaryawan);
         $this->assertSame(0, (int) $baris['lembur_menit']);
     }
@@ -62,12 +62,12 @@ class LemburHoldTest extends TestCase
     {
         $idKaryawan = $this->loginSebagaiKaryawan();
         $this->setPengaturan();
-        $this->postJson('/api/v1/absensi/harian', [
+        $this->postJson('/api/absensi/harian', [
             'tanggal' => '2026-08-06',
             'entries' => [['id_karyawan' => $idKaryawan, 'status' => 'hadir', 'jam_masuk' => '08:00', 'jam_pulang' => '20:00']],
         ])->assertStatus(200);
 
-        $rekap = $this->getJson('/api/v1/absensi/rekap?bulan=2026-08')->json('data');
+        $rekap = $this->getJson('/api/absensi/rekap?bulan=2026-08')->json('data');
         $baris = collect($rekap)->firstWhere('id_karyawan', $idKaryawan);
         $this->assertSame(180, (int) $baris['lembur_menit']);
     }
@@ -77,18 +77,18 @@ class LemburHoldTest extends TestCase
         $idKaryawan = $this->loginSebagaiKaryawan();
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(200);
         Carbon::setTestNow(Carbon::parse('2026-08-06 20:00:00'));
-        $this->postJson('/api/v1/absensi/saya/pulang', [])->assertStatus(200);
+        $this->postJson('/api/absensi/saya/pulang', [])->assertStatus(200);
         Carbon::setTestNow();
 
-        $this->postJson('/api/v1/absensi/harian', [
+        $this->postJson('/api/absensi/harian', [
             'tanggal' => '2026-08-06',
             'entries' => [['id_karyawan' => $idKaryawan, 'status' => 'hadir', 'jam_masuk' => '07:55', 'jam_pulang' => '20:00']],
         ])->assertStatus(200);
 
         $this->assertSame(0, (int) DB::table('absensi')->where('id_karyawan', $idKaryawan)->value('pulang_mandiri'));
-        $rekap = $this->getJson('/api/v1/absensi/rekap?bulan=2026-08')->json('data');
+        $rekap = $this->getJson('/api/absensi/rekap?bulan=2026-08')->json('data');
         $this->assertSame(180, (int) collect($rekap)->firstWhere('id_karyawan', $idKaryawan)['lembur_menit']);
     }
 }

@@ -52,7 +52,7 @@ class SupirArmadaDefaultTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama'              => 'Andi Wijaya',
             'no_sim'            => 'SIM-999',
             'id_armada_default' => $armada->id_armada,
@@ -74,7 +74,7 @@ class SupirArmadaDefaultTest extends TestCase
         $supir  = $this->makeSupir();
         $armada = $this->makeArmada();
 
-        $res = $this->putJson("/api/v1/supir/{$supir->id_supir}", [
+        $res = $this->putJson("/api/supir/{$supir->id_supir}", [
             'id_armada_default' => $armada->id_armada,
         ]);
 
@@ -94,7 +94,7 @@ class SupirArmadaDefaultTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $armadaLain       = $this->makeArmada($idPerusahaanLain);
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama'              => 'Coba Curang',
             'no_sim'            => 'SIM-000',
             'id_armada_default' => $armadaLain->id_armada,
@@ -111,7 +111,7 @@ class SupirArmadaDefaultTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama'              => 'Coba Ghost',
             'no_sim'            => 'SIM-111',
             'id_armada_default' => (string) Str::uuid(),
@@ -128,7 +128,7 @@ class SupirArmadaDefaultTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama'   => 'Tanpa Default',
             'no_sim' => 'SIM-222',
         ]);
@@ -153,7 +153,7 @@ class SupirArmadaDefaultTest extends TestCase
             ->where('id_supir', $pemegang->id_supir)
             ->update(['id_armada_default' => $armada->id_armada]);
 
-        $res = $this->postJson('/api/v1/supir', [
+        $res = $this->postJson('/api/supir', [
             'nama'              => 'Coba Rebut',
             'no_sim'            => 'SIM-333',
             'id_armada_default' => $armada->id_armada,
@@ -178,7 +178,7 @@ class SupirArmadaDefaultTest extends TestCase
             ->where('id_supir', $supirB->id_supir)
             ->update(['id_armada_default' => $armada->id_armada]);
 
-        $res = $this->putJson("/api/v1/supir/{$supirA->id_supir}", [
+        $res = $this->putJson("/api/supir/{$supirA->id_supir}", [
             'id_armada_default' => $armada->id_armada,
         ]);
 
@@ -201,7 +201,7 @@ class SupirArmadaDefaultTest extends TestCase
             ->where('id_supir', $supir->id_supir)
             ->update(['id_armada_default' => $armada->id_armada]);
 
-        $res = $this->putJson("/api/v1/supir/{$supir->id_supir}", [
+        $res = $this->putJson("/api/supir/{$supir->id_supir}", [
             'nama'              => 'Supir Sendiri Update',
             'id_armada_default' => $armada->id_armada,
         ]);

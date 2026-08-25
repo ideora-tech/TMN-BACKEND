@@ -50,7 +50,7 @@ class VendorImportTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->get('/api/v1/vendor/import/template');
+        $res = $this->get('/api/vendor/import/template');
 
         $res->assertStatus(200);
         $res->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -74,7 +74,7 @@ class VendorImportTest extends TestCase
             ['VDR-103', 'Tanggal Rusak', '', '', '', '', '', '', 'bukan-tanggal'],
         ]);
 
-        $res = $this->postJson('/api/v1/vendor/import', ['file' => $file]);
+        $res = $this->postJson('/api/vendor/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
         $this->assertCount(5, $res->json('data.gagal'));
@@ -101,7 +101,7 @@ class VendorImportTest extends TestCase
             ['VDR-200', 'Vendor B', '', '', '', '', '', '', ''],
         ]);
 
-        $res = $this->postJson('/api/v1/vendor/import', ['file' => $file]);
+        $res = $this->postJson('/api/vendor/import', ['file' => $file]);
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 0);
         $this->assertCount(2, $res->json('data.gagal'));
@@ -114,6 +114,6 @@ class VendorImportTest extends TestCase
 
         $file = UploadedFile::fake()->create('data.pdf', 10, 'application/pdf');
 
-        $this->postJson('/api/v1/vendor/import', ['file' => $file])->assertStatus(422);
+        $this->postJson('/api/vendor/import', ['file' => $file])->assertStatus(422);
     }
 }

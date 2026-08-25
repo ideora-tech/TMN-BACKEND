@@ -126,7 +126,7 @@ class JadwalShiftSayaTest extends TestCase
             'dibuat_pada'     => now(),
         ]);
 
-        $response = $this->getJson('/api/v1/jadwal-shift/hari-ini-saya');
+        $response = $this->getJson('/api/jadwal-shift/hari-ini-saya');
 
         if ($response->status() === 500) {
             fwrite(STDERR, print_r(DB::table('log_error')->latest('dibuat_pada')->first(), true));
@@ -142,7 +142,7 @@ class JadwalShiftSayaTest extends TestCase
     {
         $this->actingAsSupir();
 
-        $response = $this->getJson('/api/v1/jadwal-shift/hari-ini-saya');
+        $response = $this->getJson('/api/jadwal-shift/hari-ini-saya');
 
         $response->assertStatus(200)
             ->assertJsonPath('data', null);
@@ -166,7 +166,7 @@ class JadwalShiftSayaTest extends TestCase
 
         $this->actingAsSupir();
 
-        $this->getJson('/api/v1/jadwal-shift/hari-ini-saya')
+        $this->getJson('/api/jadwal-shift/hari-ini-saya')
             ->assertStatus(200)
             ->assertJsonPath('data', null);
     }

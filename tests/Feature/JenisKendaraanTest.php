@@ -42,7 +42,7 @@ class JenisKendaraanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/jenis-kendaraan', [
+        $res = $this->postJson('/api/jenis-kendaraan', [
             'kode_jenis'       => 'TRK-02',
             'nama_jenis'       => 'Truk Tronton',
             'kapasitas_muatan' => 8000,
@@ -65,7 +65,7 @@ class JenisKendaraanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01');
 
-        $res = $this->postJson('/api/v1/jenis-kendaraan', [
+        $res = $this->postJson('/api/jenis-kendaraan', [
             'kode_jenis' => 'TRK-01',
             'nama_jenis' => 'Truk Duplikat',
         ]);
@@ -81,7 +81,7 @@ class JenisKendaraanTest extends TestCase
         $idPerusahaanLain = $this->makePerusahaanLain();
         $this->makeJenisKendaraan($idPerusahaanLain, 'TRK-01', 'Milik Lain');
 
-        $res = $this->getJson('/api/v1/jenis-kendaraan');
+        $res = $this->getJson('/api/jenis-kendaraan');
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -94,7 +94,7 @@ class JenisKendaraanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJenisKendaraan(self::PERUSAHAAN_ID);
 
-        $res = $this->getJson("/api/v1/jenis-kendaraan/{$item->id_jenis_kendaraan}");
+        $res = $this->getJson("/api/jenis-kendaraan/{$item->id_jenis_kendaraan}");
 
         $res->assertStatus(200)->assertJsonPath('data.id_jenis_kendaraan', $item->id_jenis_kendaraan);
     }
@@ -103,7 +103,7 @@ class JenisKendaraanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->getJson('/api/v1/jenis-kendaraan/' . Str::uuid()->toString());
+        $res = $this->getJson('/api/jenis-kendaraan/' . Str::uuid()->toString());
 
         $res->assertStatus(404);
     }
@@ -113,7 +113,7 @@ class JenisKendaraanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJenisKendaraan(self::PERUSAHAAN_ID);
 
-        $res = $this->putJson("/api/v1/jenis-kendaraan/{$item->id_jenis_kendaraan}", [
+        $res = $this->putJson("/api/jenis-kendaraan/{$item->id_jenis_kendaraan}", [
             'nama_jenis' => 'Nama Diperbarui',
         ]);
 
@@ -130,13 +130,13 @@ class JenisKendaraanTest extends TestCase
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01', 'Truk Engkel');
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'PIK-01', 'Pick Up');
 
-        $resByNama = $this->getJson('/api/v1/jenis-kendaraan?search=Engkel');
+        $resByNama = $this->getJson('/api/jenis-kendaraan?search=Engkel');
         $resByNama->assertStatus(200);
         $dataByNama = $resByNama->json('data');
         $this->assertCount(1, $dataByNama);
         $this->assertSame('Truk Engkel', $dataByNama[0]['nama_jenis']);
 
-        $resByKode = $this->getJson('/api/v1/jenis-kendaraan?search=PIK-01');
+        $resByKode = $this->getJson('/api/jenis-kendaraan?search=PIK-01');
         $resByKode->assertStatus(200);
         $dataByKode = $resByKode->json('data');
         $this->assertCount(1, $dataByKode);
@@ -157,13 +157,13 @@ class JenisKendaraanTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $resAktif = $this->getJson('/api/v1/jenis-kendaraan?aktif=1');
+        $resAktif = $this->getJson('/api/jenis-kendaraan?aktif=1');
         $resAktif->assertStatus(200);
         $dataAktif = $resAktif->json('data');
         $this->assertCount(1, $dataAktif);
         $this->assertSame($aktifItem->id_jenis_kendaraan, $dataAktif[0]['id_jenis_kendaraan']);
 
-        $resNonaktif = $this->getJson('/api/v1/jenis-kendaraan?aktif=0');
+        $resNonaktif = $this->getJson('/api/jenis-kendaraan?aktif=0');
         $resNonaktif->assertStatus(200);
         $dataNonaktif = $resNonaktif->json('data');
         $this->assertCount(1, $dataNonaktif);
@@ -183,7 +183,7 @@ class JenisKendaraanTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $res = $this->getJson('/api/v1/jenis-kendaraan?search=Engkel&aktif=1');
+        $res = $this->getJson('/api/jenis-kendaraan?search=Engkel&aktif=1');
         $res->assertStatus(200);
         $data = $res->json('data');
         $this->assertCount(1, $data);
@@ -195,12 +195,12 @@ class JenisKendaraanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJenisKendaraan(self::PERUSAHAAN_ID);
 
-        $res = $this->deleteJson("/api/v1/jenis-kendaraan/{$item->id_jenis_kendaraan}");
+        $res = $this->deleteJson("/api/jenis-kendaraan/{$item->id_jenis_kendaraan}");
         $res->assertStatus(200)->assertJsonPath('success', true);
 
         $row = DB::table('jenis_kendaraan')->where('id_jenis_kendaraan', $item->id_jenis_kendaraan)->first();
         $this->assertNotNull($row->dihapus_pada);
 
-        $this->assertCount(0, $this->getJson('/api/v1/jenis-kendaraan')->json('data'));
+        $this->assertCount(0, $this->getJson('/api/jenis-kendaraan')->json('data'));
     }
 }

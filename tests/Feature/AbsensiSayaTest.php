@@ -37,7 +37,7 @@ class AbsensiSayaTest extends TestCase
 
     private function setPengaturan(): void
     {
-        $this->putJson('/api/v1/absensi/pengaturan', [
+        $this->putJson('/api/absensi/pengaturan', [
             'jam_masuk' => '08:00', 'jam_pulang' => '17:00', 'toleransi_terlambat_menit' => 15,
         ])->assertStatus(200);
     }
@@ -48,7 +48,7 @@ class AbsensiSayaTest extends TestCase
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
 
-        $res = $this->postJson('/api/v1/absensi/saya/masuk', [
+        $res = $this->postJson('/api/absensi/saya/masuk', [
             'latitude' => -6.2000001, 'longitude' => 106.8000001, 'alamat' => 'Jl. Kantor No. 1, Bekasi',
         ]);
 
@@ -68,7 +68,7 @@ class AbsensiSayaTest extends TestCase
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 08:20:00'));
 
-        $this->postJson('/api/v1/absensi/saya/masuk', [])
+        $this->postJson('/api/absensi/saya/masuk', [])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'terlambat');
     }
@@ -79,8 +79,8 @@ class AbsensiSayaTest extends TestCase
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
 
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(422);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(200);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(422);
     }
 
     public function test_absen_pulang_butuh_masuk_dulu_dan_sekali_saja(): void
@@ -89,18 +89,18 @@ class AbsensiSayaTest extends TestCase
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
 
-        $this->postJson('/api/v1/absensi/saya/pulang', [])->assertStatus(422);
+        $this->postJson('/api/absensi/saya/pulang', [])->assertStatus(422);
 
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(200);
         Carbon::setTestNow(Carbon::parse('2026-08-06 17:05:00'));
-        $this->postJson('/api/v1/absensi/saya/pulang', ['alamat' => 'Jl. Pulang'])
+        $this->postJson('/api/absensi/saya/pulang', ['alamat' => 'Jl. Pulang'])
             ->assertStatus(200)
             ->assertJsonPath('data.alamat_pulang', 'Jl. Pulang');
 
         $baris = DB::table('absensi')->where('id_karyawan', $idKaryawan)->first();
         $this->assertSame('17:05:00', $baris->jam_pulang);
 
-        $this->postJson('/api/v1/absensi/saya/pulang', [])->assertStatus(422);
+        $this->postJson('/api/absensi/saya/pulang', [])->assertStatus(422);
     }
 
     public function test_hari_ini_mengembalikan_absensi_atau_null(): void
@@ -109,16 +109,16 @@ class AbsensiSayaTest extends TestCase
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
 
-        $this->getJson('/api/v1/absensi/saya/hari-ini')->assertStatus(200)->assertJsonPath('data', null);
+        $this->getJson('/api/absensi/saya/hari-ini')->assertStatus(200)->assertJsonPath('data', null);
 
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
-        $this->getJson('/api/v1/absensi/saya/hari-ini')->assertStatus(200)->assertJsonPath('data.status', 'hadir');
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(200);
+        $this->getJson('/api/absensi/saya/hari-ini')->assertStatus(200)->assertJsonPath('data.status', 'hadir');
     }
 
     public function test_akun_tanpa_tautan_karyawan_ditolak(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(422);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(422);
     }
 
     public function test_absen_masuk_dengan_foto_wajah_tersimpan(): void
@@ -128,7 +128,7 @@ class AbsensiSayaTest extends TestCase
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
 
-        $res = $this->post('/api/v1/absensi/saya/masuk', [
+        $res = $this->post('/api/absensi/saya/masuk', [
             'latitude'    => -6.2,
             'longitude'   => 106.8,
             'foto'        => \Illuminate\Http\UploadedFile::fake()->create('selfie.jpg', 100, 'image/jpeg'),
@@ -152,10 +152,10 @@ class AbsensiSayaTest extends TestCase
         $idKaryawan = $this->loginSebagaiKaryawan();
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(200);
 
         Carbon::setTestNow(Carbon::parse('2026-08-06 17:05:00'));
-        $this->post('/api/v1/absensi/saya/pulang', [
+        $this->post('/api/absensi/saya/pulang', [
             'foto'        => \Illuminate\Http\UploadedFile::fake()->create('selfie.jpg', 100, 'image/jpeg'),
             'skor_wajah'  => 0.41,
             'wajah_cocok' => 0,
@@ -172,7 +172,7 @@ class AbsensiSayaTest extends TestCase
         $this->setPengaturan();
         Carbon::setTestNow(Carbon::parse('2026-08-06 07:55:00'));
 
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(200);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(200);
 
         $baris = DB::table('absensi')->where('id_karyawan', $idKaryawan)->first();
         $this->assertNull($baris->foto_masuk);
@@ -197,7 +197,7 @@ class AbsensiSayaTest extends TestCase
             'jumlah_hari' => 1, 'status' => 'disetujui', 'dibuat_pada' => now(),
         ]);
 
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(422);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(422);
     }
 
     public function test_absen_masuk_ditolak_saat_sudah_dicatat_admin(): void
@@ -212,6 +212,6 @@ class AbsensiSayaTest extends TestCase
             'status' => 'sakit', 'dibuat_pada' => now(),
         ]);
 
-        $this->postJson('/api/v1/absensi/saya/masuk', [])->assertStatus(422);
+        $this->postJson('/api/absensi/saya/masuk', [])->assertStatus(422);
     }
 }

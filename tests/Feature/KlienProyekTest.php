@@ -47,7 +47,7 @@ class KlienProyekTest extends TestCase
         $this->makeProyek($klien1->id_klien, 'Proyek B');
         $this->makeProyek($klien2->id_klien, 'Proyek C');
 
-        $res = $this->getJson("/api/v1/klien/{$klien1->id_klien}/proyek");
+        $res = $this->getJson("/api/klien/{$klien1->id_klien}/proyek");
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -70,7 +70,7 @@ class KlienProyekTest extends TestCase
         $klien = $this->makeKlien();
         $this->makeProyek($klien->id_klien, 'Proyek A');
 
-        $res = $this->getJson("/api/v1/klien/{$klien->id_klien}");
+        $res = $this->getJson("/api/klien/{$klien->id_klien}");
         $res->assertStatus(200)->assertJsonPath('data.id_klien', $klien->id_klien);
     }
 
@@ -79,7 +79,7 @@ class KlienProyekTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $klien = $this->makeKlien('Klien Tanpa Proyek');
 
-        $res = $this->getJson("/api/v1/klien/{$klien->id_klien}/proyek");
+        $res = $this->getJson("/api/klien/{$klien->id_klien}/proyek");
 
         $res->assertStatus(200);
         $this->assertCount(0, $res->json('data'));
@@ -109,7 +109,7 @@ class KlienProyekTest extends TestCase
 
         $this->makeProyek($klienLain->id_klien, 'Proyek Perusahaan Lain');
 
-        $res = $this->getJson("/api/v1/klien/{$klienLain->id_klien}/proyek");
+        $res = $this->getJson("/api/klien/{$klienLain->id_klien}/proyek");
 
         $res->assertStatus(404);
     }

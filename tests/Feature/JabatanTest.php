@@ -63,7 +63,7 @@ class JabatanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/jabatan', [
+        $res = $this->postJson('/api/jabatan', [
             'nama_jabatan' => 'Manager',
             'level'        => 3,
             'tunjangan_jabatan' => 1500000,
@@ -86,7 +86,7 @@ class JabatanTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/v1/jabatan', [
+        $res = $this->postJson('/api/jabatan', [
             'kode_jabatan' => 'KODE-BEBAS',
             'nama_jabatan' => 'Supervisor',
         ]);
@@ -102,7 +102,7 @@ class JabatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeJabatan(self::PERUSAHAAN_ID);
 
-        $res = $this->getJson('/api/v1/jabatan');
+        $res = $this->getJson('/api/jabatan');
 
         $res->assertStatus(200);
         $this->assertCount(1, $res->json('data'));
@@ -116,7 +116,7 @@ class JabatanTest extends TestCase
         $this->makeJabatan(self::PERUSAHAAN_ID, $idDepA, 'Supir');
         $this->makeJabatan(self::PERUSAHAAN_ID, $idDepB, 'Akuntan');
 
-        $res = $this->getJson("/api/v1/jabatan?id_departemen={$idDepA}");
+        $res = $this->getJson("/api/jabatan?id_departemen={$idDepA}");
 
         $res->assertStatus(200);
         $data = $res->json('data');
@@ -129,7 +129,7 @@ class JabatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJabatan(self::PERUSAHAAN_ID);
 
-        $res = $this->getJson("/api/v1/jabatan/{$item->id_jabatan}");
+        $res = $this->getJson("/api/jabatan/{$item->id_jabatan}");
 
         $res->assertStatus(200)->assertJsonPath('data.id_jabatan', $item->id_jabatan);
     }
@@ -139,7 +139,7 @@ class JabatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJabatan(self::PERUSAHAAN_ID, null, 'Lama');
 
-        $res = $this->putJson("/api/v1/jabatan/{$item->id_jabatan}", [
+        $res = $this->putJson("/api/jabatan/{$item->id_jabatan}", [
             'nama_jabatan' => 'Baru',
         ]);
 
@@ -151,7 +151,7 @@ class JabatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $item = $this->makeJabatan(self::PERUSAHAAN_ID);
 
-        $res = $this->deleteJson("/api/v1/jabatan/{$item->id_jabatan}");
+        $res = $this->deleteJson("/api/jabatan/{$item->id_jabatan}");
         $res->assertStatus(200);
 
         $row = DB::table('jabatan')->where('id_jabatan', $item->id_jabatan)->first();
@@ -163,7 +163,7 @@ class JabatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $atasan = $this->makeJabatan(self::PERUSAHAAN_ID, null, 'Manager');
 
-        $res = $this->postJson('/api/v1/jabatan', [
+        $res = $this->postJson('/api/jabatan', [
             'nama_jabatan'     => 'Staff',
             'id_jabatan_induk' => $atasan->id_jabatan,
         ]);
@@ -181,7 +181,7 @@ class JabatanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $jabatan = $this->makeJabatan(self::PERUSAHAAN_ID, null, 'Manager');
 
-        $res = $this->putJson("/api/v1/jabatan/{$jabatan->id_jabatan}", [
+        $res = $this->putJson("/api/jabatan/{$jabatan->id_jabatan}", [
             'id_jabatan_induk' => $jabatan->id_jabatan,
         ]);
 
@@ -198,10 +198,10 @@ class JabatanTest extends TestCase
         $a = $this->makeJabatan(self::PERUSAHAAN_ID, null, 'A');
         $b = $this->makeJabatan(self::PERUSAHAAN_ID, null, 'B');
 
-        $this->putJson("/api/v1/jabatan/{$b->id_jabatan}", ['id_jabatan_induk' => $a->id_jabatan])
+        $this->putJson("/api/jabatan/{$b->id_jabatan}", ['id_jabatan_induk' => $a->id_jabatan])
             ->assertStatus(200);
 
-        $res = $this->putJson("/api/v1/jabatan/{$a->id_jabatan}", ['id_jabatan_induk' => $b->id_jabatan]);
+        $res = $this->putJson("/api/jabatan/{$a->id_jabatan}", ['id_jabatan_induk' => $b->id_jabatan]);
 
         $res->assertStatus(422);
         $this->assertDatabaseHas('jabatan', [
@@ -221,7 +221,7 @@ class JabatanTest extends TestCase
         ]);
         $jabatanLain = $this->makeJabatan($idPerusahaanLain, null, 'Manager Lain');
 
-        $res = $this->postJson('/api/v1/jabatan', [
+        $res = $this->postJson('/api/jabatan', [
             'kode_jabatan'     => 'JBT-LINTAS',
             'nama_jabatan'     => 'Staff Lintas',
             'id_jabatan_induk' => $jabatanLain->id_jabatan,
@@ -249,7 +249,7 @@ class JabatanTest extends TestCase
         $this->makeKaryawan(self::PERUSAHAAN_ID, $staff->id_jabatan, 'Slamet Supir');
         $this->makeKaryawan(self::PERUSAHAAN_ID, $staff->id_jabatan, 'Dedi Supir');
 
-        $res = $this->getJson('/api/v1/jabatan/struktur-organisasi');
+        $res = $this->getJson('/api/jabatan/struktur-organisasi');
 
         $res->assertStatus(200);
         $pohon = $res->json('data');
@@ -287,7 +287,7 @@ class JabatanTest extends TestCase
 
         DB::table('jabatan')->where('id_jabatan', $induk->id_jabatan)->update(['aktif' => 0]);
 
-        $res = $this->getJson('/api/v1/jabatan/struktur-organisasi');
+        $res = $this->getJson('/api/jabatan/struktur-organisasi');
 
         $res->assertStatus(200);
         $pohon = $res->json('data');

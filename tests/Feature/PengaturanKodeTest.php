@@ -18,7 +18,7 @@ class PengaturanKodeTest extends TestCase
     {
         $this->actingAsRole('ADMIN');
 
-        $res = $this->getJson('/api/v1/pengaturan-kode');
+        $res = $this->getJson('/api/pengaturan-kode');
 
         $res->assertStatus(200);
         $data = collect($res->json('data'))->keyBy('entitas');
@@ -43,7 +43,7 @@ class PengaturanKodeTest extends TestCase
     {
         $this->actingAsRole('ADMIN');
 
-        $res = $this->putJson('/api/v1/pengaturan-kode/rute', [
+        $res = $this->putJson('/api/pengaturan-kode/rute', [
             'prefix'        => 'RUTE',
             'panjang_digit' => 4,
             'reset'         => 'tidak',
@@ -54,7 +54,7 @@ class PengaturanKodeTest extends TestCase
             ->assertJsonPath('data.prefix', 'RUTE')
             ->assertJsonPath('data.tersimpan', true);
 
-        $getRes = $this->getJson('/api/v1/pengaturan-kode');
+        $getRes = $this->getJson('/api/pengaturan-kode');
         $data = collect($getRes->json('data'))->keyBy('entitas');
         $this->assertSame('RUTE', $data['rute']['prefix']);
         $this->assertTrue($data['rute']['tersimpan']);
@@ -67,7 +67,7 @@ class PengaturanKodeTest extends TestCase
     {
         $this->actingAsRole('ADMIN');
 
-        $res = $this->putJson('/api/v1/pengaturan-kode/rute', [
+        $res = $this->putJson('/api/pengaturan-kode/rute', [
             'prefix'        => 'RT',
             'panjang_digit' => 4,
             'reset'         => 'mingguan',
@@ -81,7 +81,7 @@ class PengaturanKodeTest extends TestCase
     {
         $this->actingAsRole('ADMIN');
 
-        $resKecil = $this->putJson('/api/v1/pengaturan-kode/proyek', [
+        $resKecil = $this->putJson('/api/pengaturan-kode/proyek', [
             'prefix'        => 'PRJ',
             'panjang_digit' => 2,
             'reset'         => 'tahunan',
@@ -89,7 +89,7 @@ class PengaturanKodeTest extends TestCase
         $resKecil->assertStatus(422);
         $resKecil->assertJsonValidationErrors('panjang_digit');
 
-        $resBesar = $this->putJson('/api/v1/pengaturan-kode/proyek', [
+        $resBesar = $this->putJson('/api/pengaturan-kode/proyek', [
             'prefix'        => 'PRJ',
             'panjang_digit' => 9,
             'reset'         => 'tahunan',
@@ -102,7 +102,7 @@ class PengaturanKodeTest extends TestCase
     {
         $this->actingAsRole('ADMIN');
 
-        $res = $this->putJson('/api/v1/pengaturan-kode/armada', [
+        $res = $this->putJson('/api/pengaturan-kode/armada', [
             'prefix'        => 'ARM',
             'panjang_digit' => 4,
             'reset'         => 'tidak',
@@ -115,13 +115,13 @@ class PengaturanKodeTest extends TestCase
     {
         $this->actingAsRole('ADMIN');
 
-        $this->putJson('/api/v1/pengaturan-kode/rute', [
+        $this->putJson('/api/pengaturan-kode/rute', [
             'prefix'        => 'RT1',
             'panjang_digit' => 4,
             'reset'         => 'tidak',
         ])->assertStatus(200);
 
-        $res = $this->putJson('/api/v1/pengaturan-kode/rute', [
+        $res = $this->putJson('/api/pengaturan-kode/rute', [
             'prefix'        => 'RT2',
             'panjang_digit' => 5,
             'reset'         => 'bulanan',
@@ -150,10 +150,10 @@ class PengaturanKodeTest extends TestCase
     {
         $this->actingAsRole('KEUANGAN');
 
-        $resGet = $this->getJson('/api/v1/pengaturan-kode');
+        $resGet = $this->getJson('/api/pengaturan-kode');
         $resGet->assertStatus(403);
 
-        $resPut = $this->putJson('/api/v1/pengaturan-kode/rute', [
+        $resPut = $this->putJson('/api/pengaturan-kode/rute', [
             'prefix'        => 'RT',
             'panjang_digit' => 4,
             'reset'         => 'tidak',
@@ -181,7 +181,7 @@ class PengaturanKodeTest extends TestCase
             'dibuat_pada'        => now(),
         ]);
 
-        $res = $this->getJson('/api/v1/pengaturan-kode');
+        $res = $this->getJson('/api/pengaturan-kode');
         $data = collect($res->json('data'))->keyBy('entitas');
 
         $this->assertSame('RT', $data['rute']['prefix']);
