@@ -98,7 +98,18 @@ class PengirimPush
                     'token'        => $token,
                     'notification' => ['title' => $judul, 'body' => $isi],
                     'data'         => array_map('strval', $data),
-                    'android'      => ['priority' => 'high'],
+                    'android'      => [
+                        'priority'     => 'high',
+                        'notification' => [
+                            'channel_id' => 'tmn_penugasan_channel',
+                            'sound'      => 'default',
+                        ],
+                    ],
+                    'apns' => [
+                        'payload' => [
+                            'aps' => ['sound' => 'default'],
+                        ],
+                    ],
                 ],
             ],
         );
