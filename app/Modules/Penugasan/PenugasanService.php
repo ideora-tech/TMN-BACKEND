@@ -286,8 +286,8 @@ class PenugasanService
             $rekaman       = [];
 
             foreach ($periode as $tanggal) {
-                if ($this->repo->adaPenugasanSupirPadaTanggal((string) $data['id_supir'], $tanggal, (string) $data['id_proyek'])) {
-                    $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Supir sudah memiliki penugasan pada proyek dan tanggal ini'];
+                if ($this->repo->adaPenugasanSupirPadaTanggal((string) $data['id_supir'], $tanggal, (string) $data['id_proyek'], (string) $data['id_rute'])) {
+                    $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Supir sudah memiliki penugasan pada proyek, rute, dan tanggal ini'];
                     continue;
                 }
 
@@ -383,21 +383,25 @@ class PenugasanService
 
         /**
          * Semantik: satu baris penugasan = satu unit x satu tanggal x satu
-         * proyek, jadi satu supir boleh punya banyak baris aktif di tanggal
-         * yang sama SELAMA proyeknya berbeda (mis. pagi proyek A, sore proyek
-         * B) — dobel hanya dicegah pada kombinasi (supir, tanggal, proyek)
-         * yang sama persis. Guard dijalankan terhadap TANGGAL & PROYEK EFEKTIF
-         * baris (nilai baru bila ikut diubah, else existing) memakai nilai
-         * supir efektif dari $merged. Guard dipicu bila id_supir terkirim
-         * (bukan hanya saat berubah — board selalu mengirim id_supir tiap PUT)
-         * ATAU tanggal_tugas berubah — supir yang sama pun wajib divalidasi
-         * ulang saat tanggalnya dipindah ke tanggal yang sudah dipakai supir
-         * itu di proyek yang sama.
+         * proyek x satu rute, jadi satu supir boleh punya banyak baris aktif
+         * di tanggal yang sama SELAMA proyek ATAU rute-nya berbeda (mis. pagi
+         * proyek A, sore proyek B; atau proyek sama tapi rute berbeda) —
+         * dobel hanya dicegah pada kombinasi (supir, tanggal, proyek, rute)
+         * yang sama persis (rute null dianggap tidak bisa dibedakan, jadi
+         * tetap konservatif — dicegah selama proyek & tanggalnya sama). Guard
+         * dijalankan terhadap TANGGAL/PROYEK/RUTE EFEKTIF baris (nilai baru
+         * bila ikut diubah, else existing) memakai nilai supir efektif dari
+         * $merged. Guard dipicu bila id_supir terkirim (bukan hanya saat
+         * berubah — board selalu mengirim id_supir tiap PUT) ATAU
+         * tanggal_tugas berubah — supir yang sama pun wajib divalidasi ulang
+         * saat tanggalnya dipindah ke tanggal yang sudah dipakai supir itu di
+         * proyek & rute yang sama.
          */
         $idProyekEfektif = array_key_exists('id_proyek', $data) ? $data['id_proyek'] : $record->id_proyek;
+        $idRuteEfektif   = array_key_exists('id_rute', $data) ? $data['id_rute'] : $record->id_rute;
         if (($tanggalTugasBerubah || array_key_exists('id_supir', $data)) && !empty($merged['id_supir']) && !empty($tanggalEfektif) && !empty($idProyekEfektif)) {
-            if ($this->repo->adaPenugasanSupirPadaTanggal((string) $merged['id_supir'], $tanggalEfektif, (string) $idProyekEfektif, $id)) {
-                abort(422, 'Supir sudah memiliki penugasan pada proyek dan tanggal tersebut');
+            if ($this->repo->adaPenugasanSupirPadaTanggal((string) $merged['id_supir'], $tanggalEfektif, (string) $idProyekEfektif, $idRuteEfektif !== null ? (string) $idRuteEfektif : null, $id)) {
+                abort(422, 'Supir sudah memiliki penugasan pada proyek, rute, dan tanggal tersebut');
             }
         }
 

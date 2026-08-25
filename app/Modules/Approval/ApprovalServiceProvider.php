@@ -14,6 +14,7 @@ class ApprovalServiceProvider extends ServiceProvider
     {
         $this->app->bind(ApprovalRepositoryInterface::class, ApprovalRepository::class);
         $this->app->bind(ApprovalService::class);
+        $this->app->bind(ApprovalResolverService::class);
     }
 
     public function boot(): void

@@ -85,12 +85,87 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         return $jumlah > 0;
     }
 
-    public function resolvePinned(string $idEventType, string $idPerusahaan): array { return []; }
-    public function cariJabatanPengguna(string $idPengguna, string $idPerusahaan): ?object { return null; }
-    public function cariJabatanInduk(string $idJabatan): ?object { return null; }
-    public function cariUserAktifPemegangJabatan(string $idJabatan, string $idPerusahaan): array { return []; }
-    public function createPengajuan(array $data): ApprovalPengajuanModel { return ApprovalPengajuanModel::create($data); }
-    public function insertKeputusanRows(string $idApproval, array $idPenggunaList): void {}
+    public function resolvePinned(string $idEventType, string $idPerusahaan): array
+    {
+        $dariPengguna = DB::table('approval_config_approver as ac')
+            ->join('pengguna as p', 'p.id_pengguna', '=', 'ac.id_pengguna')
+            ->where('ac.id_event_type', $idEventType)
+            ->where('ac.tipe', 'pengguna')
+            ->whereNull('ac.dihapus_pada')
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->where('p.aktif', 1)
+            ->whereNull('p.dihapus_pada')
+            ->pluck('p.id_pengguna');
+
+        $dariJabatan = DB::table('approval_config_approver as ac')
+            ->join('karyawan as k', 'k.id_jabatan', '=', 'ac.id_jabatan')
+            ->join('pengguna as p', 'p.id_karyawan', '=', 'k.id_karyawan')
+            ->where('ac.id_event_type', $idEventType)
+            ->where('ac.tipe', 'jabatan')
+            ->whereNull('ac.dihapus_pada')
+            ->where('k.id_perusahaan', $idPerusahaan)
+            ->where('k.aktif', 1)
+            ->whereNull('k.dihapus_pada')
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->where('p.aktif', 1)
+            ->whereNull('p.dihapus_pada')
+            ->pluck('p.id_pengguna');
+
+        return $dariPengguna->merge($dariJabatan)->unique()->values()->all();
+    }
+
+    public function cariJabatanPengguna(string $idPengguna, string $idPerusahaan): ?object
+    {
+        return DB::table('pengguna as p')
+            ->join('karyawan as k', 'k.id_karyawan', '=', 'p.id_karyawan')
+            ->where('p.id_pengguna', $idPengguna)
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->whereNull('k.dihapus_pada')
+            ->select('k.id_jabatan')
+            ->first();
+    }
+
+    public function cariJabatanInduk(string $idJabatan): ?object
+    {
+        return DB::table('jabatan')
+            ->where('id_jabatan', $idJabatan)
+            ->whereNull('dihapus_pada')
+            ->select('id_jabatan', 'id_jabatan_induk')
+            ->first();
+    }
+
+    public function cariUserAktifPemegangJabatan(string $idJabatan, string $idPerusahaan): array
+    {
+        return DB::table('karyawan as k')
+            ->join('pengguna as p', 'p.id_karyawan', '=', 'k.id_karyawan')
+            ->where('k.id_jabatan', $idJabatan)
+            ->where('k.id_perusahaan', $idPerusahaan)
+            ->where('k.aktif', 1)
+            ->whereNull('k.dihapus_pada')
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->where('p.aktif', 1)
+            ->whereNull('p.dihapus_pada')
+            ->pluck('p.id_pengguna')
+            ->all();
+    }
+
+    public function createPengajuan(array $data): ApprovalPengajuanModel
+    {
+        return ApprovalPengajuanModel::create($data);
+    }
+
+    public function insertKeputusanRows(string $idApproval, array $idPenggunaList): void
+    {
+        $now = now();
+        $rows = array_map(fn (string $idPengguna) => RecordHelper::stampCreate([
+            'id_approval' => $idApproval,
+            'id_pengguna' => $idPengguna,
+            'status'      => 'menunggu',
+        ], 'id_keputusan'), $idPenggunaList);
+
+        DB::table('approval_keputusan')->insert($rows);
+    }
+
     public function findPengajuanOrFail(string $id): ApprovalPengajuanModel { return ApprovalPengajuanModel::active()->findOrFail($id); }
     public function findKeputusanMenunggu(string $idApproval, string $idPengguna): ?object { return null; }
     public function updateKeputusan(string $idKeputusan, array $data): void {}

@@ -132,13 +132,17 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return $query->exists();
     }
 
-    public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, string $idProyek, ?string $excludeId = null): bool
+    public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, string $idProyek, ?string $idRute, ?string $excludeId = null): bool
     {
         $query = PenugasanModel::active()
             ->where('id_supir', $idSupir)
             ->where('tanggal_tugas', $tanggal)
             ->where('id_proyek', $idProyek)
             ->where('status', '!=', 'batal');
+
+        if ($idRute !== null) {
+            $query->where('id_rute', $idRute);
+        }
 
         if ($excludeId !== null) {
             $query->where('id_penugasan', '!=', $excludeId);

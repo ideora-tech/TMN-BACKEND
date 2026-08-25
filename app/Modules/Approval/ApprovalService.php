@@ -9,7 +9,11 @@ use Illuminate\Support\Collection;
 
 class ApprovalService
 {
-    public function __construct(private readonly ApprovalRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly ApprovalRepositoryInterface $repo,
+        private readonly ApprovalResolverService $resolver,
+        private readonly \App\Modules\Notifikasi\NotifikasiService $notifikasiService,
+    ) {}
 
     public function listEventType(string $idPerusahaan): Collection
     {
@@ -49,5 +53,49 @@ class ApprovalService
         if (!$this->repo->deleteConfigApprover($idConfig, $idEventType)) {
             abort(404, 'Config approver tidak ditemukan');
         }
+    }
+
+    public function ajukan(
+        string $kodeEventType,
+        string $idReferensi,
+        string $idPenggunaPengaju,
+        ?float $nominal,
+        string $idPerusahaan,
+    ): ApprovalPengajuanModel {
+        $eventType = $this->repo->findEventTypeAktifByKode($kodeEventType, $idPerusahaan);
+        if ($eventType === null) {
+            abort(422, "Event type approval '{$kodeEventType}' belum dikonfigurasi");
+        }
+
+        $approvers = $this->resolver->resolve($eventType, $idPenggunaPengaju);
+        if ($approvers === []) {
+            abort(422, 'Approver untuk proses ini belum bisa ditentukan — struktur organisasi/konfigurasi approval belum lengkap');
+        }
+
+        $pengajuan = $this->repo->createPengajuan([
+            'id_perusahaan'       => $idPerusahaan,
+            'id_event_type'       => $eventType->id_event_type,
+            'id_referensi'        => $idReferensi,
+            'id_pengguna_pengaju' => $idPenggunaPengaju,
+            'nominal'             => $nominal,
+            'status'              => 'menunggu',
+        ]);
+
+        $this->repo->insertKeputusanRows($pengajuan->id_approval, $approvers);
+
+        foreach ($approvers as $idPengguna) {
+            $this->notifikasiService->buatDanKirim([
+                'id_perusahaan'  => $idPerusahaan,
+                'id_pengguna'    => $idPengguna,
+                'judul'          => "Approval {$eventType->nama} menunggu keputusan Anda",
+                'isi'            => $nominal !== null ? 'Nominal Rp ' . number_format($nominal, 0, ',', '.') : 'Perlu keputusan Anda',
+                'tipe'           => 'approval_generik',
+                'referensi_id'   => $pengajuan->id_approval,
+                'referensi_tipe' => 'approval_pengajuan',
+                'dibaca'         => 0,
+            ]);
+        }
+
+        return $pengajuan;
     }
 }
