@@ -150,6 +150,57 @@ class ProyekTest extends TestCase
      * tapi backend tidak pernah menulis balik id_proyek ke penawaran — akibatnya
      * fitur estimasi otomatis (yang membaca penawaran.id_proyek) tidak pernah dapat data.
      */
+    public function test_delete_proyek_aktif_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-DEL-AKTIF');
+        $proyek->update(['status' => 'aktif']);
+
+        $res = $this->deleteJson("/api/proyek/{$proyek->id_proyek}");
+
+        $res->assertStatus(422);
+        $this->assertDatabaseHas('proyek', ['id_proyek' => $proyek->id_proyek, 'dihapus_pada' => null]);
+    }
+
+    public function test_delete_proyek_selesai_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-DEL-SELESAI');
+        $proyek->update(['status' => 'selesai']);
+
+        $res = $this->deleteJson("/api/proyek/{$proyek->id_proyek}");
+
+        $res->assertStatus(422);
+        $this->assertDatabaseHas('proyek', ['id_proyek' => $proyek->id_proyek, 'dihapus_pada' => null]);
+    }
+
+    public function test_delete_proyek_draft_dengan_penawaran_tertaut_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-DEL-TAUT');
+        $this->makePenawaranDenganStatus($klien->id_klien, 'disetujui', $proyek->id_proyek);
+
+        $res = $this->deleteJson("/api/proyek/{$proyek->id_proyek}");
+
+        $res->assertStatus(422);
+        $this->assertDatabaseHas('proyek', ['id_proyek' => $proyek->id_proyek, 'dihapus_pada' => null]);
+    }
+
+    public function test_delete_proyek_draft_tanpa_data_terkait_berhasil(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-DEL-DRAFT');
+
+        $res = $this->deleteJson("/api/proyek/{$proyek->id_proyek}");
+
+        $res->assertStatus(200);
+        $this->assertNotNull($proyek->fresh()->dihapus_pada);
+    }
+
     public function test_store_proyek_dari_penawaran_tanpa_klien_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');

@@ -16,6 +16,7 @@ interface ProyekRepositoryInterface
     public function create(array $data): ProyekModel;
     public function update(ProyekModel $model, array $data): ProyekModel;
     public function delete(ProyekModel $model): void;
+    public function punyaDataTerkait(string $idProyek): bool;
     public function getPerusahaan(string $idPerusahaan): ?object;
 
     /** Baris proyek terkunci (lockForUpdate) untuk guard yang butuh baca-lalu-tulis konsisten. */

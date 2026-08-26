@@ -68,6 +68,13 @@ class ProyekRepository implements ProyekRepositoryInterface
         $model->softDelete();
     }
 
+    public function punyaDataTerkait(string $idProyek): bool
+    {
+        return DB::table('penugasan')->where('id_proyek', $idProyek)->whereNull('dihapus_pada')->exists()
+            || DB::table('faktur')->where('id_proyek', $idProyek)->whereNull('dihapus_pada')->exists()
+            || DB::table('penawaran')->where('id_proyek', $idProyek)->whereNull('dihapus_pada')->exists();
+    }
+
     public function getPerusahaan(string $idPerusahaan): ?object
     {
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();

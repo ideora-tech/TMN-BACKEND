@@ -367,6 +367,19 @@ class ProyekService
     public function delete(string $id): void
     {
         $record = $this->findOrFail($id);
+
+        if ($record->status === 'aktif') {
+            abort(422, 'Proyek berstatus aktif tidak dapat dihapus — batalkan atau selesaikan proyek terlebih dahulu');
+        }
+
+        if ($record->status === 'selesai') {
+            abort(422, 'Proyek yang sudah selesai tidak dapat dihapus karena menyimpan riwayat operasional');
+        }
+
+        if ($this->repo->punyaDataTerkait($record->id_proyek)) {
+            abort(422, 'Proyek tidak dapat dihapus karena sudah memiliki penugasan, faktur, atau penawaran tertaut');
+        }
+
         $this->repo->delete($record);
     }
 
