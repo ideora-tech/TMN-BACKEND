@@ -16,20 +16,23 @@ class EvaluasiTripController extends Controller
 {
     public function __construct(private readonly EvaluasiTripService $service) {}
 
-    public function showByPenugasan(string $idPenugasan): JsonResponse
+    public function showByPenugasan(Request $request, string $idPenugasan): JsonResponse
     {
-        return ApiResponse::success(new EvaluasiTripResource($this->service->getByPenugasan($idPenugasan)));
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success(new EvaluasiTripResource($this->service->getByPenugasan($idPenugasan, $idPerusahaan)));
     }
 
     public function storeByPenugasan(StoreEvaluasiTripRequest $request, string $idPenugasan): JsonResponse
     {
-        $record = $this->service->create($idPenugasan, $request->validated());
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->create($idPenugasan, $request->validated(), $idPerusahaan);
         return ApiResponse::success(new EvaluasiTripResource($record), 'Evaluasi trip berhasil dibuat', 201);
     }
 
     public function update(UpdateEvaluasiTripRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->update($id, $request->validated(), $idPerusahaan);
         return ApiResponse::success(new EvaluasiTripResource($record), 'Evaluasi trip berhasil diperbarui');
     }
 
@@ -37,6 +40,19 @@ class EvaluasiTripController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         return ApiResponse::success($this->service->rekapVendor($idPerusahaan));
+    }
+
+    public function penugasanUntukEvaluasi(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $result = $this->service->listPenugasanUntukEvaluasi(
+            $idPerusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            $request->filled('search') ? (string) $request->get('search') : null,
+        );
+
+        return ApiResponse::paginated($result['data'], $result['meta']);
     }
 
     public function listByVendor(Request $request, string $idVendor): JsonResponse

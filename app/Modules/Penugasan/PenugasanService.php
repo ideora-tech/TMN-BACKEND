@@ -149,6 +149,31 @@ class PenugasanService
 
         $this->assertVendorRules($data, $idPerusahaan);
 
+        /**
+         * Parity dengan penugasan internal (assignHarian): penugasan vendor
+         * wajib punya rute terdaftar di proyek, dan uang jalan otomatis
+         * diambil dari rate card proyek (per jenis kendaraan unit vendor)
+         * bila tidak diisi manual.
+         */
+        if (($data['sumber'] ?? 'internal') === 'vendor') {
+            if (empty($data['id_rute'])) {
+                abort(422, 'Rute wajib dipilih untuk penugasan vendor');
+            }
+            if (!$this->proyekRuteRepo->ruteTerdaftarUntukProyek((string) $data['id_proyek'], (string) $data['id_rute'])) {
+                abort(422, 'Rute tidak terdaftar di proyek ini');
+            }
+            if (!array_key_exists('estimasi_biaya', $data) || $data['estimasi_biaya'] === null) {
+                $armadaVendor = !empty($data['id_armada_vendor'])
+                    ? $this->armadaVendorRepo->findByIdMilikPerusahaan((string) $data['id_armada_vendor'], $idPerusahaan)
+                    : null;
+                $data['estimasi_biaya'] = $this->proyekRuteRepo->tarifUangJalanRute(
+                    (string) $data['id_proyek'],
+                    (string) $data['id_rute'],
+                    $armadaVendor?->id_jenis_kendaraan,
+                );
+            }
+        }
+
         if (!empty($data['id_armada'])) {
             $this->assertArmadaAdaOrFail($data['id_armada']);
         }

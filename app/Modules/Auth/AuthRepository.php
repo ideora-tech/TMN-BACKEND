@@ -44,8 +44,15 @@ class AuthRepository
         if ($pengguna !== null) {
             $karyawan = $pengguna->id_karyawan !== null
                 ? DB::table('karyawan')
-                    ->select(self::KARYAWAN_COLUMNS)
-                    ->where('id_karyawan', $pengguna->id_karyawan)
+                    ->leftJoin('jabatan', function ($join) {
+                        $join->on('jabatan.id_jabatan', '=', 'karyawan.id_jabatan')
+                            ->whereNull('jabatan.dihapus_pada');
+                    })
+                    ->select(array_merge(
+                        array_map(static fn (string $kolom) => "karyawan.{$kolom}", self::KARYAWAN_COLUMNS),
+                        ['jabatan.nama_jabatan'],
+                    ))
+                    ->where('karyawan.id_karyawan', $pengguna->id_karyawan)
                     ->first()
                 : null;
 

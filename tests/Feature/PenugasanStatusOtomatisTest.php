@@ -37,6 +37,27 @@ class PenugasanStatusOtomatisTest extends TestCase
         ]);
     }
 
+    private function makeRuteProyek(string $idProyek): string
+    {
+        $idRute = (string) Str::uuid();
+        DB::table('rute')->insert([
+            'id_rute'       => $idRute,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_rute'     => 'RT-' . Str::random(6),
+            'nama_rute'     => 'Rute Status Otomatis Test',
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('proyek_rute')->insert([
+            'id_proyek_rute' => (string) Str::uuid(),
+            'id_perusahaan'  => self::PERUSAHAAN_ID,
+            'id_proyek'      => $idProyek,
+            'id_rute'        => $idRute,
+            'uang_jalan'     => 100000,
+            'dibuat_pada'    => now(),
+        ]);
+        return $idRute;
+    }
+
     private function makeArmada(): ArmadaModel
     {
         return ArmadaModel::create([
@@ -259,6 +280,7 @@ class PenugasanStatusOtomatisTest extends TestCase
 
         $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
+            'id_rute'           => $this->makeRuteProyek($proyek->id_proyek),
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
             'id_armada_vendor'  => $armadaVendor->id_armada_vendor,
@@ -290,6 +312,7 @@ class PenugasanStatusOtomatisTest extends TestCase
 
         $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
+            'id_rute'           => $this->makeRuteProyek($proyek->id_proyek),
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
             'id_armada_vendor'  => $armadaVendor->id_armada_vendor,

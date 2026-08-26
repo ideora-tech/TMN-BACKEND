@@ -63,6 +63,27 @@ class PenugasanVendorTest extends TestCase
         ]);
     }
 
+    private function makeRuteProyek(string $idProyek): string
+    {
+        $idRute = (string) Str::uuid();
+        DB::table('rute')->insert([
+            'id_rute'       => $idRute,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_rute'     => 'RT-' . Str::random(6),
+            'nama_rute'     => 'Rute Vendor Test',
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('proyek_rute')->insert([
+            'id_proyek_rute' => (string) Str::uuid(),
+            'id_perusahaan'  => self::PERUSAHAAN_ID,
+            'id_proyek'      => $idProyek,
+            'id_rute'        => $idRute,
+            'uang_jalan'     => 150000,
+            'dibuat_pada'    => now(),
+        ]);
+        return $idRute;
+    }
+
     private function makePerusahaanLain(): string
     {
         $idPerusahaanLain = (string) Str::uuid();
@@ -81,9 +102,11 @@ class PenugasanVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
+        $rute = $this->makeRuteProyek($proyek->id_proyek);
 
         $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
+            'id_rute'           => $rute,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
             'id_armada_vendor'  => $armadaVendor->id_armada_vendor,
@@ -151,9 +174,11 @@ class PenugasanVendorTest extends TestCase
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
         $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
         $supirVendor = $this->makeSupirVendor($vendor->id_vendor);
+        $rute = $this->makeRuteProyek($proyek->id_proyek);
 
         $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
+            'id_rute'           => $rute,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
             'id_armada_vendor'  => $armadaVendor->id_armada_vendor,
@@ -161,7 +186,8 @@ class PenugasanVendorTest extends TestCase
         ]);
 
         $res->assertStatus(201)
-            ->assertJsonPath('data.id_supir_vendor', $supirVendor->id_supir_vendor);
+            ->assertJsonPath('data.id_supir_vendor', $supirVendor->id_supir_vendor)
+            ->assertJsonPath('data.estimasi_biaya', 150000);
 
         $this->assertDatabaseHas('penugasan', [
             'id_proyek'       => $proyek->id_proyek,
@@ -433,6 +459,7 @@ class PenugasanVendorTest extends TestCase
 
         $res = $this->postJson('/api/penugasan', [
             'id_proyek'         => $proyek->id_proyek,
+            'id_rute'           => $this->makeRuteProyek($proyek->id_proyek),
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
             'id_armada_vendor'  => $armadaVendor->id_armada_vendor,
@@ -458,6 +485,7 @@ class PenugasanVendorTest extends TestCase
     {
         return [
             'id_proyek'         => $proyek->id_proyek,
+            'id_rute'           => $this->makeRuteProyek($proyek->id_proyek),
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
             'id_armada_vendor'  => $idArmadaVendor,
@@ -524,6 +552,35 @@ class PenugasanVendorTest extends TestCase
             ->assertStatus(201);
     }
 
+    public function test_create_vendor_tanpa_rute_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
+        $armadaVendor = $this->makeArmadaVendor($vendor->id_vendor);
+        $supirVendor = $this->makeSupirVendor($vendor->id_vendor);
+
+        $this->postJson('/api/penugasan', [
+            'id_proyek'         => $proyek->id_proyek,
+            'sumber'            => 'vendor',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'id_armada_vendor'  => $armadaVendor->id_armada_vendor,
+            'id_supir_vendor'   => $supirVendor->id_supir_vendor,
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'Rute wajib dipilih untuk penugasan vendor');
+
+        $this->postJson('/api/penugasan', [
+            'id_proyek'         => $proyek->id_proyek,
+            'id_rute'           => (string) Str::uuid(),
+            'sumber'            => 'vendor',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'id_armada_vendor'  => $armadaVendor->id_armada_vendor,
+            'id_supir_vendor'   => $supirVendor->id_supir_vendor,
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'Rute tidak terdaftar di proyek ini');
+    }
+
     public function test_supir_internal_dobel_di_penugasan_vendor_unit_only_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -533,9 +590,11 @@ class PenugasanVendorTest extends TestCase
         $armadaA = $this->makeArmadaVendor($vendor->id_vendor);
         $armadaB = $this->makeArmadaVendor($vendor->id_vendor);
         $idSupirInternal = (string) Str::uuid();
+        $rute = $this->makeRuteProyek($proyek->id_proyek);
 
         $payload = fn (string $idArmada) => [
             'id_proyek'         => $proyek->id_proyek,
+            'id_rute'           => $rute,
             'sumber'            => 'vendor',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
             'id_armada_vendor'  => $idArmada,

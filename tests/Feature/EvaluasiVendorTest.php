@@ -339,4 +339,99 @@ class EvaluasiVendorTest extends TestCase
         $this->getJson("/api/vendor/{$vendorLain->id_vendor}/evaluasi")
             ->assertStatus(404);
     }
+
+    private function insertTripSelesai(string $idPenugasan): void
+    {
+        $idJadwal = (string) Str::uuid();
+        DB::table('jadwal_keberangkatan')->insert([
+            'id_jadwal'    => $idJadwal,
+            'id_penugasan' => $idPenugasan,
+            'dibuat_pada'  => now(),
+        ]);
+        DB::table('trip')->insert([
+            'id_trip'     => (string) Str::uuid(),
+            'id_jadwal'   => $idJadwal,
+            'status'      => 'selesai',
+            'dibuat_pada' => now(),
+        ]);
+    }
+
+    public function test_daftar_penugasan_untuk_evaluasi_hanya_vendor_dengan_trip_selesai(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $proyek  = $this->makeProyek();
+        $kontrak = $this->makeKontrak($vendor->id_vendor);
+
+        $penugasanSelesai = $this->insertPenugasanVendor($proyek->id_proyek, $kontrak);
+        $this->insertTripSelesai($penugasanSelesai);
+
+        $this->insertPenugasanVendor($proyek->id_proyek, $kontrak, '2026-07-11');
+
+        $penugasanInternal = $this->insertPenugasanInternal($proyek->id_proyek);
+        $this->insertTripSelesai($penugasanInternal);
+
+        $res = $this->getJson('/api/evaluasi-vendor/penugasan');
+
+        $res->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id_penugasan', $penugasanSelesai)
+            ->assertJsonPath('data.0.nama_vendor', 'Vendor Test')
+            ->assertJsonPath('data.0.id_evaluasi', null);
+    }
+
+    public function test_daftar_penugasan_untuk_evaluasi_menyertakan_evaluasi_yang_sudah_ada(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $proyek  = $this->makeProyek();
+        $kontrak = $this->makeKontrak($vendor->id_vendor);
+
+        $idPenugasan = $this->insertPenugasanVendor($proyek->id_proyek, $kontrak);
+        $this->insertTripSelesai($idPenugasan);
+        $idEvaluasi = $this->insertEvaluasi($idPenugasan, [
+            'nilai_ketepatan_waktu' => 4,
+            'nilai_kualitas'        => 5,
+        ]);
+
+        $res = $this->getJson('/api/evaluasi-vendor/penugasan');
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.0.id_evaluasi', $idEvaluasi)
+            ->assertJsonPath('data.0.nilai_ketepatan_waktu', 4)
+            ->assertJsonPath('data.0.nilai_kualitas', 5);
+    }
+
+    public function test_daftar_penugasan_untuk_evaluasi_tidak_bocor_perusahaan_lain(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendorLain  = $this->makeVendorPerusahaanLain();
+        $proyekLain  = $this->makeProyek('Proyek Lain', (string) $vendorLain->id_perusahaan);
+        $kontrakLain = $this->makeKontrak($vendorLain->id_vendor, (string) $vendorLain->id_perusahaan);
+
+        $idPenugasan = $this->insertPenugasanVendor($proyekLain->id_proyek, $kontrakLain);
+        $this->insertTripSelesai($idPenugasan);
+
+        $this->getJson('/api/evaluasi-vendor/penugasan')
+            ->assertStatus(200)
+            ->assertJsonCount(0, 'data');
+    }
+
+    public function test_evaluasi_penugasan_perusahaan_lain_ditolak_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendorLain  = $this->makeVendorPerusahaanLain();
+        $proyekLain  = $this->makeProyek('Proyek Lain', (string) $vendorLain->id_perusahaan);
+        $kontrakLain = $this->makeKontrak($vendorLain->id_vendor, (string) $vendorLain->id_perusahaan);
+        $idPenugasan = $this->insertPenugasanVendor($proyekLain->id_proyek, $kontrakLain);
+
+        $this->postJson("/api/penugasan/{$idPenugasan}/evaluasi", ['nilai_kualitas' => 5])
+            ->assertStatus(404);
+
+        $idEvaluasi = $this->insertEvaluasi($idPenugasan, ['nilai_kualitas' => 3]);
+        $this->putJson("/api/evaluasi/{$idEvaluasi}", ['nilai_kualitas' => 5])
+            ->assertStatus(404);
+
+        $this->assertDatabaseHas('evaluasi_trip', ['id_evaluasi' => $idEvaluasi, 'nilai_kualitas' => 3]);
+    }
 }

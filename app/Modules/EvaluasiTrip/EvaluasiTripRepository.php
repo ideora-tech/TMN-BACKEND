@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\EvaluasiTrip;
 
 use App\Modules\EvaluasiTrip\Contracts\EvaluasiTripRepositoryInterface;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -99,5 +100,71 @@ class EvaluasiTripRepository implements EvaluasiTripRepositoryInterface
                 'evaluasi_trip.dibuat_pada',
             ])
             ->get();
+    }
+
+    public function listPenugasanVendorSelesai(string $idPerusahaan, int $page, int $limit, ?string $search = null): LengthAwarePaginator
+    {
+        return DB::table('penugasan as p')
+            ->join('kontrak_vendor as kv', 'kv.id_kontrak_vendor', '=', 'p.id_kontrak_vendor')
+            ->join('vendor as v', 'v.id_vendor', '=', 'kv.id_vendor')
+            ->leftJoin('proyek as pr', function ($join) {
+                $join->on('pr.id_proyek', '=', 'p.id_proyek')->whereNull('pr.dihapus_pada');
+            })
+            ->leftJoin('armada_vendor as av', 'av.id_armada_vendor', '=', 'p.id_armada_vendor')
+            ->leftJoin('supir_vendor as sv', 'sv.id_supir_vendor', '=', 'p.id_supir_vendor')
+            ->leftJoin('supir as s', 's.id_supir', '=', 'p.id_supir')
+            ->leftJoin('evaluasi_trip as e', function ($join) {
+                $join->on('e.id_penugasan', '=', 'p.id_penugasan')->whereNull('e.dihapus_pada');
+            })
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('v.dihapus_pada')
+            ->where('p.sumber', 'vendor')
+            ->where('v.id_perusahaan', $idPerusahaan)
+            ->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('trip as t')
+                    ->join('jadwal_keberangkatan as jk', 'jk.id_jadwal', '=', 't.id_jadwal')
+                    ->whereColumn('jk.id_penugasan', 'p.id_penugasan')
+                    ->where('t.status', 'selesai')
+                    ->whereNull('t.dihapus_pada')
+                    ->whereNull('jk.dihapus_pada');
+            })
+            ->when($search, function ($q, $v) {
+                $q->where(function ($q2) use ($v) {
+                    $q2->where('v.nama_vendor', 'like', "%{$v}%")
+                        ->orWhere('pr.nama_proyek', 'like', "%{$v}%")
+                        ->orWhere('av.nopol', 'like', "%{$v}%");
+                });
+            })
+            ->orderByDesc('p.tanggal_tugas')
+            ->orderByDesc('p.dibuat_pada')
+            ->select([
+                'p.id_penugasan',
+                'p.tanggal_tugas',
+                'v.id_vendor',
+                'v.nama_vendor',
+                'pr.kode_proyek',
+                'pr.nama_proyek',
+                'av.nopol',
+                DB::raw('COALESCE(sv.nama, s.nama) as nama_supir'),
+                'e.id_evaluasi',
+                'e.nilai_ketepatan_waktu',
+                'e.nilai_kualitas',
+                'e.nilai_harga',
+                'e.nilai_responsif',
+                'e.catatan',
+            ])
+            ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    public function penugasanMilikPerusahaan(string $idPenugasan, string $idPerusahaan): bool
+    {
+        return DB::table('penugasan as p')
+            ->join('proyek as pr', 'pr.id_proyek', '=', 'p.id_proyek')
+            ->where('p.id_penugasan', $idPenugasan)
+            ->where('pr.id_perusahaan', $idPerusahaan)
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('pr.dihapus_pada')
+            ->exists();
     }
 }
