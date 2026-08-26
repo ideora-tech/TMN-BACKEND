@@ -91,6 +91,9 @@ class ProyekService
                 if ($penawaran->id_proyek !== null) {
                     abort(422, 'Penawaran sudah memiliki proyek');
                 }
+                if ($penawaran->id_klien === null) {
+                    abort(422, 'Penawaran belum punya klien — lengkapi klien di penawaran terlebih dahulu sebelum dijadikan proyek');
+                }
 
                 $data['id_klien']        = $penawaran->id_klien;
                 $data['tipe_harga']      = $penawaran->tipe_harga ?? 'per_rit';

@@ -150,6 +150,32 @@ class ProyekTest extends TestCase
      * tapi backend tidak pernah menulis balik id_proyek ke penawaran — akibatnya
      * fitur estimasi otomatis (yang membaca penawaran.id_proyek) tidak pernah dapat data.
      */
+    public function test_store_proyek_dari_penawaran_tanpa_klien_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idPenawaran = (string) Str::uuid();
+        DB::table('penawaran')->insert([
+            'id_penawaran'    => $idPenawaran,
+            'id_perusahaan'   => self::PERUSAHAAN_ID,
+            'id_klien'        => null,
+            'nomor_penawaran' => 'PNW-' . Str::random(8),
+            'judul'           => 'Penawaran Tanpa Klien',
+            'status'          => 'disetujui',
+            'tipe_harga'      => 'per_rit',
+            'aktif'           => 1,
+            'dibuat_pada'     => now(),
+        ]);
+
+        $res = $this->postJson('/api/proyek', [
+            'nama_proyek'  => 'Proyek Dari Penawaran Tanpa Klien',
+            'id_penawaran' => $idPenawaran,
+        ]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('belum punya klien', (string) $res->json('message'));
+        $this->assertDatabaseMissing('proyek', ['nama_proyek' => 'Proyek Dari Penawaran Tanpa Klien']);
+    }
+
     public function test_store_proyek_dengan_id_penawaran_menautkan_balik_ke_penawaran(): void
     {
         $this->actingAsRole('SUPERADMIN');
