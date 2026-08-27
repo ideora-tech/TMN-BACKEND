@@ -25,12 +25,6 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
     {
         return DB::table('jadwal_shift')
             ->join('shift', 'shift.id_shift', '=', 'jadwal_shift.id_shift')
-            ->leftJoin('alokasi_armada', function ($join) {
-                $join->on('alokasi_armada.id_supir', '=', 'jadwal_shift.id_supir')
-                     ->on('alokasi_armada.tanggal', '=', 'jadwal_shift.tanggal')
-                     ->whereNull('alokasi_armada.dihapus_pada');
-            })
-            ->leftJoin('armada', 'armada.id_armada', '=', 'alokasi_armada.id_armada')
             ->leftJoin('supir as supir_pengganti', 'supir_pengganti.id_supir', '=', 'jadwal_shift.id_supir_pengganti')
             ->leftJoin('armada as armada_override', 'armada_override.id_armada', '=', 'jadwal_shift.id_armada_override')
             ->whereNull('jadwal_shift.dihapus_pada')
@@ -39,8 +33,6 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             ->when($sampai, fn ($q, $v) => $q->where('jadwal_shift.tanggal', '<=', $v))
             ->orderBy('jadwal_shift.tanggal')
             ->select(array_merge(self::COLUMNS, self::JOINED, [
-                'armada.nopol as nopol_alokasi',
-                'alokasi_armada.sumber as sumber_alokasi',
                 'supir_pengganti.nama as nama_supir_pengganti',
                 'armada_override.nopol as nopol_override',
             ]))

@@ -152,7 +152,7 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.ditugaskan_oleh_peran', 'SUPERADMIN');
     }
 
-    public function test_detail_penugasan_vendor_menampilkan_nopol_unit_vendor_bukan_alokasi_internal(): void
+    public function test_detail_penugasan_vendor_menampilkan_nopol_unit_vendor(): void
     {
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
@@ -181,27 +181,6 @@ class TripSayaTest extends TestCase
             'tanggal_tugas'    => now()->toDateString(),
             'sumber'           => 'vendor',
             'id_armada_vendor' => $idArmadaVendor,
-        ]);
-
-        // Supir yang sama juga punya alokasi armada INTERNAL di tanggal yang
-        // sama (mis. dari penugasan lain/default) — ini tidak boleh menimpa
-        // nopol unit vendor yang sudah eksplisit di penugasan ini.
-        $idArmadaInternal = (string) Str::uuid();
-        DB::table('armada')->insert([
-            'id_armada'     => $idArmadaInternal,
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'nopol'         => 'B 9001 TMN',
-            'merk'          => 'Hino',
-            'dibuat_pada'   => now(),
-        ]);
-        DB::table('alokasi_armada')->insert([
-            'id_alokasi'  => (string) Str::uuid(),
-            'tanggal'     => now()->toDateString(),
-            'id_proyek'   => $proyek->id_proyek,
-            'id_supir'    => $ctx->id_supir,
-            'id_armada'   => $idArmadaInternal,
-            'sumber'      => 'otomatis',
-            'dibuat_pada' => now(),
         ]);
 
         $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
@@ -244,15 +223,7 @@ class TripSayaTest extends TestCase
             'merk'          => 'Hino',
             'dibuat_pada'   => now(),
         ]);
-        DB::table('alokasi_armada')->insert([
-            'id_alokasi'  => (string) Str::uuid(),
-            'tanggal'     => $hariIni,
-            'id_proyek'   => $proyek->id_proyek,
-            'id_supir'    => $ctx->id_supir,
-            'id_armada'   => $idArmada,
-            'sumber'      => 'otomatis',
-            'dibuat_pada' => now(),
-        ]);
+        DB::table('penugasan')->where('id_penugasan', $penugasan->id_penugasan)->update(['id_armada' => $idArmada]);
 
         $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
             ->assertStatus(200)
@@ -301,28 +272,9 @@ class TripSayaTest extends TestCase
             'dibuat_pada'     => now(),
         ]);
 
-        $idArmada = (string) Str::uuid();
-        DB::table('armada')->insert([
-            'id_armada'     => $idArmada,
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'nopol'         => 'B 910 SEP',
-            'merk'          => 'Hino',
-            'dibuat_pada'   => now(),
-        ]);
-        DB::table('alokasi_armada')->insert([
-            'id_alokasi'  => (string) Str::uuid(),
-            'tanggal'     => '2026-09-10',
-            'id_proyek'   => $proyek->id_proyek,
-            'id_supir'    => $ctx->id_supir,
-            'id_armada'   => $idArmada,
-            'sumber'      => 'otomatis',
-            'dibuat_pada' => now(),
-        ]);
-
         $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}?tanggal=2026-09-10")
             ->assertStatus(200)
             ->assertJsonPath('data.shift_hari_ini.nama', 'MALAM')
-            ->assertJsonPath('data.armada_hari_ini.nopol', 'B 910 SEP')
             ->assertJsonPath('data.jumlah_trip_selesai_hari_ini', 0);
 
         $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}")
@@ -532,49 +484,6 @@ class TripSayaTest extends TestCase
 
         $this->getJson('/api/trip/riwayat-saya?tanggal=04-08-2026')
             ->assertStatus(422);
-    }
-
-    public function test_riwayat_saya_menampilkan_armada_nopol_dari_alokasi_untuk_supir_shift(): void
-    {
-        $ctx = $this->actingAsSupir();
-        $proyek = $this->makeProyek();
-        // Supir shift: penugasan TANPA id_armada — armada hariannya berasal
-        // dari alokasi_armada (lihat AlokasiArmadaService::alokasikan()), bukan
-        // dari kolom penugasan yang memang sengaja dibiarkan NULL.
-        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek, 'selesai');
-
-        $idArmada = (string) Str::uuid();
-        DB::table('armada')->insert([
-            'id_armada'     => $idArmada,
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'nopol'         => 'B 9037 TMN',
-            'merk'          => 'Hino',
-            'dibuat_pada'   => now(),
-        ]);
-        DB::table('alokasi_armada')->insert([
-            'id_alokasi'  => (string) Str::uuid(),
-            'tanggal'     => '2026-08-06',
-            'id_proyek'   => $proyek->id_proyek,
-            'id_supir'    => $ctx->id_supir,
-            'id_armada'   => $idArmada,
-            'sumber'      => 'otomatis',
-            'dibuat_pada' => now(),
-        ]);
-
-        $jadwal = JadwalKeberangkatanModel::create([
-            'id_penugasan'    => $penugasan->id_penugasan,
-            'waktu_berangkat' => '2026-08-06 07:00:00',
-        ]);
-        TripModel::create([
-            'id_jadwal'      => $jadwal->id_jadwal,
-            'status'         => 'selesai',
-            'waktu_checkin'  => '2026-08-06 07:18:00',
-            'waktu_checkout' => '2026-08-06 11:30:00',
-        ]);
-
-        $this->getJson('/api/trip/riwayat-saya')
-            ->assertStatus(200)
-            ->assertJsonPath('data.0.armada_nopol', 'B 9037 TMN');
     }
 
     public function test_riwayat_saya_tidak_tampilkan_trip_supir_lain(): void

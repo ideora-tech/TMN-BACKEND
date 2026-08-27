@@ -125,39 +125,7 @@ class ProyekRepository implements ProyekRepositoryInterface
             ])
             ->get();
 
-        $this->isiArmadaAlokasi($rows);
-
         return $rows->all();
-    }
-
-    /**
-     * Trip supir shift: penugasan tanpa id_armada — armada hariannya dari
-     * alokasi_armada (konsisten PenagihanTripRepository::isiArmadaAlokasi &
-     * KonsolidasiKlienRepository::isiArmadaAlokasi).
-     * Trip sumber vendor dikecualikan: unit_only juga ber-id_armada null padahal
-     * armadanya armada vendor — jenis kendaraan harus dari armada_vendor, bukan alokasi.
-     */
-    private function isiArmadaAlokasi(\Illuminate\Support\Collection $rows): void
-    {
-        $butuh = $rows->filter(fn ($r) => $r->id_armada === null && $r->id_supir !== null && ($r->sumber ?? 'internal') !== 'vendor');
-        if ($butuh->isEmpty()) {
-            return;
-        }
-
-        $alokasi = DB::table('alokasi_armada as aa')
-            ->join('armada as arm', 'arm.id_armada', '=', 'aa.id_armada')
-            ->whereNull('aa.dihapus_pada')
-            ->whereIn('aa.id_supir', $butuh->pluck('id_supir')->unique()->values())
-            ->select('aa.id_supir', 'aa.tanggal', 'arm.id_jenis_kendaraan')
-            ->get()
-            ->keyBy(fn ($row) => $row->id_supir . '|' . substr((string) $row->tanggal, 0, 10));
-
-        foreach ($butuh as $row) {
-            $cocok = $alokasi->get($row->id_supir . '|' . substr((string) $row->tanggal, 0, 10));
-            if ($cocok !== null) {
-                $row->id_jenis_kendaraan = $row->id_jenis_kendaraan ?? $cocok->id_jenis_kendaraan;
-            }
-        }
     }
 
     public function totalBiayaTagihanUntukLaporan(array $idLaporans): float

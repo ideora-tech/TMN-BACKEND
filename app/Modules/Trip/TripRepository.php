@@ -190,37 +190,6 @@ class TripRepository implements TripRepositoryInterface
             ->get()
             ->keyBy('id_pengguna');
 
-        // Supir shift: penugasan sengaja tanpa id_armada — armada hariannya
-        // ditentukan lewat alokasi_armada (lihat AlokasiArmadaService::alokasikan()),
-        // bukan kolom penugasan. Kumpulkan pasangan (id_supir, tanggal keberangkatan)
-        // yang butuh fallback ini supaya nopol tidak kosong di riwayat trip.
-        $tanggalUntukAlokasi = static function (?object $jadwal, object $record): string {
-            $sumber = $jadwal->waktu_berangkat ?? $record->dibuat_pada;
-            return substr((string) $sumber, 0, 10);
-        };
-        $idSupirUntukAlokasi = [];
-        foreach ($records as $record) {
-            $jadwal    = $jadwalRows->get($record->id_jadwal);
-            $penugasan = $jadwal !== null ? $penugasanRows->get($jadwal->id_penugasan) : null;
-            if ($penugasan !== null && empty($penugasan->id_armada) && !empty($penugasan->id_supir)) {
-                $idSupirUntukAlokasi[] = $penugasan->id_supir;
-            }
-        }
-        $idSupirUntukAlokasi = array_values(array_unique($idSupirUntukAlokasi));
-
-        $alokasiNopolMap = [];
-        if ($idSupirUntukAlokasi !== []) {
-            DB::table('alokasi_armada as aa')
-                ->join('armada as arm', 'arm.id_armada', '=', 'aa.id_armada')
-                ->whereNull('aa.dihapus_pada')
-                ->whereIn('aa.id_supir', $idSupirUntukAlokasi)
-                ->select('aa.id_supir', 'aa.tanggal', 'arm.nopol')
-                ->get()
-                ->each(function ($row) use (&$alokasiNopolMap) {
-                    $alokasiNopolMap[$row->id_supir . '|' . substr((string) $row->tanggal, 0, 10)] = $row->nopol;
-                });
-        }
-
         foreach ($records as $record) {
             $jadwal    = $jadwalRows->get($record->id_jadwal);
             $penugasan = $jadwal !== null ? $penugasanRows->get($jadwal->id_penugasan) : null;
@@ -228,9 +197,6 @@ class TripRepository implements TripRepositoryInterface
             $armadaNopol = $penugasan !== null
                 ? ($armadaMap->get($penugasan->id_armada) ?? $armadaVendorMap->get($penugasan->id_armada_vendor))
                 : null;
-            if ($armadaNopol === null && $penugasan !== null && empty($penugasan->id_armada) && !empty($penugasan->id_supir)) {
-                $armadaNopol = $alokasiNopolMap[$penugasan->id_supir . '|' . $tanggalUntukAlokasi($jadwal, $record)] ?? null;
-            }
             $supirNama = $penugasan !== null
                 ? ($supirMap->get($penugasan->id_supir) ?? $supirVendorMap->get($penugasan->id_supir_vendor))
                 : null;

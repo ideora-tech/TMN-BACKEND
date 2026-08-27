@@ -111,12 +111,6 @@ class KonsolidasiKlienTest extends TestCase
             'nopol' => 'B 7777 IN', 'merk' => 'Hino',
             'id_jenis_kendaraan' => $idJenisLain, 'dibuat_pada' => now(),
         ]);
-        DB::table('alokasi_armada')->insert([
-            'id_alokasi' => (string) Str::uuid(), 'id_proyek' => $idProyek, 'id_supir' => $idSupir,
-            'id_armada' => $idArmadaInternal, 'tanggal' => now()->subDay()->toDateString(),
-            'sumber' => 'penugasan', 'dibuat_pada' => now(),
-        ]);
-
         $penugasan = PenugasanModel::create([
             'id_proyek'         => $idProyek,
             'sumber'            => 'vendor',

@@ -8,7 +8,6 @@ use App\Modules\ArusKas\ArusKasService;
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Cuti\Contracts\CutiRepositoryInterface;
 use App\Modules\AbsensiSupir\Contracts\AbsensiSupirRepositoryInterface;
-use App\Modules\AlokasiArmada\Contracts\AlokasiArmadaRepositoryInterface;
 use App\Modules\JadwalKeberangkatan\Contracts\JadwalKeberangkatanRepositoryInterface;
 use App\Modules\JadwalShift\Contracts\JadwalShiftRepositoryInterface;
 use App\Modules\LaporanOperasional\Contracts\LaporanOperasionalRepositoryInterface;
@@ -34,7 +33,6 @@ class TripService
         private readonly CutiRepositoryInterface $cutiRepo,
         private readonly PenugasanRepositoryInterface $penugasanRepo,
         private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
-        private readonly AlokasiArmadaRepositoryInterface $alokasiRepo,
         private readonly AbsensiSupirRepositoryInterface $absensiRepo,
         private readonly LaporanOperasionalRepositoryInterface $laporanRepo,
         private readonly ArusKasService $arusKasService
@@ -112,7 +110,6 @@ class TripService
 
         $selesaiMap = $this->repo->tripSelesaiPerPenugasanTanggal(array_keys($penugasanById));
         $laporanMap = $this->repo->laporanTerisiPerPenugasanTanggal(array_keys($penugasanById));
-        $alokasiMap = $this->alokasiRepo->alokasiNopolMap($idSupir, $dari, $sampai);
         $klienMap = $this->repo->namaKlienPerProyek(
             array_values(array_unique(array_map(fn ($e) => (string) $e['penugasan']->id_proyek, $entri)))
         );
@@ -142,7 +139,7 @@ class TripService
                 ] : ($e['penugasan']->armadaVendor !== null ? [
                     'id_armada' => null,
                     'nopol'     => $e['penugasan']->armadaVendor->nopol,
-                ] : ($alokasiMap[$e['tanggal']] ?? null)),
+                ] : null),
                 'shift'         => $e['shift'],
                 'nama_rute'     => $e['penugasan']->id_rute !== null ? ($ruteMap[(string) $e['penugasan']->id_rute] ?? null) : null,
                 'uang_jalan'    => $e['penugasan']->estimasi_biaya !== null ? (float) $e['penugasan']->estimasi_biaya : null,
@@ -287,7 +284,7 @@ class TripService
         $armadaHariIni = match (true) {
             $penugasan->armada !== null => ['id_armada' => $penugasan->armada->id_armada, 'nopol' => $penugasan->armada->nopol],
             $penugasan->armadaVendor !== null => ['id_armada_vendor' => $penugasan->armadaVendor->id_armada_vendor, 'nopol' => $penugasan->armadaVendor->nopol],
-            default => $this->alokasiRepo->alokasiNopolMap($idSupir, $hariIni, $hariIni)[$hariIni] ?? null,
+            default => null,
         };
 
         $ditugaskanOleh = $penugasan->dibuat_oleh !== null
