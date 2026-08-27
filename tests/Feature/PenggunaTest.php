@@ -29,6 +29,40 @@ class PenggunaTest extends TestCase
         return $id;
     }
 
+    private function makeKaryawan(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('karyawan')->insert([
+            'id_karyawan' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nik' => 'NIK-' . Str::random(8), 'nama_karyawan' => 'Karyawan Test', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
+    public function test_update_akun_supir_id_karyawan_dinormalkan_null(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $id = $this->makePengguna('SUPIR');
+        $idKaryawan = $this->makeKaryawan();
+
+        $this->putJson("/api/pengguna/{$id}", ['id_karyawan' => $idKaryawan])
+            ->assertStatus(200);
+
+        $this->assertNull(DB::table('pengguna')->where('id_pengguna', $id)->value('id_karyawan'));
+    }
+
+    public function test_update_akun_non_supir_id_karyawan_tersimpan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $id = $this->makePengguna('MANAGER');
+        $idKaryawan = $this->makeKaryawan();
+
+        $this->putJson("/api/pengguna/{$id}", ['id_karyawan' => $idKaryawan])
+            ->assertStatus(200);
+
+        $this->assertSame($idKaryawan, DB::table('pengguna')->where('id_pengguna', $id)->value('id_karyawan'));
+    }
+
     public function test_show_mengembalikan_kode_peran(): void
     {
         $this->actingAsRole('SUPERADMIN');

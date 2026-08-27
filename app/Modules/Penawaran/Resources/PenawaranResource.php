@@ -14,6 +14,7 @@ class PenawaranResource extends JsonResource
             'id_penawaran'     => $this->id_penawaran,
             'id_perusahaan'    => $this->id_perusahaan,
             'id_klien'         => $this->id_klien,
+            'nama_klien'       => $this->nama_klien,
             'nomor_penawaran'  => $this->nomor_penawaran,
             'judul'            => $this->judul,
             'nilai_penawaran'  => $this->nilai_penawaran !== null ? (float) $this->nilai_penawaran : null,

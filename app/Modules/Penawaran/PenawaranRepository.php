@@ -19,8 +19,14 @@ class PenawaranRepository implements PenawaranRepositoryInterface
         ?string $status,
         ?string $idProyek = null
     ): LengthAwarePaginator {
-        $query = PenawaranModel::active()
-            ->where('id_perusahaan', $idPerusahaan);
+        $query = PenawaranModel::query()
+            ->whereNull('penawaran.dihapus_pada')
+            ->leftJoin('klien', function ($join) {
+                $join->on('klien.id_klien', '=', 'penawaran.id_klien')
+                    ->whereNull('klien.dihapus_pada');
+            })
+            ->select('penawaran.*', 'klien.nama_klien')
+            ->where('penawaran.id_perusahaan', $idPerusahaan);
 
         if ($search !== null && $search !== '') {
             $query->where(function ($q) use ($search) {
@@ -30,14 +36,14 @@ class PenawaranRepository implements PenawaranRepositoryInterface
         }
 
         if ($status !== null && $status !== '') {
-            $query->where('status', $status);
+            $query->where('penawaran.status', $status);
         }
 
         if ($idProyek !== null && $idProyek !== '') {
-            $query->where('id_proyek', $idProyek);
+            $query->where('penawaran.id_proyek', $idProyek);
         }
 
-        return $query->orderBy('dibuat_pada', 'desc')
+        return $query->orderBy('penawaran.dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
 

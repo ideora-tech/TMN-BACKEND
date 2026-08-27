@@ -13,6 +13,19 @@ class PenawaranTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function makeKlien(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien'      => $id,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_klien'    => 'KLN-' . Str::random(8),
+            'nama_klien'    => 'Klien Test',
+            'dibuat_pada'   => now(),
+        ]);
+        return $id;
+    }
+
     private function makePenawaranPerusahaanLain(string $status = 'draft'): string
     {
         $idPerusahaanLain = (string) Str::uuid();
@@ -71,11 +84,24 @@ class PenawaranTest extends TestCase
         ]);
     }
 
+    public function test_store_penawaran_tanpa_klien_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/penawaran', [
+            'judul' => 'Penawaran Tanpa Klien',
+        ]);
+
+        $res->assertStatus(422);
+        $this->assertDatabaseMissing('penawaran', ['judul' => 'Penawaran Tanpa Klien']);
+    }
+
     public function test_store_penawaran_nomor_dari_request_diabaikan_pakai_nomor_otomatis(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/penawaran', [
+            'id_klien' => $this->makeKlien(),
             'nomor_penawaran' => 'PNW-INPUT-BEBAS',
             'judul'           => 'Penawaran Nomor Otomatis',
         ]);
@@ -90,6 +116,7 @@ class PenawaranTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/penawaran', [
+            'id_klien' => $this->makeKlien(),
             'judul' => 'Penawaran Tanpa Nomor Input',
         ]);
 
@@ -103,10 +130,12 @@ class PenawaranTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $pertama = $this->postJson('/api/penawaran', [
+            'id_klien' => $this->makeKlien(),
             'judul' => 'Penawaran Urut Satu',
         ])->json('data.nomor_penawaran');
 
         $kedua = $this->postJson('/api/penawaran', [
+            'id_klien' => $this->makeKlien(),
             'judul' => 'Penawaran Urut Dua',
         ])->json('data.nomor_penawaran');
 

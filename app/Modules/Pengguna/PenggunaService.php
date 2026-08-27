@@ -46,6 +46,12 @@ class PenggunaService
         }
         $data['kata_sandi'] = Hash::make($data['password']);
         unset($data['password']);
+
+        // Akun peran SUPIR: karyawan mengikuti profil supir (supir.id_karyawan), bukan tautan langsung
+        if (($data['kode_peran'] ?? null) === 'SUPIR') {
+            $data['id_karyawan'] = null;
+        }
+
         return $this->repo->create($data);
     }
 
@@ -73,6 +79,12 @@ class PenggunaService
         if (isset($data['password'])) {
             $data['kata_sandi'] = Hash::make($data['password']);
             unset($data['password']);
+        }
+
+        // Akun peran SUPIR: karyawan mengikuti profil supir (supir.id_karyawan), bukan tautan langsung
+        $kodePeran = array_key_exists('kode_peran', $data) ? $data['kode_peran'] : $record->kode_peran;
+        if ($kodePeran === 'SUPIR') {
+            $data['id_karyawan'] = null;
         }
 
         return $this->repo->update($record, $data);

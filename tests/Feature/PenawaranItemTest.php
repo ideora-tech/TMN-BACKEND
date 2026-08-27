@@ -43,10 +43,24 @@ class PenawaranItemTest extends TestCase
         return $id;
     }
 
+    private function makeKlien(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien'      => $id,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_klien'    => 'KLN-' . Str::random(8),
+            'nama_klien'    => 'Klien Test',
+            'dibuat_pada'   => now(),
+        ]);
+        return $id;
+    }
+
     private function payloadPenawaran(array $items): array
     {
         return [
             'nomor_penawaran' => 'PNW-' . Str::random(6),
+            'id_klien'        => $this->makeKlien(),
             'judul'           => 'Rate Card Test',
             'items'           => $items,
         ];
@@ -132,6 +146,7 @@ class PenawaranItemTest extends TestCase
 
         $res = $this->postJson('/api/penawaran', [
             'nomor_penawaran' => 'PNW-MANUAL',
+            'id_klien'        => $this->makeKlien(),
             'judul'           => 'Tanpa Item',
             'nilai_penawaran' => 12345678,
         ]);

@@ -18,7 +18,7 @@ class StorePenawaranRequest extends FormRequest
         return [
             'nomor_penawaran'  => ['sometimes', 'nullable', 'string', 'max:50'],
             'judul'            => ['required', 'string', 'max:200'],
-            'id_klien'         => ['sometimes', 'nullable', 'string', 'max:36'],
+            'id_klien'         => ['required', 'string', 'max:36'],
             'nilai_penawaran'  => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'status'           => ['sometimes', 'in:draft,terkirim,negosiasi,disetujui,ditolak'],
             'tipe_harga'       => ['sometimes', 'string', 'in:per_rit,borongan'],
@@ -32,6 +32,13 @@ class StorePenawaranRequest extends FormRequest
             'items.*.harga_satuan'       => ['required_unless:tipe_harga,borongan', 'nullable', 'numeric', 'min:0'],
             'items.*.estimasi_ritase'    => ['sometimes', 'integer', 'min:1'],
             'items.*.keterangan'         => ['sometimes', 'nullable', 'string'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'id_klien.required' => 'Klien wajib dipilih',
         ];
     }
 }
