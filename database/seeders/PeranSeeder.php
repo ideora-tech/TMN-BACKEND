@@ -56,6 +56,14 @@ class PeranSeeder extends Seeder
                 'aktif'         => 1,
             ],
             [
+                'id_peran'      => 'a1b2c3d4-0000-4000-8000-000000000008',
+                'id_perusahaan' => $idPerusahaan,
+                'kode_peran'    => 'SUPIR_VENDOR',
+                'nama_peran'    => 'Supir Vendor',
+                'is_platform'   => 0,
+                'aktif'         => 1,
+            ],
+            [
                 'id_peran'      => 'a1b2c3d4-0000-4000-8000-000000000006',
                 'id_perusahaan' => $idPerusahaan,
                 'kode_peran'    => 'KEUANGAN',

@@ -49,6 +49,26 @@ class SupirVendorService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
 
+        if (!empty($data['id_pengguna'])) {
+            $pengguna = \Illuminate\Support\Facades\DB::table('pengguna')
+                ->whereNull('dihapus_pada')
+                ->where('id_pengguna', $data['id_pengguna'])
+                ->first(['id_pengguna', 'id_perusahaan', 'kode_peran']);
+            if ($pengguna === null || (string) $pengguna->id_perusahaan !== (string) $idPerusahaan) {
+                abort(404, 'Pengguna tidak ditemukan');
+            }
+            if ($pengguna->kode_peran !== 'SUPIR_VENDOR') {
+                abort(422, 'Akun login mobile supir vendor harus berperan SUPIR_VENDOR');
+            }
+            $dipakai = SupirVendorModel::active()
+                ->where('id_pengguna', $data['id_pengguna'])
+                ->where('id_supir_vendor', '!=', $id)
+                ->exists();
+            if ($dipakai) {
+                abort(422, 'Akun ini sudah dipakai supir vendor lain');
+            }
+        }
+
         if (isset($data['id_vendor']) && $data['id_vendor'] !== $record->id_vendor) {
             if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $idPerusahaan)) {
                 abort(404, 'Vendor tidak ditemukan');

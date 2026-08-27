@@ -107,6 +107,14 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
             ->value('id_pengguna');
     }
 
+    public function idPenggunaUntukSupirVendor(string $idSupirVendor): ?string
+    {
+        return DB::table('supir_vendor')
+            ->whereNull('dihapus_pada')
+            ->where('id_supir_vendor', $idSupirVendor)
+            ->value('id_pengguna');
+    }
+
     public function markAllRead(string $idPengguna, string $idPerusahaan): int
     {
         return NotifikasiModel::active()

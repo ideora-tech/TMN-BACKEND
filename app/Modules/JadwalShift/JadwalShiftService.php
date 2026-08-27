@@ -13,6 +13,8 @@ class JadwalShiftService
         private readonly JadwalShiftRepositoryInterface $repo,
         private readonly \App\Modules\Trip\Contracts\TripRepositoryInterface $tripRepo,
         private readonly \App\Modules\Cuti\Contracts\CutiRepositoryInterface $cutiRepo,
+        private readonly \App\Modules\Supir\Contracts\SupirRepositoryInterface $supirRepo,
+        private readonly \App\Modules\Armada\Contracts\ArmadaRepositoryInterface $armadaRepo,
     ) {}
 
     public function list(string $idProyek, string $idPerusahaan, ?string $dari, ?string $sampai): array
@@ -401,6 +403,13 @@ class JadwalShiftService
         if (array_key_exists('id_supir_pengganti', $data) && $data['id_supir_pengganti'] !== null) {
             $idPengganti = (string) $data['id_supir_pengganti'];
 
+            $pengganti = $this->supirRepo->findById($idPengganti);
+            if ($pengganti === null || (string) $pengganti->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Supir pengganti tidak ditemukan');
+            }
+            if ($pengganti->status !== 'aktif') {
+                abort(422, 'Supir pengganti tidak aktif');
+            }
             if ($idPengganti === (string) $record->id_supir) {
                 abort(422, 'Supir pengganti tidak boleh sama dengan supir baris ini — kosongkan field untuk membatalkan override');
             }
@@ -410,6 +419,13 @@ class JadwalShiftService
             $bentrok = $this->repo->findAktifBySupirTanggal($idPengganti, (string) $record->tanggal);
             if ($bentrok !== null && (string) $bentrok->id_jadwal_shift !== (string) $record->id_jadwal_shift) {
                 abort(422, "Supir pengganti sudah dijadwalkan shift {$bentrok->shift_nama} di proyek {$bentrok->nama_proyek} pada tanggal ini");
+            }
+        }
+
+        if (array_key_exists('id_armada_override', $data) && $data['id_armada_override'] !== null) {
+            $armadaOverride = $this->armadaRepo->findById((string) $data['id_armada_override']);
+            if ($armadaOverride === null || (string) $armadaOverride->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Armada override tidak ditemukan');
             }
         }
 

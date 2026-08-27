@@ -26,6 +26,13 @@ class SupirVendorRepository implements SupirVendorRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    public function findByPengguna(string $idPengguna): ?SupirVendorModel
+    {
+        return SupirVendorModel::active()
+            ->where('id_pengguna', $idPengguna)
+            ->first();
+    }
+
     public function findByIdMilikPerusahaan(string $id, string $idPerusahaan): ?SupirVendorModel
     {
         return SupirVendorModel::active()

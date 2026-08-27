@@ -118,7 +118,7 @@ class ProyekController extends Controller
         $pdf = Pdf::loadView('exports.proyek', [
             'p'          => $proyek,
             'klien'      => $klien,
-            'items'      => $this->ruteService->listByProyek($id),
+            'items'      => $this->ruteService->listByProyek($id, (string) $request->user()->id_perusahaan),
             'logoBase64' => $this->logoBase64(),
             'perusahaan' => $this->service->dataPerusahaan((string) $request->user()->id_perusahaan),
         ]);

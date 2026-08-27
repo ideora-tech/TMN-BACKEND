@@ -12,6 +12,20 @@ use Illuminate\Support\Facades\DB;
 
 class PenugasanRepository implements PenugasanRepositoryInterface
 {
+    public function listJadwalSupirVendor(string $idSupirVendor, string $dari, string $sampai): Collection
+    {
+        $records = PenugasanModel::active()
+            ->where('id_supir_vendor', $idSupirVendor)
+            ->whereBetween('tanggal_tugas', [$dari, $sampai])
+            ->orderBy('tanggal_tugas')
+            ->orderBy('dibuat_pada')
+            ->get();
+
+        $this->attachProyekArmada($records);
+
+        return $records;
+    }
+
     public function listJadwalSupir(string $idSupir, string $dari, string $sampai): Collection
     {
         $records = PenugasanModel::active()
@@ -355,6 +369,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
                 'p.id_armada',
                 'p.id_armada_vendor',
                 'p.id_supir',
+                'p.id_supir_vendor',
                 DB::raw('COALESCE(s.nama, sv.nama) as nama_supir'),
                 'p.id_proyek',
                 'pr.kode_proyek',

@@ -20,6 +20,7 @@ interface ArmadaVendorRepositoryInterface
 
     /** @return array<int, array{id_armada_vendor: string, id_kontrak_vendor: string, nopol: string, merk: ?string, jenis: ?string, id_vendor: string, nama_vendor: string}> */
     public function listOpsiUnitOnly(string $idPerusahaan): array;
+    public function listOpsiBoard(string $idPerusahaan): array;
     public function create(array $data): ArmadaVendorModel;
     public function update(ArmadaVendorModel $model, array $data): ArmadaVendorModel;
     public function delete(ArmadaVendorModel $model): void;

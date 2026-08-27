@@ -12,6 +12,7 @@ class SupirVendorResource extends JsonResource
     {
         return [
             'id_supir_vendor'  => $this->id_supir_vendor,
+            'id_pengguna'      => $this->id_pengguna ?? null,
             'id_vendor'        => $this->id_vendor,
             'nama'             => $this->nama,
             'telepon'          => $this->telepon,

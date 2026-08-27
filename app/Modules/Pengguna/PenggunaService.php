@@ -48,7 +48,7 @@ class PenggunaService
         unset($data['password']);
 
         // Akun peran SUPIR: karyawan mengikuti profil supir (supir.id_karyawan), bukan tautan langsung
-        if (($data['kode_peran'] ?? null) === 'SUPIR') {
+        if (in_array($data['kode_peran'] ?? null, ['SUPIR', 'SUPIR_VENDOR'], true)) {
             $data['id_karyawan'] = null;
         }
 
@@ -83,7 +83,7 @@ class PenggunaService
 
         // Akun peran SUPIR: karyawan mengikuti profil supir (supir.id_karyawan), bukan tautan langsung
         $kodePeran = array_key_exists('kode_peran', $data) ? $data['kode_peran'] : $record->kode_peran;
-        if ($kodePeran === 'SUPIR') {
+        if (in_array($kodePeran, ['SUPIR', 'SUPIR_VENDOR'], true)) {
             $data['id_karyawan'] = null;
         }
 

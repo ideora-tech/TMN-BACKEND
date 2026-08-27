@@ -135,6 +135,116 @@ class PenugasanHarianTest extends TestCase
         $this->assertGreaterThan($sebelum, $sesudah);
     }
 
+    private function makeVendorPaket(string $mekanisme = 'unit_driver'): array
+    {
+        $vendor = VendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor'   => 'VDR-' . Str::random(8),
+            'nama_vendor'   => 'Vendor Paket Harian',
+        ]);
+        $kontrak = KontrakVendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_vendor'     => $vendor->id_vendor,
+            'mekanisme'     => $mekanisme,
+        ]);
+        $armadaVendor = ArmadaVendorModel::create([
+            'id_vendor' => $vendor->id_vendor,
+            'nopol'     => 'B ' . random_int(1000, 9999) . ' PK',
+        ]);
+        $idSupirVendor = (string) Str::uuid();
+        \Illuminate\Support\Facades\DB::table('supir_vendor')->insert([
+            'id_supir_vendor' => $idSupirVendor,
+            'id_vendor'       => $vendor->id_vendor,
+            'nama'            => 'Supir Vendor Paket',
+            'dibuat_pada'     => now(),
+        ]);
+
+        return [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'id_armada_vendor'  => $armadaVendor->id_armada_vendor,
+            'id_supir_vendor'   => $idSupirVendor,
+        ];
+    }
+
+    public function test_assign_unit_paket_vendor_dengan_supir_vendor_berhasil_tanpa_pengajuan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, null, null);
+        $paket = $this->makeVendorPaket();
+
+        $res = $this->postJson('/api/penugasan/harian', [
+            'tanggal'          => '2026-09-01',
+            'id_armada_vendor' => $paket['id_armada_vendor'],
+            'id_supir_vendor'  => $paket['id_supir_vendor'],
+            'id_proyek'        => $proyek->id_proyek,
+            'id_rute'          => $rute,
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.sukses', 1);
+
+        $this->assertDatabaseHas('penugasan', [
+            'id_armada_vendor' => $paket['id_armada_vendor'],
+            'id_supir_vendor'  => $paket['id_supir_vendor'],
+            'id_kontrak_vendor' => $paket['id_kontrak_vendor'],
+            'sumber'           => 'vendor',
+            'id_supir'         => null,
+        ]);
+        $this->assertDatabaseCount('pengajuan_pengeluaran', 0);
+    }
+
+    public function test_assign_unit_paket_tanpa_supir_vendor_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, null, null);
+        $paket = $this->makeVendorPaket();
+
+        $this->postJson('/api/penugasan/harian', [
+            'tanggal'          => '2026-09-01',
+            'id_armada_vendor' => $paket['id_armada_vendor'],
+            'id_supir'         => $this->makeSupir(),
+            'id_proyek'        => $proyek->id_proyek,
+            'id_rute'          => $rute,
+        ])->assertStatus(422);
+    }
+
+    public function test_assign_unit_paket_supir_vendor_lain_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, null, null);
+        $paket = $this->makeVendorPaket();
+        $lain  = $this->makeVendorPaket();
+
+        $this->postJson('/api/penugasan/harian', [
+            'tanggal'          => '2026-09-01',
+            'id_armada_vendor' => $paket['id_armada_vendor'],
+            'id_supir_vendor'  => $lain['id_supir_vendor'],
+            'id_proyek'        => $proyek->id_proyek,
+            'id_rute'          => $rute,
+        ])->assertStatus(422);
+    }
+
+    public function test_board_menyertakan_unit_paket_dengan_mekanisme(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $paket = $this->makeVendorPaket('full');
+
+        $res = $this->getJson('/api/penugasan/board?dari=2026-09-01&sampai=2026-09-02')
+            ->assertStatus(200);
+
+        $unit = collect($res->json('data.units'))
+            ->firstWhere('id_armada_vendor', $paket['id_armada_vendor']);
+        $this->assertNotNull($unit);
+        $this->assertSame('full', $unit['mekanisme']);
+        $this->assertSame('vendor', $unit['tipe']);
+    }
+
     public function test_assign_rentang_membuat_baris_per_tanggal_dan_satu_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');

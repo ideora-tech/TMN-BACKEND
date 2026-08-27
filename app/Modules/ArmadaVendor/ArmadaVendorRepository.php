@@ -104,6 +104,53 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
      * di sini (kontrak terbaru per unit) supaya form Operasional tidak perlu meminta
      * dispatcher memilih kontrak secara manual.
      */
+    /**
+     * Semua unit vendor aktif untuk papan Penugasan — satu baris per unit,
+     * kontrak unit_only diprioritaskan (menjaga perilaku lama), selain itu
+     * kontrak terbaru yang dipakai sebagai penentu mekanisme.
+     */
+    public function listOpsiBoard(string $idPerusahaan): array
+    {
+        $rows = ArmadaVendorModel::active()
+            ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->join('kontrak_vendor', function ($join) use ($idPerusahaan) {
+                $join->on('kontrak_vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+                    ->where('kontrak_vendor.id_perusahaan', '=', $idPerusahaan)
+                    ->whereNull('kontrak_vendor.dihapus_pada');
+            })
+            ->where('vendor.id_perusahaan', $idPerusahaan)
+            ->where('armada_vendor.aktif', 1)
+            ->whereNull('vendor.dihapus_pada')
+            ->select(
+                'armada_vendor.id_armada_vendor', 'armada_vendor.nopol', 'armada_vendor.merk', 'armada_vendor.jenis',
+                'armada_vendor.id_vendor', 'vendor.nama_vendor',
+                'kontrak_vendor.id_kontrak_vendor', 'kontrak_vendor.mekanisme',
+            )
+            ->orderBy('armada_vendor.nopol')
+            ->orderByRaw("CASE WHEN kontrak_vendor.mekanisme = 'unit_only' THEN 0 ELSE 1 END")
+            ->orderByDesc('kontrak_vendor.dibuat_pada')
+            ->get();
+
+        $result = [];
+        foreach ($rows as $row) {
+            if (isset($result[$row->id_armada_vendor])) {
+                continue;
+            }
+            $result[$row->id_armada_vendor] = [
+                'id_armada_vendor'  => $row->id_armada_vendor,
+                'id_kontrak_vendor' => $row->id_kontrak_vendor,
+                'mekanisme'         => $row->mekanisme,
+                'nopol'             => $row->nopol,
+                'merk'              => $row->merk,
+                'jenis'             => $row->jenis,
+                'id_vendor'         => $row->id_vendor,
+                'nama_vendor'       => $row->nama_vendor,
+            ];
+        }
+
+        return array_values($result);
+    }
+
     public function listOpsiUnitOnly(string $idPerusahaan): array
     {
         $rows = ArmadaVendorModel::active()

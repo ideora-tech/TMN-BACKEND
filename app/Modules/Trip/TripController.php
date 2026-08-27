@@ -7,6 +7,7 @@ namespace App\Modules\Trip;
 use App\Helpers\ApiResponse;
 use App\Modules\Penugasan\Resources\PenugasanResource;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
+use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
 use App\Modules\Trip\Exports\RekapTripSupirExport;
 use App\Modules\Trip\Exports\RiwayatTripExport;
 use App\Modules\Trip\Requests\MulaiTripRequest;
@@ -26,7 +27,29 @@ class TripController extends Controller
     public function __construct(
         private readonly TripService $service,
         private readonly SupirRepositoryInterface $supirRepo,
+        private readonly SupirVendorRepositoryInterface $supirVendorRepo,
     ) {}
+
+    /**
+     * Akun mobile bisa milik supir internal ATAU supir vendor (driver paket) —
+     * resolusi dicoba berurutan, hasilnya [tipe, id] untuk diteruskan ke service.
+     */
+    private function konteksSupirSaya(Request $request): array
+    {
+        $idPengguna = (string) $request->user()->id_pengguna;
+
+        $supir = $this->supirRepo->findByPengguna($idPengguna);
+        if ($supir !== null) {
+            return ['internal', (string) $supir->id_supir];
+        }
+
+        $supirVendor = $this->supirVendorRepo->findByPengguna($idPengguna);
+        if ($supirVendor !== null) {
+            return ['vendor', (string) $supirVendor->id_supir_vendor];
+        }
+
+        abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -64,16 +87,14 @@ class TripController extends Controller
             'tanggal' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
-        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
-        if ($supir === null) {
-            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
-        }
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
 
         $result = $this->service->detailPenugasanUntukSupir(
             $idPenugasan,
-            (string) $supir->id_supir,
+            $idSupir,
             (string) $request->user()->id_perusahaan,
-            $validated['tanggal'] ?? null
+            $validated['tanggal'] ?? null,
+            $tipe
         );
 
         return ApiResponse::success([
@@ -107,13 +128,10 @@ class TripController extends Controller
             abort(422, 'Rentang tanggal maksimal 62 hari');
         }
 
-        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
-        if ($supir === null) {
-            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
-        }
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
 
         return ApiResponse::success(
-            $this->service->jadwalUntukSupir((string) $supir->id_supir, $validated['dari'], $validated['sampai'])
+            $this->service->jadwalUntukSupir($idSupir, $validated['dari'], $validated['sampai'], $tipe)
         );
     }
 
@@ -124,10 +142,7 @@ class TripController extends Controller
             'status'  => ['nullable', 'in:selesai,dibatalkan,berjalan'],
         ]);
 
-        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
-        if ($supir === null) {
-            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
-        }
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
 
         $tanggal = $validated['tanggal'] ?? null;
 
@@ -137,12 +152,14 @@ class TripController extends Controller
             (int) $request->get('limit', 10),
             null,
             null,
-            (string) $supir->id_supir,
+            $tipe === 'internal' ? $idSupir : null,
             null,
             $validated['status'] ?? 'selesai,dibatalkan',
             null,
             $tanggal,
-            $tanggal
+            $tanggal,
+            null,
+            $tipe === 'vendor' ? $idSupir : null
         );
 
         return ApiResponse::paginated(TripResource::collection($result['data']), $result['meta']);
@@ -203,27 +220,22 @@ class TripController extends Controller
 
     public function mulaiSaya(MulaiTripRequest $request): JsonResponse
     {
-        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
-        if ($supir === null) {
-            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
-        }
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
 
         $record = $this->service->mulaiDariPenugasanUntukSupir(
             $request->validated(),
-            (string) $supir->id_supir,
-            (string) $request->user()->id_perusahaan
+            $idSupir,
+            (string) $request->user()->id_perusahaan,
+            $tipe
         );
         return ApiResponse::success(new TripResource($record), 'Trip berhasil dimulai', 201);
     }
 
     public function checkoutSaya(Request $request, string $idTrip): JsonResponse
     {
-        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
-        if ($supir === null) {
-            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
-        }
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
 
-        $record = $this->service->checkoutUntukSupir($idTrip, (string) $supir->id_supir, (string) $request->user()->id_perusahaan);
+        $record = $this->service->checkoutUntukSupir($idTrip, $idSupir, (string) $request->user()->id_perusahaan, $tipe);
         return ApiResponse::success(new TripResource($record), 'Trip berhasil diselesaikan');
     }
 
@@ -235,16 +247,14 @@ class TripController extends Controller
             'alasan.required' => 'Alasan pembatalan wajib diisi',
         ]);
 
-        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
-        if ($supir === null) {
-            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
-        }
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
 
         $record = $this->service->batalkanUntukSupir(
             $idTrip,
-            (string) $supir->id_supir,
+            $idSupir,
             (string) $request->user()->id_perusahaan,
             (string) $validated['alasan'],
+            $tipe,
         );
 
         return ApiResponse::success(new TripResource($record), 'Trip dibatalkan');

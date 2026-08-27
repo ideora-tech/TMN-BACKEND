@@ -10,6 +10,7 @@ use Illuminate\Support\Collection;
 interface ProyekRuteRepositoryInterface
 {
     /** Baris aktif milik satu proyek + kolom nama rute/jenis + komponen tarif (untuk Resource). */
+    public function proyekMilikPerusahaan(string $idProyek, string $idPerusahaan): bool;
     public function listByProyek(string $idProyek): Collection;
 
     /** True jika id_rute sudah terdaftar sebagai rute proyek tsb (baris aktif). */

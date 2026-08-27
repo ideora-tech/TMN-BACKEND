@@ -26,6 +26,15 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
             );
     }
 
+    public function proyekMilikPerusahaan(string $idProyek, string $idPerusahaan): bool
+    {
+        return DB::table('proyek')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek', $idProyek)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->exists();
+    }
+
     public function listByProyek(string $idProyek): Collection
     {
         return $this->detailQuery()

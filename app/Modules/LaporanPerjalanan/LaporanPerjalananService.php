@@ -75,25 +75,28 @@ class LaporanPerjalananService
         return $laporan;
     }
 
-    private function pastikanTripMilikSupir(string $idTrip, string $idSupir): object
+    private function pastikanTripMilikSupir(string $idTrip, string $idSupir, string $tipe = 'internal'): object
     {
         $penugasan = $this->tripRepo->findPenugasanDariTrip($idTrip);
-        if ($penugasan === null || (string) $penugasan->id_supir !== $idSupir) {
+        $milik = $penugasan !== null && ($tipe === 'vendor'
+            ? (string) $penugasan->id_supir_vendor === $idSupir
+            : (string) $penugasan->id_supir === $idSupir);
+        if (!$milik) {
             abort(403, 'Trip ini bukan milik Anda');
         }
         return $penugasan;
     }
 
-    public function showUntukSupir(string $idTrip, string $idSupir): ?LaporanPerjalananModel
+    public function showUntukSupir(string $idTrip, string $idSupir, string $tipe = 'internal'): ?LaporanPerjalananModel
     {
-        $this->pastikanTripMilikSupir($idTrip, $idSupir);
+        $this->pastikanTripMilikSupir($idTrip, $idSupir, $tipe);
         return $this->repo->findByTrip($idTrip);
     }
 
     /** @param UploadedFile[] $fotoFiles */
-    public function upsertUntukSupir(string $idTrip, string $idSupir, array $data, string $idPerusahaan, array $fotoFiles = []): LaporanPerjalananModel
+    public function upsertUntukSupir(string $idTrip, string $idSupir, array $data, string $idPerusahaan, array $fotoFiles = [], string $tipe = 'internal'): LaporanPerjalananModel
     {
-        $this->pastikanTripMilikSupir($idTrip, $idSupir);
+        $this->pastikanTripMilikSupir($idTrip, $idSupir, $tipe);
 
         $trip = $this->tripRepo->findById($idTrip);
         if ($trip === null) {
@@ -135,18 +138,18 @@ class LaporanPerjalananService
      * @param UploadedFile[] $files
      * @return FotoLaporanPerjalananModel[]
      */
-    public function addFotoUntukSupir(string $idLaporan, string $idSupir, array $files, ?string $keterangan = null): array
+    public function addFotoUntukSupir(string $idLaporan, string $idSupir, array $files, ?string $keterangan = null, string $tipe = 'internal'): array
     {
         $laporan = $this->findOrFail($idLaporan);
-        $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir);
+        $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir, $tipe);
 
         return $this->simpanFotoFiles($laporan, $files, $keterangan);
     }
 
-    public function deleteFotoUntukSupir(string $idLaporan, string $idFoto, string $idSupir): void
+    public function deleteFotoUntukSupir(string $idLaporan, string $idFoto, string $idSupir, string $tipe = 'internal'): void
     {
         $laporan = $this->findOrFail($idLaporan);
-        $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir);
+        $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir, $tipe);
 
         $foto = $this->repo->findFotoById($idLaporan, $idFoto);
         if (!$foto) {

@@ -54,7 +54,28 @@ class SupirController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $record = $this->service->findByPenggunaOrFail((string) $request->user()->id_pengguna);
+        $idPengguna = (string) $request->user()->id_pengguna;
+
+        $supirVendor = app(\App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface::class)
+            ->findByPengguna($idPengguna);
+        if ($supirVendor !== null) {
+            return ApiResponse::success([
+                'id_supir'           => $supirVendor->id_supir_vendor,
+                'id_pengguna'        => $supirVendor->id_pengguna,
+                'nama'               => $supirVendor->nama,
+                'no_sim'             => $supirVendor->no_sim,
+                'jenis_sim'          => null,
+                'tgl_kadaluarsa_sim' => $supirVendor->masa_berlaku_sim,
+                'telepon'            => $supirVendor->telepon,
+                'status'             => (int) $supirVendor->aktif === 1 ? 'aktif' : 'tidak_aktif',
+                'foto'               => null,
+                'id_armada_default'  => null,
+                'armada_default'     => null,
+                'tipe_supir'         => 'vendor',
+            ]);
+        }
+
+        $record = $this->service->findByPenggunaOrFail($idPengguna);
         return ApiResponse::success(new SupirResource($record));
     }
 

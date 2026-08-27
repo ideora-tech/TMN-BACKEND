@@ -123,6 +123,58 @@ class JadwalShiftOverrideTest extends TestCase
             ->value('id_jadwal_shift');
     }
 
+    public function test_supir_pengganti_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idShift = $this->makeShift();
+        $proyek = $this->makeProyek();
+        $idSupir = $this->makeSupir('Supir Utama Tenant');
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
+        $idJadwal = $this->buatJadwal($proyek->id_proyek, $idShift, $idSupir, '2026-09-15');
+
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insertOrIgnore([
+            'id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain Override', 'dibuat_pada' => now(),
+        ]);
+        $idSupirLain = (string) Str::uuid();
+        DB::table('supir')->insert([
+            'id_supir' => $idSupirLain, 'id_perusahaan' => $idPerusahaanLain,
+            'nama' => 'Supir Tenant Lain', 'status' => 'aktif', 'dibuat_pada' => now(),
+        ]);
+
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
+            'id_shift' => $idShift, 'id_supir_pengganti' => $idSupirLain,
+        ])->assertStatus(404);
+
+        $this->assertNull(DB::table('jadwal_shift')->where('id_jadwal_shift', $idJadwal)->value('id_supir_pengganti'));
+    }
+
+    public function test_armada_override_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idShift = $this->makeShift();
+        $proyek = $this->makeProyek();
+        $idSupir = $this->makeSupir('Supir Utama Armada');
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
+        $idJadwal = $this->buatJadwal($proyek->id_proyek, $idShift, $idSupir, '2026-09-16');
+
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insertOrIgnore([
+            'id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain Armada', 'dibuat_pada' => now(),
+        ]);
+        $idArmadaLain = (string) Str::uuid();
+        DB::table('armada')->insert([
+            'id_armada' => $idArmadaLain, 'id_perusahaan' => $idPerusahaanLain,
+            'nopol' => 'X 9999 ZZ', 'merk' => 'Hino', 'dibuat_pada' => now(),
+        ]);
+
+        $this->putJson("/api/jadwal-shift/{$idJadwal}", [
+            'id_shift' => $idShift, 'id_armada_override' => $idArmadaLain,
+        ])->assertStatus(404);
+
+        $this->assertNull(DB::table('jadwal_shift')->where('id_jadwal_shift', $idJadwal)->value('id_armada_override'));
+    }
+
     public function test_set_armada_override_tersimpan_dan_tampil_di_list(): void
     {
         $this->actingAsRole('SUPERADMIN');

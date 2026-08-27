@@ -64,10 +64,12 @@ class TripService
      * tanggal lain (perilaku lama) juga dilarang — itulah akar bug "Mulai
      * Trip" yang menempel ke penugasan tanggal salah.
      */
-    public function jadwalUntukSupir(string $idSupir, string $dari, string $sampai): array
+    public function jadwalUntukSupir(string $idSupir, string $dari, string $sampai, string $tipe = 'internal'): array
     {
-        $penugasanTanggal = $this->penugasanRepo->listJadwalSupir($idSupir, $dari, $sampai);
-        $shiftRows = $this->jadwalShiftRepo->listShiftSupir($idSupir, $dari, $sampai);
+        $penugasanTanggal = $tipe === 'vendor'
+            ? $this->penugasanRepo->listJadwalSupirVendor($idSupir, $dari, $sampai)
+            : $this->penugasanRepo->listJadwalSupir($idSupir, $dari, $sampai);
+        $shiftRows = $tipe === 'vendor' ? [] : $this->jadwalShiftRepo->listShiftSupir($idSupir, $dari, $sampai);
 
         $entri = [];
         $penugasanByProyekTanggal = [];
@@ -89,7 +91,7 @@ class TripService
             ];
         }
 
-        $tripMap = $this->repo->tripAktifSupir($idSupir);
+        $tripMap = $this->repo->tripAktifSupir($idSupir, $tipe);
 
         $penugasanById = [];
         foreach ($entri as $e) {
@@ -142,7 +144,7 @@ class TripService
                 ] : null),
                 'shift'         => $e['shift'],
                 'nama_rute'     => $e['penugasan']->id_rute !== null ? ($ruteMap[(string) $e['penugasan']->id_rute] ?? null) : null,
-                'uang_jalan'    => $e['penugasan']->estimasi_biaya !== null ? (float) $e['penugasan']->estimasi_biaya : null,
+                'uang_jalan'    => $tipe === 'vendor' ? null : ($e['penugasan']->estimasi_biaya !== null ? (float) $e['penugasan']->estimasi_biaya : null),
                 'trip_berjalan' => $trip === null ? null : [
                     'id_trip'       => $trip['id_trip'],
                     'status'        => $trip['status'],
@@ -168,9 +170,9 @@ class TripService
         ]);
     }
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null, ?string $sumber = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null, ?string $sumber = null, ?string $idSupirVendor = null): array
     {
-        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal, $idPenugasan, $idSupir, $search, $status, $idProyek, $tanggalDari, $tanggalSampai, $sumber);
+        $result = $this->repo->paginate($idPerusahaan, $page, $limit, $idJadwal, $idPenugasan, $idSupir, $search, $status, $idProyek, $tanggalDari, $tanggalSampai, $sumber, $idSupirVendor);
 
         return [
             'data' => $result->items(),
@@ -242,10 +244,13 @@ class TripService
         return $this->repo->findPenugasanDariTrip($idTrip);
     }
 
-    public function detailPenugasanUntukSupir(string $idPenugasan, string $idSupir, string $idPerusahaan, ?string $tanggal = null): array
+    public function detailPenugasanUntukSupir(string $idPenugasan, string $idSupir, string $idPerusahaan, ?string $tanggal = null, string $tipe = 'internal'): array
     {
         $penugasan = $this->penugasanService->findOrFail($idPenugasan);
-        if ((string) $penugasan->id_supir !== $idSupir) {
+        $milik = $tipe === 'vendor'
+            ? (string) $penugasan->id_supir_vendor === $idSupir
+            : (string) $penugasan->id_supir === $idSupir;
+        if (!$milik) {
             abort(403, 'Penugasan ini bukan milik Anda');
         }
 
@@ -270,7 +275,7 @@ class TripService
 
         $hariIni = $tanggal ?? now()->toDateString();
         $shiftHariIni = null;
-        foreach ($this->jadwalShiftRepo->listShiftSupir($idSupir, $hariIni, $hariIni) as $row) {
+        foreach ($tipe === 'vendor' ? [] : $this->jadwalShiftRepo->listShiftSupir($idSupir, $hariIni, $hariIni) as $row) {
             if ((string) $row->id_proyek === (string) $penugasan->id_proyek) {
                 $shiftHariIni = [
                     'nama'        => $row->shift_nama,
@@ -296,7 +301,7 @@ class TripService
             'trip' => $tripAktif,
             'rute_tersedia' => $ruteTersedia,
             'nama_rute' => $ruteTersedia->first(fn ($r) => (string) $r->id_rute === (string) $penugasan->id_rute)?->nama_rute,
-            'uang_jalan' => $penugasan->estimasi_biaya !== null ? (float) $penugasan->estimasi_biaya : null,
+            'uang_jalan' => $tipe === 'vendor' ? null : ($penugasan->estimasi_biaya !== null ? (float) $penugasan->estimasi_biaya : null),
             'nama_klien' => $this->repo->namaKlienPerProyek([(string) $penugasan->id_proyek])[(string) $penugasan->id_proyek] ?? null,
             'shift_hari_ini' => $shiftHariIni,
             'armada_hari_ini' => $armadaHariIni,
@@ -306,18 +311,21 @@ class TripService
         ];
     }
 
-    public function mulaiDariPenugasanUntukSupir(array $data, string $idSupir, string $idPerusahaan): TripModel
+    public function mulaiDariPenugasanUntukSupir(array $data, string $idSupir, string $idPerusahaan, string $tipe = 'internal'): TripModel
     {
         $penugasan = $this->penugasanService->findOrFail((string) $data['id_penugasan']);
-        if ((string) $penugasan->id_supir !== $idSupir) {
+        $milik = $tipe === 'vendor'
+            ? (string) $penugasan->id_supir_vendor === $idSupir
+            : (string) $penugasan->id_supir === $idSupir;
+        if (!$milik) {
             abort(403, 'Penugasan ini bukan milik Anda');
         }
 
-        $absen = $this->absensiRepo->findBySupirTanggal($idSupir, now()->toDateString());
-        if ($absen === null) {
+        $absen = $tipe === 'vendor' ? null : $this->absensiRepo->findBySupirTanggal($idSupir, now()->toDateString());
+        if ($tipe !== 'vendor' && $absen === null) {
             abort(422, 'Anda belum absen hari ini — lakukan absensi terlebih dahulu sebelum memulai trip');
         }
-        if ($absen->status !== 'hadir') {
+        if ($absen !== null && $absen->status !== 'hadir') {
             abort(422, 'Absensi Anda hari ini berstatus berhalangan — trip tidak dapat dimulai');
         }
 
@@ -331,12 +339,15 @@ class TripService
         return $this->mulaiDariPenugasan($data, $idPerusahaan);
     }
 
-    public function checkoutUntukSupir(string $idTrip, string $idSupir, string $idPerusahaan): TripModel
+    public function checkoutUntukSupir(string $idTrip, string $idSupir, string $idPerusahaan, string $tipe = 'internal'): TripModel
     {
         $trip = $this->findOrFail($idTrip, $idPerusahaan);
 
         $penugasan = $this->findPenugasanUntukTrip($idTrip);
-        if ($penugasan === null || (string) $penugasan->id_supir !== $idSupir) {
+        $milik = $penugasan !== null && ($tipe === 'vendor'
+            ? (string) $penugasan->id_supir_vendor === $idSupir
+            : (string) $penugasan->id_supir === $idSupir);
+        if (!$milik) {
             abort(403, 'Trip ini bukan milik Anda');
         }
 
@@ -347,12 +358,15 @@ class TripService
         return $this->checkout($idTrip, $idPerusahaan, false);
     }
 
-    public function batalkanUntukSupir(string $idTrip, string $idSupir, string $idPerusahaan, string $alasan): TripModel
+    public function batalkanUntukSupir(string $idTrip, string $idSupir, string $idPerusahaan, string $alasan, string $tipe = 'internal'): TripModel
     {
         $trip = $this->findOrFail($idTrip, $idPerusahaan);
 
         $penugasan = $this->findPenugasanUntukTrip($idTrip);
-        if ($penugasan === null || (string) $penugasan->id_supir !== $idSupir) {
+        $milik = $penugasan !== null && ($tipe === 'vendor'
+            ? (string) $penugasan->id_supir_vendor === $idSupir
+            : (string) $penugasan->id_supir === $idSupir);
+        if (!$milik) {
             abort(403, 'Trip ini bukan milik Anda');
         }
 
@@ -607,7 +621,7 @@ class TripService
     {
         try {
             $penugasan = $this->repo->findPenugasanDariTrip($idTrip);
-            if ($penugasan === null || empty($penugasan->id_supir)) {
+            if ($penugasan === null || (empty($penugasan->id_supir) && empty($penugasan->id_supir_vendor))) {
                 return;
             }
 
@@ -616,15 +630,28 @@ class TripService
                 return;
             }
 
-            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKeSupir(
-                (string) $penugasan->id_supir,
-                (string) $proyek->id_perusahaan,
-                "Trip dibatalkan: {$proyek->nama_proyek}",
-                "Trip Anda pada proyek {$proyek->nama_proyek} dibatalkan oleh tim operasional",
-                'penugasan',
-                'penugasan',
-                (string) $penugasan->id_penugasan,
-            );
+            $notif = app(\App\Modules\Notifikasi\NotifikasiService::class);
+            if (!empty($penugasan->id_supir)) {
+                $notif->kirimKeSupir(
+                    (string) $penugasan->id_supir,
+                    (string) $proyek->id_perusahaan,
+                    "Trip dibatalkan: {$proyek->nama_proyek}",
+                    "Trip Anda pada proyek {$proyek->nama_proyek} dibatalkan oleh tim operasional",
+                    'penugasan',
+                    'penugasan',
+                    (string) $penugasan->id_penugasan,
+                );
+            } else {
+                $notif->kirimKeSupirVendor(
+                    (string) $penugasan->id_supir_vendor,
+                    (string) $proyek->id_perusahaan,
+                    "Trip dibatalkan: {$proyek->nama_proyek}",
+                    "Trip Anda pada proyek {$proyek->nama_proyek} dibatalkan oleh tim operasional",
+                    'penugasan',
+                    'penugasan',
+                    (string) $penugasan->id_penugasan,
+                );
+            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Notifikasi trip dibatalkan gagal: ' . $e->getMessage());
         }

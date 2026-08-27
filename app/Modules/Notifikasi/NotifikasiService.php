@@ -85,6 +85,25 @@ class NotifikasiService
         ]);
     }
 
+    public function kirimKeSupirVendor(string $idSupirVendor, string $idPerusahaan, string $judul, string $isi, string $tipe, string $referensiTipe, string $referensiId): void
+    {
+        $idPengguna = $this->repo->idPenggunaUntukSupirVendor($idSupirVendor);
+        if ($idPengguna === null || $idPengguna === '') {
+            return;
+        }
+
+        $this->buatDanKirim([
+            'id_perusahaan'  => $idPerusahaan,
+            'id_pengguna'    => $idPengguna,
+            'judul'          => $judul,
+            'isi'            => $isi,
+            'tipe'           => $tipe,
+            'referensi_id'   => $referensiId,
+            'referensi_tipe' => $referensiTipe,
+            'dibaca'         => 0,
+        ]);
+    }
+
     public function markRead(string $id): NotifikasiModel
     {
         return $this->repo->markRead($this->findOrFail($id));

@@ -22,6 +22,7 @@ class UpdateSupirVendorRequest extends FormRequest
             'no_sim'           => ['sometimes', 'nullable', 'string', 'max:50'],
             'masa_berlaku_sim' => ['sometimes', 'nullable', 'date'],
             'aktif'            => ['sometimes', 'boolean'],
+            'id_pengguna'      => ['sometimes', 'nullable', 'string', 'max:36'],
         ];
     }
 }

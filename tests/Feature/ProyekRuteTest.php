@@ -88,6 +88,70 @@ class ProyekRuteTest extends TestCase
         return $id;
     }
 
+    private function makeProyekPerusahaanLain(): string
+    {
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insertOrIgnore([
+            'id_perusahaan' => $idPerusahaanLain,
+            'nama'          => 'Perusahaan Lain Rute',
+            'dibuat_pada'   => now(),
+        ]);
+        $idKlienLain = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien'      => $idKlienLain,
+            'id_perusahaan' => $idPerusahaanLain,
+            'kode_klien'    => 'KLN-' . Str::random(8),
+            'nama_klien'    => 'Klien Tenant Lain',
+            'dibuat_pada'   => now(),
+        ]);
+        $proyek = ProyekModel::create([
+            'id_perusahaan' => $idPerusahaanLain,
+            'id_klien'      => $idKlienLain,
+            'kode_proyek'   => 'PRJ-LAIN-' . Str::random(6),
+            'nama_proyek'   => 'Proyek Tenant Lain',
+        ]);
+        return $proyek->id_proyek;
+    }
+
+    public function test_index_proyek_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyekLain = $this->makeProyekPerusahaanLain();
+
+        $this->getJson("/api/proyek/{$idProyekLain}/rute")->assertStatus(404);
+    }
+
+    public function test_store_ke_proyek_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyekLain = $this->makeProyekPerusahaanLain();
+
+        $this->postJson("/api/proyek/{$idProyekLain}/rute", [
+            'id_rute' => $this->makeRute(),
+        ])->assertStatus(404);
+
+        $this->assertDatabaseMissing('proyek_rute', ['id_proyek' => $idProyekLain]);
+    }
+
+    public function test_hapus_rute_proyek_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyekLain = $this->makeProyekPerusahaanLain();
+        $idRute = $this->makeRute();
+        $idProyekRute = (string) Str::uuid();
+        DB::table('proyek_rute')->insert([
+            'id_proyek_rute' => $idProyekRute,
+            'id_perusahaan'  => (string) DB::table('proyek')->where('id_proyek', $idProyekLain)->value('id_perusahaan'),
+            'id_proyek'      => $idProyekLain,
+            'id_rute'        => $idRute,
+            'dibuat_pada'    => now(),
+        ]);
+
+        $this->deleteJson("/api/proyek/{$idProyekLain}/rute/{$idProyekRute}")->assertStatus(404);
+
+        $this->assertDatabaseHas('proyek_rute', ['id_proyek_rute' => $idProyekRute, 'dihapus_pada' => null]);
+    }
+
     public function test_index_mengembalikan_rute_milik_proyek_dengan_estimasi(): void
     {
         $this->actingAsRole('SUPERADMIN');

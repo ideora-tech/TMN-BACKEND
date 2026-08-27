@@ -38,4 +38,5 @@ interface PenugasanRepositoryInterface
     /** Trip per id_penugasan untuk Board Unit, dikelompokkan per id_penugasan. */
     public function tripsUntukPenugasanList(array $idPenugasanList): array;
     public function stempelAktivitasBoard(string $idPerusahaan): ?string;
+    public function listJadwalSupirVendor(string $idSupirVendor, string $dari, string $sampai): \Illuminate\Support\Collection;
 }

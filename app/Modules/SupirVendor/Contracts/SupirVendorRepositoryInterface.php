@@ -11,6 +11,7 @@ interface SupirVendorRepositoryInterface
 {
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idVendor = null, ?string $search = null): LengthAwarePaginator;
     public function findByIdMilikPerusahaan(string $id, string $idPerusahaan): ?SupirVendorModel;
+    public function findByPengguna(string $idPengguna): ?SupirVendorModel;
     public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
     public function milikVendor(string $id, string $idVendor): bool;
     public function findIdVendorByKode(string $kodeVendor, string $idPerusahaan): ?string;

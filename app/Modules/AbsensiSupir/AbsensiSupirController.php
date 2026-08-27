@@ -21,6 +21,11 @@ class AbsensiSupirController extends Controller
     {
         $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
         if ($supir === null) {
+            $supirVendor = app(\App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface::class)
+                ->findByPengguna((string) $request->user()->id_pengguna);
+            if ($supirVendor !== null) {
+                return ApiResponse::success(null);
+            }
             abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
         }
 
@@ -39,6 +44,11 @@ class AbsensiSupirController extends Controller
 
         $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
         if ($supir === null) {
+            $supirVendor = app(\App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface::class)
+                ->findByPengguna((string) $request->user()->id_pengguna);
+            if ($supirVendor !== null) {
+                abort(403, 'Absensi hanya untuk supir internal — kehadiran driver vendor dikelola vendornya');
+            }
             abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
         }
 

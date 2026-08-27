@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class TripRepository implements TripRepositoryInterface
 {
-    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null, ?string $sumber = null): LengthAwarePaginator
+    public function paginate(string $idPerusahaan, int $page, int $limit, ?string $idJadwal = null, ?string $idPenugasan = null, ?string $idSupir = null, ?string $search = null, ?string $status = null, ?string $idProyek = null, ?string $tanggalDari = null, ?string $tanggalSampai = null, ?string $sumber = null, ?string $idSupirVendor = null): LengthAwarePaginator
     {
         $paginator = TripModel::active()
             ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
@@ -25,6 +25,7 @@ class TripRepository implements TripRepositoryInterface
             ->when($idJadwal, fn ($q, $v) => $q->where('trip.id_jadwal', $v))
             ->when($idPenugasan, fn ($q, $v) => $q->where('jk.id_penugasan', $v))
             ->when($idSupir, fn ($q, $v) => $q->where('p.id_supir', $v))
+            ->when($idSupirVendor, fn ($q, $v) => $q->where('p.id_supir_vendor', $v))
             ->when($status, fn ($q, $v) => $q->whereIn('trip.status', $this->pecahStatus($v)))
             ->when($idProyek, fn ($q, $v) => $q->where('pr.id_proyek', $v))
             ->when($sumber, fn ($q, $v) => $q->where('p.sumber', $v))
@@ -481,7 +482,7 @@ class TripRepository implements TripRepositoryInterface
             ->all();
     }
 
-    public function tripAktifSupir(string $idSupir): array
+    public function tripAktifSupir(string $idSupir, string $tipe = 'internal'): array
     {
         $rows = DB::table('trip as t')
             ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
@@ -489,7 +490,7 @@ class TripRepository implements TripRepositoryInterface
             ->leftJoin('laporan_perjalanan as lp', function ($j) {
                 $j->on('lp.id_trip', '=', 't.id_trip')->whereNull('lp.dihapus_pada');
             })
-            ->where('p.id_supir', $idSupir)
+            ->where($tipe === 'vendor' ? 'p.id_supir_vendor' : 'p.id_supir', $idSupir)
             ->whereIn('t.status', ['belum_mulai', 'berjalan'])
             ->whereNull('t.dihapus_pada')
             ->whereNull('jk.dihapus_pada')

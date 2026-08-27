@@ -12,6 +12,7 @@ class SupirVendorModel extends BaseModel
     protected $primaryKey = 'id_supir_vendor';
 
     protected $fillable = [
+        'id_pengguna',
         'id_supir_vendor',
         'id_vendor',
         'nama',

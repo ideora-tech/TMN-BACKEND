@@ -24,6 +24,8 @@ class IzinPeranSeeder extends Seeder
         ['DISPATCHER', '/jadwal', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['MANAGER', '/jadwal', ['lihat']],
         ['SUPIR', '/trip', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['SUPIR_VENDOR', '/trip', ['lihat', 'tambah', 'ubah', 'hapus']],
+        ['SUPIR_VENDOR', '/supir', ['lihat']],
         ['SUPIR', '/jadwal', ['lihat']],
         ['SUPIR', '/supir', ['lihat']],
         ['SUPIR', '/penugasan', ['lihat']],

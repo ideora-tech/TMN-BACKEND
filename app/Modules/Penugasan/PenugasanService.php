@@ -122,7 +122,9 @@ class PenugasanService
             'nopol'            => $baris['nopol'],
             'nama_jenis'       => $baris['jenis'],
             'nama_vendor'      => $baris['nama_vendor'],
-        ], $this->armadaVendorRepo->listOpsiUnitOnly($idPerusahaan));
+            'id_vendor'        => $baris['id_vendor'],
+            'mekanisme'        => $baris['mekanisme'],
+        ], $this->armadaVendorRepo->listOpsiBoard($idPerusahaan));
 
         $assignments = $this->repo->boardAssignments($idPerusahaan, $dari, $sampai);
         $idPenugasanList = array_map(fn (array $row) => (string) $row['id_penugasan'], $assignments);
@@ -232,18 +234,22 @@ class PenugasanService
                 abort(422, 'Rute tidak terdaftar di proyek ini');
             }
 
-            $supir = $this->supirRepo->findById((string) $data['id_supir']);
-            if ($supir === null || (string) $supir->id_perusahaan !== $idPerusahaan) {
-                abort(404, 'Supir tidak ditemukan');
-            }
-            if ($supir->status !== 'aktif') {
-                abort(422, 'Supir tidak aktif');
+            $idSupirInternal = !empty($data['id_supir']) ? (string) $data['id_supir'] : null;
+            $idSupirVendor   = !empty($data['id_supir_vendor']) ? (string) $data['id_supir_vendor'] : null;
+
+            if ($idSupirInternal !== null) {
+                $supir = $this->supirRepo->findById($idSupirInternal);
+                if ($supir === null || (string) $supir->id_perusahaan !== $idPerusahaan) {
+                    abort(404, 'Supir tidak ditemukan');
+                }
+                if ($supir->status !== 'aktif') {
+                    abort(422, 'Supir tidak aktif');
+                }
             }
 
             $rowDasar = [
                 'id_proyek' => $data['id_proyek'],
                 'id_rute'   => $data['id_rute'],
-                'id_supir'  => $data['id_supir'],
                 'status'    => 'aktif',
             ];
 
@@ -261,8 +267,13 @@ class PenugasanService
                     abort(404, 'Armada tidak ditemukan');
                 }
 
+                if ($idSupirInternal === null) {
+                    abort(422, 'Unit internal harus ditugaskan ke supir internal');
+                }
+
                 $rowDasar['sumber']    = 'internal';
                 $rowDasar['id_armada'] = $data['id_armada'];
+                $rowDasar['id_supir']  = $idSupirInternal;
                 $idJenisKendaraanUnit  = $armada->id_jenis_kendaraan;
             } else {
                 $armadaVendor = $this->armadaVendorRepo->findByIdMilikPerusahaan((string) $data['id_armada_vendor'], $idPerusahaan);
@@ -270,21 +281,30 @@ class PenugasanService
                     abort(404, 'Armada vendor tidak ditemukan');
                 }
 
-                /**
-                 * listOpsiUnitOnly() sudah menyaring hanya unit vendor yang
-                 * punya kontrak bermekanisme unit_only — ketemu di daftar ini
-                 * berarti mekanismenya otomatis unit_only, tidak perlu
-                 * assertVendorRules() seperti create() lama.
-                 */
                 $opsi = null;
-                foreach ($this->armadaVendorRepo->listOpsiUnitOnly($idPerusahaan) as $baris) {
+                foreach ($this->armadaVendorRepo->listOpsiBoard($idPerusahaan) as $baris) {
                     if ($baris['id_armada_vendor'] === (string) $data['id_armada_vendor']) {
                         $opsi = $baris;
                         break;
                     }
                 }
                 if ($opsi === null) {
-                    abort(422, 'Unit vendor ini tidak memiliki kontrak Unit Only yang aktif');
+                    abort(422, 'Unit vendor ini tidak memiliki kontrak aktif');
+                }
+
+                if ($opsi['mekanisme'] === 'unit_only') {
+                    if ($idSupirInternal === null) {
+                        abort(422, 'Unit vendor Unit Only ditugaskan ke supir internal — pilih supir');
+                    }
+                    $rowDasar['id_supir'] = $idSupirInternal;
+                } else {
+                    if ($idSupirVendor === null) {
+                        abort(422, 'Unit paket vendor ini ditugaskan ke supir vendor — pilih supir vendor');
+                    }
+                    if (!$this->supirVendorRepo->milikVendor($idSupirVendor, (string) $opsi['id_vendor'])) {
+                        abort(422, 'Supir vendor tidak terdaftar pada vendor unit ini');
+                    }
+                    $rowDasar['id_supir_vendor'] = $idSupirVendor;
                 }
 
                 $rowDasar['sumber']            = 'vendor';
@@ -316,7 +336,7 @@ class PenugasanService
             $rekaman       = [];
 
             foreach ($periode as $tanggal) {
-                if ($this->repo->adaPenugasanSupirPadaTanggal((string) $data['id_supir'], $tanggal, (string) $data['id_proyek'], (string) $data['id_rute'])) {
+                if ($idSupirInternal !== null && $this->repo->adaPenugasanSupirPadaTanggal($idSupirInternal, $tanggal, (string) $data['id_proyek'], (string) $data['id_rute'])) {
                     $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Supir sudah memiliki penugasan pada proyek, rute, dan tanggal ini'];
                     continue;
                 }
@@ -334,16 +354,18 @@ class PenugasanService
                 $tanggalSukses[] = $tanggal;
                 $rekaman[]       = $record;
 
-                $this->notifikasiPenugasan($record);
+                if (!empty($record->id_supir) || !empty($record->id_supir_vendor)) {
+                    $this->notifikasiPenugasan($record);
+                }
             }
 
             $peringatan = [];
 
-            if ($tanggalSukses !== []) {
+            if ($tanggalSukses !== [] && $idSupirInternal !== null) {
                 if ($tarif !== null) {
                     $pengajuan = $this->arusKasService->buatPengajuanUangJalanPenugasan(
                         $idPerusahaan,
-                        (string) $data['id_supir'],
+                        $idSupirInternal,
                         (string) $data['id_proyek'],
                         $tarif,
                         $tanggalSukses,
@@ -518,15 +540,28 @@ class PenugasanService
                 $isi .= " untuk tanggal {$tanggal}";
             }
 
-            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKeSupir(
-                (string) $record->id_supir,
-                (string) $proyek->id_perusahaan,
-                "Penugasan baru: {$proyek->nama_proyek}",
-                $isi,
-                'penugasan',
-                'penugasan',
-                (string) $record->id_penugasan,
-            );
+            $notif = app(\App\Modules\Notifikasi\NotifikasiService::class);
+            if (!empty($record->id_supir)) {
+                $notif->kirimKeSupir(
+                    (string) $record->id_supir,
+                    (string) $proyek->id_perusahaan,
+                    "Penugasan baru: {$proyek->nama_proyek}",
+                    $isi,
+                    'penugasan',
+                    'penugasan',
+                    (string) $record->id_penugasan,
+                );
+            } elseif (!empty($record->id_supir_vendor)) {
+                $notif->kirimKeSupirVendor(
+                    (string) $record->id_supir_vendor,
+                    (string) $proyek->id_perusahaan,
+                    "Penugasan baru: {$proyek->nama_proyek}",
+                    $isi,
+                    'penugasan',
+                    'penugasan',
+                    (string) $record->id_penugasan,
+                );
+            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Notifikasi penugasan gagal: ' . $e->getMessage());
         }
@@ -700,7 +735,7 @@ class PenugasanService
             }
         });
 
-        if (!empty($record->id_supir)) {
+        if (!empty($record->id_supir) || !empty($record->id_supir_vendor)) {
             $this->notifikasiPenugasanDibatalkan($record);
         }
     }
@@ -722,15 +757,28 @@ class PenugasanService
             }
             $isi .= ' telah dibatalkan oleh tim operasional';
 
-            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKeSupir(
-                (string) $record->id_supir,
-                (string) $proyek->id_perusahaan,
-                "Penugasan dibatalkan: {$proyek->nama_proyek}",
-                $isi,
-                'penugasan',
-                'penugasan',
-                (string) $record->id_penugasan,
-            );
+            $notif = app(\App\Modules\Notifikasi\NotifikasiService::class);
+            if (!empty($record->id_supir)) {
+                $notif->kirimKeSupir(
+                    (string) $record->id_supir,
+                    (string) $proyek->id_perusahaan,
+                    "Penugasan dibatalkan: {$proyek->nama_proyek}",
+                    $isi,
+                    'penugasan',
+                    'penugasan',
+                    (string) $record->id_penugasan,
+                );
+            } elseif (!empty($record->id_supir_vendor)) {
+                $notif->kirimKeSupirVendor(
+                    (string) $record->id_supir_vendor,
+                    (string) $proyek->id_perusahaan,
+                    "Penugasan dibatalkan: {$proyek->nama_proyek}",
+                    $isi,
+                    'penugasan',
+                    'penugasan',
+                    (string) $record->id_penugasan,
+                );
+            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Notifikasi pembatalan penugasan gagal: ' . $e->getMessage());
         }

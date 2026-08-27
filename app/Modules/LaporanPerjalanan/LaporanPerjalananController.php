@@ -11,6 +11,7 @@ use App\Modules\LaporanPerjalanan\Requests\UpdateLaporanPerjalananRequest;
 use App\Modules\LaporanPerjalanan\Resources\FotoLaporanResource;
 use App\Modules\LaporanPerjalanan\Resources\LaporanPerjalananResource;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
+use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -20,43 +21,52 @@ class LaporanPerjalananController extends Controller
     public function __construct(
         private readonly LaporanPerjalananService $service,
         private readonly SupirRepositoryInterface $supirRepo,
+        private readonly SupirVendorRepositoryInterface $supirVendorRepo,
     ) {}
 
-    private function idSupirSaya(Request $request): string
+    private function konteksSupirSaya(Request $request): array
     {
-        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
-        if ($supir === null) {
-            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+        $idPengguna = (string) $request->user()->id_pengguna;
+
+        $supir = $this->supirRepo->findByPengguna($idPengguna);
+        if ($supir !== null) {
+            return ['internal', (string) $supir->id_supir];
         }
-        return (string) $supir->id_supir;
+
+        $supirVendor = $this->supirVendorRepo->findByPengguna($idPengguna);
+        if ($supirVendor !== null) {
+            return ['vendor', (string) $supirVendor->id_supir_vendor];
+        }
+
+        abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
     }
 
     public function laporanSaya(Request $request, string $idTrip): JsonResponse
     {
-        $idSupir = $this->idSupirSaya($request);
-        $laporan = $this->service->showUntukSupir($idTrip, $idSupir);
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
+        $laporan = $this->service->showUntukSupir($idTrip, $idSupir, $tipe);
         return ApiResponse::success($laporan === null ? null : new LaporanPerjalananResource($laporan));
     }
 
     public function storeLaporanSaya(StoreLaporanPerjalananRequest $request, string $idTrip): JsonResponse
     {
-        $idSupir = $this->idSupirSaya($request);
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $record = $this->service->upsertUntukSupir($idTrip, $idSupir, $request->validated(), $idPerusahaan, $request->file('foto', []));
+        $record = $this->service->upsertUntukSupir($idTrip, $idSupir, $request->validated(), $idPerusahaan, $request->file('foto', []), $tipe);
         return ApiResponse::success(new LaporanPerjalananResource($record), 'Laporan perjalanan tersimpan', 201);
     }
 
     public function storeFotoSaya(StoreFotoLaporanRequest $request, string $idLaporan): JsonResponse
     {
-        $idSupir = $this->idSupirSaya($request);
-        $records = $this->service->addFotoUntukSupir($idLaporan, $idSupir, $request->file('foto'), $request->validated('keterangan'));
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
+        $records = $this->service->addFotoUntukSupir($idLaporan, $idSupir, $request->file('foto'), $request->validated('keterangan'), $tipe);
         return ApiResponse::success(FotoLaporanResource::collection($records), 'Foto laporan berhasil diunggah', 201);
     }
 
     public function destroyFotoSaya(Request $request, string $idLaporan, string $idFoto): JsonResponse
     {
-        $idSupir = $this->idSupirSaya($request);
-        $this->service->deleteFotoUntukSupir($idLaporan, $idFoto, $idSupir);
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
+        $this->service->deleteFotoUntukSupir($idLaporan, $idFoto, $idSupir, $tipe);
         return ApiResponse::success(null, 'Foto laporan berhasil dihapus');
     }
 
