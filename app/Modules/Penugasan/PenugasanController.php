@@ -36,6 +36,15 @@ class PenugasanController extends Controller
         ], 'Penugasan harian diproses');
     }
 
+    public function aktivitasBoard(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        return ApiResponse::success([
+            'terakhir' => $this->service->stempelAktivitasBoard($idPerusahaan),
+        ]);
+    }
+
     public function board(Request $request): JsonResponse
     {
         $data = $request->validate([

@@ -108,6 +108,65 @@ class NotifikasiPenugasanPushTest extends TestCase
             && $req['message']['token'] === 'fcm-supir');
     }
 
+    public function test_hapus_penugasan_mengirim_notif_pembatalan_ke_supir(): void
+    {
+        $this->fakeFcmBerhasil();
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $supir = $this->makeSupir();
+        $this->daftarkanToken($supir['id_pengguna']);
+
+        $idPenugasan = $this->postJson('/api/penugasan', [
+            'id_proyek' => $proyek->id_proyek,
+            'id_supir'  => $supir['id_supir'],
+        ])->assertStatus(201)->json('data.id_penugasan');
+
+        $this->deleteJson("/api/penugasan/{$idPenugasan}")->assertStatus(200);
+
+        $notif = NotifikasiModel::where('referensi_id', $idPenugasan)
+            ->where('judul', 'like', 'Penugasan dibatalkan%')
+            ->first();
+        $this->assertNotNull($notif);
+        $this->assertSame($supir['id_pengguna'], $notif->id_pengguna);
+    }
+
+    public function test_batalkan_trip_mengirim_notif_ke_supir(): void
+    {
+        $this->fakeFcmBerhasil();
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $supir = $this->makeSupir();
+        $this->daftarkanToken($supir['id_pengguna']);
+
+        $idPenugasan = $this->postJson('/api/penugasan', [
+            'id_proyek' => $proyek->id_proyek,
+            'id_supir'  => $supir['id_supir'],
+        ])->assertStatus(201)->json('data.id_penugasan');
+
+        $idJadwal = (string) Str::uuid();
+        DB::table('jadwal_keberangkatan')->insert([
+            'id_jadwal'       => $idJadwal,
+            'id_penugasan'    => $idPenugasan,
+            'waktu_berangkat' => now(),
+            'dibuat_pada'     => now(),
+        ]);
+        $idTrip = (string) Str::uuid();
+        DB::table('trip')->insert([
+            'id_trip'     => $idTrip,
+            'id_jadwal'   => $idJadwal,
+            'status'      => 'belum_mulai',
+            'dibuat_pada' => now(),
+        ]);
+
+        $this->postJson("/api/trip/{$idTrip}/batalkan")->assertStatus(200);
+
+        $notif = NotifikasiModel::where('referensi_id', $idPenugasan)
+            ->where('judul', 'like', 'Trip dibatalkan%')
+            ->first();
+        $this->assertNotNull($notif);
+        $this->assertSame($supir['id_pengguna'], $notif->id_pengguna);
+    }
+
     public function test_update_ganti_supir_mengirim_notif_ke_supir_baru_sekali(): void
     {
         $this->fakeFcmBerhasil();

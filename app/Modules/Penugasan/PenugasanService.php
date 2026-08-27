@@ -103,6 +103,11 @@ class PenugasanService
      * 62 hari sama dengan assignHarian() supaya query tidak dipakai untuk
      * menarik seluruh histori sekaligus.
      */
+    public function stempelAktivitasBoard(string $idPerusahaan): ?string
+    {
+        return $this->repo->stempelAktivitasBoard($idPerusahaan);
+    }
+
     public function board(string $idPerusahaan, string $dari, string $sampai): array
     {
         $mulai   = Carbon::parse($dari);
@@ -694,5 +699,40 @@ class PenugasanService
                 $this->arusKasService->sinkronPengajuanSetelahPenugasanDihapus((string) $idPengajuan);
             }
         });
+
+        if (!empty($record->id_supir)) {
+            $this->notifikasiPenugasanDibatalkan($record);
+        }
+    }
+
+    private function notifikasiPenugasanDibatalkan(PenugasanModel $record): void
+    {
+        try {
+            $proyek = $record->proyek;
+            if ($proyek === null) {
+                return;
+            }
+
+            $isi = "Penugasan Anda pada proyek {$proyek->nama_proyek}";
+            if (!empty($record->tanggal_tugas)) {
+                $tanggal = $record->tanggal_tugas instanceof \DateTimeInterface
+                    ? $record->tanggal_tugas->format('d M Y')
+                    : (string) $record->tanggal_tugas;
+                $isi .= " tanggal {$tanggal}";
+            }
+            $isi .= ' telah dibatalkan oleh tim operasional';
+
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKeSupir(
+                (string) $record->id_supir,
+                (string) $proyek->id_perusahaan,
+                "Penugasan dibatalkan: {$proyek->nama_proyek}",
+                $isi,
+                'penugasan',
+                'penugasan',
+                (string) $record->id_penugasan,
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi pembatalan penugasan gagal: ' . $e->getMessage());
+        }
     }
 }

@@ -108,6 +108,33 @@ class PenugasanHarianTest extends TestCase
         ];
     }
 
+    public function test_aktivitas_board_berubah_saat_trip_diubah_dari_mobile(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $penugasan = \App\Modules\Penugasan\PenugasanModel::create([
+            'id_proyek'     => $proyek->id_proyek,
+            'id_supir'      => $this->makeSupir(),
+            'status'        => 'aktif',
+            'tanggal_tugas' => now()->toDateString(),
+            'dibuat_pada'   => now()->subMinutes(10),
+        ]);
+
+        $sebelum = $this->getJson('/api/penugasan/board/aktivitas')
+            ->assertStatus(200)
+            ->json('data.terakhir');
+        $this->assertNotNull($sebelum);
+
+        $trip = $this->makeTripUntukPenugasan($penugasan->id_penugasan, 'berjalan');
+        \Illuminate\Support\Facades\DB::table('trip')
+            ->where('id_trip', $trip->id_trip)
+            ->update(['diubah_pada' => now()->addMinutes(5)]);
+
+        $sesudah = $this->getJson('/api/penugasan/board/aktivitas')->json('data.terakhir');
+        $this->assertNotSame($sebelum, $sesudah);
+        $this->assertGreaterThan($sebelum, $sesudah);
+    }
+
     public function test_assign_rentang_membuat_baris_per_tanggal_dan_satu_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');

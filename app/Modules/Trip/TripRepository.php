@@ -422,6 +422,15 @@ class TripRepository implements TripRepositoryInterface
             ->exists();
     }
 
+    public function infoProyek(string $idProyek): ?object
+    {
+        return DB::table('proyek')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek', $idProyek)
+            ->select('id_proyek', 'id_perusahaan', 'nama_proyek')
+            ->first();
+    }
+
     public function namaKlienPerProyek(array $idProyekList): array
     {
         if ($idProyekList === []) {

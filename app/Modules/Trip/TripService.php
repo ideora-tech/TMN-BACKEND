@@ -551,8 +551,8 @@ class TripService
 
         $sedangBerjalan = $trip->status === 'berjalan';
 
-        return DB::transaction(function () use ($trip, $sedangBerjalan) {
-            $updated = $this->repo->update($trip, [
+        $updated = DB::transaction(function () use ($trip, $sedangBerjalan) {
+            $hasil = $this->repo->update($trip, [
                 'status' => 'dibatalkan',
             ]);
 
@@ -562,8 +562,39 @@ class TripService
                 $this->lepasArmadaJikaAman($this->repo->findPenugasanDariTrip($trip->id_trip), $trip->id_trip);
             }
 
-            return $updated;
+            return $hasil;
         });
+
+        $this->notifikasiTripDibatalkan($trip->id_trip);
+
+        return $updated;
+    }
+
+    private function notifikasiTripDibatalkan(string $idTrip): void
+    {
+        try {
+            $penugasan = $this->repo->findPenugasanDariTrip($idTrip);
+            if ($penugasan === null || empty($penugasan->id_supir)) {
+                return;
+            }
+
+            $proyek = $this->repo->infoProyek((string) $penugasan->id_proyek);
+            if ($proyek === null) {
+                return;
+            }
+
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKeSupir(
+                (string) $penugasan->id_supir,
+                (string) $proyek->id_perusahaan,
+                "Trip dibatalkan: {$proyek->nama_proyek}",
+                "Trip Anda pada proyek {$proyek->nama_proyek} dibatalkan oleh tim operasional",
+                'penugasan',
+                'penugasan',
+                (string) $penugasan->id_penugasan,
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi trip dibatalkan gagal: ' . $e->getMessage());
+        }
     }
 
     public function updateUangJalan(string $id, string $idPerusahaan, ?float $alokasi): TripModel

@@ -20,6 +20,7 @@ interface TripRepositoryInterface
     public function rekapBiaya(string $idTrip): array;
     public function milikPerusahaan(string $idTrip, string $idPerusahaan): bool;
     public function findPenugasanDariTrip(string $idTrip): ?object;
+    public function infoProyek(string $idProyek): ?object;
     public function findPenugasanDariJadwal(string $idJadwal, string $idPerusahaan): ?object;
     public function adaTripNonFinalUntukPenugasan(string $idPenugasan, ?string $excludeTripId = null): bool;
     public function adaTripBerjalanUntukAktorLain(?string $idArmada, ?string $idSupir, ?string $idArmadaVendor, ?string $idSupirVendor, string $excludeTripId): bool;

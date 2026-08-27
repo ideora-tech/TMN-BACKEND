@@ -86,6 +86,44 @@ class PenugasanRepository implements PenugasanRepositoryInterface
      * masih mengakses ->proyek->nama_proyek / ->armada->nopol seperti relasi
      * asli, jadi cukup di-setRelation() tanpa mengubah kode pemanggil.
      */
+    /**
+     * Stempel aktivitas terakhir penugasan & trip milik perusahaan — dipakai web
+     * untuk mendeteksi perubahan dari mobile tanpa menarik ulang seluruh board.
+     */
+    public function stempelAktivitasBoard(string $idPerusahaan): ?string
+    {
+        $stempel = [
+            DB::table('penugasan')
+                ->join('proyek', 'proyek.id_proyek', '=', 'penugasan.id_proyek')
+                ->where('proyek.id_perusahaan', $idPerusahaan)
+                ->max('penugasan.dibuat_pada'),
+            DB::table('penugasan')
+                ->join('proyek', 'proyek.id_proyek', '=', 'penugasan.id_proyek')
+                ->where('proyek.id_perusahaan', $idPerusahaan)
+                ->max('penugasan.diubah_pada'),
+            DB::table('penugasan')
+                ->join('proyek', 'proyek.id_proyek', '=', 'penugasan.id_proyek')
+                ->where('proyek.id_perusahaan', $idPerusahaan)
+                ->max('penugasan.dihapus_pada'),
+            DB::table('trip')
+                ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
+                ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
+                ->join('proyek', 'proyek.id_proyek', '=', 'p.id_proyek')
+                ->where('proyek.id_perusahaan', $idPerusahaan)
+                ->max('trip.dibuat_pada'),
+            DB::table('trip')
+                ->join('jadwal_keberangkatan as jk', 'trip.id_jadwal', '=', 'jk.id_jadwal')
+                ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
+                ->join('proyek', 'proyek.id_proyek', '=', 'p.id_proyek')
+                ->where('proyek.id_perusahaan', $idPerusahaan)
+                ->max('trip.diubah_pada'),
+        ];
+
+        $terisi = array_filter(array_map(static fn ($s) => $s !== null ? (string) $s : null, $stempel));
+
+        return $terisi === [] ? null : max($terisi);
+    }
+
     private function attachProyekArmada(Collection $records): void
     {
         $idProyekList = $records->pluck('id_proyek')->unique()->filter()->values();

@@ -24,6 +24,7 @@ class PenugasanServiceProvider extends ServiceProvider
                 Route::get('penugasan/opsi-armada-vendor', [PenugasanController::class, 'opsiArmadaVendor']);
                 Route::post('penugasan/harian', [PenugasanController::class, 'assignHarian']);
                 Route::get('penugasan/board', [PenugasanController::class, 'board']);
+                Route::get('penugasan/board/aktivitas', [PenugasanController::class, 'aktivitasBoard']);
                 Route::apiResource('penugasan', PenugasanController::class)
                     ->parameters(['penugasan' => 'id']);
             });
