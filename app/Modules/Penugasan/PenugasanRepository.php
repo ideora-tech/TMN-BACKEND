@@ -90,6 +90,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
     {
         $idProyekList = $records->pluck('id_proyek')->unique()->filter()->values();
         $idArmadaList = $records->pluck('id_armada')->unique()->filter()->values();
+        $idArmadaVendorList = $records->pluck('id_armada_vendor')->unique()->filter()->values();
 
         $proyekMap = $idProyekList->isEmpty() ? collect()
             : DB::table('proyek')->whereIn('id_proyek', $idProyekList)
@@ -97,10 +98,14 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         $armadaMap = $idArmadaList->isEmpty() ? collect()
             : DB::table('armada')->whereIn('id_armada', $idArmadaList)
                 ->get(['id_armada', 'nopol'])->keyBy('id_armada');
+        $armadaVendorMap = $idArmadaVendorList->isEmpty() ? collect()
+            : DB::table('armada_vendor')->whereIn('id_armada_vendor', $idArmadaVendorList)
+                ->get(['id_armada_vendor', 'nopol'])->keyBy('id_armada_vendor');
 
         foreach ($records as $record) {
             $record->setRelation('proyek', $proyekMap->get($record->id_proyek));
             $record->setRelation('armada', $armadaMap->get($record->id_armada));
+            $record->setRelation('armadaVendor', $armadaVendorMap->get($record->id_armada_vendor));
         }
     }
 

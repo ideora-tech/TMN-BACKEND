@@ -395,6 +395,57 @@ class TripJadwalSayaTest extends TestCase
             ->assertJsonPath('data.0.armada.nopol', 'B 777 PJ');
     }
 
+    public function test_jadwal_saya_menampilkan_nopol_unit_vendor(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+
+        $idVendor = (string) Str::uuid();
+        DB::table('vendor')->insert([
+            'id_vendor'     => $idVendor,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor'   => 'VDR-' . Str::random(6),
+            'nama_vendor'   => 'Vendor Unit Test',
+            'dibuat_pada'   => now(),
+        ]);
+        $idArmadaVendor = (string) Str::uuid();
+        DB::table('armada_vendor')->insert([
+            'id_armada_vendor' => $idArmadaVendor,
+            'id_vendor'        => $idVendor,
+            'nopol'            => 'VDR 1235',
+            'aktif'            => 1,
+            'dibuat_pada'      => now(),
+        ]);
+
+        $penugasan = $this->makePenugasanTanggal($ctx->id_supir, $proyek->id_proyek, '2026-08-05');
+        DB::table('penugasan')->where('id_penugasan', $penugasan->id_penugasan)->update([
+            'sumber'           => 'vendor',
+            'id_armada_vendor' => $idArmadaVendor,
+        ]);
+
+        $idArmadaLain = (string) Str::uuid();
+        DB::table('armada')->insert([
+            'id_armada'     => $idArmadaLain,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B 9026 TMN',
+            'merk'          => 'Hino',
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('alokasi_armada')->insert([
+            'id_alokasi'  => (string) Str::uuid(),
+            'tanggal'     => '2026-08-05',
+            'id_proyek'   => $proyek->id_proyek,
+            'id_supir'    => $ctx->id_supir,
+            'id_armada'   => $idArmadaLain,
+            'sumber'      => 'otomatis',
+            'dibuat_pada' => now(),
+        ]);
+
+        $this->getJson('/api/trip/jadwal-saya?dari=2026-08-05&sampai=2026-08-05')
+            ->assertStatus(200)
+            ->assertJsonPath('data.0.armada.nopol', 'VDR 1235');
+    }
+
     public function test_jadwal_saya_memuat_penugasan_harian(): void
     {
         $ctx = $this->actingAsSupir();

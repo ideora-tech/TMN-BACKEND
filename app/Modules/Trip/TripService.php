@@ -139,7 +139,10 @@ class TripService
                 'armada'        => $e['penugasan']->armada !== null ? [
                     'id_armada' => $e['penugasan']->armada->id_armada,
                     'nopol'     => $e['penugasan']->armada->nopol,
-                ] : ($alokasiMap[$e['tanggal']] ?? null),
+                ] : ($e['penugasan']->armadaVendor !== null ? [
+                    'id_armada' => null,
+                    'nopol'     => $e['penugasan']->armadaVendor->nopol,
+                ] : ($alokasiMap[$e['tanggal']] ?? null)),
                 'shift'         => $e['shift'],
                 'nama_rute'     => $e['penugasan']->id_rute !== null ? ($ruteMap[(string) $e['penugasan']->id_rute] ?? null) : null,
                 'uang_jalan'    => $e['penugasan']->estimasi_biaya !== null ? (float) $e['penugasan']->estimasi_biaya : null,
