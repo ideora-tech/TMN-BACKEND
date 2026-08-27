@@ -14,6 +14,13 @@ class PembelianBuktiRealisasiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+        app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
+    }
+
     private function makeSupplier(?string $idPerusahaan = null): string
     {
         $id = (string) Str::uuid();

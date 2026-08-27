@@ -16,6 +16,7 @@ class ArusKasService
 {
     public const STATUS_DIAJUKAN          = 'diajukan';
     public const STATUS_DICEK             = 'dicek';
+    public const STATUS_SIAP_TRANSFER     = 'siap_transfer';
     public const STATUS_MENUNGGU_APPROVAL = 'menunggu_approval';
     public const STATUS_DISETUJUI         = 'disetujui';
     public const STATUS_DITOLAK           = 'ditolak';
@@ -23,9 +24,24 @@ class ArusKasService
 
     public const KUNCI_BATAS_APPROVAL = 'batas_approval_keuangan';
 
+    public const KODE_PERSETUJUAN_TRANSFER = 'persetujuan_transfer';
+
+    public const KODE_EVENT_PENGELUARAN = [
+        'pengajuan_pengeluaran',
+        'uang_jalan',
+        'legalitas',
+        'perawatan',
+        'sparepart',
+        'penggajian',
+        'pembelian_aset',
+        'pembayaran_pinjaman',
+        'lainnya',
+    ];
+
     public function __construct(
         private readonly ArusKasRepositoryInterface $repo,
         private readonly NotifikasiService $notifikasiService,
+        private readonly \App\Modules\Approval\ApprovalService $approvalService,
     ) {}
 
     public function infoPengajuanTrip(string $idTrip): ?array
@@ -83,16 +99,6 @@ class ArusKasService
             '_urutan'    => 0,
         ]];
 
-        if ($record->dicek_pada !== null) {
-            $riwayat[] = [
-                'status'     => self::STATUS_DICEK,
-                'waktu'      => $record->dicek_pada,
-                'oleh'       => $record->dicek_oleh !== null ? ($namaMap[$record->dicek_oleh] ?? null) : null,
-                'keterangan' => null,
-                '_urutan'    => 1,
-            ];
-        }
-
         foreach ($this->repo->listApproval((string) $record->id_pengajuan) as $baris) {
             if ($baris['waktu_aksi'] === null) {
                 continue;
@@ -102,7 +108,7 @@ class ArusKasService
                 'waktu'      => $baris['waktu_aksi'],
                 'oleh'       => $baris['nama'],
                 'keterangan' => $baris['catatan'],
-                '_urutan'    => 2,
+                '_urutan'    => 1,
             ];
         }
 
@@ -111,6 +117,16 @@ class ArusKasService
                 'status'     => self::STATUS_DISETUJUI,
                 'waktu'      => $record->disetujui_pada,
                 'oleh'       => $record->disetujui_oleh !== null ? ($namaMap[$record->disetujui_oleh] ?? null) : null,
+                'keterangan' => null,
+                '_urutan'    => 2,
+            ];
+        }
+
+        if ($record->dicek_pada !== null) {
+            $riwayat[] = [
+                'status'     => self::STATUS_DICEK,
+                'waktu'      => $record->dicek_pada,
+                'oleh'       => $record->dicek_oleh !== null ? ($namaMap[$record->dicek_oleh] ?? null) : null,
                 'keterangan' => null,
                 '_urutan'    => 3,
             ];
@@ -122,7 +138,7 @@ class ArusKasService
                 'waktu'      => $record->diubah_pada,
                 'oleh'       => $record->diubah_oleh !== null ? ($namaMap[$record->diubah_oleh] ?? null) : null,
                 'keterangan' => $record->alasan_ditolak,
-                '_urutan'    => 3,
+                '_urutan'    => 4,
             ];
         }
 
@@ -240,24 +256,43 @@ class ArusKasService
             if ($bukti !== null) {
                 $data['url_bukti'] = PenyimpananBerkas::simpan($bukti, 'bukti-kas');
             }
-            return $this->repo->createPengajuan($data);
+            $record = $this->repo->createPengajuan($data);
+            return $this->masukTahapApproval($record);
         });
     }
 
     public function updatePengajuan(string $id, array $data, string $idPerusahaan, ?UploadedFile $bukti): PengajuanPengeluaranModel
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN], 'Pengajuan hanya bisa diubah saat status diajukan');
+        $this->pastikanStatus($record, [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DITOLAK], 'Pengajuan hanya bisa diubah saat status menunggu approval atau ditolak');
         if ($bukti !== null) {
             $data['url_bukti'] = PenyimpananBerkas::simpan($bukti, 'bukti-kas');
         }
-        return $this->repo->updatePengajuan($record, $data);
+
+        return DB::transaction(function () use ($record, $data) {
+            $statusAwal  = $record->status;
+            $nominalLama = (float) $record->nominal;
+            $updated     = $this->repo->updatePengajuan($record, $data);
+
+            if ($statusAwal === self::STATUS_MENUNGGU_APPROVAL) {
+                return $this->resetSnapshotApproval($updated, $nominalLama);
+            }
+
+            return $this->masukTahapApproval($updated);
+        });
     }
 
     public function deletePengajuan(string $id, string $idPerusahaan): void
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN], 'Pengajuan hanya bisa dihapus saat status diajukan');
+        $this->pastikanStatus($record, [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DITOLAK], 'Pengajuan hanya bisa dihapus saat status menunggu approval atau ditolak');
+
+        $this->approvalService->batalkanUntukReferensi(
+            [...self::KODE_EVENT_PENGELUARAN, self::KODE_PERSETUJUAN_TRANSFER],
+            (string) $record->id_pengajuan,
+            (string) $record->id_perusahaan,
+        );
+
         $this->repo->deletePengajuan($record);
         $this->repo->unlinkJadwalPengajuan($id);
     }
@@ -265,81 +300,117 @@ class ArusKasService
     public function cek(string $id, string $idPerusahaan): PengajuanPengeluaranModel
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN], 'Pengajuan tidak bisa dicek dari status saat ini');
+        $this->pastikanStatus($record, [self::STATUS_DISETUJUI], 'Pengajuan tidak bisa diverifikasi dari status saat ini');
 
         return DB::transaction(function () use ($id, $idPerusahaan) {
             $terkunci = $this->repo->findPengajuanForUpdate($id);
             if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
                 abort(404, 'Pengajuan pengeluaran tidak ditemukan');
             }
-            $this->pastikanStatus($terkunci, [self::STATUS_DIAJUKAN], 'Pengajuan tidak bisa dicek dari status saat ini');
+            $this->pastikanStatus($terkunci, [self::STATUS_DISETUJUI], 'Pengajuan tidak bisa diverifikasi dari status saat ini');
 
-            $dicek = $this->repo->updatePengajuan($terkunci, [
+            $aktor = auth()->id();
+            $diperbarui = $this->repo->updatePengajuan($terkunci, [
                 'status'     => self::STATUS_DICEK,
-                'dicek_oleh' => auth()->id(),
+                'dicek_oleh' => $aktor,
                 'dicek_pada' => now(),
             ]);
-            return $this->masukTahapApproval($dicek);
+
+            if ($this->approvalService->adaEventTypeAktif(self::KODE_PERSETUJUAN_TRANSFER, $idPerusahaan)) {
+                $this->approvalService->ajukan(
+                    self::KODE_PERSETUJUAN_TRANSFER,
+                    (string) $diperbarui->id_pengajuan,
+                    (string) $aktor,
+                    (float) $diperbarui->nominal,
+                    $idPerusahaan,
+                );
+                return $diperbarui;
+            }
+
+            return $this->repo->updatePengajuan($diperbarui, ['status' => self::STATUS_SIAP_TRANSFER]);
         });
     }
 
-    private function masukTahapApproval(PengajuanPengeluaranModel $record): PengajuanPengeluaranModel
+    private function masukTahapApproval(PengajuanPengeluaranModel $record, ?string $aktorId = null): PengajuanPengeluaranModel
     {
+        $aktor = $aktorId ?? auth()->id() ?? $record->dibuat_oleh;
         $batas = $this->batasApproval((string) $record->id_perusahaan);
         if ((float) $record->nominal < $batas) {
             $updated = $this->repo->updatePengajuan($record, [
                 'status'          => self::STATUS_DISETUJUI,
-                'disetujui_oleh'  => auth()->id(),
+                'disetujui_oleh'  => $aktor,
                 'disetujui_pada'  => now(),
             ]);
             $this->jalankanHookSetujui($updated);
             return $updated;
         }
 
-        $approvers = $this->repo->resolusiApprover((string) $record->id_perusahaan);
-        if ($approvers === []) {
-            abort(422, 'Approver keuangan belum dikonfigurasi — atur di Pengaturan → Approval Keuangan');
-        }
+        $kode = $this->approvalService->adaEventTypeAktif((string) $record->kategori, (string) $record->id_perusahaan)
+            ? (string) $record->kategori
+            : 'pengajuan_pengeluaran';
 
-        $this->repo->insertApprovalRows((string) $record->id_pengajuan, $approvers);
-        $updated = $this->repo->updatePengajuan($record, ['status' => self::STATUS_MENUNGGU_APPROVAL]);
-        foreach ($approvers as $idPengguna) {
-            $this->notifikasiService->buatDanKirim([
-                'id_perusahaan' => $record->id_perusahaan,
-                'id_pengguna'   => $idPengguna,
-                'judul'         => "Pengajuan {$record->nomor_pengajuan} menunggu approval Anda",
-                'isi'           => 'Nominal Rp ' . number_format((float) $record->nominal, 0, ',', '.') . " — {$record->penerima} ({$record->kategori})",
-                'tipe'          => 'approval_keuangan',
-                'referensi_id'   => $record->id_pengajuan,
-                'referensi_tipe' => 'pengajuan_pengeluaran',
-                'dibaca'         => 0,
-            ]);
-        }
-        return $updated;
+        $this->approvalService->ajukan(
+            $kode,
+            (string) $record->id_pengajuan,
+            (string) $record->dibuat_oleh,
+            (float) $record->nominal,
+            (string) $record->id_perusahaan,
+        );
+
+        return $this->repo->updatePengajuan($record, ['status' => self::STATUS_MENUNGGU_APPROVAL]);
     }
 
-    private function resetSnapshotApproval(PengajuanPengeluaranModel $record, float $nominalLama): void
+    private function resetSnapshotApproval(PengajuanPengeluaranModel $record, float $nominalLama): PengajuanPengeluaranModel
     {
-        $this->repo->voidApprovalRows((string) $record->id_pengajuan);
+        $this->approvalService->batalkanUntukReferensi(
+            [...self::KODE_EVENT_PENGELUARAN, self::KODE_PERSETUJUAN_TRANSFER],
+            (string) $record->id_pengajuan,
+            (string) $record->id_perusahaan,
+        );
 
-        $approvers = $this->repo->resolusiApprover((string) $record->id_perusahaan);
-        if ($approvers === []) {
-            abort(422, 'Approver keuangan belum dikonfigurasi — atur di Pengaturan → Approval Keuangan');
+        $batas = $this->batasApproval((string) $record->id_perusahaan);
+        if ((float) $record->nominal < $batas) {
+            $updated = $this->repo->updatePengajuan($record, [
+                'status'         => self::STATUS_DISETUJUI,
+                'disetujui_oleh' => auth()->id() ?? $record->dibuat_oleh,
+                'disetujui_pada' => now(),
+            ]);
+            $this->jalankanHookSetujui($updated);
+            return $updated;
         }
 
-        $this->repo->insertApprovalRows((string) $record->id_pengajuan, $approvers);
-        foreach ($approvers as $idPengguna) {
+        $kode = $this->approvalService->adaEventTypeAktif((string) $record->kategori, (string) $record->id_perusahaan)
+            ? (string) $record->kategori
+            : 'pengajuan_pengeluaran';
+
+        $pengajuanBaru = $this->approvalService->ajukan(
+            $kode,
+            (string) $record->id_pengajuan,
+            (string) $record->dibuat_oleh,
+            (float) $record->nominal,
+            (string) $record->id_perusahaan,
+        );
+
+        $idApproverBaru = DB::table('approval_keputusan')->where('id_approval', $pengajuanBaru->id_approval)->pluck('id_pengguna');
+        foreach ($idApproverBaru as $idPengguna) {
             $this->notifikasiService->buatDanKirim([
-                'id_perusahaan'  => $record->id_perusahaan,
+                'id_perusahaan'  => (string) $record->id_perusahaan,
                 'id_pengguna'    => $idPengguna,
-                'judul'          => "Pengajuan {$record->nomor_pengajuan} perlu approval ulang",
-                'isi'            => 'Nominal berubah dari Rp ' . number_format($nominalLama, 0, ',', '.') . ' menjadi Rp ' . number_format((float) $record->nominal, 0, ',', '.'),
+                'judul'          => 'Pengajuan pengeluaran perlu approval ulang',
+                'isi'            => sprintf(
+                    'Nominal pengajuan %s berubah dari Rp %s menjadi Rp %s — perlu approval ulang',
+                    $record->nomor_pengajuan,
+                    number_format($nominalLama, 0, ',', '.'),
+                    number_format((float) $record->nominal, 0, ',', '.'),
+                ),
                 'tipe'           => 'approval_keuangan',
-                'referensi_id'   => $record->id_pengajuan,
+                'referensi_id'   => (string) $record->id_pengajuan,
                 'referensi_tipe' => 'pengajuan_pengeluaran',
                 'dibaca'         => 0,
             ]);
         }
+
+        return $this->repo->updatePengajuan($record, ['status' => self::STATUS_MENUNGGU_APPROVAL]);
     }
 
     private function jalankanHookSetujui(PengajuanPengeluaranModel $record): void
@@ -356,94 +427,88 @@ class ArusKasService
         }
     }
 
+    public function terapkanKeputusanApproval(string $idPengajuan, string $idPerusahaan, string $idPengguna, string $keputusan, ?string $alasanDitolak): void
+    {
+        $record = $this->repo->findPengajuanById($idPengajuan);
+        if ($record === null || $record->id_perusahaan !== $idPerusahaan) {
+            \Illuminate\Support\Facades\Log::warning("ArusKasApprovalListener: pengajuan {$idPengajuan} tidak ditemukan atau beda perusahaan");
+            return;
+        }
+        if ($record->status !== self::STATUS_MENUNGGU_APPROVAL) {
+            return;
+        }
+
+        if ($keputusan === 'ditolak') {
+            $updated = $this->repo->updatePengajuan($record, [
+                'status'         => self::STATUS_DITOLAK,
+                'alasan_ditolak' => $alasanDitolak,
+            ]);
+            $this->jalankanHookTolak($updated, (string) $alasanDitolak);
+            return;
+        }
+
+        $updated = $this->repo->updatePengajuan($record, [
+            'status'         => self::STATUS_DISETUJUI,
+            'disetujui_oleh' => $idPengguna,
+            'disetujui_pada' => now(),
+        ]);
+        $this->jalankanHookSetujui($updated);
+    }
+
+    public function terapkanKeputusanPersetujuanTransfer(string $idPengajuan, string $idPerusahaan, string $keputusan, ?string $alasan, string $idPengguna): void
+    {
+        $record = $this->repo->findPengajuanById($idPengajuan);
+        if ($record === null || $record->id_perusahaan !== $idPerusahaan) {
+            \Illuminate\Support\Facades\Log::warning("ArusKasApprovalListener: pengajuan {$idPengajuan} tidak ditemukan atau beda perusahaan");
+            return;
+        }
+        if ($record->status !== self::STATUS_DICEK) {
+            return;
+        }
+
+        if ($keputusan === 'ditolak') {
+            $updated = $this->repo->updatePengajuan($record, [
+                'status'         => self::STATUS_DITOLAK,
+                'alasan_ditolak' => $alasan,
+            ]);
+            $this->jalankanHookTolak($updated, (string) $alasan);
+            return;
+        }
+
+        $this->repo->updatePengajuan($record, ['status' => self::STATUS_SIAP_TRANSFER]);
+    }
+
     public function prosesApproval(string $id, string $keputusan, ?string $catatan, string $idPengguna, string $idPerusahaan): array
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
 
-        if ($record->status === self::STATUS_DICEK) {
-            $record = DB::transaction(function () use ($id, $idPerusahaan) {
-                $terkunci = $this->repo->findPengajuanForUpdate($id);
-                if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
-                    abort(404, 'Pengajuan pengeluaran tidak ditemukan');
-                }
-                if ($terkunci->status !== self::STATUS_DICEK) {
-                    return $terkunci;
-                }
-                return $this->masukTahapApproval($terkunci);
-            });
-            if ($record->status === self::STATUS_DISETUJUI) {
-                return [
-                    'record' => $record,
-                    'pesan'  => 'Pengajuan ini otomatis disetujui (nominal di bawah batas approval) — keputusan Anda tidak diperlukan',
-                ];
-            }
-        }
-
         $this->pastikanStatus($record, [self::STATUS_MENUNGGU_APPROVAL], 'Pengajuan tidak bisa diproses approval dari status saat ini');
 
-        $idPengajuan = (string) $record->id_pengajuan;
-        $barisMenunggu = $this->repo->findApprovalMenunggu($idPengajuan, $idPengguna);
-        if ($barisMenunggu === null) {
-            $sudahBerpartisipasi = collect($this->repo->listApproval($idPengajuan))
-                ->contains(fn (array $baris) => $baris['id_pengguna'] === $idPengguna);
-            if ($sudahBerpartisipasi) {
-                abort(409, 'Anda sudah memberikan keputusan');
-            }
-            abort(403, 'Anda bukan approver pengajuan ini');
-        }
+        $kode = $this->kodeEventTypeAktifUntukReferensi($id, $idPerusahaan);
 
-        return DB::transaction(function () use ($id, $idPerusahaan, $keputusan, $catatan, $idPengguna, $barisMenunggu, $idPengajuan) {
-            $terkunci = $this->repo->findPengajuanForUpdate($id);
-            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
-                abort(404, 'Pengajuan pengeluaran tidak ditemukan');
-            }
-            $this->pastikanStatus($terkunci, [self::STATUS_MENUNGGU_APPROVAL], 'Pengajuan tidak bisa diproses approval dari status saat ini');
+        $this->approvalService->putuskanUntukReferensi(
+            $kode,
+            $id,
+            $idPengguna,
+            $keputusan,
+            $catatan,
+            $idPerusahaan,
+        );
 
-            if ($keputusan === 'tolak') {
-                $terupdate = $this->repo->updateApprovalRowJikaMenunggu((string) $barisMenunggu->id_approval, [
-                    'status'     => 'ditolak',
-                    'catatan'    => $catatan,
-                    'waktu_aksi' => now(),
-                ]);
-                if ($terupdate === 0) {
-                    abort(409, 'Keputusan sudah diproses');
-                }
-                $updated = $this->repo->updatePengajuan($terkunci, [
-                    'status'         => self::STATUS_DITOLAK,
-                    'alasan_ditolak' => $catatan,
-                ]);
-                $this->jalankanHookTolak($updated, (string) $catatan);
-                return ['record' => $updated, 'pesan' => 'Pengajuan ditolak'];
-            }
+        $updated = $this->findPengajuanOrFail($id, $idPerusahaan);
+        $pesan = match ($updated->status) {
+            self::STATUS_DITOLAK   => 'Pengajuan ditolak',
+            self::STATUS_DISETUJUI => 'Pengajuan disetujui',
+            default                 => 'Persetujuan Anda tersimpan, menunggu approver lain',
+        };
 
-            $terupdate = $this->repo->updateApprovalRowJikaMenunggu((string) $barisMenunggu->id_approval, [
-                'status'     => 'disetujui',
-                'waktu_aksi' => now(),
-            ]);
-            if ($terupdate === 0) {
-                abort(409, 'Keputusan sudah diproses');
-            }
-
-            $sisaMenunggu = $this->repo->hitungApprovalMenunggu($idPengajuan);
-
-            if ($sisaMenunggu > 0) {
-                return ['record' => $terkunci, 'pesan' => 'Persetujuan Anda tersimpan, menunggu approver lain'];
-            }
-
-            $updated = $this->repo->updatePengajuan($terkunci, [
-                'status'         => self::STATUS_DISETUJUI,
-                'disetujui_oleh' => $idPengguna,
-                'disetujui_pada' => now(),
-            ]);
-            $this->jalankanHookSetujui($updated);
-            return ['record' => $updated, 'pesan' => 'Pengajuan disetujui'];
-        });
+        return ['record' => $updated, 'pesan' => $pesan];
     }
 
     public function tolak(string $id, string $alasan, string $idPerusahaan): PengajuanPengeluaranModel
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DIAJUKAN, self::STATUS_DICEK], 'Pengajuan tidak bisa ditolak dari status saat ini');
+        $this->pastikanStatus($record, [self::STATUS_DISETUJUI, self::STATUS_DICEK, self::STATUS_SIAP_TRANSFER], 'Pengajuan tidak bisa ditolak dari status saat ini');
 
         return DB::transaction(function () use ($record, $alasan) {
             $updated = $this->repo->updatePengajuan($record, [
@@ -458,14 +523,14 @@ class ArusKasService
     public function transfer(string $id, string $tanggalTransfer, ?UploadedFile $bukti, string $idPerusahaan): PengajuanPengeluaranModel
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DISETUJUI], 'Pengajuan hanya bisa ditransfer setelah disetujui');
+        $this->pastikanStatus($record, [self::STATUS_SIAP_TRANSFER], 'Pengajuan hanya bisa ditransfer setelah diverifikasi');
 
         return DB::transaction(function () use ($id, $idPerusahaan, $tanggalTransfer, $bukti) {
             $terkunci = $this->repo->findPengajuanForUpdate($id);
             if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
                 abort(404, 'Pengajuan pengeluaran tidak ditemukan');
             }
-            $this->pastikanStatus($terkunci, [self::STATUS_DISETUJUI], 'Pengajuan hanya bisa ditransfer setelah disetujui');
+            $this->pastikanStatus($terkunci, [self::STATUS_SIAP_TRANSFER], 'Pengajuan hanya bisa ditransfer setelah diverifikasi');
 
             $statusPembelian = null;
             if ($terkunci->id_pembelian !== null) {
@@ -562,17 +627,20 @@ class ArusKasService
         $idPerusahaan = (string) $data->id_perusahaan;
         $nopol = $data->nopol !== null && $data->nopol !== '' ? $data->nopol : null;
 
-        $this->repo->createPengajuan([
-            'id_perusahaan'     => $idPerusahaan,
-            'id_perawatan'      => $perawatan->id_perawatan,
-            'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
-            'kategori'          => 'perawatan',
-            'nominal'           => $totalBiaya,
-            'tanggal_pengajuan' => now()->toDateString(),
-            'penerima'          => $nopol ?? '-',
-            'keterangan'        => trim(($data->jenis_perawatan ?? '') . ($nopol !== null ? " - {$nopol}" : '')),
-            'status'            => self::STATUS_DIAJUKAN,
-        ]);
+        DB::transaction(function () use ($idPerusahaan, $perawatan, $totalBiaya, $nopol, $data) {
+            $record = $this->repo->createPengajuan([
+                'id_perusahaan'     => $idPerusahaan,
+                'id_perawatan'      => $perawatan->id_perawatan,
+                'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
+                'kategori'          => 'perawatan',
+                'nominal'           => $totalBiaya,
+                'tanggal_pengajuan' => now()->toDateString(),
+                'penerima'          => $nopol ?? '-',
+                'keterangan'        => trim(($data->jenis_perawatan ?? '') . ($nopol !== null ? " - {$nopol}" : '')),
+                'status'            => self::STATUS_DIAJUKAN,
+            ]);
+            $this->masukTahapApproval($record);
+        });
     }
 
     public function sinkronNominalPengajuanPerawatan(string $idPerawatan, float|null $nominal): void
@@ -582,11 +650,62 @@ class ArusKasService
         }
 
         $record = $this->repo->findPengajuanByPerawatan($idPerawatan);
-        if ($record === null || $record->status !== self::STATUS_DIAJUKAN) {
+        if ($record === null || in_array($record->status, [self::STATUS_DITRANSFER, self::STATUS_DITOLAK], true)) {
             return;
         }
 
-        $this->repo->updatePengajuan($record, ['nominal' => $nominal]);
+        DB::transaction(function () use ($record, $nominal) {
+            $terkunci = $this->repo->findPengajuanForUpdate((string) $record->id_pengajuan);
+            if ($terkunci === null || in_array($terkunci->status, [self::STATUS_DITRANSFER, self::STATUS_DITOLAK], true)) {
+                return;
+            }
+
+            $nominalLama = round((float) $terkunci->nominal, 2);
+            $nominalBaru = round($nominal, 2);
+            if ($nominalBaru === $nominalLama) {
+                return;
+            }
+
+            $diperbarui = $this->repo->updatePengajuan($terkunci, ['nominal' => $nominal]);
+
+            if ($nominalBaru < $nominalLama) {
+                return;
+            }
+
+            if ($diperbarui->status === self::STATUS_MENUNGGU_APPROVAL) {
+                $this->resetSnapshotApproval($diperbarui, $nominalLama);
+                return;
+            }
+
+            if ($diperbarui->status === self::STATUS_DISETUJUI) {
+                $batas = $this->batasApproval((string) $diperbarui->id_perusahaan);
+                if ($nominal < $batas) {
+                    return;
+                }
+                $dikembalikan = $this->repo->updatePengajuan($diperbarui, [
+                    'status'         => self::STATUS_MENUNGGU_APPROVAL,
+                    'disetujui_oleh' => null,
+                    'disetujui_pada' => null,
+                ]);
+                $this->resetSnapshotApproval($dikembalikan, $nominalLama);
+                return;
+            }
+
+            if (in_array($diperbarui->status, [self::STATUS_DICEK, self::STATUS_SIAP_TRANSFER], true)) {
+                $batas = $this->batasApproval((string) $diperbarui->id_perusahaan);
+                if ($nominal < $batas) {
+                    return;
+                }
+                $dikembalikan = $this->repo->updatePengajuan($diperbarui, [
+                    'status'         => self::STATUS_MENUNGGU_APPROVAL,
+                    'disetujui_oleh' => null,
+                    'disetujui_pada' => null,
+                    'dicek_oleh'     => null,
+                    'dicek_pada'     => null,
+                ]);
+                $this->resetSnapshotApproval($dikembalikan, $nominalLama);
+            }
+        });
     }
 
     public function hapusPengajuanPerawatan(string $idPerawatan): void
@@ -616,17 +735,20 @@ class ArusKasService
         $idPerusahaan = (string) $data->id_perusahaan;
         $namaSupplier = $data->nama_supplier !== null && $data->nama_supplier !== '' ? $data->nama_supplier : '-';
 
-        $this->repo->createPengajuan([
-            'id_perusahaan'     => $idPerusahaan,
-            'id_pembelian'      => $pembelian->id_pembelian,
-            'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
-            'kategori'          => 'sparepart',
-            'nominal'           => $totalEstimasi,
-            'tanggal_pengajuan' => now()->toDateString(),
-            'penerima'          => $namaSupplier,
-            'keterangan'        => trim(($data->nomor_ps ?? '') . ($data->nama_supplier !== null && $data->nama_supplier !== '' ? " - {$data->nama_supplier}" : '')),
-            'status'            => self::STATUS_DIAJUKAN,
-        ]);
+        DB::transaction(function () use ($idPerusahaan, $pembelian, $totalEstimasi, $namaSupplier, $data) {
+            $record = $this->repo->createPengajuan([
+                'id_perusahaan'     => $idPerusahaan,
+                'id_pembelian'      => $pembelian->id_pembelian,
+                'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
+                'kategori'          => 'sparepart',
+                'nominal'           => $totalEstimasi,
+                'tanggal_pengajuan' => now()->toDateString(),
+                'penerima'          => $namaSupplier,
+                'keterangan'        => trim(($data->nomor_ps ?? '') . ($data->nama_supplier !== null && $data->nama_supplier !== '' ? " - {$data->nama_supplier}" : '')),
+                'status'            => self::STATUS_DIAJUKAN,
+            ]);
+            $this->masukTahapApproval($record);
+        });
     }
 
     public function sinkronNominalPengajuanPembelian(string $idPembelian, float|null $nominal): void
@@ -674,6 +796,22 @@ class ArusKasService
                     'disetujui_pada' => null,
                 ]);
                 $this->resetSnapshotApproval($dikembalikan, $nominalLama);
+                return;
+            }
+
+            if (in_array($diperbarui->status, [self::STATUS_DICEK, self::STATUS_SIAP_TRANSFER], true)) {
+                $batas = $this->batasApproval((string) $diperbarui->id_perusahaan);
+                if ($nominal < $batas) {
+                    return;
+                }
+                $dikembalikan = $this->repo->updatePengajuan($diperbarui, [
+                    'status'         => self::STATUS_MENUNGGU_APPROVAL,
+                    'disetujui_oleh' => null,
+                    'disetujui_pada' => null,
+                    'dicek_oleh'     => null,
+                    'dicek_pada'     => null,
+                ]);
+                $this->resetSnapshotApproval($dikembalikan, $nominalLama);
             }
         });
     }
@@ -702,17 +840,20 @@ class ArusKasService
         $idPerusahaan = (string) $data->id_perusahaan;
         $rentang = Carbon::parse($data->tanggal_mulai)->format('d/m/Y') . ' - ' . Carbon::parse($data->tanggal_selesai)->format('d/m/Y');
 
-        $this->repo->createPengajuan([
-            'id_perusahaan'     => $idPerusahaan,
-            'id_periode'        => $periode->id_periode,
-            'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
-            'kategori'          => 'penggajian',
-            'nominal'           => (float) $data->total_gaji_bersih,
-            'tanggal_pengajuan' => now()->toDateString(),
-            'penerima'          => 'Seluruh karyawan',
-            'keterangan'        => "{$data->nama} ({$rentang})",
-            'status'            => self::STATUS_DIAJUKAN,
-        ]);
+        DB::transaction(function () use ($idPerusahaan, $periode, $data, $rentang) {
+            $record = $this->repo->createPengajuan([
+                'id_perusahaan'     => $idPerusahaan,
+                'id_periode'        => $periode->id_periode,
+                'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
+                'kategori'          => 'penggajian',
+                'nominal'           => (float) $data->total_gaji_bersih,
+                'tanggal_pengajuan' => now()->toDateString(),
+                'penerima'          => 'Seluruh karyawan',
+                'keterangan'        => "{$data->nama} ({$rentang})",
+                'status'            => self::STATUS_DIAJUKAN,
+            ]);
+            $this->masukTahapApproval($record);
+        });
     }
 
     public function batalkanPengajuanPayroll(string $idPeriode): void
@@ -725,6 +866,20 @@ class ArusKasService
             abort(409, 'Gaji periode ini sudah ditransfer Keuangan — batalkan tidak diizinkan');
         }
         $this->repo->deletePengajuan($record);
+    }
+
+    private function kodeEventTypeAktifUntukReferensi(string $idReferensi, string $idPerusahaan): string
+    {
+        $kode = DB::table('approval_pengajuan as ap')
+            ->join('approval_event_type as et', 'et.id_event_type', '=', 'ap.id_event_type')
+            ->where('ap.id_referensi', $idReferensi)
+            ->where('ap.id_perusahaan', $idPerusahaan)
+            ->where('ap.status', 'menunggu')
+            ->whereNull('ap.dihapus_pada')
+            ->orderByDesc('ap.dibuat_pada')
+            ->value('et.kode');
+
+        return $kode !== null ? (string) $kode : 'pengajuan_pengeluaran';
     }
 
     private function pastikanStatus(PengajuanPengeluaranModel $record, array $boleh, string $pesan): void
@@ -887,45 +1042,6 @@ class ArusKasService
         ];
     }
 
-    public function listApprover(string $idPerusahaan): array
-    {
-        return $this->repo->listApprover($idPerusahaan);
-    }
-
-    public function tambahApprover(array $data, string $idPerusahaan): void
-    {
-        $idRef = $data['tipe'] === 'jabatan' ? ($data['id_jabatan'] ?? null) : ($data['id_pengguna'] ?? null);
-
-        if ($data['tipe'] === 'jabatan') {
-            if (!$this->repo->jabatanMilik((string) $idRef, $idPerusahaan)) {
-                abort(404, 'Jabatan tidak ditemukan');
-            }
-        } else {
-            if (!$this->repo->penggunaMilik((string) $idRef, $idPerusahaan)) {
-                abort(404, 'Pengguna tidak ditemukan');
-            }
-        }
-
-        if ($this->repo->adaApproverAktif($idPerusahaan, $data['tipe'], $idRef)) {
-            abort(409, 'Approver sudah terdaftar');
-        }
-
-        $this->repo->insertApprover([
-            'id_perusahaan' => $idPerusahaan,
-            'tipe'          => $data['tipe'],
-            'id_jabatan'    => $data['id_jabatan'] ?? null,
-            'id_pengguna'   => $data['id_pengguna'] ?? null,
-            'aktif'         => 1,
-        ]);
-    }
-
-    public function hapusApprover(string $id, string $idPerusahaan): void
-    {
-        if (!$this->repo->softDeleteApprover($id, $idPerusahaan)) {
-            abort(404, 'Approver tidak ditemukan');
-        }
-    }
-
     /**
      * Satu pengajuan uang jalan untuk seluruh tanggal sukses dalam satu batch
      * assign penugasan harian (bukan per-tanggal) — nominal = tarif × jumlah
@@ -945,29 +1061,32 @@ class ArusKasService
 
         $info = $this->repo->dataUntukPengajuanPenugasan($idSupir, $idProyek);
 
-        return $this->repo->createPengajuan([
-            'id_perusahaan'     => $idPerusahaan,
-            'id_supir'          => $idSupir,
-            'id_proyek'         => $idProyek,
-            'periode_dari'      => $dari,
-            'periode_sampai'    => $sampai,
-            'tarif_per_hari'    => $tarif,
-            'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
-            'kategori'          => 'uang_jalan',
-            'nominal'           => $tarif * $jumlah,
-            'tanggal_pengajuan' => now()->toDateString(),
-            'penerima'          => $info->nama_supir,
-            'keterangan'        => sprintf(
-                'Uang jalan %s — %s (%s–%s, Rp %s/hari × %d hari)',
-                $info->nama_supir,
-                $info->nama_proyek,
-                Carbon::parse($dari)->format('d/m'),
-                Carbon::parse($sampai)->format('d/m'),
-                number_format($tarif, 0, ',', '.'),
-                $jumlah,
-            ),
-            'status' => self::STATUS_DIAJUKAN,
-        ]);
+        return DB::transaction(function () use ($idPerusahaan, $idSupir, $idProyek, $dari, $sampai, $tarif, $jumlah, $info) {
+            $record = $this->repo->createPengajuan([
+                'id_perusahaan'     => $idPerusahaan,
+                'id_supir'          => $idSupir,
+                'id_proyek'         => $idProyek,
+                'periode_dari'      => $dari,
+                'periode_sampai'    => $sampai,
+                'tarif_per_hari'    => $tarif,
+                'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
+                'kategori'          => 'uang_jalan',
+                'nominal'           => $tarif * $jumlah,
+                'tanggal_pengajuan' => now()->toDateString(),
+                'penerima'          => $info->nama_supir,
+                'keterangan'        => sprintf(
+                    'Uang jalan %s — %s (%s–%s, Rp %s/hari × %d hari)',
+                    $info->nama_supir,
+                    $info->nama_proyek,
+                    Carbon::parse($dari)->format('d/m'),
+                    Carbon::parse($sampai)->format('d/m'),
+                    number_format($tarif, 0, ',', '.'),
+                    $jumlah,
+                ),
+                'status' => self::STATUS_DIAJUKAN,
+            ]);
+            return $this->masukTahapApproval($record);
+        });
     }
 
     /**
@@ -984,27 +1103,39 @@ class ArusKasService
 
     /**
      * Dipanggil setelah satu baris penugasan ber-id_pengajuan dihapus.
-     * Pengajuan yang sudah lewat tahap diajukan (dicek/approval/dst) sengaja
-     * dibiarkan beku — nominalnya sudah jadi acuan proses keuangan berjalan.
+     * Pengajuan yang sudah disetujui/dicek/ditransfer sengaja dibiarkan beku
+     * — nominalnya sudah jadi acuan proses keuangan berjalan. Selama masih
+     * menunggu_approval/ditolak (atau diajukan legacy), nominal disinkronkan
+     * dan approval aktif di-reset (threshold-aware).
      */
     public function sinkronPengajuanSetelahPenugasanDihapus(string $idPengajuan): void
     {
         $record = $this->repo->findPengajuanById($idPengajuan);
-        if ($record === null || $record->status !== self::STATUS_DIAJUKAN) {
+        if ($record === null || in_array($record->status, [self::STATUS_DISETUJUI, self::STATUS_DICEK, self::STATUS_SIAP_TRANSFER, self::STATUS_DITRANSFER], true)) {
             return;
         }
 
         $hitung = $this->repo->hitungPenugasanTerkaitPengajuan($idPengajuan);
         if ((int) $hitung->jumlah === 0) {
+            $this->approvalService->batalkanUntukReferensi(
+                [...self::KODE_EVENT_PENGELUARAN, self::KODE_PERSETUJUAN_TRANSFER],
+                (string) $record->id_pengajuan,
+                (string) $record->id_perusahaan,
+            );
             $this->repo->deletePengajuan($record);
             return;
         }
 
-        $this->repo->updatePengajuan($record, [
+        $nominalLama = (float) $record->nominal;
+        $updated = $this->repo->updatePengajuan($record, [
             'nominal'        => (float) $record->tarif_per_hari * (int) $hitung->jumlah,
             'periode_dari'   => $hitung->dari,
             'periode_sampai' => $hitung->sampai,
         ]);
+
+        if (in_array($updated->status, [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DITOLAK], true)) {
+            $this->resetSnapshotApproval($updated, $nominalLama);
+        }
     }
 
     public function batasApproval(string $idPerusahaan): float
@@ -1016,5 +1147,23 @@ class ArusKasService
     public function setBatasApproval(string $idPerusahaan, float $batas): void
     {
         $this->repo->setPengaturan($idPerusahaan, self::KUNCI_BATAS_APPROVAL, (string) $batas);
+    }
+
+    public function migrasiApprovalPending(): array
+    {
+        $records = PengajuanPengeluaranModel::active()
+            ->whereIn('status', [self::STATUS_DIAJUKAN, self::STATUS_DICEK])
+            ->get();
+
+        $ringkasan = [];
+        foreach ($records as $record) {
+            $updated = $this->masukTahapApproval($record, $record->dibuat_oleh);
+            $ringkasan[$updated->status] = ($ringkasan[$updated->status] ?? 0) + 1;
+        }
+
+        return [
+            'total'     => $records->count(),
+            'ringkasan' => $ringkasan,
+        ];
     }
 }

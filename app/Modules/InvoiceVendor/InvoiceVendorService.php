@@ -198,7 +198,7 @@ class InvoiceVendorService
         $record = $this->findOrFail($id, $idPerusahaan);
 
         if (!in_array($record->status, self::STATUS_BISA_DIUBAH, true)) {
-            abort(409, 'Invoice yang sudah diverifikasi tidak dapat diubah');
+            abort(409, 'Invoice tidak dapat diubah pada status ini');
         }
 
         $idVendorEfektif = $data['id_vendor'] ?? $record->id_vendor;
@@ -259,33 +259,66 @@ class InvoiceVendorService
         return $this->repo->update($record, $data);
     }
 
-    public function verifikasi(string $id, string $idPerusahaan, string $aksi, ?string $catatan, string $idPengguna): InvoiceVendorModel
+    public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): InvoiceVendorModel
     {
         $record = $this->findOrFail($id, $idPerusahaan);
 
         if ($record->status !== 'draft') {
-            abort(409, 'Invoice tidak dalam status draft');
+            abort(422, 'Hanya invoice berstatus draft yang bisa diajukan approval');
         }
 
-        if ($aksi === 'verifikasi') {
-            $payload = [
-                'status'             => 'diverifikasi',
-                'catatan_verifikasi' => $catatan,
-                'diverifikasi_oleh'  => $idPengguna,
-                'diverifikasi_pada'  => now(),
-            ];
-            // Invoice bernilai 0 tidak butuh pembayaran — langsung lunas
-            // supaya tidak menggantung selamanya di monitoring outstanding.
-            if ((float) $record->total <= 0) {
-                $payload['status_pembayaran'] = 'lunas';
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($id, $idPerusahaan, $idPengguna) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Invoice vendor tidak ditemukan');
             }
-            return $this->repo->update($record, $payload);
+            if ($terkunci->status !== 'draft') {
+                abort(422, 'Hanya invoice berstatus draft yang bisa diajukan approval');
+            }
+
+            app(\App\Modules\Approval\ApprovalService::class)->ajukan(
+                'invoice_vendor',
+                $id,
+                $idPengguna,
+                (float) $terkunci->total,
+                $idPerusahaan,
+            );
+
+            return $this->repo->update($terkunci, [
+                'status'             => 'menunggu_approval',
+                'catatan_verifikasi' => null,
+            ]);
+        });
+    }
+
+    public function terapkanKeputusanApproval(string $idInvoice, string $idPerusahaan, string $idPengguna, string $keputusan, ?string $alasanDitolak): void
+    {
+        $record = $this->repo->findByIdUntukPerusahaan($idInvoice, $idPerusahaan);
+        if ($record === null) {
+            \Illuminate\Support\Facades\Log::warning("InvoiceVendorApprovalListener: invoice {$idInvoice} tidak ditemukan atau beda perusahaan");
+            return;
+        }
+        if ($record->status !== 'menunggu_approval') {
+            return;
         }
 
-        return $this->repo->update($record, [
-            'status'             => 'ditolak',
-            'catatan_verifikasi' => $catatan,
-        ]);
+        if ($keputusan === 'ditolak') {
+            $this->repo->update($record, [
+                'status'             => 'ditolak',
+                'catatan_verifikasi' => $alasanDitolak,
+            ]);
+            return;
+        }
+
+        $payload = [
+            'status'            => 'diverifikasi',
+            'diverifikasi_oleh' => $idPengguna,
+            'diverifikasi_pada' => now(),
+        ];
+        if ((float) $record->total <= 0) {
+            $payload['status_pembayaran'] = 'lunas';
+        }
+        $this->repo->update($record, $payload);
     }
 
     public function delete(string $id, string $idPerusahaan): void
@@ -293,7 +326,7 @@ class InvoiceVendorService
         $record = $this->findOrFail($id, $idPerusahaan);
 
         if (!in_array($record->status, self::STATUS_BISA_DIUBAH, true)) {
-            abort(409, 'Invoice yang sudah diverifikasi tidak dapat dihapus');
+            abort(409, 'Invoice tidak dapat dihapus pada status ini');
         }
 
         $this->repo->delete($record);

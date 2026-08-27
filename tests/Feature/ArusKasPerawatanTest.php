@@ -14,6 +14,13 @@ class ArusKasPerawatanTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+        app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
+    }
+
     private function buatArmada(string $nopol = 'B 1234 AK'): string
     {
         $id = (string) Str::uuid();
@@ -71,7 +78,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->assertNotNull($pengajuan);
         $this->assertSame('perawatan', $pengajuan->kategori);
         $this->assertEquals(370000, (float) $pengajuan->nominal);
-        $this->assertSame('diajukan', $pengajuan->status);
+        $this->assertSame('disetujui', $pengajuan->status);
         $this->assertSame('B 9001 AK', $pengajuan->penerima);
         $this->assertSame('Ganti Oli - B 9001 AK', $pengajuan->keterangan);
         $this->assertNotNull($pengajuan->nomor_pengajuan);
@@ -131,7 +138,7 @@ class ArusKasPerawatanTest extends TestCase
         $pengajuan = $this->pengajuanPerawatan($idPerawatan);
         $this->assertNotNull($pengajuan);
         $this->assertEquals(500000, (float) $pengajuan->nominal);
-        $this->assertSame('diajukan', $pengajuan->status);
+        $this->assertSame('disetujui', $pengajuan->status);
     }
 
     public function test_perawatan_terjadwal_ke_dalam_proses_membuat_pengajuan_otomatis(): void
@@ -305,7 +312,7 @@ class ArusKasPerawatanTest extends TestCase
         $this->assertSame(1, DB::table('pengajuan_pengeluaran')->where('id_perawatan', $idPerawatan)->count());
     }
 
-    public function test_sinkron_nominal_pengajuan_perawatan_saat_masih_diajukan(): void
+    public function test_sinkron_nominal_pengajuan_perawatan_naik_saat_disetujui_dibawah_batas(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
@@ -322,10 +329,10 @@ class ArusKasPerawatanTest extends TestCase
 
         $pengajuan = $this->pengajuanPerawatan($idPerawatan);
         $this->assertEquals(275000, (float) $pengajuan->nominal);
-        $this->assertSame('diajukan', $pengajuan->status);
+        $this->assertSame('disetujui', $pengajuan->status);
     }
 
-    public function test_sinkron_nominal_tidak_berubah_setelah_pengajuan_dicek(): void
+    public function test_sinkron_nominal_naik_dibawah_batas_saat_dicek_tetap_dicek(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->buatArmada();
@@ -343,8 +350,108 @@ class ArusKasPerawatanTest extends TestCase
         app(ArusKasService::class)->sinkronNominalPengajuanPerawatan($idPerawatan, 999000);
 
         $pengajuan = $this->pengajuanPerawatan($idPerawatan);
-        $this->assertEquals(200000, (float) $pengajuan->nominal);
+        $this->assertEquals(999000, (float) $pengajuan->nominal);
         $this->assertSame('dicek', $pengajuan->status);
+    }
+
+    public function test_sinkron_nominal_naik_melewati_batas_saat_dicek_reset_ke_menunggu_approval(): void
+    {
+        $admin = $this->actingAsRole('SUPERADMIN');
+        $armada = $this->buatArmada();
+
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
+            'tanggal'         => '2026-08-10',
+            'jenis_perawatan' => 'Ganti Ban',
+            'biaya'           => 200000,
+            'status'          => 'selesai',
+        ]);
+        $idPerawatan = $res->json('data.id_perawatan');
+        $idPengajuan = $this->pengajuanPerawatan($idPerawatan)->id_pengajuan;
+
+        DB::table('pengajuan_pengeluaran')->where('id_perawatan', $idPerawatan)->update([
+            'status'         => 'dicek',
+            'dicek_oleh'     => $admin->id_pengguna,
+            'dicek_pada'     => now(),
+            'disetujui_oleh' => $admin->id_pengguna,
+            'disetujui_pada' => now(),
+        ]);
+
+        app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 500000);
+        $idEventType = (string) Str::uuid();
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode' => 'perawatan', 'nama' => 'Perawatan', 'mode_resolusi' => 'pinned',
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'pengguna', 'id_pengguna' => $admin->id_pengguna, 'dibuat_pada' => now(),
+        ]);
+
+        app(ArusKasService::class)->sinkronNominalPengajuanPerawatan($idPerawatan, 900000);
+
+        $pengajuan = $this->pengajuanPerawatan($idPerawatan);
+        $this->assertEquals(900000, (float) $pengajuan->nominal);
+        $this->assertSame('menunggu_approval', $pengajuan->status);
+        $this->assertNull($pengajuan->dicek_oleh);
+        $this->assertNull($pengajuan->dicek_pada);
+        $this->assertNull($pengajuan->disetujui_oleh);
+        $this->assertNull($pengajuan->disetujui_pada);
+        $this->assertDatabaseHas('approval_pengajuan', [
+            'id_referensi'  => $idPengajuan,
+            'id_event_type' => $idEventType,
+            'status'        => 'menunggu',
+        ]);
+    }
+
+    public function test_sinkron_nominal_naik_melewati_batas_saat_siap_transfer_reset_ke_menunggu_approval(): void
+    {
+        $admin = $this->actingAsRole('SUPERADMIN');
+        $armada = $this->buatArmada();
+
+        $res = $this->postJson("/api/armada/{$armada}/perawatan", [
+            'tanggal'         => '2026-08-10',
+            'jenis_perawatan' => 'Ganti Ban',
+            'biaya'           => 200000,
+            'status'          => 'selesai',
+        ]);
+        $idPerawatan = $res->json('data.id_perawatan');
+        $idPengajuan = $this->pengajuanPerawatan($idPerawatan)->id_pengajuan;
+
+        DB::table('pengajuan_pengeluaran')->where('id_perawatan', $idPerawatan)->update([
+            'status'         => 'siap_transfer',
+            'dicek_oleh'     => $admin->id_pengguna,
+            'dicek_pada'     => now(),
+            'disetujui_oleh' => $admin->id_pengguna,
+            'disetujui_pada' => now(),
+        ]);
+
+        app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 500000);
+        $idEventType = (string) Str::uuid();
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode' => 'perawatan', 'nama' => 'Perawatan', 'mode_resolusi' => 'pinned',
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'pengguna', 'id_pengguna' => $admin->id_pengguna, 'dibuat_pada' => now(),
+        ]);
+
+        app(ArusKasService::class)->sinkronNominalPengajuanPerawatan($idPerawatan, 900000);
+
+        $pengajuan = $this->pengajuanPerawatan($idPerawatan);
+        $this->assertEquals(900000, (float) $pengajuan->nominal);
+        $this->assertSame('menunggu_approval', $pengajuan->status);
+        $this->assertNull($pengajuan->dicek_oleh);
+        $this->assertNull($pengajuan->dicek_pada);
+        $this->assertNull($pengajuan->disetujui_oleh);
+        $this->assertNull($pengajuan->disetujui_pada);
+        $this->assertDatabaseHas('approval_pengajuan', [
+            'id_referensi'  => $idPengajuan,
+            'id_event_type' => $idEventType,
+            'status'        => 'menunggu',
+        ]);
     }
 
     public function test_rekap_perawatan_tidak_lagi_muncul_sebagai_sumber_langsung(): void

@@ -15,6 +15,13 @@ class ArusKasPsakTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+        app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
+    }
+
     private function buatFaktur(array $override = []): string
     {
         $id = (string) Str::uuid();

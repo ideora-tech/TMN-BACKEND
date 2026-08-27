@@ -7,7 +7,6 @@ namespace App\Modules\InvoiceVendor;
 use App\Helpers\ApiResponse;
 use App\Modules\InvoiceVendor\Requests\StoreInvoiceVendorRequest;
 use App\Modules\InvoiceVendor\Requests\UpdateInvoiceVendorRequest;
-use App\Modules\InvoiceVendor\Requests\VerifikasiInvoiceVendorRequest;
 use App\Modules\InvoiceVendor\Resources\InvoiceVendorResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,24 +62,11 @@ class InvoiceVendorController extends Controller
         return ApiResponse::success(new InvoiceVendorResource($record), 'Invoice vendor berhasil diperbarui');
     }
 
-    public function verifikasi(VerifikasiInvoiceVendorRequest $request, string $id): JsonResponse
+    public function ajukanApproval(Request $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $data = $request->validated();
-
-        $record = $this->service->verifikasi(
-            $id,
-            $idPerusahaan,
-            $data['aksi'],
-            $data['catatan'] ?? null,
-            (string) $request->user()->id_pengguna
-        );
-
-        $pesan = $data['aksi'] === 'verifikasi'
-            ? 'Invoice vendor berhasil diverifikasi'
-            : 'Invoice vendor berhasil ditolak';
-
-        return ApiResponse::success(new InvoiceVendorResource($record), $pesan);
+        $record = $this->service->ajukanApproval($id, (string) $request->user()->id_pengguna, $idPerusahaan);
+        return ApiResponse::success(new InvoiceVendorResource($record), 'Invoice diajukan untuk approval');
     }
 
     public function destroy(Request $request, string $id): JsonResponse

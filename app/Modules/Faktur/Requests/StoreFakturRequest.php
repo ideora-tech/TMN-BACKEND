@@ -19,7 +19,6 @@ class StoreFakturRequest extends FormRequest
             'id_proyek'      => ['sometimes', 'nullable', 'string', 'max:36'],
             'id_klien'       => ['sometimes', 'nullable', 'string', 'max:36'],
             'nomor_faktur'   => ['required', 'string', 'max:100'],
-            'status'         => ['sometimes', 'string', 'in:draft,terkirim,lunas,batal'],
             'tanggal_faktur' => ['sometimes', 'nullable', 'date'],
             'jatuh_tempo'    => ['sometimes', 'nullable', 'date', 'after_or_equal:tanggal_faktur'],
             'nama_pajak'     => ['sometimes', 'nullable', 'string', 'max:50'],

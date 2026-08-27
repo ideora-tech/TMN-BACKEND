@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\InvoiceVendor;
 
+use App\Events\ApprovalDiputuskan;
 use App\Modules\InvoiceVendor\Contracts\InvoiceVendorRepositoryInterface;
+use App\Modules\InvoiceVendor\Listeners\InvoiceVendorApprovalListener;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -18,6 +21,8 @@ class InvoiceVendorServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Event::listen(ApprovalDiputuskan::class, [InvoiceVendorApprovalListener::class, 'handle']);
+
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:invoice-vendor'])
             ->group(function () {
@@ -28,7 +33,7 @@ class InvoiceVendorServiceProvider extends ServiceProvider
                 Route::middleware('role:SUPERADMIN,KEUANGAN')->group(function () {
                     Route::post('invoice-vendor', [InvoiceVendorController::class, 'store']);
                     Route::put('invoice-vendor/{id}', [InvoiceVendorController::class, 'update']);
-                    Route::patch('invoice-vendor/{id}/verifikasi', [InvoiceVendorController::class, 'verifikasi']);
+                    Route::post('invoice-vendor/{id}/ajukan-approval', [InvoiceVendorController::class, 'ajukanApproval']);
                     Route::delete('invoice-vendor/{id}', [InvoiceVendorController::class, 'destroy']);
                 });
             });

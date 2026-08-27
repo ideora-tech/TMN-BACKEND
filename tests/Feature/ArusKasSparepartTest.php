@@ -16,6 +16,30 @@ class ArusKasSparepartTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+
+        $idApprover = (string) Str::uuid();
+        DB::table('pengguna')->insert([
+            'id_pengguna' => $idApprover, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_peran' => 'MANAGER', 'username' => 'approver_default_' . Str::random(8),
+            'email' => Str::random(8) . '@test.id', 'kata_sandi' => bcrypt('x'),
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idEventType = (string) Str::uuid();
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode' => 'pengajuan_pengeluaran', 'nama' => 'Pengajuan Pengeluaran', 'mode_resolusi' => 'pinned',
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'pengguna', 'id_pengguna' => $idApprover, 'dibuat_pada' => now(),
+        ]);
+    }
+
     private function makeSupplier(string $nama = 'Toko Sparepart Jaya'): string
     {
         $id = (string) Str::uuid();
@@ -96,7 +120,7 @@ class ArusKasSparepartTest extends TestCase
         $this->assertNotNull($pengajuan);
         $this->assertSame('sparepart', $pengajuan->kategori);
         $this->assertEquals(200000, (float) $pengajuan->nominal);
-        $this->assertSame('diajukan', $pengajuan->status);
+        $this->assertSame('menunggu_approval', $pengajuan->status);
         $this->assertSame($idPembelian, $pengajuan->id_pembelian);
         $this->assertNotNull($pengajuan->nomor_pengajuan);
         $this->assertStringContainsString('Toko Sparepart Jaya', (string) $pengajuan->keterangan);
@@ -174,7 +198,7 @@ class ArusKasSparepartTest extends TestCase
         $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
         $this->assertNotNull($pengajuan);
         $this->assertSame('sparepart', $pengajuan->kategori);
-        $this->assertSame('diajukan', $pengajuan->status);
+        $this->assertSame('menunggu_approval', $pengajuan->status);
         $this->assertEquals(200000, (float) $pengajuan->nominal);
         $this->assertSame($idPembelian, $pengajuan->id_pembelian);
     }
@@ -201,7 +225,7 @@ class ArusKasSparepartTest extends TestCase
         $this->assertNotNull($row->disetujui_finance_pada);
     }
 
-    private function ajukanSampaiDisetujui(): array
+    private function ajukanSampaiDicek(): array
     {
         $this->actingAsRole('SUPERADMIN');
         $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
@@ -210,9 +234,11 @@ class ArusKasSparepartTest extends TestCase
         $items = $create->json('data.items');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
+        $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
+
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
 
         return [$idPembelian, $items, $idPengajuan];
     }
@@ -220,7 +246,7 @@ class ArusKasSparepartTest extends TestCase
     public function test_setujui_di_arus_kas_sinkron_status_pembelian_dan_boleh_realisasi(): void
     {
         Storage::fake('public');
-        [$idPembelian, $items] = $this->ajukanSampaiDisetujui();
+        [$idPembelian, $items] = $this->ajukanSampaiDicek();
 
         $row = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
         $this->assertSame('disetujui_finance', $row->status);
@@ -249,7 +275,7 @@ class ArusKasSparepartTest extends TestCase
     public function test_nominal_pengajuan_sinkron_dari_estimasi_ke_aktual_setelah_realisasi(): void
     {
         Storage::fake('public');
-        [$idPembelian, $items, $idPengajuan] = $this->ajukanSampaiDisetujui();
+        [$idPembelian, $items, $idPengajuan] = $this->ajukanSampaiDicek();
 
         $sebelum = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->first();
         $this->assertEquals(200000, (float) $sebelum->nominal);
@@ -268,14 +294,16 @@ class ArusKasSparepartTest extends TestCase
 
         $sesudah = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->first();
         $this->assertEquals(205000, (float) $sesudah->nominal);
-        $this->assertSame('disetujui', $sesudah->status);
+        $this->assertSame('siap_transfer', $sesudah->status);
     }
 
     public function test_tolak_di_arus_kas_sinkron_dua_arah_ke_pembelian(): void
     {
         $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
         $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
+        $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
 
         $this->actingAsRole('MANAGER');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/tolak", ['alasan' => 'Harga tidak wajar'])
@@ -288,7 +316,7 @@ class ArusKasSparepartTest extends TestCase
 
     public function test_transfer_uang_muka_saat_disetujui_finance_berhasil_status_tetap_disetujui_finance(): void
     {
-        [$idPembelian, , $idPengajuan] = $this->ajukanSampaiDisetujui();
+        [$idPembelian, , $idPengajuan] = $this->ajukanSampaiDicek();
 
         $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->toDateString();
@@ -305,7 +333,7 @@ class ArusKasSparepartTest extends TestCase
 
     public function test_transfer_uang_muka_masuk_rekap_dengan_nominal_transfer(): void
     {
-        [, , $idPengajuan] = $this->ajukanSampaiDisetujui();
+        [, , $idPengajuan] = $this->ajukanSampaiDicek();
 
         $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->toDateString();
@@ -327,7 +355,7 @@ class ArusKasSparepartTest extends TestCase
 
     public function test_transfer_ditolak_409_jika_pembelian_belum_disetujui_finance(): void
     {
-        [$idPembelian, , $idPengajuan] = $this->ajukanSampaiDisetujui();
+        [$idPembelian, , $idPengajuan] = $this->ajukanSampaiDicek();
         DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->update(['status' => 'diajukan']);
 
         $this->actingAsRole('KEUANGAN');
@@ -336,13 +364,13 @@ class ArusKasSparepartTest extends TestCase
         ])->assertStatus(409);
 
         $rowPengajuan = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->first();
-        $this->assertSame('disetujui', $rowPengajuan->status);
+        $this->assertSame('siap_transfer', $rowPengajuan->status);
     }
 
     public function test_transfer_setelah_dibeli_menjadi_lunas_dengan_tanggal_pembayaran(): void
     {
         Storage::fake('public');
-        [$idPembelian, $items, $idPengajuan] = $this->ajukanSampaiDisetujui();
+        [$idPembelian, $items, $idPengajuan] = $this->ajukanSampaiDicek();
 
         $this->actingAsRole('SUPERADMIN');
         $this->postJson("/api/pembelian-sparepart/{$idPembelian}/bukti", [
@@ -381,7 +409,7 @@ class ArusKasSparepartTest extends TestCase
     public function test_rekap_sparepart_tidak_lagi_sumber_langsung_hanya_muncul_via_pengajuan_ditransfer(): void
     {
         Storage::fake('public');
-        [$idPembelian, $items, $idPengajuan] = $this->ajukanSampaiDisetujui();
+        [$idPembelian, $items, $idPengajuan] = $this->ajukanSampaiDicek();
 
         $this->actingAsRole('SUPERADMIN');
         $this->postJson("/api/pembelian-sparepart/{$idPembelian}/bukti", [

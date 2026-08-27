@@ -85,7 +85,7 @@ class PenawaranRepository implements PenawaranRepositoryInterface
         return PenawaranModel::active()
             ->where('id_proyek', $idProyek)
             ->whereNotNull('id_penawaran_induk')
-            ->whereIn('status', ['draft', 'terkirim', 'negosiasi'])
+            ->whereIn('status', ['draft', 'menunggu_approval', 'terkirim', 'negosiasi'])
             ->exists();
     }
 

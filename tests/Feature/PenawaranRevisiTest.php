@@ -88,10 +88,58 @@ class PenawaranRevisiTest extends TestCase
         return $id;
     }
 
+    private ?string $idApproverPenawaran = null;
+
+    private function pastikanApproverPenawaran(): string
+    {
+        if ($this->idApproverPenawaran !== null) {
+            return $this->idApproverPenawaran;
+        }
+
+        $idJabatan = (string) Str::uuid();
+        DB::table('jabatan')->insert([
+            'id_jabatan' => $idJabatan, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_jabatan' => 'SLSMGR-REV', 'nama_jabatan' => 'Sales Manager Revisi', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idKaryawan = (string) Str::uuid();
+        DB::table('karyawan')->insert([
+            'id_karyawan' => $idKaryawan, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_jabatan' => $idJabatan,
+            'nik' => 'NIK-REV-' . Str::random(6), 'nama_karyawan' => 'Approver Revisi Test', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idPengguna = (string) Str::uuid();
+        DB::table('pengguna')->insert([
+            'id_pengguna' => $idPengguna, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_karyawan' => $idKaryawan,
+            'kode_peran' => 'MANAGER', 'username' => 'approver_rev_' . Str::random(6),
+            'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        $idEventType = DB::table('approval_event_type')
+            ->where('id_perusahaan', self::PERUSAHAAN_ID)->where('kode', 'penawaran')->value('id_event_type');
+        if ($idEventType === null) {
+            $idEventType = (string) Str::uuid();
+            DB::table('approval_event_type')->insert([
+                'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
+                'kode' => 'penawaran', 'nama' => 'Penawaran', 'mode_resolusi' => 'pinned',
+                'aktif' => 1, 'dibuat_pada' => now(),
+            ]);
+        }
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+
+        return $this->idApproverPenawaran = $idPengguna;
+    }
+
     private function kirimkan(string $idPenawaran): void
     {
-        $this->putJson("/api/penawaran/{$idPenawaran}/status", ['status' => 'terkirim'])
-            ->assertStatus(200);
+        $idApprover = $this->pastikanApproverPenawaran();
+
+        $this->postJson("/api/penawaran/{$idPenawaran}/ajukan-approval")->assertStatus(200);
+
+        app(\App\Modules\Approval\ApprovalService::class)->putuskanUntukReferensi(
+            'penawaran', $idPenawaran, $idApprover, 'setuju', null, self::PERUSAHAAN_ID
+        );
     }
 
     private function makeProyekRute(string $idProyek, string $idRute, string $idJenis, float $harga, int $ritase = 1): string
@@ -458,7 +506,8 @@ class PenawaranRevisiTest extends TestCase
         ]);
         $idRevisi = $revisi->json('data.id_penawaran');
 
-        $res = $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'terkirim']);
+        $this->kirimkan($idRevisi);
+        $res = $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'disetujui']);
         $res->assertStatus(200);
 
         $items = $res->json('data.items');

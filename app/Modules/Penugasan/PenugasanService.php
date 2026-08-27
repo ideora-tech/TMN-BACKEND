@@ -480,24 +480,30 @@ class PenugasanService
         }
 
         /**
-         * Ganti supir pada baris yang masih ber-pengajuan status diajukan:
-         * lepas link id_pengajuan baris ini lalu sinkronkan pengajuan lama
-         * (nominal/periode turun otomatis dari sisa baris yang masih
-         * ter-link; soft-delete bila 0 sisa) — mirror semantik
-         * PenugasanService::delete(). Bila pengajuan sudah lewat tahap
-         * diajukan (dicek/disetujui/dst), SENGAJA dibiarkan beku dan link
+         * Ganti supir pada baris yang masih ber-pengajuan status menunggu
+         * approval/ditolak (atau diajukan legacy): lepas link id_pengajuan
+         * baris ini lalu sinkronkan pengajuan lama (nominal/periode turun
+         * otomatis dari sisa baris yang masih ter-link; soft-delete bila 0
+         * sisa) — mirror semantik PenugasanService::delete(). Bila pengajuan
+         * sudah disetujui/dicek/ditransfer, SENGAJA dibiarkan beku dan link
          * TIDAK dilepas — nominalnya sudah jadi acuan proses keuangan
          * berjalan (sama seperti perlakuan ArusKasService::
          * sinkronPengajuanSetelahPenugasanDihapus terhadap pengajuan yang
-         * sudah lanjut status).
+         * sudah beku statusnya).
          */
         $idSupirBerubah = array_key_exists('id_supir', $data) && $data['id_supir'] !== $record->id_supir;
         $idPengajuanUntukSinkron = null;
-        if ($idSupirBerubah
-            && !empty($record->id_pengajuan)
-            && $this->arusKasService->statusPengajuan((string) $record->id_pengajuan) === ArusKasService::STATUS_DIAJUKAN) {
-            $idPengajuanUntukSinkron = (string) $record->id_pengajuan;
-            $data['id_pengajuan'] = null;
+        if ($idSupirBerubah && !empty($record->id_pengajuan)) {
+            $statusPengajuan = $this->arusKasService->statusPengajuan((string) $record->id_pengajuan);
+            if ($statusPengajuan !== null && !in_array($statusPengajuan, [
+                ArusKasService::STATUS_DISETUJUI,
+                ArusKasService::STATUS_DICEK,
+                ArusKasService::STATUS_SIAP_TRANSFER,
+                ArusKasService::STATUS_DITRANSFER,
+            ], true)) {
+                $idPengajuanUntukSinkron = (string) $record->id_pengajuan;
+                $data['id_pengajuan'] = null;
+            }
         }
 
         $supirSebelum = $record->id_supir;

@@ -65,12 +65,12 @@ class PembelianRiwayatApprovalTest extends TestCase
         $supplier  = $this->buatSupplier();
         $pembelian = $this->buatPembelian($supplier, ['status' => 'disetujui_finance']);
         $this->buatPengajuanPembelian($pembelian, [
-            'status'         => 'disetujui',
+            'status'         => 'dicek',
             'dibuat_oleh'    => $pengguna->id_pengguna,
-            'dicek_oleh'     => $pengguna->id_pengguna,
-            'dicek_pada'     => '2026-08-11 09:00:00',
             'disetujui_oleh' => $pengguna->id_pengguna,
-            'disetujui_pada' => '2026-08-12 10:00:00',
+            'disetujui_pada' => '2026-08-11 09:00:00',
+            'dicek_oleh'     => $pengguna->id_pengguna,
+            'dicek_pada'     => '2026-08-12 10:00:00',
         ]);
 
         $res = $this->getJson("/api/pembelian-sparepart/{$pembelian}");
@@ -78,12 +78,12 @@ class PembelianRiwayatApprovalTest extends TestCase
 
         $info = $res->json('data.pengajuan_keuangan');
         $this->assertNotNull($info);
-        $this->assertSame('disetujui', $info['status']);
+        $this->assertSame('dicek', $info['status']);
         $this->assertSame(300000, $info['nominal']);
         $this->assertStringStartsWith('PP-', (string) $info['nomor_pengajuan']);
 
         $statusRiwayat = array_column($info['riwayat'], 'status');
-        $this->assertSame(['diajukan', 'dicek', 'disetujui'], $statusRiwayat);
+        $this->assertSame(['diajukan', 'disetujui', 'dicek'], $statusRiwayat);
         $this->assertSame($pengguna->username, $info['riwayat'][1]['oleh']);
         $this->assertSame($pengguna->username, $info['riwayat'][2]['oleh']);
     }

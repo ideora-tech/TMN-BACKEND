@@ -23,6 +23,7 @@ class PenawaranModel extends BaseModel
         'tanggal_penawaran',
         'tanggal_berlaku',
         'catatan',
+        'alasan_ditolak_internal',
         'id_proyek',
         'id_penawaran_induk',
         'aktif',

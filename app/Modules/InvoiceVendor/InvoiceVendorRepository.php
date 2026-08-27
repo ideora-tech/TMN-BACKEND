@@ -60,6 +60,11 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
             ->first();
     }
 
+    public function findForUpdate(string $id): ?InvoiceVendorModel
+    {
+        return InvoiceVendorModel::active()->lockForUpdate()->find($id);
+    }
+
     public function nomorSudahDipakai(string $nomor, string $idPerusahaan, ?string $kecualiId = null): bool
     {
         $query = InvoiceVendorModel::active()

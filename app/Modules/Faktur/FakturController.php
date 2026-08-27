@@ -76,6 +76,15 @@ class FakturController extends Controller
         return ApiResponse::success(new FakturResource($this->service->denganReferensi($this->service->denganAudit($record))), 'Status invoice berhasil diperbarui');
     }
 
+    public function ajukanApproval(Request $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->ajukanApproval($id, (string) $request->user()->id_pengguna, $idPerusahaan);
+        $record->riwayat_status = $this->service->riwayatStatus($record);
+        $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
+        return ApiResponse::success(new FakturResource($record), 'Invoice diajukan untuk approval');
+    }
+
     public function destroy(Request $request, string $id): JsonResponse
     {
         $this->service->delete($id, (string) $request->user()->id_perusahaan);

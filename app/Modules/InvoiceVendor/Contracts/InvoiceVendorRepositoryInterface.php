@@ -21,6 +21,8 @@ interface InvoiceVendorRepositoryInterface
 
     public function findByIdUntukPerusahaan(string $id, string $idPerusahaan): ?InvoiceVendorModel;
 
+    public function findForUpdate(string $id): ?InvoiceVendorModel;
+
     public function nomorSudahDipakai(string $nomor, string $idPerusahaan, ?string $kecualiId = null): bool;
 
     public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;

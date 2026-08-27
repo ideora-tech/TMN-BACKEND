@@ -88,20 +88,61 @@ class ApprovalKeuanganAlurTest extends TestCase
         return $id;
     }
 
+    private function idEventTypePengajuanPengeluaran(): string
+    {
+        $id = DB::table('approval_event_type')
+            ->where('id_perusahaan', self::PERUSAHAAN_ID)->where('kode', 'pengajuan_pengeluaran')->value('id_event_type');
+        if ($id !== null) {
+            return $id;
+        }
+        $id = (string) Str::uuid();
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode' => 'pengajuan_pengeluaran', 'nama' => 'Pengajuan Pengeluaran',
+            'mode_resolusi' => 'pinned', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
     private function tambahApproverPengguna(string $idPengguna): void
     {
-        $this->postJson('/api/arus-kas/approver', [
-            'tipe'        => 'pengguna',
-            'id_pengguna' => $idPengguna,
-        ])->assertStatus(201);
+        DB::table('approval_config_approver')->insert([
+            'id_config'     => (string) Str::uuid(),
+            'id_event_type' => $this->idEventTypePengajuanPengeluaran(),
+            'tipe'          => 'pengguna',
+            'id_pengguna'   => $idPengguna,
+            'dibuat_pada'   => now(),
+        ]);
     }
 
     private function tambahApproverJabatan(string $idJabatan): void
     {
-        $this->postJson('/api/arus-kas/approver', [
-            'tipe'       => 'jabatan',
-            'id_jabatan' => $idJabatan,
-        ])->assertStatus(201);
+        DB::table('approval_config_approver')->insert([
+            'id_config'     => (string) Str::uuid(),
+            'id_event_type' => $this->idEventTypePengajuanPengeluaran(),
+            'tipe'          => 'jabatan',
+            'id_jabatan'    => $idJabatan,
+            'dibuat_pada'   => now(),
+        ]);
+    }
+
+    private function approvalRows(string $idPengajuan): \Illuminate\Support\Collection
+    {
+        return DB::table('approval_keputusan as ak')
+            ->join('approval_pengajuan as ap', 'ap.id_approval', '=', 'ak.id_approval')
+            ->where('ap.id_referensi', $idPengajuan)
+            ->whereNull('ak.dihapus_pada')
+            ->select('ak.id_keputusan as id_approval', 'ak.id_pengguna', 'ak.status', 'ak.catatan', 'ak.waktu_aksi', 'ak.dibuat_pada')
+            ->orderBy('ak.dibuat_pada')
+            ->get();
+    }
+
+    private function idApprovalAktif(string $idPengajuan): string
+    {
+        return (string) DB::table('approval_pengajuan')
+            ->where('id_referensi', $idPengajuan)
+            ->orderByDesc('dibuat_pada')
+            ->value('id_approval');
     }
 
     private function setBatas(float $batas): void
@@ -154,13 +195,11 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->tambahApproverPengguna($idApprover1);
         $this->tambahApproverPengguna($idApprover2);
 
-        $id = $this->buatPengajuan(['nominal' => 500000]);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
-        $this->actingAsRole('KEUANGAN');
-        $res = $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek");
-        $res->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
-
-        $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
+        $baris = $this->approvalRows($id);
         $this->assertCount(2, $baris);
         foreach ($baris as $b) {
             $this->assertSame('menunggu', $b->status);
@@ -168,9 +207,9 @@ class ApprovalKeuanganAlurTest extends TestCase
         }
 
         $notif = DB::table('notifikasi')
-            ->where('referensi_id', $id)
-            ->where('referensi_tipe', 'pengajuan_pengeluaran')
-            ->where('tipe', 'approval_keuangan')
+            ->where('referensi_id', $this->idApprovalAktif($id))
+            ->where('referensi_tipe', 'approval_pengajuan')
+            ->where('tipe', 'approval_generik')
             ->get();
         $this->assertCount(2, $notif);
         $idPenerimaNotif = $notif->pluck('id_pengguna')->all();
@@ -183,28 +222,20 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->setBatas(1000000);
 
-        $id = $this->buatPengajuan(['nominal' => 500000]);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'disetujui');
+        $id = $res->json('data.id_pengajuan');
 
-        $this->actingAsRole('KEUANGAN');
-        $res = $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek");
-        $res->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
-
-        $this->assertSame(0, DB::table('pengajuan_approval')->where('id_pengajuan', $id)->count());
+        $this->assertSame(0, $this->approvalRows($id)->count());
     }
 
-    public function test_tanpa_approver_dengan_nominal_di_atas_batas_dikembalikan_422_dan_status_tetap_diajukan(): void
+    public function test_tanpa_approver_dengan_nominal_di_atas_batas_dikembalikan_422_saat_dibuat_dan_pengajuan_tidak_tersimpan(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->buatPengajuan(['nominal' => 500000]);
+        $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]))
+            ->assertStatus(422);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(422);
-
-        $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
-        $this->assertSame('diajukan', $row->status);
-        $this->assertNull($row->dicek_oleh);
-        $this->assertNull($row->dicek_pada);
-        $this->assertSame(0, DB::table('pengajuan_approval')->where('id_pengajuan', $id)->count());
+        $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
     }
 
     public function test_resolusi_approver_jabatan_menghasilkan_baris_approval_untuk_pengguna_berjabatan(): void
@@ -215,13 +246,11 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idPengguna = $this->buatPengguna('budi_manager', $idKaryawan);
         $this->tambahApproverJabatan($idJabatan);
 
-        $id = $this->buatPengajuan(['nominal' => 500000]);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
-
-        $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
+        $baris = $this->approvalRows($id);
         $this->assertCount(1, $baris);
         $this->assertSame($idPengguna, $baris->first()->id_pengguna);
         $this->assertSame('menunggu', $baris->first()->status);
@@ -236,13 +265,11 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->tambahApproverJabatan($idJabatan);
         $this->tambahApproverPengguna($idPengguna);
 
-        $id = $this->buatPengajuan(['nominal' => 500000]);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
-
-        $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
+        $baris = $this->approvalRows($id);
         $this->assertCount(1, $baris);
         $this->assertSame($idPengguna, $baris->first()->id_pengguna);
     }
@@ -254,17 +281,16 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idApprover2 = $this->buatPengguna('approver_dua');
         $this->tambahApproverPengguna($idApprover1);
         $this->tambahApproverPengguna($idApprover2);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
         $this->actingAsPengguna($idApprover1);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
-        $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get()->keyBy('id_pengguna');
+        $baris = $this->approvalRows($id)->keyBy('id_pengguna');
         $this->assertSame('disetujui', $baris[$idApprover1]->status);
         $this->assertSame('menunggu', $baris[$idApprover2]->status);
 
@@ -285,10 +311,10 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idApprover = $this->buatPengguna('approver_tolak');
         $this->tambahApproverPengguna($idApprover);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
         $this->actingAsPengguna($idApprover);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'tolak'])
@@ -301,7 +327,7 @@ class ApprovalKeuanganAlurTest extends TestCase
             ->assertJsonPath('data.status', 'ditolak')
             ->assertJsonPath('data.alasan_ditolak', 'Nominal terlalu besar');
 
-        $barisApproval = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->first();
+        $barisApproval = $this->approvalRows($id)->first();
         $this->assertSame('ditolak', $barisApproval->status);
         $this->assertSame('Nominal terlalu besar', $barisApproval->catatan);
     }
@@ -312,10 +338,10 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idApprover = $this->buatPengguna('approver_valid');
         $idBukanApprover = $this->buatPengguna('bukan_approver');
         $this->tambahApproverPengguna($idApprover);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
         $this->actingAsPengguna($idBukanApprover);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
@@ -329,10 +355,10 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idApprover2 = $this->buatPengguna('approver_ganda_dua');
         $this->tambahApproverPengguna($idApprover1);
         $this->tambahApproverPengguna($idApprover2);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
         $this->actingAsPengguna($idApprover1);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
@@ -341,12 +367,15 @@ class ApprovalKeuanganAlurTest extends TestCase
             ->assertStatus(409);
     }
 
-    public function test_pengajuan_status_dicek_lama_lazy_snapshot_lalu_diproses_oleh_approver(): void
+    public function test_pengajuan_status_dicek_diproses_approval_dikembalikan_409(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idApprover = $this->buatPengguna('approver_lazy');
         $this->tambahApproverPengguna($idApprover);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
+
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->update([
             'status'     => 'dicek',
@@ -356,52 +385,57 @@ class ApprovalKeuanganAlurTest extends TestCase
 
         $this->actingAsPengguna($idApprover);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(409);
 
-        $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
+        $baris = $this->approvalRows($id);
         $this->assertCount(1, $baris);
-        $this->assertSame('disetujui', $baris->first()->status);
+        $this->assertSame('menunggu', $baris->first()->status);
 
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
-        $this->assertSame('disetujui', $row->status);
-        $this->assertSame($idApprover, $row->disetujui_oleh);
+        $this->assertSame('dicek', $row->status);
     }
 
-    public function test_pengajuan_status_dicek_lama_di_bawah_batas_otomatis_disetujui_tanpa_proses_keputusan(): void
+    public function test_pengajuan_status_dicek_dibawah_batas_diproses_approval_tetap_409(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $this->setBatas(1000000);
         $idApprover = $this->buatPengguna('approver_lazy_auto');
         $this->tambahApproverPengguna($idApprover);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
+
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'disetujui');
+        $id = $res->json('data.id_pengajuan');
 
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->update(['status' => 'dicek']);
 
         $this->actingAsPengguna($idApprover);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(409);
 
-        $this->assertSame(0, DB::table('pengajuan_approval')->where('id_pengajuan', $id)->count());
+        $this->assertSame(0, $this->approvalRows($id)->count());
     }
 
-    public function test_dicek_lama_snapshot_terbentuk_lalu_non_approver_403_snapshot_tetap_tersimpan(): void
+    public function test_keputusan_approval_pada_status_dicek_dikembalikan_409_tanpa_ubah_snapshot(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idApprover = $this->buatPengguna('approver_snapshot');
         $idBukanApprover = $this->buatPengguna('bukan_approver_snapshot');
         $this->tambahApproverPengguna($idApprover);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
+
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->update(['status' => 'dicek']);
 
         $this->actingAsPengguna($idBukanApprover);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
-            ->assertStatus(403);
+            ->assertStatus(409);
 
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
-        $this->assertSame('menunggu_approval', $row->status);
+        $this->assertSame('dicek', $row->status);
 
-        $baris = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->get();
+        $baris = $this->approvalRows($id);
         $this->assertCount(1, $baris);
         $this->assertSame($idApprover, $baris->first()->id_pengguna);
         $this->assertSame('menunggu', $baris->first()->status);
@@ -412,16 +446,19 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idApprover = $this->buatPengguna('approver_transfer');
         $this->tambahApproverPengguna($idApprover);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
         $this->actingAsPengguna($idApprover);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->actingAsRole('KEUANGAN');
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
+
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString()])
             ->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
     }
@@ -443,9 +480,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idPembelian = $res->json('data.id_pembelian');
         $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->value('id_pengajuan');
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
 
         $this->actingAsPengguna($idApprover);
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
@@ -474,12 +509,14 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idPembelian = $res->json('data.id_pembelian');
         $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->value('id_pengajuan');
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
 
-        DB::table('pengajuan_approval')->where('id_pengajuan', $idPengajuan)->where('id_pengguna', $idApproverB)
+        $idApprovalBatch = $this->idApprovalAktif($idPengajuan);
+        DB::table('approval_keputusan')->where('id_approval', $idApprovalBatch)->where('id_pengguna', $idApproverB)
             ->update(['status' => 'ditolak', 'catatan' => 'Ditolak approver B', 'waktu_aksi' => now()]);
+        DB::table('approval_pengajuan')->where('id_approval', $idApprovalBatch)->update([
+            'status' => 'ditolak', 'alasan_ditolak' => 'Ditolak approver B',
+        ]);
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update([
             'status'         => 'ditolak',
             'alasan_ditolak' => 'Ditolak approver B',
@@ -493,32 +530,26 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->assertSame('ditolak', $rowPengajuan->status);
         $this->assertSame('Ditolak approver B', $rowPengajuan->alasan_ditolak);
 
-        $barisA = DB::table('pengajuan_approval')->where('id_pengajuan', $idPengajuan)->where('id_pengguna', $idApproverA)->first();
+        $barisA = $this->approvalRows($idPengajuan)->firstWhere('id_pengguna', $idApproverA);
         $this->assertSame('menunggu', $barisA->status);
 
         $rowPembelian = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
         $this->assertNotSame('disetujui_finance', $rowPembelian->status);
     }
 
-    public function test_race_cek_status_berubah_sebelum_transaksi_dikembalikan_409_snapshot_tidak_dobel(): void
+    public function test_cek_pada_status_menunggu_approval_dikembalikan_409_snapshot_tidak_berubah(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idApprover1 = $this->buatPengguna('approver_race_cek_satu');
         $idApprover2 = $this->buatPengguna('approver_race_cek_dua');
         $this->tambahApproverPengguna($idApprover1);
         $this->tambahApproverPengguna($idApprover2);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
 
-        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->update([
-            'status'     => 'menunggu_approval',
-            'dicek_oleh' => $idApprover1,
-            'dicek_pada' => now(),
-        ]);
-        DB::table('pengajuan_approval')->insert([
-            ['id_approval' => (string) Str::uuid(), 'id_pengajuan' => $id, 'id_pengguna' => $idApprover1, 'status' => 'menunggu', 'dibuat_pada' => now()],
-            ['id_approval' => (string) Str::uuid(), 'id_pengajuan' => $id, 'id_pengguna' => $idApprover2, 'status' => 'menunggu', 'dibuat_pada' => now()],
-        ]);
-        $jumlahSnapshot = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->count();
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
+
+        $jumlahSnapshot = $this->approvalRows($id)->count();
         $this->assertSame(2, $jumlahSnapshot);
 
         $this->actingAsRole('KEUANGAN');
@@ -526,8 +557,10 @@ class ApprovalKeuanganAlurTest extends TestCase
 
         $row = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->first();
         $this->assertSame('menunggu_approval', $row->status);
+        $this->assertNull($row->dicek_oleh);
+        $this->assertNull($row->dicek_pada);
 
-        $jumlahSnapshotAkhir = DB::table('pengajuan_approval')->where('id_pengajuan', $id)->count();
+        $jumlahSnapshotAkhir = $this->approvalRows($id)->count();
         $this->assertSame($jumlahSnapshot, $jumlahSnapshotAkhir);
     }
 
@@ -596,13 +629,10 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idBukanApprover = $this->buatPengguna('bukan_approver_show');
         $this->tambahApproverPengguna($idApprover1);
         $this->tambahApproverPengguna($idApprover2);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
-            ->assertStatus(200)
-            ->assertJsonPath('data.status', 'menunggu_approval')
-            ->assertJsonPath('message', 'Pengajuan menunggu approval');
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
         $this->actingAsPengguna($idApprover1);
         $this->getJson("/api/arus-kas/pengajuan/{$id}")
@@ -646,12 +676,11 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->tambahApproverPengguna($idApprover2);
 
         $idTrip = $this->mulaiTripDenganUangJalan(500000);
-        $idPengajuan = $this->buatPengajuan(['nominal' => 500000]);
-        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['id_trip' => $idTrip]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $idPengajuan = $res->json('data.id_pengajuan');
+        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['id_trip' => $idTrip]);
 
         $this->actingAsPengguna($idApprover1);
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
@@ -680,12 +709,11 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->tambahApproverPengguna($idApprover2);
 
         $idTrip = $this->mulaiTripDenganUangJalan(500000);
-        $idPengajuan = $this->buatPengajuan(['nominal' => 500000]);
-        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['id_trip' => $idTrip]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $idPengajuan = $res->json('data.id_pengajuan');
+        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['id_trip' => $idTrip]);
 
         $this->actingAsPengguna($idApprover1);
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
@@ -696,6 +724,9 @@ class ApprovalKeuanganAlurTest extends TestCase
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->actingAsRole('KEUANGAN');
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
+
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", ['tanggal_transfer' => now()->toDateString()])
             ->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
@@ -707,17 +738,17 @@ class ApprovalKeuanganAlurTest extends TestCase
         $statuses = array_column($riwayat, 'status');
 
         $this->assertSame(
-            ['diajukan', 'dicek', 'disetujui', 'disetujui', 'disetujui', 'ditransfer'],
+            ['diajukan', 'disetujui', 'disetujui', 'disetujui', 'dicek', 'ditransfer'],
             $statuses
         );
 
-        $olehPerOrang = [$riwayat[2]['oleh'], $riwayat[3]['oleh']];
+        $olehPerOrang = [$riwayat[1]['oleh'], $riwayat[2]['oleh']];
         sort($olehPerOrang);
         $olehPerOrangHarapan = ['approver_cepat_dua', 'approver_cepat_satu'];
         sort($olehPerOrangHarapan);
         $this->assertSame($olehPerOrangHarapan, $olehPerOrang);
 
-        $this->assertSame('approver_cepat_dua', $riwayat[4]['oleh']);
+        $this->assertSame('approver_cepat_dua', $riwayat[3]['oleh']);
         $this->assertSame('ditransfer', end($statuses));
     }
 
@@ -726,12 +757,12 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idApprover = $this->buatPengguna('approver_double_db');
         $this->tambahApproverPengguna($idApprover);
-        $id = $this->buatPengajuan(['nominal' => 500000]);
 
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $id = $res->json('data.id_pengajuan');
 
-        DB::table('pengajuan_approval')->where('id_pengajuan', $id)->where('id_pengguna', $idApprover)
+        DB::table('approval_keputusan')->where('id_approval', $this->idApprovalAktif($id))->where('id_pengguna', $idApprover)
             ->update(['status' => 'disetujui', 'waktu_aksi' => now()]);
 
         $this->actingAsPengguna($idApprover);

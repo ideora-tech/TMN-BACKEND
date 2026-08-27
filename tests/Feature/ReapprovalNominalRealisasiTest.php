@@ -80,12 +80,31 @@ class ReapprovalNominalRealisasiTest extends TestCase
         return $id;
     }
 
+    private function idEventTypePengajuanPengeluaran(): string
+    {
+        $id = DB::table('approval_event_type')
+            ->where('id_perusahaan', self::PERUSAHAAN_ID)->where('kode', 'pengajuan_pengeluaran')->value('id_event_type');
+        if ($id !== null) {
+            return $id;
+        }
+        $id = (string) Str::uuid();
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode' => 'pengajuan_pengeluaran', 'nama' => 'Pengajuan Pengeluaran',
+            'mode_resolusi' => 'pinned', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
     private function tambahApproverPengguna(string $idPengguna): void
     {
-        $this->postJson('/api/arus-kas/approver', [
-            'tipe'        => 'pengguna',
-            'id_pengguna' => $idPengguna,
-        ])->assertStatus(201);
+        DB::table('approval_config_approver')->insert([
+            'id_config'     => (string) Str::uuid(),
+            'id_event_type' => $this->idEventTypePengajuanPengeluaran(),
+            'tipe'          => 'pengguna',
+            'id_pengguna'   => $idPengguna,
+            'dibuat_pada'   => now(),
+        ]);
     }
 
     private function setBatas(float $batas): void
@@ -133,11 +152,14 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
     private function approvalRows(string $idPengajuan, bool $termasukTerhapus = false): array
     {
-        $q = DB::table('pengajuan_approval')->where('id_pengajuan', $idPengajuan);
+        $q = DB::table('approval_keputusan as ak')
+            ->join('approval_pengajuan as ap', 'ap.id_approval', '=', 'ak.id_approval')
+            ->where('ap.id_referensi', $idPengajuan)
+            ->select('ak.id_keputusan as id_approval', 'ak.id_pengguna', 'ak.status', 'ak.catatan', 'ak.waktu_aksi', 'ak.dihapus_pada', 'ak.dibuat_pada');
         if (!$termasukTerhapus) {
-            $q->whereNull('dihapus_pada');
+            $q->whereNull('ak.dihapus_pada');
         }
-        return $q->orderBy('dibuat_pada')->get()->map(fn ($r) => (array) $r)->all();
+        return $q->orderBy('ak.dibuat_pada')->get()->map(fn ($r) => (array) $r)->all();
     }
 
     public function test_realisasi_naik_melewati_batas_setelah_approval_memicu_approval_ulang(): void
@@ -148,9 +170,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(150000);
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', $this->pengajuanUntukPembelian($idPembelian)->status);
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
         $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
 
@@ -189,9 +209,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(201000);
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+        $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
 
         $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
 
@@ -209,9 +227,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(500000);
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+        $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
 
         $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
 
@@ -229,9 +245,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(150000);
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', $this->pengajuanUntukPembelian($idPembelian)->status);
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
 
         $this->realisasi($idPembelian, $items, 50000, 60000)->assertStatus(200);
@@ -255,9 +269,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(0);
 
         [$idPembelian, , $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', $this->pengajuanUntukPembelian($idPembelian)->status);
         $this->actingAsPengguna($idApprover1);
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200);
@@ -289,9 +301,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(0);
 
         [$idPembelian, , $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', $this->pengajuanUntukPembelian($idPembelian)->status);
         $this->actingAsPengguna($idApprover1);
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200);
@@ -312,20 +322,48 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->assertSame(['disetujui', 'menunggu'], $statuses);
     }
 
-    public function test_status_dicek_legacy_nominal_ikut_terupdate(): void
+    public function test_naik_dibawah_batas_saat_dicek_tetap_dicek(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        [$idPembelian, , $idPengajuan] = $this->buatPembelian();
+        $this->setBatas(999999999);
+        [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
+        $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)
             ->update(['status' => 'dicek']);
 
-        $payload = $this->payloadPembelian();
-        $payload['items'][0]['harga_estimasi'] = 70000;
-        $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $payload)->assertStatus(200);
+        $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
 
         $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
         $this->assertSame('dicek', $pengajuan->status);
-        $this->assertEquals(220000, (float) $pengajuan->nominal);
+        $this->assertEquals(205000, (float) $pengajuan->nominal);
+    }
+
+    public function test_naik_melewati_batas_saat_dicek_reset_ke_menunggu_approval(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idApprover = $this->buatPengguna('bod_dicek_naik');
+        $this->tambahApproverPengguna($idApprover);
+        $this->setBatas(150000);
+
+        [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
+        $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
+        $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
+        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)
+            ->update(['status' => 'dicek', 'dicek_oleh' => $idApprover, 'dicek_pada' => now()]);
+
+        $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
+
+        $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
+        $this->assertSame('menunggu_approval', $pengajuan->status);
+        $this->assertEquals(205000, (float) $pengajuan->nominal);
+        $this->assertNull($pengajuan->dicek_oleh);
+        $this->assertNull($pengajuan->dicek_pada);
+        $this->assertNull($pengajuan->disetujui_oleh);
+        $this->assertNull($pengajuan->disetujui_pada);
+
+        $aktif = $this->approvalRows($idPengajuan);
+        $this->assertCount(1, $aktif);
+        $this->assertSame('menunggu', $aktif[0]['status']);
     }
 
     public function test_status_ditransfer_nominal_tidak_berubah(): void
@@ -335,7 +373,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
         ])->assertStatus(200);
@@ -354,7 +392,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
 
         $stokSebelum = (float) DB::table('sparepart')
             ->where('id_sparepart', DB::table('pembelian_sparepart_item')->where('id_item', $items[0]['id_item'])->value('id_sparepart'))
@@ -363,7 +401,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(422);
 
         $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
-        $this->assertSame('disetujui', $pengajuan->status);
+        $this->assertSame('siap_transfer', $pengajuan->status);
         $this->assertEquals(200000, (float) $pengajuan->nominal);
 
         $rowPembelian = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
@@ -383,9 +421,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(150000);
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', $this->pengajuanUntukPembelian($idPembelian)->status);
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
 
         $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
@@ -414,6 +450,8 @@ class ReapprovalNominalRealisasiTest extends TestCase
         ])->assertStatus(422);
 
         $this->actingAsRole('KEUANGAN');
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
         $transfer = $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
         ]);
@@ -434,9 +472,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(150000);
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', $this->pengajuanUntukPembelian($idPembelian)->status);
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
 
         $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
@@ -471,7 +507,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         [$idPembelian, , $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
 
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)
             ->update(['status' => 'menunggu_approval']);
@@ -492,9 +528,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->setBatas(150000);
 
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        $this->assertSame('menunggu_approval', $this->pengajuanUntukPembelian($idPembelian)->status);
         $this->setujuiSebagaiApprover($idPengajuan, $idApprover);
 
         $sebelum = $this->approvalRows($idPengajuan, true);

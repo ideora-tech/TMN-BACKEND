@@ -14,6 +14,13 @@ class PerawatanArmadaTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+        app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
+    }
+
     private function makeArmada(string $nopol = 'B 1234 XYZ'): ArmadaModel
     {
         return ArmadaModel::create([

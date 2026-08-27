@@ -11,6 +11,9 @@ class ApprovalDiputuskan
     use Dispatchable;
 
     public function __construct(
+        public readonly string $idPerusahaan,
+        public readonly string $idApproval,
+        public readonly string $idPengguna,
         public readonly string $kodeEventType,
         public readonly string $idReferensi,
         public readonly string $keputusan,

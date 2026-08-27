@@ -59,6 +59,11 @@ class FakturRepository implements FakturRepositoryInterface
         return FakturModel::active()->with('items')->find($id);
     }
 
+    public function findForUpdate(string $id): ?FakturModel
+    {
+        return FakturModel::active()->lockForUpdate()->find($id);
+    }
+
     public function namaKlien(string $idKlien, string $idPerusahaan): ?string
     {
         return DB::table('klien')

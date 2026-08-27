@@ -14,6 +14,13 @@ class PerawatanSparepartTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+        app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
+    }
+
     private function makeArmada(): ArmadaModel
     {
         return ArmadaModel::create([

@@ -38,26 +38,47 @@ class MenungguApprovalSayaTest extends TestCase
         return $pengguna;
     }
 
+    private function idEventTypePengajuanPengeluaran(): string
+    {
+        $id = DB::table('approval_event_type')
+            ->where('id_perusahaan', self::PERUSAHAAN_ID)->where('kode', 'pengajuan_pengeluaran')->value('id_event_type');
+        if ($id !== null) {
+            return $id;
+        }
+        $id = (string) Str::uuid();
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode' => 'pengajuan_pengeluaran', 'nama' => 'Pengajuan Pengeluaran',
+            'mode_resolusi' => 'pinned', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
     /** @return array{0: string, 1: string, 2: string} [idPengajuan, idApprover1, idApprover2] */
     private function siapkanPengajuanMenungguApproval(float $nominal = 500000): array
     {
         $this->actingAsRole('SUPERADMIN');
         $idApprover1 = $this->buatPengguna('approver_saya_1');
         $idApprover2 = $this->buatPengguna('approver_saya_2');
-        $this->postJson('/api/arus-kas/approver', ['tipe' => 'pengguna', 'id_pengguna' => $idApprover1])->assertStatus(201);
-        $this->postJson('/api/arus-kas/approver', ['tipe' => 'pengguna', 'id_pengguna' => $idApprover2])->assertStatus(201);
+        $idEventType = $this->idEventTypePengajuanPengeluaran();
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'pengguna', 'id_pengguna' => $idApprover1, 'dibuat_pada' => now(),
+        ]);
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'pengguna', 'id_pengguna' => $idApprover2, 'dibuat_pada' => now(),
+        ]);
 
-        $idPengajuan = $this->postJson('/api/arus-kas/pengajuan', [
+        $res = $this->postJson('/api/arus-kas/pengajuan', [
             'kategori'          => 'uang_jalan',
             'nominal'           => $nominal,
             'tanggal_pengajuan' => now()->toDateString(),
             'penerima'          => 'Budi Supir',
             'keterangan'        => 'Uang jalan trip',
-        ])->json('data.id_pengajuan');
-
-        $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
+        ]);
+        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $idPengajuan = $res->json('data.id_pengajuan');
 
         return [$idPengajuan, $idApprover1, $idApprover2];
     }

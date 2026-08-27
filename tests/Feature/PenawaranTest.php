@@ -141,4 +141,16 @@ class PenawaranTest extends TestCase
 
         $this->assertNotSame($pertama, $kedua);
     }
+
+    public function test_store_penawaran_dengan_status_di_body_diabaikan_tetap_draft(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $res = $this->postJson('/api/penawaran', [
+            'id_klien' => $this->makeKlien(),
+            'judul'  => 'Percobaan Bypass Status',
+            'status' => 'terkirim',
+        ]);
+
+        $res->assertStatus(201)->assertJsonPath('data.status', 'draft');
+    }
 }

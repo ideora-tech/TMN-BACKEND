@@ -79,6 +79,13 @@ class PenawaranController extends Controller
         return ApiResponse::success(new PenawaranResource($record), 'Status penawaran berhasil diperbarui');
     }
 
+    public function ajukanApproval(Request $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $this->service->ajukanApproval($id, (string) $request->user()->id_pengguna, $idPerusahaan);
+        return ApiResponse::success(new PenawaranResource($record), 'Penawaran diajukan untuk approval');
+    }
+
     public function exportPdf(Request $request, string $id): Response
     {
         $penawaran = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);

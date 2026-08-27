@@ -1,7 +1,10 @@
 <?php
 
 namespace App\Modules\Penawaran;
+use App\Events\ApprovalDiputuskan;
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
+use App\Modules\Penawaran\Listeners\PenawaranApprovalListener;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -19,6 +22,8 @@ class PenawaranServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Event::listen(ApprovalDiputuskan::class, [PenawaranApprovalListener::class, 'handle']);
+
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:penawaran'])
             ->group(function () {
@@ -27,6 +32,7 @@ class PenawaranServiceProvider extends ServiceProvider
                 Route::apiResource('penawaran', PenawaranController::class)
                     ->parameters(['penawaran' => 'id']);
                 Route::put('penawaran/{id}/status', [PenawaranController::class, 'updateStatus']);
+                Route::post('penawaran/{id}/ajukan-approval', [PenawaranController::class, 'ajukanApproval']);
             });
     }
 }

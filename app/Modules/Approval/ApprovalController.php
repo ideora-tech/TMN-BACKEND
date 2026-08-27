@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace App\Modules\Approval;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Approval\Exports\PersetujuanSayaWorkbookExport;
 use App\Modules\Approval\Requests\KeputusanApprovalRequest;
 use App\Modules\Approval\Requests\StoreConfigApproverRequest;
 use App\Modules\Approval\Requests\StoreEventTypeRequest;
 use App\Modules\Approval\Requests\UpdateEventTypeRequest;
 use App\Modules\Approval\Resources\ApprovalPengajuanResource;
+use App\Modules\Approval\Resources\ApprovalRiwayatSayaResource;
 use App\Modules\Approval\Resources\EventTypeResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ApprovalController extends Controller
 {
@@ -44,6 +48,21 @@ class ApprovalController extends Controller
         return ApiResponse::success(new EventTypeResource($record));
     }
 
+    public function destroyEventType(Request $request, string $id): JsonResponse
+    {
+        $this->service->hapusEventType(
+            $id,
+            (string) $request->user()->id_perusahaan,
+        );
+        return ApiResponse::success(null, 'Jenis pengajuan dihapus');
+    }
+
+    public function indexConfigApprover(Request $request, string $idEventType): JsonResponse
+    {
+        $data = $this->service->listConfigApprover($idEventType, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success($data);
+    }
+
     public function storeConfigApprover(StoreConfigApproverRequest $request, string $idEventType): JsonResponse
     {
         $idConfig = $this->service->tambahConfigApprover(
@@ -71,6 +90,29 @@ class ApprovalController extends Controller
             (string) $request->user()->id_perusahaan,
         );
         return ApiResponse::success(ApprovalPengajuanResource::collection($data));
+    }
+
+    public function riwayatSaya(Request $request): JsonResponse
+    {
+        $data = $this->service->riwayatApprovalSaya(
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->id_perusahaan,
+        );
+        return ApiResponse::success(ApprovalRiwayatSayaResource::collection($data));
+    }
+
+    public function exportSaya(Request $request): BinaryFileResponse
+    {
+        $idPengguna = (string) $request->user()->id_pengguna;
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        $menunggu = $this->service->menungguApprovalSaya($idPengguna, $idPerusahaan);
+        $riwayat = $this->service->riwayatApprovalSaya($idPengguna, $idPerusahaan);
+
+        return Excel::download(
+            new PersetujuanSayaWorkbookExport($menunggu, $riwayat),
+            'persetujuan-saya.xlsx'
+        );
     }
 
     public function putuskan(KeputusanApprovalRequest $request, string $id): JsonResponse

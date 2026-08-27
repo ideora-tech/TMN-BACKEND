@@ -19,7 +19,6 @@ class UpdateFakturRequest extends FormRequest
             'id_proyek'      => ['sometimes', 'nullable', 'string', 'max:36'],
             'id_klien'       => ['sometimes', 'nullable', 'string', 'max:36'],
             'nomor_faktur'   => ['sometimes', 'string', 'max:100'],
-            'status'         => ['sometimes', 'string', 'in:draft,terkirim,lunas,batal'],
             'tanggal_faktur' => ['sometimes', 'nullable', 'date'],
             'jatuh_tempo'    => ['sometimes', 'nullable', 'date'],
             'nama_pajak'     => ['sometimes', 'nullable', 'string', 'max:50'],

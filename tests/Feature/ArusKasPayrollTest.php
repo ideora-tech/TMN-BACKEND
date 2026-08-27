@@ -12,6 +12,13 @@ class ArusKasPayrollTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+        app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
+    }
+
     private function pengaturanPayload(array $override = []): array
     {
         return array_merge([
@@ -84,7 +91,7 @@ class ArusKasPayrollTest extends TestCase
         $this->assertSame('penggajian', $pengajuan->kategori);
         $this->assertEquals($totalGajiBersih, (float) $pengajuan->nominal);
         $this->assertSame($idPeriode, $pengajuan->id_periode);
-        $this->assertSame('diajukan', $pengajuan->status);
+        $this->assertSame('disetujui', $pengajuan->status);
         $this->assertSame('Seluruh karyawan', $pengajuan->penerima);
         $this->assertNotNull($pengajuan->nomor_pengajuan);
         $this->assertSame(self::PERUSAHAAN_ID, $pengajuan->id_perusahaan);
@@ -135,7 +142,7 @@ class ArusKasPayrollTest extends TestCase
         $idPengajuan = $this->pengajuanAktifPeriode($idPeriode)->id_pengajuan;
 
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => '2026-08-20',
         ])->assertStatus(200);
@@ -165,7 +172,7 @@ class ArusKasPayrollTest extends TestCase
         $this->assertCount(0, collect($rekapSebelum->json('data.transaksi'))->where('kategori', 'penggajian'));
 
         $this->patchJson("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
         $this->patchJson("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/transfer", [
             'tanggal_transfer' => '2026-08-20',
         ])->assertStatus(200);

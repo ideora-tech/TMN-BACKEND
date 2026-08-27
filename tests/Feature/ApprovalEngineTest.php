@@ -117,6 +117,181 @@ class ApprovalEngineTest extends TestCase
         ]);
     }
 
+    public function test_tambah_config_approver_duplikat_ditolak_409(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_dup_approver');
+        $idJabatan   = $this->makeJabatan('Direktur Operasional');
+
+        $this->postJson("/api/approval-event-type/{$idEventType}/approver", [
+            'tipe'       => 'jabatan',
+            'id_jabatan' => $idJabatan,
+        ])->assertStatus(201);
+
+        $this->postJson("/api/approval-event-type/{$idEventType}/approver", [
+            'tipe'       => 'jabatan',
+            'id_jabatan' => $idJabatan,
+        ])->assertStatus(409);
+
+        $this->assertSame(1, DB::table('approval_config_approver')
+            ->where('id_event_type', $idEventType)
+            ->where('id_jabatan', $idJabatan)
+            ->whereNull('dihapus_pada')
+            ->count());
+    }
+
+    public function test_tambah_config_approver_ulang_setelah_dihapus_berhasil(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_readd_approver');
+        $idJabatan   = $this->makeJabatan('Direktur Keuangan');
+
+        $res = $this->postJson("/api/approval-event-type/{$idEventType}/approver", [
+            'tipe'       => 'jabatan',
+            'id_jabatan' => $idJabatan,
+        ]);
+        $res->assertStatus(201);
+        $idConfig = $res->json('data.id_config');
+
+        $this->deleteJson("/api/approval-event-type/{$idEventType}/approver/{$idConfig}")
+            ->assertStatus(200);
+
+        $this->postJson("/api/approval-event-type/{$idEventType}/approver", [
+            'tipe'       => 'jabatan',
+            'id_jabatan' => $idJabatan,
+        ])->assertStatus(201);
+    }
+
+    public function test_tambah_config_approver_jabatan_lintas_perusahaan_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_tenant_jabatan');
+
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
+        $idJabatanLain = (string) Str::uuid();
+        DB::table('jabatan')->insert([
+            'id_jabatan'    => $idJabatanLain,
+            'id_perusahaan' => $idPerusahaanLain,
+            'kode_jabatan'  => 'JBT-LAIN',
+            'nama_jabatan'  => 'Direktur Lain',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+
+        $this->postJson("/api/approval-event-type/{$idEventType}/approver", [
+            'tipe'       => 'jabatan',
+            'id_jabatan' => $idJabatanLain,
+        ])->assertStatus(404);
+
+        $this->assertDatabaseMissing('approval_config_approver', [
+            'id_event_type' => $idEventType,
+            'id_jabatan'    => $idJabatanLain,
+        ]);
+    }
+
+    public function test_tambah_config_approver_pengguna_lintas_perusahaan_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_tenant_pengguna');
+
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
+        $penggunaLain = Pengguna::create([
+            'id_pengguna'   => (string) Str::uuid(),
+            'id_perusahaan' => $idPerusahaanLain,
+            'kode_peran'    => 'KARYAWAN',
+            'username'      => 'lain_' . Str::random(8),
+            'email'         => Str::random(8) . '@lain.id',
+            'kata_sandi'    => bcrypt('Password123!'),
+            'aktif'         => 1,
+        ]);
+
+        $this->postJson("/api/approval-event-type/{$idEventType}/approver", [
+            'tipe'        => 'pengguna',
+            'id_pengguna' => $penggunaLain->id_pengguna,
+        ])->assertStatus(404);
+
+        $this->assertDatabaseMissing('approval_config_approver', [
+            'id_event_type' => $idEventType,
+            'id_pengguna'   => $penggunaLain->id_pengguna,
+        ]);
+    }
+
+    public function test_tambah_config_approver_pengguna_satu_tenant_berhasil(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_tenant_ok');
+        $idJabatan   = $this->makeJabatan('Direktur Tenant OK');
+        $pengguna    = $this->makePenggunaDenganJabatan($idJabatan, 'Pengguna Tenant OK');
+
+        $res = $this->postJson("/api/approval-event-type/{$idEventType}/approver", [
+            'tipe'        => 'pengguna',
+            'id_pengguna' => $pengguna->id_pengguna,
+        ]);
+        $res->assertStatus(201);
+
+        $this->assertDatabaseHas('approval_config_approver', [
+            'id_event_type' => $idEventType,
+            'tipe'          => 'pengguna',
+            'id_pengguna'   => $pengguna->id_pengguna,
+        ]);
+    }
+
+    public function test_list_config_approver_hanya_punya_tenant_dan_nama_terisi(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_list_tenant');
+        $idJabatan   = $this->makeJabatan('Direktur List Tenant');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
+        $idJabatanLain = (string) Str::uuid();
+        DB::table('jabatan')->insert([
+            'id_jabatan'    => $idJabatanLain,
+            'id_perusahaan' => $idPerusahaanLain,
+            'kode_jabatan'  => 'JBT-LAIN2',
+            'nama_jabatan'  => 'Direktur Lain 2',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        // Simulasi baris drift data (mis. sisa sebelum fix tenant-check) yang menunjuk jabatan lintas tenant.
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatanLain, 'dibuat_pada' => now(),
+        ]);
+
+        $res = $this->getJson("/api/approval-event-type/{$idEventType}/approver");
+        $res->assertStatus(200);
+        $data = collect($res->json('data'));
+
+        $this->assertCount(2, $data);
+
+        $barisSendiri = $data->firstWhere('id_jabatan', $idJabatan);
+        $this->assertSame('Direktur List Tenant', $barisSendiri['nama']);
+
+        $barisLintasTenant = $data->firstWhere('id_jabatan', $idJabatanLain);
+        $this->assertNull($barisLintasTenant['nama']);
+    }
+
+    public function test_create_event_type_kode_duplikat_ditolak_409(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->postJson('/api/approval-event-type', [
+            'kode' => 'test_dup_kode', 'nama' => 'Pertama', 'mode_resolusi' => 'pinned',
+        ])->assertStatus(201);
+
+        $res = $this->postJson('/api/approval-event-type', [
+            'kode' => 'test_dup_kode', 'nama' => 'Kedua', 'mode_resolusi' => 'pinned',
+        ]);
+
+        $res->assertStatus(409);
+    }
+
     public function test_non_admin_tidak_bisa_buat_event_type(): void
     {
         $this->actingAsRole('DISPATCHER');
@@ -126,6 +301,106 @@ class ApprovalEngineTest extends TestCase
             'nama'          => 'Test Dummy Event',
             'mode_resolusi' => 'pinned',
         ])->assertStatus(403);
+    }
+
+    public function test_admin_bisa_hapus_event_type_tanpa_riwayat_pengajuan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_hapus_kosong');
+        $idJabatan   = $this->makeJabatan('Direktur Hapus Kosong');
+        $idConfig    = (string) Str::uuid();
+        DB::table('approval_config_approver')->insert([
+            'id_config' => $idConfig, 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+
+        $this->deleteJson("/api/approval-event-type/{$idEventType}")
+            ->assertStatus(200);
+
+        $this->assertDatabaseMissing('approval_event_type', [
+            'id_event_type' => $idEventType,
+            'dihapus_pada'  => null,
+        ]);
+        $this->assertDatabaseMissing('approval_config_approver', [
+            'id_config'    => $idConfig,
+            'dihapus_pada' => null,
+        ]);
+    }
+
+    public function test_hapus_event_type_dengan_riwayat_pengajuan_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_hapus_ada_riwayat');
+        $idJabatan   = $this->makeJabatan('Direktur Hapus Riwayat');
+        $idConfig    = (string) Str::uuid();
+        DB::table('approval_config_approver')->insert([
+            'id_config' => $idConfig, 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        DB::table('approval_pengajuan')->insert([
+            'id_approval'         => (string) Str::uuid(),
+            'id_perusahaan'       => self::PERUSAHAAN_ID,
+            'id_event_type'       => $idEventType,
+            'id_referensi'        => (string) Str::uuid(),
+            'id_pengguna_pengaju' => (string) Str::uuid(),
+            'status'              => 'dibatalkan',
+            'dibuat_pada'         => now(),
+        ]);
+
+        $this->deleteJson("/api/approval-event-type/{$idEventType}")
+            ->assertStatus(422);
+
+        $this->assertDatabaseHas('approval_event_type', [
+            'id_event_type' => $idEventType,
+            'dihapus_pada'  => null,
+        ]);
+        $this->assertDatabaseHas('approval_config_approver', [
+            'id_config'    => $idConfig,
+            'dihapus_pada' => null,
+        ]);
+    }
+
+    public function test_reaktivasi_event_type_bentrok_kode_dengan_yang_masih_aktif_409(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idAktif = $this->makeEventType('pinned', 'test_kode_bentrok');
+
+        $idNonaktif = (string) Str::uuid();
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => $idNonaktif,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode'          => 'test_kode_bentrok',
+            'nama'          => 'Kode Bentrok Nonaktif',
+            'mode_resolusi' => 'pinned',
+            'aktif'         => 0,
+            'dibuat_pada'   => now(),
+        ]);
+
+        $this->putJson("/api/approval-event-type/{$idNonaktif}", [
+            'aktif' => true,
+        ])->assertStatus(409);
+
+        $this->assertDatabaseHas('approval_event_type', [
+            'id_event_type' => $idNonaktif,
+            'aktif'         => 0,
+        ]);
+        $this->assertNotSame($idAktif, $idNonaktif);
+    }
+
+    public function test_update_event_type_rename_nama_tersimpan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_rename');
+
+        $this->putJson("/api/approval-event-type/{$idEventType}", [
+            'nama' => 'Nama Baru Setelah Rename',
+        ])->assertStatus(200)
+            ->assertJsonPath('data.nama', 'Nama Baru Setelah Rename');
+
+        $this->assertDatabaseHas('approval_event_type', [
+            'id_event_type' => $idEventType,
+            'nama'          => 'Nama Baru Setelah Rename',
+        ]);
     }
 
     public function test_ajukan_pinned_tipe_jabatan_menghasilkan_baris_keputusan_untuk_semua_pemegang(): void
@@ -245,7 +520,12 @@ class ApprovalEngineTest extends TestCase
 
         $service->putuskan($pengajuan->id_approval, $a2->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
         $this->assertSame('disetujui', $pengajuan->fresh()->status);
-        Event::assertDispatched(\App\Events\ApprovalDiputuskan::class, fn ($e) => $e->keputusan === 'disetujui');
+        Event::assertDispatched(\App\Events\ApprovalDiputuskan::class, function ($e) use ($pengajuan, $a2) {
+            return $e->keputusan === 'disetujui'
+                && $e->idPerusahaan === self::PERUSAHAAN_ID
+                && $e->idApproval === $pengajuan->id_approval
+                && $e->idPengguna === $a2->id_pengguna;
+        });
 
         $this->assertDatabaseHas('notifikasi', [
             'id_pengguna'    => $pengaju->id_pengguna,
@@ -273,7 +553,12 @@ class ApprovalEngineTest extends TestCase
         $service->putuskan($pengajuan->id_approval, $a1->id_pengguna, 'tolak', 'Tidak sesuai budget', self::PERUSAHAAN_ID);
         $this->assertSame('ditolak', $pengajuan->fresh()->status);
         $this->assertSame('Tidak sesuai budget', $pengajuan->fresh()->alasan_ditolak);
-        Event::assertDispatched(\App\Events\ApprovalDiputuskan::class, fn ($e) => $e->keputusan === 'ditolak');
+        Event::assertDispatched(\App\Events\ApprovalDiputuskan::class, function ($e) use ($pengajuan, $a1) {
+            return $e->keputusan === 'ditolak'
+                && $e->idPerusahaan === self::PERUSAHAAN_ID
+                && $e->idApproval === $pengajuan->id_approval
+                && $e->idPengguna === $a1->id_pengguna;
+        });
 
         $this->assertDatabaseHas('notifikasi', [
             'id_pengguna'    => $pengaju->id_pengguna,
@@ -418,6 +703,67 @@ class ApprovalEngineTest extends TestCase
             ->value('status'));
     }
 
+    public function test_menunggu_approval_saya_menyertakan_nama_event_type_dan_nama_pengaju(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_kaya');
+        $idJabatan   = $this->makeJabatan('Approver Kaya');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Approver Data Kaya');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'SALES',
+            'username' => 'pengaju_kaya', 'email' => 'pengaju_kaya@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $service->ajukan('test_kaya', (string) Str::uuid(), $pengaju->id_pengguna, 750000.0, self::PERUSAHAAN_ID);
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+        $res = $this->getJson('/api/approval-pengajuan/menunggu-saya');
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.0.nama_pengaju', 'pengaju_kaya')
+            ->assertJsonPath('data.0.nomor_referensi', null);
+        $this->assertNotEmpty($res->json('data.0.nama_event_type'));
+    }
+
+    public function test_menunggu_approval_saya_menyertakan_ringkasan_referensi(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'penawaran');
+        $idJabatan   = $this->makeJabatan('Approver Penawaran');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Approver Penawaran');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+
+        $idKlien = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien' => $idKlien, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_klien' => 'K-RINGKAS', 'nama_klien' => 'Klien Ringkasan Referensi', 'dibuat_pada' => now(),
+        ]);
+        $idPenawaran = (string) Str::uuid();
+        DB::table('penawaran')->insert([
+            'id_penawaran' => $idPenawaran, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_klien' => $idKlien,
+            'nomor_penawaran' => 'PNW-RINGKAS-1', 'judul' => 'Penawaran Ringkasan', 'status' => 'draft',
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $service->ajukan('penawaran', $idPenawaran, $pengaju->id_pengguna, null, self::PERUSAHAAN_ID);
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+        $res = $this->getJson('/api/approval-pengajuan/menunggu-saya');
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.0.kode_event_type', 'penawaran')
+            ->assertJsonPath('data.0.nomor_referensi', 'PNW-RINGKAS-1')
+            ->assertJsonPath('data.0.pihak_referensi', 'Klien Ringkasan Referensi');
+    }
+
     public function test_endpoint_menunggu_saya_dan_keputusan(): void
     {
         $idEventType = $this->makeEventType('pinned', 'test_dummy_http');
@@ -466,5 +812,175 @@ class ApprovalEngineTest extends TestCase
             'keputusan' => 'tolak',
             'catatan'   => 'Alasan wajib ini',
         ])->assertStatus(200)->assertJsonPath('data.status', 'ditolak');
+    }
+
+    public function test_putuskan_untuk_referensi_delegasi_ke_putuskan(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_referensi');
+        $idJabatan   = $this->makeJabatan('Direktur Referensi');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Approver Referensi');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $idReferensi = (string) Str::uuid();
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $service->ajukan('test_dummy_referensi', $idReferensi, $pengaju->id_pengguna, 100000.0, self::PERUSAHAAN_ID);
+
+        $hasil = $service->putuskanUntukReferensi('test_dummy_referensi', $idReferensi, $approver->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
+        $this->assertSame('disetujui', $hasil->status);
+    }
+
+    public function test_putuskan_untuk_referensi_yang_tidak_ada_404(): void
+    {
+        $this->makeEventType('pinned', 'test_dummy_referensi_404');
+        $pengguna = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+
+        try {
+            $service->putuskanUntukReferensi('test_dummy_referensi_404', (string) Str::uuid(), $pengguna->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
+            $this->fail('Seharusnya melempar HttpException 404');
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            $this->assertSame(404, $e->getStatusCode());
+        }
+    }
+
+    public function test_batalkan_dan_ajukan_ulang_membatalkan_lama_dan_membuat_baru(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_batal');
+        $idJabatan   = $this->makeJabatan('Direktur Batal');
+        $approverLama = $this->makePenggunaDenganJabatan($idJabatan, 'Approver Lama');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $idReferensi = (string) Str::uuid();
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $lama = $service->ajukan('test_dummy_batal', $idReferensi, $pengaju->id_pengguna, 100000.0, self::PERUSAHAAN_ID);
+
+        $baru = $service->batalkanDanAjukanUlang('test_dummy_batal', $idReferensi, $pengaju->id_pengguna, 200000.0, self::PERUSAHAAN_ID);
+
+        $this->assertSame('dibatalkan', $lama->fresh()->status);
+        $this->assertNotSame($lama->id_approval, $baru->id_approval);
+        $this->assertSame('menunggu', $baru->status);
+        $this->assertSame(200000.0, (float) $baru->nominal);
+        $this->assertSame(1, DB::table('approval_keputusan')->where('id_approval', $baru->id_approval)->count());
+    }
+
+    public function test_batalkan_dan_ajukan_ulang_tanpa_pengajuan_aktif_langsung_ajukan_biasa(): void
+    {
+        $this->makeEventType('pinned', 'test_dummy_batal_kosong');
+        $idJabatan = $this->makeJabatan('Direktur Batal Kosong');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => DB::table('approval_event_type')->where('kode', 'test_dummy_batal_kosong')->value('id_event_type'),
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $this->makePenggunaDenganJabatan($idJabatan, 'Approver Kosong');
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+
+        $baru = $service->batalkanDanAjukanUlang('test_dummy_batal_kosong', (string) Str::uuid(), $pengaju->id_pengguna, 50000.0, self::PERUSAHAAN_ID);
+        $this->assertSame('menunggu', $baru->status);
+    }
+
+    public function test_batalkan_dan_ajukan_ulang_void_baris_keputusan_siklus_lama(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_dummy_batal_void');
+        $idJabatan    = $this->makeJabatan('Direktur Batal Void');
+        $approverLama = $this->makePenggunaDenganJabatan($idJabatan, 'Approver Lama Void');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $idReferensi = (string) Str::uuid();
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $lama = $service->ajukan('test_dummy_batal_void', $idReferensi, $pengaju->id_pengguna, 100000.0, self::PERUSAHAAN_ID);
+
+        $this->assertSame(1, DB::table('approval_keputusan')
+            ->where('id_approval', $lama->id_approval)
+            ->whereNull('dihapus_pada')
+            ->count());
+
+        $baru = $service->batalkanDanAjukanUlang('test_dummy_batal_void', $idReferensi, $pengaju->id_pengguna, 200000.0, self::PERUSAHAAN_ID);
+
+        $this->assertSame('dibatalkan', $lama->fresh()->status);
+        $this->assertNotSame($lama->id_approval, $baru->id_approval);
+
+        $barisLama = DB::table('approval_keputusan')->where('id_approval', $lama->id_approval)->get();
+        $this->assertCount(1, $barisLama);
+        $this->assertNotNull($barisLama->first()->dihapus_pada);
+
+        $this->assertSame(1, DB::table('approval_keputusan')
+            ->where('id_approval', $baru->id_approval)
+            ->whereNull('dihapus_pada')
+            ->count());
+    }
+
+    public function test_batalkan_untuk_referensi_membatalkan_pengajuan_menunggu_dan_void_keputusan(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'test_batalkan_untuk_referensi');
+        $idJabatan   = $this->makeJabatan('Direktur Batalkan Untuk Referensi');
+        $this->makePenggunaDenganJabatan($idJabatan, 'Approver Batalkan Untuk Referensi');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+        $idReferensi = (string) Str::uuid();
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_batalkan_untuk_referensi', $idReferensi, $pengaju->id_pengguna, 100000.0, self::PERUSAHAAN_ID);
+
+        $service->batalkanUntukReferensi(['test_batalkan_untuk_referensi'], $idReferensi, self::PERUSAHAAN_ID);
+
+        $this->assertSame('dibatalkan', $pengajuan->fresh()->status);
+        $this->assertSame(1, DB::table('approval_keputusan')
+            ->where('id_approval', $pengajuan->id_approval)
+            ->whereNotNull('dihapus_pada')
+            ->count());
+    }
+
+    public function test_batalkan_untuk_referensi_tanpa_pengajuan_aktif_no_op(): void
+    {
+        $this->makeEventType('pinned', 'test_batalkan_untuk_referensi_kosong');
+
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+
+        $service->batalkanUntukReferensi(['test_batalkan_untuk_referensi_kosong'], (string) Str::uuid(), self::PERUSAHAAN_ID);
+
+        $this->assertSame(0, DB::table('approval_pengajuan')->count());
+    }
+
+    public function test_menunggu_saya_untuk_kode_sparepart_menampilkan_nomor_referensi_pengajuan_pengeluaran(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'sparepart');
+        $idJabatan   = $this->makeJabatan('Approver Sparepart');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Approver Sparepart');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+
+        $idPengajuan = (string) Str::uuid();
+        DB::table('pengajuan_pengeluaran')->insert([
+            'id_pengajuan' => $idPengajuan, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nomor_pengajuan' => 'PP-SPAREPART-1', 'kategori' => 'sparepart', 'nominal' => 100000,
+            'tanggal_pengajuan' => now()->toDateString(), 'penerima' => 'Toko Sparepart Ringkasan',
+            'status' => 'menunggu_approval', 'dibuat_pada' => now(),
+        ]);
+
+        $pengaju = $this->actingAsRole('SALES');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $service->ajukan('sparepart', $idPengajuan, $pengaju->id_pengguna, 100000.0, self::PERUSAHAAN_ID);
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+        $res = $this->getJson('/api/approval-pengajuan/menunggu-saya');
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.0.kode_event_type', 'sparepart')
+            ->assertJsonPath('data.0.nomor_referensi', 'PP-SPAREPART-1')
+            ->assertJsonPath('data.0.pihak_referensi', 'Toko Sparepart Ringkasan');
     }
 }

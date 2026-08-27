@@ -20,7 +20,6 @@ class StorePenawaranRequest extends FormRequest
             'judul'            => ['required', 'string', 'max:200'],
             'id_klien'         => ['required', 'string', 'max:36'],
             'nilai_penawaran'  => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'status'           => ['sometimes', 'in:draft,terkirim,negosiasi,disetujui,ditolak'],
             'tipe_harga'       => ['sometimes', 'string', 'in:per_rit,borongan'],
             'tanggal_penawaran'=> ['sometimes', 'nullable', 'date'],
             'tanggal_berlaku'  => ['sometimes', 'nullable', 'date'],

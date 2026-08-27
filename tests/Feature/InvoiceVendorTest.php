@@ -4,15 +4,69 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Pengguna;
 use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class InvoiceVendorTest extends TestCase
 {
     use RefreshDatabase;
+
+    private ?string $idApproverInvoiceVendor = null;
+
+    private function pastikanApproverInvoiceVendor(): string
+    {
+        if ($this->idApproverInvoiceVendor !== null) {
+            return $this->idApproverInvoiceVendor;
+        }
+
+        $idJabatan = (string) Str::uuid();
+        DB::table('jabatan')->insert([
+            'id_jabatan' => $idJabatan, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_jabatan' => 'APMGR-T', 'nama_jabatan' => 'AP Manager Test', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idKaryawan = (string) Str::uuid();
+        DB::table('karyawan')->insert([
+            'id_karyawan' => $idKaryawan, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_jabatan' => $idJabatan,
+            'nik' => 'NIK-AP-' . Str::random(6), 'nama_karyawan' => 'Approver IV', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idPengguna = (string) Str::uuid();
+        DB::table('pengguna')->insert([
+            'id_pengguna' => $idPengguna, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_karyawan' => $idKaryawan,
+            'kode_peran' => 'KEUANGAN', 'username' => 'approver_iv_' . Str::random(6),
+            'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        $idEventType = DB::table('approval_event_type')
+            ->where('id_perusahaan', self::PERUSAHAAN_ID)->where('kode', 'invoice_vendor')->value('id_event_type');
+        if ($idEventType === null) {
+            $idEventType = (string) Str::uuid();
+            DB::table('approval_event_type')->insert([
+                'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
+                'kode' => 'invoice_vendor', 'nama' => 'Invoice Vendor', 'mode_resolusi' => 'pinned',
+                'aktif' => 1, 'dibuat_pada' => now(),
+            ]);
+        }
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+
+        return $this->idApproverInvoiceVendor = $idPengguna;
+    }
+
+    private function verifikasiViaApproval(string $idInvoice, string $keputusan = 'setuju', ?string $catatan = null): void
+    {
+        $idApprover = $this->pastikanApproverInvoiceVendor();
+        $this->postJson("/api/invoice-vendor/{$idInvoice}/ajukan-approval")->assertStatus(200);
+        app(\App\Modules\Approval\ApprovalService::class)->putuskanUntukReferensi(
+            'invoice_vendor', $idInvoice, $idApprover, $keputusan, $catatan, self::PERUSAHAAN_ID
+        );
+    }
 
     private function makeVendor(?string $idPerusahaan = null): VendorModel
     {
@@ -404,7 +458,7 @@ class InvoiceVendorTest extends TestCase
 
         $this->putJson("/api/invoice-vendor/{$id}", ['dpp' => 999])
             ->assertStatus(409)
-            ->assertJsonPath('message', 'Invoice yang sudah diverifikasi tidak dapat diubah');
+            ->assertJsonPath('message', 'Invoice tidak dapat diubah pada status ini');
     }
 
     public function test_update_invoice_perusahaan_lain_404(): void
@@ -442,58 +496,63 @@ class InvoiceVendorTest extends TestCase
         $this->assertNull($row->dihapus_pada);
     }
 
-    public function test_verifikasi_invoice_berhasil(): void
+    public function test_approval_disetujui_invoice_terverifikasi(): void
     {
-        $pengguna = $this->actingAsRole('SUPERADMIN');
+        $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor);
 
-        $res = $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", [
-            'aksi' => 'verifikasi',
+        $this->verifikasiViaApproval($id);
+
+        $this->assertDatabaseHas('invoice_vendor', [
+            'id_invoice_vendor' => $id,
+            'status'            => 'diverifikasi',
+            'diverifikasi_oleh' => $this->idApproverInvoiceVendor,
         ]);
 
-        $res->assertStatus(200)
-            ->assertJsonPath('data.status', 'diverifikasi')
-            ->assertJsonPath('data.diverifikasi_oleh', $pengguna->id_pengguna);
-
-        $this->assertNotNull($res->json('data.diverifikasi_pada'));
+        $diverifikasiPada = DB::table('invoice_vendor')->where('id_invoice_vendor', $id)->value('diverifikasi_pada');
+        $this->assertNotNull($diverifikasiPada);
     }
 
-    public function test_tolak_tanpa_catatan_422(): void
+    public function test_tolak_via_endpoint_generik_tanpa_catatan_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor);
 
-        $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", [
-            'aksi' => 'tolak',
-        ])->assertStatus(422)
-            ->assertJsonValidationErrors(['catatan']);
+        $idApprover = $this->pastikanApproverInvoiceVendor();
+        $this->postJson("/api/invoice-vendor/{$id}/ajukan-approval")->assertStatus(200);
+
+        Sanctum::actingAs(Pengguna::findOrFail($idApprover), ['*']);
+        $idApproval = DB::table('approval_pengajuan')->where('id_referensi', $id)->value('id_approval');
+
+        $this->patchJson("/api/approval-pengajuan/{$idApproval}/keputusan", [
+            'keputusan' => 'tolak',
+        ])->assertStatus(422);
     }
 
-    public function test_tolak_dengan_catatan_berhasil(): void
+    public function test_approval_ditolak_invoice_ditolak_dengan_catatan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor);
 
-        $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", [
-            'aksi'    => 'tolak',
-            'catatan' => 'Dokumen tidak lengkap',
-        ])->assertStatus(200)
-            ->assertJsonPath('data.status', 'ditolak')
-            ->assertJsonPath('data.catatan_verifikasi', 'Dokumen tidak lengkap');
+        $this->verifikasiViaApproval($id, 'tolak', 'Dokumen tidak lengkap');
+
+        $this->assertDatabaseHas('invoice_vendor', [
+            'id_invoice_vendor'  => $id,
+            'status'             => 'ditolak',
+            'catatan_verifikasi' => 'Dokumen tidak lengkap',
+        ]);
     }
 
-    public function test_verifikasi_invoice_bukan_draft_409(): void
+    public function test_ajukan_approval_bukan_draft_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor, ['status' => 'diverifikasi']);
 
-        $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", [
-            'aksi' => 'verifikasi',
-        ])->assertStatus(409);
+        $this->postJson("/api/invoice-vendor/{$id}/ajukan-approval")->assertStatus(422);
     }
 
     public function test_monitoring_aging_dan_outstanding(): void
@@ -663,10 +722,13 @@ class InvoiceVendorTest extends TestCase
         $vendor = $this->makeVendor();
         $id = $this->insertInvoice($vendor->id_vendor, ['dpp' => 0, 'total' => 0]);
 
-        $this->patchJson("/api/invoice-vendor/{$id}/verifikasi", ['aksi' => 'verifikasi'])
-            ->assertStatus(200)
-            ->assertJsonPath('data.status', 'diverifikasi')
-            ->assertJsonPath('data.status_pembayaran', 'lunas');
+        $this->verifikasiViaApproval($id);
+
+        $this->assertDatabaseHas('invoice_vendor', [
+            'id_invoice_vendor' => $id,
+            'status'            => 'diverifikasi',
+            'status_pembayaran' => 'lunas',
+        ]);
 
         $monitoring = $this->getJson('/api/invoice-vendor/monitoring')->assertStatus(200);
         $this->assertSame([], array_filter(

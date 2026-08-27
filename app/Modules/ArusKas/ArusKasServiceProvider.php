@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\ArusKas;
 
+use App\Events\ApprovalDiputuskan;
 use App\Modules\ArusKas\Contracts\ArusKasRepositoryInterface;
+use App\Modules\ArusKas\Listeners\ArusKasApprovalListener;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -18,6 +21,8 @@ class ArusKasServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Event::listen(ApprovalDiputuskan::class, [ArusKasApprovalListener::class, 'handle']);
+
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:arus-kas'])
             ->group(function () {
@@ -48,9 +53,6 @@ class ArusKasServiceProvider extends ServiceProvider
                 });
 
                 Route::middleware('role:SUPERADMIN,ADMIN')->group(function () {
-                    Route::get('arus-kas/approver', [ArusKasController::class, 'indexApprover']);
-                    Route::post('arus-kas/approver', [ArusKasController::class, 'storeApprover']);
-                    Route::delete('arus-kas/approver/{id}', [ArusKasController::class, 'destroyApprover']);
                     Route::get('arus-kas/pengaturan-approval', [ArusKasController::class, 'showPengaturanApproval']);
                     Route::put('arus-kas/pengaturan-approval', [ArusKasController::class, 'updatePengaturanApproval']);
                 });

@@ -16,6 +16,13 @@ class PayrollImportTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+        app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
+    }
+
     private const HEADER = [
         'NO', 'NAMA', 'PROJECT', 'TYPE TRUCK', 'JABATAN', 'STATUS', 'BANK', 'NO REKENING',
         'Absen Masuk', 'GAJI POKOK', 'UANG MAKAN', 'TUNJANGAN', 'JUMLAH GAJI', 'GAJI PRORATE',

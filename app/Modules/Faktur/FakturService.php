@@ -9,7 +9,13 @@ use App\Modules\Faktur\Contracts\FakturRepositoryInterface;
 
 class FakturService
 {
-    private const ALLOWED_STATUSES = ['draft', 'terkirim', 'lunas', 'batal'];
+    private const VALID_TRANSITIONS = [
+        'draft'             => ['batal'],
+        'menunggu_approval' => [],
+        'terkirim'          => ['lunas', 'batal'],
+        'lunas'             => [],
+        'batal'             => [],
+    ];
 
     public function __construct(
         private readonly FakturRepositoryInterface $repo,
@@ -130,6 +136,10 @@ class FakturService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
 
+        if ($record->status !== 'draft') {
+            abort(422, 'Hanya invoice berstatus draft yang dapat diubah');
+        }
+
         if (isset($data['nomor_faktur']) && $data['nomor_faktur'] !== $record->nomor_faktur) {
             if ($this->repo->findByNomor($data['nomor_faktur'], $record->id_perusahaan)) {
                 abort(409, 'Nomor invoice sudah digunakan');
@@ -189,16 +199,76 @@ class FakturService
 
     public function updateStatus(string $id, string $status, ?string $idPerusahaan = null): FakturModel
     {
-        if (!in_array($status, self::ALLOWED_STATUSES, true)) {
-            abort(422, 'Status tidak valid');
-        }
-
         $record = $this->findOrFail($id, $idPerusahaan);
+        $allowed = self::VALID_TRANSITIONS[$record->status] ?? [];
+
+        if (!in_array($status, $allowed, true)) {
+            abort(422, 'Transisi status tidak valid');
+        }
 
         $updated = $this->repo->update($record, ['status' => $status]);
         $this->repo->insertStatusLog((string) $record->id_faktur, $status);
 
         return $updated;
+    }
+
+    public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): FakturModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($record->status !== 'draft') {
+            abort(422, 'Hanya invoice berstatus draft yang bisa diajukan approval');
+        }
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($id, $idPerusahaan, $idPengguna) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Invoice tidak ditemukan');
+            }
+            if ($terkunci->status !== 'draft') {
+                abort(422, 'Hanya invoice berstatus draft yang bisa diajukan approval');
+            }
+
+            app(\App\Modules\Approval\ApprovalService::class)->ajukan(
+                'faktur',
+                $id,
+                $idPengguna,
+                (float) $terkunci->total,
+                $idPerusahaan,
+            );
+
+            $updated = $this->repo->update($terkunci, [
+                'status'                  => 'menunggu_approval',
+                'alasan_ditolak_internal' => null,
+            ]);
+            $this->repo->insertStatusLog($id, 'menunggu_approval', 'Diajukan untuk approval internal');
+
+            return $updated;
+        });
+    }
+
+    public function terapkanKeputusanApproval(string $idFaktur, string $idPerusahaan, string $idPengguna, string $keputusan, ?string $alasanDitolak): void
+    {
+        $record = $this->repo->findById($idFaktur);
+        if ($record === null || $record->id_perusahaan !== $idPerusahaan) {
+            \Illuminate\Support\Facades\Log::warning("FakturApprovalListener: faktur {$idFaktur} tidak ditemukan atau beda perusahaan");
+            return;
+        }
+        if ($record->status !== 'menunggu_approval') {
+            return;
+        }
+
+        if ($keputusan === 'ditolak') {
+            $this->repo->update($record, [
+                'status'                  => 'draft',
+                'alasan_ditolak_internal' => $alasanDitolak,
+            ]);
+            $this->repo->insertStatusLog($idFaktur, 'draft', 'Approval ditolak — dikembalikan ke draft');
+            return;
+        }
+
+        $this->repo->update($record, ['status' => 'terkirim']);
+        $this->repo->insertStatusLog($idFaktur, 'terkirim', 'Approval disetujui');
     }
 
     public function riwayatStatus(FakturModel $record): array
@@ -229,6 +299,11 @@ class FakturService
     public function delete(string $id, ?string $idPerusahaan = null): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+
+        if (!in_array($record->status, ['draft', 'batal'], true)) {
+            abort(422, 'Hanya invoice berstatus draft atau batal yang dapat dihapus');
+        }
+
         $this->itemRepo->deleteByFaktur($record->id_faktur);
         $this->repo->delete($record);
     }

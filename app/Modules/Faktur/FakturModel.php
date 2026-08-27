@@ -23,6 +23,7 @@ class FakturModel extends BaseModel
         'nama_pajak',
         'persen_pajak',
         'status',
+        'alasan_ditolak_internal',
         'tanggal_faktur',
         'jatuh_tempo',
     ];

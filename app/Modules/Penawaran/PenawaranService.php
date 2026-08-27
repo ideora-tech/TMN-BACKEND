@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 class PenawaranService
 {
     private const VALID_TRANSITIONS = [
-        'draft'     => ['terkirim'],
+        'draft'     => [],
         'terkirim'  => ['negosiasi', 'disetujui', 'ditolak'],
         'negosiasi' => ['disetujui', 'ditolak'],
         'disetujui' => [],
@@ -159,6 +159,67 @@ class PenawaranService
 
             return $updated;
         });
+    }
+
+    public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): PenawaranModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($record->status !== 'draft') {
+            abort(422, 'Hanya penawaran berstatus draft yang bisa diajukan approval');
+        }
+
+        if ($record->id_klien === null) {
+            abort(422, 'Lengkapi klien terlebih dahulu sebelum mengajukan approval');
+        }
+
+        return DB::transaction(function () use ($id, $idPerusahaan, $idPengguna) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Penawaran tidak ditemukan');
+            }
+            if ($terkunci->status !== 'draft') {
+                abort(422, 'Hanya penawaran berstatus draft yang bisa diajukan approval');
+            }
+            if ($terkunci->id_klien === null) {
+                abort(422, 'Lengkapi klien terlebih dahulu sebelum mengajukan approval');
+            }
+
+            app(\App\Modules\Approval\ApprovalService::class)->ajukan(
+                'penawaran',
+                $id,
+                $idPengguna,
+                $terkunci->nilai_penawaran !== null ? (float) $terkunci->nilai_penawaran : null,
+                $idPerusahaan,
+            );
+
+            return $this->repo->update($terkunci, [
+                'status'                   => 'menunggu_approval',
+                'alasan_ditolak_internal'  => null,
+            ]);
+        });
+    }
+
+    public function terapkanKeputusanApproval(string $idPenawaran, string $idPerusahaan, string $idPengguna, string $keputusan, ?string $alasanDitolak): void
+    {
+        $record = $this->repo->findById($idPenawaran);
+        if ($record === null || $record->id_perusahaan !== $idPerusahaan) {
+            \Illuminate\Support\Facades\Log::warning("PenawaranApprovalListener: penawaran {$idPenawaran} tidak ditemukan atau beda perusahaan");
+            return;
+        }
+        if ($record->status !== 'menunggu_approval') {
+            return;
+        }
+
+        if ($keputusan === 'ditolak') {
+            $this->repo->update($record, [
+                'status'                  => 'draft',
+                'alasan_ditolak_internal' => $alasanDitolak,
+            ]);
+            return;
+        }
+
+        $this->repo->update($record, ['status' => 'terkirim']);
     }
 
     private function tulisBalikRateCard(PenawaranModel $penawaran): void

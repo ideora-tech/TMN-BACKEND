@@ -14,6 +14,30 @@ class PembelianSparepartTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+
+        $idApprover = (string) Str::uuid();
+        DB::table('pengguna')->insert([
+            'id_pengguna' => $idApprover, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_peran' => 'MANAGER', 'username' => 'approver_default_' . Str::random(8),
+            'email' => Str::random(8) . '@test.id', 'kata_sandi' => bcrypt('x'),
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idEventType = (string) Str::uuid();
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode' => 'pengajuan_pengeluaran', 'nama' => 'Pengajuan Pengeluaran', 'mode_resolusi' => 'pinned',
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'pengguna', 'id_pengguna' => $idApprover, 'dibuat_pada' => now(),
+        ]);
+    }
+
     private function makeSupplier(?string $idPerusahaan = null): string
     {
         $id = (string) Str::uuid();
@@ -245,7 +269,7 @@ class PembelianSparepartTest extends TestCase
 
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
 
         $rowSetelahSetuju = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
         $this->assertSame('disetujui_finance', $rowSetelahSetuju->status);
@@ -330,7 +354,7 @@ class PembelianSparepartTest extends TestCase
 
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
-            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+            ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
 
         $tanggalTransfer = now()->toDateString();
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [

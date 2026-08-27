@@ -12,6 +12,7 @@ interface FakturRepositoryInterface
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator;
     public function paginateByKlien(string $idKlien, string $idPerusahaan, int $page, int $limit): LengthAwarePaginator;
     public function findById(string $id): ?FakturModel;
+    public function findForUpdate(string $id): ?FakturModel;
     public function namaKlien(string $idKlien, string $idPerusahaan): ?string;
     public function namaProyek(string $idProyek, string $idPerusahaan): ?string;
     public function infoPenawaran(string $idPenawaran, string $idPerusahaan): ?object;

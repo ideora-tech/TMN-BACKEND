@@ -124,12 +124,7 @@ class ArusKasController extends Controller
     public function cekPengajuan(Request $request, string $id): JsonResponse
     {
         $record = $this->service->cek($id, (string) $request->user()->id_perusahaan);
-        $pesan = match ($record->status) {
-            ArusKasService::STATUS_DISETUJUI         => 'Pengajuan disetujui otomatis (di bawah batas approval)',
-            ArusKasService::STATUS_MENUNGGU_APPROVAL => 'Pengajuan menunggu approval',
-            default                                   => 'Pengajuan ditandai sudah dicek',
-        };
-        return ApiResponse::success(new PengajuanPengeluaranResource($record), $pesan);
+        return ApiResponse::success(new PengajuanPengeluaranResource($record), 'Pengajuan diverifikasi');
     }
 
     public function prosesApprovalPengajuan(ProsesApprovalRequest $request, string $id): JsonResponse
@@ -198,30 +193,6 @@ class ArusKasController extends Controller
             $request->get('kategori'),
         );
         return ApiResponse::success(PemasukanGabunganResource::collection(collect($data)));
-    }
-
-    public function indexApprover(Request $request): JsonResponse
-    {
-        $data = $this->service->listApprover((string) $request->user()->id_perusahaan);
-        return ApiResponse::success($data);
-    }
-
-    public function storeApprover(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'tipe'        => ['required', 'in:jabatan,pengguna'],
-            'id_jabatan'  => ['required_if:tipe,jabatan', 'nullable', 'string'],
-            'id_pengguna' => ['required_if:tipe,pengguna', 'nullable', 'string'],
-        ]);
-
-        $this->service->tambahApprover($validated, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(null, 'Approver berhasil ditambahkan', 201);
-    }
-
-    public function destroyApprover(Request $request, string $id): JsonResponse
-    {
-        $this->service->hapusApprover($id, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(null, 'Approver berhasil dihapus');
     }
 
     public function showPengaturanApproval(Request $request): JsonResponse

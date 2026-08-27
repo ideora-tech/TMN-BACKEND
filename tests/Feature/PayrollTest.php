@@ -13,6 +13,13 @@ class PayrollTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ensurePerusahaan();
+        app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
+    }
+
     private function makeKaryawan(string $nama, string $nik, float $gaji, array $extra = []): string
     {
         $id = (string) Str::uuid();

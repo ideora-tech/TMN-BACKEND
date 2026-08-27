@@ -67,6 +67,58 @@ class PembayaranVendorTest extends TestCase
         ], $extra));
     }
 
+    private ?string $idApproverInvoiceVendor = null;
+
+    private function pastikanApproverInvoiceVendor(): string
+    {
+        if ($this->idApproverInvoiceVendor !== null) {
+            return $this->idApproverInvoiceVendor;
+        }
+
+        $idJabatan = (string) Str::uuid();
+        DB::table('jabatan')->insert([
+            'id_jabatan' => $idJabatan, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_jabatan' => 'APMGR-T', 'nama_jabatan' => 'AP Manager Test', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idKaryawan = (string) Str::uuid();
+        DB::table('karyawan')->insert([
+            'id_karyawan' => $idKaryawan, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_jabatan' => $idJabatan,
+            'nik' => 'NIK-AP-' . Str::random(6), 'nama_karyawan' => 'Approver IV', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idPengguna = (string) Str::uuid();
+        DB::table('pengguna')->insert([
+            'id_pengguna' => $idPengguna, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_karyawan' => $idKaryawan,
+            'kode_peran' => 'KEUANGAN', 'username' => 'approver_iv_' . Str::random(6),
+            'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        $idEventType = DB::table('approval_event_type')
+            ->where('id_perusahaan', self::PERUSAHAAN_ID)->where('kode', 'invoice_vendor')->value('id_event_type');
+        if ($idEventType === null) {
+            $idEventType = (string) Str::uuid();
+            DB::table('approval_event_type')->insert([
+                'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
+                'kode' => 'invoice_vendor', 'nama' => 'Invoice Vendor', 'mode_resolusi' => 'pinned',
+                'aktif' => 1, 'dibuat_pada' => now(),
+            ]);
+        }
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+
+        return $this->idApproverInvoiceVendor = $idPengguna;
+    }
+
+    private function verifikasiViaApproval(string $idInvoice, string $keputusan = 'setuju', ?string $catatan = null): void
+    {
+        $idApprover = $this->pastikanApproverInvoiceVendor();
+        $this->postJson("/api/invoice-vendor/{$idInvoice}/ajukan-approval")->assertStatus(200);
+        app(\App\Modules\Approval\ApprovalService::class)->putuskanUntukReferensi(
+            'invoice_vendor', $idInvoice, $idApprover, $keputusan, $catatan, self::PERUSAHAAN_ID
+        );
+    }
+
     public function test_alur_lengkap_draft_verifikasi_bayar_cicilan_sampai_lunas(): void
     {
         $this->actingAsRole('KEUANGAN');
@@ -85,9 +137,11 @@ class PembayaranVendorTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('message', 'Invoice belum diverifikasi');
 
-        $this->patchJson("/api/invoice-vendor/{$idInvoice}/verifikasi", ['aksi' => 'verifikasi'])
-            ->assertStatus(200)
-            ->assertJsonPath('data.status', 'diverifikasi');
+        $this->verifikasiViaApproval($idInvoice);
+        $this->assertDatabaseHas('invoice_vendor', [
+            'id_invoice_vendor' => $idInvoice,
+            'status'            => 'diverifikasi',
+        ]);
 
         $this->bayar($idInvoice, 4000000)->assertStatus(201);
         $this->assertDatabaseHas('invoice_vendor', [
