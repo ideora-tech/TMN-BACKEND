@@ -92,6 +92,25 @@ class TripSayaTest extends TestCase
         ]);
     }
 
+    private function makeTripDenganJadwal(string $idPenugasan, string $status): string
+    {
+        $idJadwal = (string) Str::uuid();
+        DB::table('jadwal_keberangkatan')->insert([
+            'id_jadwal'       => $idJadwal,
+            'id_penugasan'    => $idPenugasan,
+            'waktu_berangkat' => now(),
+            'dibuat_pada'     => now(),
+        ]);
+        $idTrip = (string) Str::uuid();
+        DB::table('trip')->insert([
+            'id_trip'     => $idTrip,
+            'id_jadwal'   => $idJadwal,
+            'status'      => $status,
+            'dibuat_pada' => now(),
+        ]);
+        return $idTrip;
+    }
+
     private function makeProyek(): ProyekModel
     {
         $idKlien = (string) Str::uuid();
@@ -743,6 +762,64 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.status', 'selesai');
 
         $this->assertSame('aktif', $penugasan->fresh()->status);
+    }
+
+    public function test_supir_bisa_batalkan_trip_dengan_alasan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
+
+        $idTrip = $this->postJson('/api/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(201)->json('data.id_trip');
+
+        $this->postJson("/api/trip/{$idTrip}/batalkan-saya", ['alasan' => 'Armada mogok di jalan'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'dibatalkan');
+
+        $this->assertDatabaseHas('status_trip', [
+            'id_trip'    => $idTrip,
+            'status'     => 'dibatalkan',
+            'keterangan' => 'Dibatalkan supir: Armada mogok di jalan',
+        ]);
+
+        $this->getJson("/api/trip/{$idTrip}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.alasan_dibatalkan', 'Dibatalkan supir: Armada mogok di jalan');
+    }
+
+    public function test_batalkan_trip_tanpa_alasan_ditolak_422(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
+
+        $idTrip = $this->postJson('/api/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(201)->json('data.id_trip');
+
+        $this->postJson("/api/trip/{$idTrip}/batalkan-saya", [])->assertStatus(422);
+
+        $this->assertSame('berjalan', DB::table('trip')->where('id_trip', $idTrip)->value('status'));
+    }
+
+    public function test_supir_tidak_bisa_batalkan_trip_milik_supir_lain(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $lain = (string) Str::uuid();
+        DB::table('supir')->insert([
+            'id_supir' => $lain, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama' => 'Supir Lain Batal', 'status' => 'aktif', 'dibuat_pada' => now(),
+        ]);
+        $penugasan = $this->makePenugasan($lain, $proyek->id_proyek);
+        $trip = $this->makeTripDenganJadwal($penugasan->id_penugasan, 'berjalan');
+
+        $this->postJson("/api/trip/{$trip}/batalkan-saya", ['alasan' => 'coba-coba'])
+            ->assertStatus(403);
     }
 
     public function test_supir_bisa_mulai_trip_kedua_dari_penugasan_yang_sama(): void

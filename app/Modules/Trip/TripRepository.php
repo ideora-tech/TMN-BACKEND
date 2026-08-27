@@ -125,6 +125,16 @@ class TripRepository implements TripRepositoryInterface
             return;
         }
 
+        $idTripDibatalkan = $records->filter(fn ($r) => $r->status === 'dibatalkan')
+            ->pluck('id_trip')->unique()->values();
+        $alasanBatalMap = $idTripDibatalkan->isEmpty() ? collect()
+            : DB::table('status_trip')
+                ->whereIn('id_trip', $idTripDibatalkan)
+                ->where('status', 'dibatalkan')
+                ->orderBy('dibuat_pada')
+                ->get(['id_trip', 'keterangan'])
+                ->keyBy('id_trip');
+
         $idTripPunyaLaporan = DB::table('laporan_perjalanan')
             ->whereIn('id_trip', $records->pluck('id_trip')->unique()->filter()->values())
             ->whereNull('dihapus_pada')
@@ -228,6 +238,7 @@ class TripRepository implements TripRepositoryInterface
             $record->setRelation('mekanisme', $kontrak?->mekanisme);
             $record->setRelation('id_penugasan', $penugasan?->id_penugasan);
             $record->setRelation('punya_laporan', in_array($record->id_trip, $idTripPunyaLaporan, true));
+            $record->setRelation('alasan_dibatalkan', $alasanBatalMap->get($record->id_trip)?->keterangan);
             $record->setRelation('ditugaskan_oleh_nama', $ditugaskanOleh->nama ?? null);
             $record->setRelation('ditugaskan_oleh_peran', $ditugaskanOleh->peran ?? null);
         }

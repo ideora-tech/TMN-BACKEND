@@ -227,6 +227,29 @@ class TripController extends Controller
         return ApiResponse::success(new TripResource($record), 'Trip berhasil diselesaikan');
     }
 
+    public function batalkanSaya(Request $request, string $idTrip): JsonResponse
+    {
+        $validated = $request->validate([
+            'alasan' => ['required', 'string', 'max:255'],
+        ], [
+            'alasan.required' => 'Alasan pembatalan wajib diisi',
+        ]);
+
+        $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);
+        if ($supir === null) {
+            abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+        }
+
+        $record = $this->service->batalkanUntukSupir(
+            $idTrip,
+            (string) $supir->id_supir,
+            (string) $request->user()->id_perusahaan,
+            (string) $validated['alasan'],
+        );
+
+        return ApiResponse::success(new TripResource($record), 'Trip dibatalkan');
+    }
+
     public function checkin(Request $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;

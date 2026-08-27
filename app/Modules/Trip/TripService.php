@@ -347,6 +347,39 @@ class TripService
         return $this->checkout($idTrip, $idPerusahaan, false);
     }
 
+    public function batalkanUntukSupir(string $idTrip, string $idSupir, string $idPerusahaan, string $alasan): TripModel
+    {
+        $trip = $this->findOrFail($idTrip, $idPerusahaan);
+
+        $penugasan = $this->findPenugasanUntukTrip($idTrip);
+        if ($penugasan === null || (string) $penugasan->id_supir !== $idSupir) {
+            abort(403, 'Trip ini bukan milik Anda');
+        }
+
+        if ($trip->status === 'selesai') {
+            abort(422, 'Trip yang sudah selesai tidak dapat dibatalkan');
+        }
+        if ($trip->status === 'dibatalkan') {
+            return $trip;
+        }
+
+        $sedangBerjalan = $trip->status === 'berjalan';
+
+        return DB::transaction(function () use ($trip, $sedangBerjalan, $alasan) {
+            $updated = $this->repo->update($trip, [
+                'status' => 'dibatalkan',
+            ]);
+
+            $this->catatRiwayatStatus($trip->id_trip, 'dibatalkan', 'Dibatalkan supir: ' . $alasan);
+
+            if ($sedangBerjalan) {
+                $this->lepasArmadaJikaAman($this->repo->findPenugasanDariTrip($trip->id_trip), $trip->id_trip);
+            }
+
+            return $updated;
+        });
+    }
+
     public function create(array $data, string $idPerusahaan): TripModel
     {
         $idJadwal = $data['id_jadwal'];

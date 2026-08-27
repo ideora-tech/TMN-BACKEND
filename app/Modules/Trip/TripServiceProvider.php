@@ -39,6 +39,7 @@ class TripServiceProvider extends ServiceProvider
                 Route::post('trip/{id}/checkin', [TripController::class, 'checkin']);
                 Route::post('trip/{id}/checkout', [TripController::class, 'checkout']);
                 Route::post('trip/{idTrip}/checkout-saya', [TripController::class, 'checkoutSaya']);
+                Route::post('trip/{idTrip}/batalkan-saya', [TripController::class, 'batalkanSaya']);
                 Route::post('trip/{id}/batalkan', [TripController::class, 'batalkan']);
                 Route::put('trip/{id}/titik-drop', [TripController::class, 'updateTitikDrop']);
                 Route::get('trip/{id}/rekap-biaya', [TripController::class, 'rekapBiaya']);

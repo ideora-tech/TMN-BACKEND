@@ -28,6 +28,7 @@ class TripResource extends JsonResource
             'waktu_checkin'   => $this->waktu_checkin,
             'waktu_checkout'  => $this->waktu_checkout,
             'status'          => $this->status,
+            'alasan_dibatalkan' => $this->alasan_dibatalkan,
             'catatan'         => $this->catatan,
             'uang_jalan_alokasi' => $this->uang_jalan_alokasi !== null ? (float) $this->uang_jalan_alokasi : null,
             'titik_drop'         => $this->titik_drop ?? [],
