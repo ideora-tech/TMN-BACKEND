@@ -115,7 +115,7 @@ class ArusKasService
 
         if ($record->disetujui_pada !== null) {
             $riwayat[] = [
-                'status'     => self::STATUS_DISETUJUI,
+                'status'     => 'disetujui_final',
                 'waktu'      => $record->disetujui_pada,
                 'oleh'       => $record->disetujui_oleh !== null ? ($namaMap[$record->disetujui_oleh] ?? null) : null,
                 'keterangan' => null,
@@ -135,7 +135,7 @@ class ArusKasService
 
         if ($record->status === self::STATUS_DITOLAK) {
             $riwayat[] = [
-                'status'     => self::STATUS_DITOLAK,
+                'status'     => 'ditolak_final',
                 'waktu'      => $record->diubah_pada,
                 'oleh'       => $record->diubah_oleh !== null ? ($namaMap[$record->diubah_oleh] ?? null) : null,
                 'keterangan' => $record->alasan_ditolak,
