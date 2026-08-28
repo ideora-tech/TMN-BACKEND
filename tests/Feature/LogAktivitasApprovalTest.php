@@ -132,7 +132,7 @@ class LogAktivitasApprovalTest extends TestCase
         $res = $this->getJson("/api/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan");
         $res->assertStatus(200);
 
-        $entriTolak = collect($res->json('data.riwayat'))->firstWhere('status', 'ditolak');
+        $entriTolak = collect($res->json('data.riwayat'))->firstWhere('status', 'ditolak_final');
         $this->assertNotNull($entriTolak);
         $this->assertSame('Biaya tidak wajar', $entriTolak['keterangan']);
         $this->assertSame($pengguna->username, $entriTolak['oleh']);
@@ -147,7 +147,7 @@ class LogAktivitasApprovalTest extends TestCase
         $idPengajuan = $this->pengajuanPerawatan($idPerawatan)->id_pengajuan;
 
         $res = $this->getJson("/api/armada/{$idArmada}/perawatan/{$idPerawatan}/pengajuan");
-        $entriSetuju = collect($res->json('data.riwayat'))->firstWhere('status', 'disetujui');
+        $entriSetuju = collect($res->json('data.riwayat'))->firstWhere('status', 'disetujui_final');
         $this->assertNotNull($entriSetuju);
         $this->assertSame($pengguna->username, $entriSetuju['oleh']);
 
