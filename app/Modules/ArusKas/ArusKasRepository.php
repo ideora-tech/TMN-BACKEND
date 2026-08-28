@@ -506,11 +506,12 @@ class ArusKasRepository implements ArusKasRepositoryInterface
 
         return DB::table('approval_keputusan as ak')
             ->join('approval_pengajuan as ap', 'ap.id_approval', '=', 'ak.id_approval')
+            ->join('approval_event_type as ae', 'ae.id_event_type', '=', 'ap.id_event_type')
             ->leftJoin('pengguna as p', 'p.id_pengguna', '=', 'ak.id_pengguna')
             ->whereIn('ap.id_referensi', $idPengajuanList)
             ->whereNull('ak.dihapus_pada')
             ->orderBy('ak.dibuat_pada')
-            ->selectRaw('ak.id_pengguna, ak.status, ak.catatan, ak.waktu_aksi, ap.id_referensi as id_pengajuan, p.username as nama')
+            ->selectRaw('ak.id_pengguna, ak.status, ak.catatan, ak.waktu_aksi, ap.id_referensi as id_pengajuan, p.username as nama, ae.kode as kode_event')
             ->get()
             ->map(fn ($row) => (array) $row)
             ->groupBy('id_pengajuan')

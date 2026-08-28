@@ -103,12 +103,13 @@ class ArusKasService
             if ($baris['waktu_aksi'] === null) {
                 continue;
             }
+            $dariGerbangTransfer = ($baris['kode_event'] ?? null) === self::KODE_PERSETUJUAN_TRANSFER;
             $riwayat[] = [
-                'status'     => $baris['status'],
+                'status'     => $dariGerbangTransfer ? $baris['status'] . '_transfer' : $baris['status'],
                 'waktu'      => $baris['waktu_aksi'],
                 'oleh'       => $baris['nama'],
                 'keterangan' => $baris['catatan'],
-                '_urutan'    => 1,
+                '_urutan'    => $dariGerbangTransfer ? 4 : 1,
             ];
         }
 
@@ -216,6 +217,11 @@ class ArusKasService
 
     private function setAtributApproval(object $record, array $approvalMentah, string $idPenggunaLogin): void
     {
+        $approvalMentah = array_values(array_filter(
+            $approvalMentah,
+            fn (array $baris) => ($baris['kode_event'] ?? null) !== self::KODE_PERSETUJUAN_TRANSFER,
+        ));
+
         $approval = array_map(fn (array $baris) => [
             'id_pengguna' => $baris['id_pengguna'],
             'nama'        => $baris['nama'],
