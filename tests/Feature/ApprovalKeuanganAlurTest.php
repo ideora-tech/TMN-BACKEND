@@ -738,7 +738,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $statuses = array_column($riwayat, 'status');
 
         $this->assertSame(
-            ['diajukan', 'disetujui', 'disetujui', 'disetujui', 'dicek', 'ditransfer'],
+            ['diajukan', 'disetujui', 'disetujui', 'disetujui_final', 'dicek', 'ditransfer'],
             $statuses
         );
 

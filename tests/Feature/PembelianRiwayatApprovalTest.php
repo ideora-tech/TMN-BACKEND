@@ -83,7 +83,7 @@ class PembelianRiwayatApprovalTest extends TestCase
         $this->assertStringStartsWith('PP-', (string) $info['nomor_pengajuan']);
 
         $statusRiwayat = array_column($info['riwayat'], 'status');
-        $this->assertSame(['diajukan', 'disetujui', 'dicek'], $statusRiwayat);
+        $this->assertSame(['diajukan', 'disetujui_final', 'dicek'], $statusRiwayat);
         $this->assertSame($pengguna->username, $info['riwayat'][1]['oleh']);
         $this->assertSame($pengguna->username, $info['riwayat'][2]['oleh']);
     }
@@ -114,7 +114,7 @@ class PembelianRiwayatApprovalTest extends TestCase
         $res->assertStatus(200);
 
         $riwayat = $res->json('data.pengajuan_keuangan.riwayat');
-        $ditolak = collect($riwayat)->firstWhere('status', 'ditolak');
+        $ditolak = collect($riwayat)->firstWhere('status', 'ditolak_final');
         $this->assertNotNull($ditolak);
         $this->assertSame('Nominal terlalu besar', $ditolak['keterangan']);
     }
