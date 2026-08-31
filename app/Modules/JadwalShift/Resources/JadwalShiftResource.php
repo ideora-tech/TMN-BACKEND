@@ -15,6 +15,7 @@ class JadwalShiftResource extends JsonResource
             'id_proyek'       => $this->id_proyek,
             'id_shift'        => $this->id_shift,
             'id_supir'        => $this->id_supir,
+            'id_supir_vendor' => $this->id_supir_vendor ?? null,
             'tanggal'         => $this->tanggal,
             'shift_nama'      => $this->shift_nama,
             'jam_mulai'       => $this->jam_mulai,

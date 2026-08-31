@@ -16,11 +16,14 @@ interface ArmadaVendorRepositoryInterface
     public function milikVendor(string $id, string $idVendor): bool;
     public function findIdVendorByKode(string $kodeVendor, string $idPerusahaan): ?string;
     public function findIdJenisKendaraanByNama(string $namaJenis, string $idPerusahaan): ?string;
+    public function findIdVendorByKontrak(string $idKontrakVendor, string $idPerusahaan): ?string;
     public function nopolTerdaftar(string $nopol, string $idPerusahaan): bool;
 
-    /** @return array<int, array{id_armada_vendor: string, id_kontrak_vendor: string, nopol: string, merk: ?string, jenis: ?string, id_vendor: string, nama_vendor: string}> */
+    /** @return array<int, array{id_armada_vendor: string, id_kontrak_vendor: string, id_kontrak_vendor_unit: ?string, kontrak_habis: bool, nopol: string, merk: ?string, jenis: ?string, id_vendor: string, nama_vendor: string}> */
     public function listOpsiUnitOnly(string $idPerusahaan): array;
     public function listOpsiBoard(string $idPerusahaan): array;
+    public function lepasSupirDefault(string $idSupirVendor): void;
+    public function listAktifByKontrak(string $idKontrakVendor): \Illuminate\Support\Collection;
     public function create(array $data): ArmadaVendorModel;
     public function update(ArmadaVendorModel $model, array $data): ArmadaVendorModel;
     public function delete(ArmadaVendorModel $model): void;

@@ -25,6 +25,7 @@ class JadwalShiftServiceProvider extends ServiceProvider
                 Route::get('jadwal-shift/import/template', [JadwalShiftController::class, 'downloadTemplate']);
                 Route::post('jadwal-shift/import', [JadwalShiftController::class, 'import']);
                 Route::get('jadwal-shift/hari-ini-saya', [JadwalShiftController::class, 'hariIniSaya']);
+                Route::get('jadwal-shift/opsi-supir-vendor', [JadwalShiftController::class, 'opsiSupirVendor']);
                 Route::post('jadwal-shift', [JadwalShiftController::class, 'store']);
                 Route::put('jadwal-shift/{id}', [JadwalShiftController::class, 'update']);
                 Route::delete('jadwal-shift/{id}', [JadwalShiftController::class, 'destroy']);

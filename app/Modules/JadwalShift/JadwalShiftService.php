@@ -28,7 +28,7 @@ class JadwalShiftService
             return $rows;
         }
 
-        $idSupirList = collect($rows)->pluck('id_supir')->unique()->values()->all();
+        $idSupirList = collect($rows)->pluck('id_supir')->filter()->unique()->values()->all();
         $tanggalAwal = (string) collect($rows)->min('tanggal');
         $tanggalAkhir = (string) collect($rows)->max('tanggal');
         $statusMap = $this->tripRepo->statusTripPerSupirTanggal($idProyek, $idSupirList, $tanggalAwal, $tanggalAkhir);
@@ -104,11 +104,11 @@ class JadwalShiftService
             $periode[] = $t->toDateString();
         }
 
-        return DB::transaction(function () use ($data, $periode) {
+        return DB::transaction(function () use ($data, $periode, $idPerusahaan) {
             $sukses = 0;
             $gagal  = [];
 
-            foreach (array_unique($data['supir']) as $idSupir) {
+            foreach (array_unique($data['supir'] ?? []) as $idSupir) {
                 if (!$this->repo->supirPunyaPenugasan($data['id_proyek'], $idSupir)) {
                     foreach ($periode as $tanggal) {
                         $gagal[] = ['id_supir' => $idSupir, 'tanggal' => $tanggal, 'alasan' => 'Supir tidak ter-assign ke proyek ini'];
@@ -132,6 +132,35 @@ class JadwalShiftService
                         'id_shift'  => $data['id_shift'],
                         'id_supir'  => $idSupir,
                         'tanggal'   => $tanggal,
+                    ]);
+                    $sukses++;
+                }
+            }
+
+            foreach (array_unique($data['supir_vendor'] ?? []) as $idSupirVendor) {
+                if (!$this->repo->supirVendorAktifMilikPerusahaan($idSupirVendor, $idPerusahaan)) {
+                    foreach ($periode as $tanggal) {
+                        $gagal[] = ['id_supir_vendor' => $idSupirVendor, 'tanggal' => $tanggal, 'alasan' => 'Supir vendor tidak ditemukan/nonaktif'];
+                    }
+                    continue;
+                }
+
+                foreach ($periode as $tanggal) {
+                    $ada = $this->repo->findAktifBySupirVendorTanggal($idSupirVendor, $tanggal);
+                    if ($ada !== null) {
+                        $gagal[] = [
+                            'id_supir_vendor' => $idSupirVendor,
+                            'tanggal'         => $tanggal,
+                            'alasan'          => "Supir vendor sudah dijadwalkan shift {$ada->shift_nama} (proyek {$ada->nama_proyek})",
+                        ];
+                        continue;
+                    }
+
+                    $this->repo->create([
+                        'id_proyek'       => $data['id_proyek'],
+                        'id_shift'        => $data['id_shift'],
+                        'id_supir_vendor' => $idSupirVendor,
+                        'tanggal'         => $tanggal,
                     ]);
                     $sukses++;
                 }
@@ -186,6 +215,9 @@ class JadwalShiftService
 
         $perSupir = [];
         foreach ($rows as $row) {
+            if ($row->id_supir === null) {
+                continue;
+            }
             $idSupir = (string) $row->id_supir;
             $perSupir[$idSupir]['hitungShift'][$row->shift_nama] = ($perSupir[$idSupir]['hitungShift'][$row->shift_nama] ?? 0) + 1;
             $perSupir[$idSupir]['baris'][] = $row;
@@ -400,6 +432,11 @@ class JadwalShiftService
             abort(422, "Jadwal tanggal {$record->tanggal} tidak dapat diganti — trip supir pada tanggal ini " . $this->labelStatusTrip($statusTrip));
         }
 
+        if ($record->id_supir_vendor !== null
+            && (($data['id_supir_pengganti'] ?? null) !== null || ($data['id_armada_override'] ?? null) !== null)) {
+            abort(422, 'Supir pengganti/armada override hanya untuk supir internal');
+        }
+
         if (array_key_exists('id_supir_pengganti', $data) && $data['id_supir_pengganti'] !== null) {
             $idPengganti = (string) $data['id_supir_pengganti'];
 
@@ -463,10 +500,13 @@ class JadwalShiftService
         }
 
         if ((string) $record->tanggal === now()->toDateString()) {
-            $tripAktif = $this->tripRepo->findTripAktifUntukAktor(null, (string) $record->id_supir, null, null);
+            $tripAktif = $record->id_supir_vendor !== null
+                ? $this->tripRepo->findTripAktifUntukAktor(null, null, null, (string) $record->id_supir_vendor)
+                : $this->tripRepo->findTripAktifUntukAktor(null, (string) $record->id_supir, null, null);
             if ($tripAktif !== null) {
                 $status = str_replace('_', ' ', $tripAktif->status);
-                abort(422, "Supir ini masih memiliki trip aktif di proyek {$tripAktif->nama_proyek} (status: {$status}) — jadwal hari ini tidak dapat dihapus sebelum trip diselesaikan/dibatalkan");
+                $tanggal = \Carbon\Carbon::parse($tripAktif->tanggal_tugas)->locale('id')->translatedFormat('d F Y');
+                abort(422, "Supir ini masih memiliki trip aktif tanggal {$tanggal} di proyek {$tripAktif->nama_proyek} (status: {$status}) — jadwal hari ini tidak dapat dihapus sebelum trip diselesaikan/dibatalkan");
             }
         }
 
@@ -476,5 +516,10 @@ class JadwalShiftService
     public function hariIniSaya(string $idSupir): ?object
     {
         return $this->repo->findAktifBySupirTanggal($idSupir, now()->toDateString());
+    }
+
+    public function opsiSupirVendor(string $idPerusahaan): array
+    {
+        return $this->repo->opsiSupirVendor($idPerusahaan);
     }
 }

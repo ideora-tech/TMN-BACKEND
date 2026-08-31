@@ -13,6 +13,9 @@ class ArmadaVendorResource extends JsonResource
         return [
             'id_armada_vendor'  => $this->id_armada_vendor,
             'id_vendor'         => $this->id_vendor,
+            'id_kontrak_vendor' => $this->id_kontrak_vendor ?? null,
+            'id_supir_vendor_default' => $this->id_supir_vendor_default ?? null,
+            'nama_supir_default'      => $this->nama_supir_default ?? null,
             'nopol'             => $this->nopol,
             'merk'              => $this->merk,
             'jenis'             => $this->jenis,

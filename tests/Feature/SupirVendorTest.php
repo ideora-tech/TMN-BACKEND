@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Modules\KontrakVendor\KontrakVendorModel;
 use App\Modules\SupirVendor\SupirVendorModel;
 use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,6 +43,15 @@ class SupirVendorTest extends TestCase
             'nama'      => $nama,
             'telepon'   => '081234567890',
             'no_sim'    => 'SIM-001',
+        ]);
+    }
+
+    private function makeKontrak(string $idVendor, ?string $idPerusahaan = null): KontrakVendorModel
+    {
+        return KontrakVendorModel::create([
+            'id_perusahaan' => $idPerusahaan ?? self::PERUSAHAAN_ID,
+            'id_vendor'     => $idVendor,
+            'mekanisme'     => 'unit_driver',
         ]);
     }
 
@@ -176,6 +186,101 @@ class SupirVendorTest extends TestCase
         $this->assertDatabaseHas('supir_vendor', [
             'id_supir_vendor' => $supir->id_supir_vendor,
             'id_vendor'       => $vendor->id_vendor,
+        ]);
+    }
+
+    public function test_membuat_supir_vendor_tertaut_kontrak_milik_vendor_sama(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor);
+
+        $res = $this->postJson('/api/supir-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nama'              => 'Supir Kontrak',
+        ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.id_kontrak_vendor', $kontrak->id_kontrak_vendor);
+
+        $this->assertDatabaseHas('supir_vendor', [
+            'nama'              => 'Supir Kontrak',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+        ]);
+    }
+
+    public function test_menolak_kontrak_milik_vendor_lain(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $vendorLain = $this->makeVendor();
+        $kontrakLain = $this->makeKontrak($vendorLain->id_vendor);
+
+        $res = $this->postJson('/api/supir-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakLain->id_kontrak_vendor,
+            'nama'              => 'Supir Salah Kontrak',
+        ]);
+
+        $res->assertStatus(422)
+            ->assertJsonPath('message', 'Kontrak bukan milik vendor ini');
+
+        $this->assertDatabaseMissing('supir_vendor', ['nama' => 'Supir Salah Kontrak']);
+    }
+
+    public function test_kontrak_perusahaan_lain_atau_terhapus_mengembalikan_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+
+        $idPerusahaanLain = $this->makePerusahaanLain();
+        $vendorPerusahaanLain = $this->makeVendor($idPerusahaanLain);
+        $kontrakPerusahaanLain = $this->makeKontrak($vendorPerusahaanLain->id_vendor, $idPerusahaanLain);
+
+        $this->postJson('/api/supir-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakPerusahaanLain->id_kontrak_vendor,
+            'nama'              => 'Supir Lintas Perusahaan',
+        ])->assertStatus(404);
+
+        $this->postJson('/api/supir-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => (string) Str::uuid(),
+            'nama'              => 'Supir Kontrak Fiktif',
+        ])->assertStatus(404);
+
+        $kontrakTerhapus = $this->makeKontrak($vendor->id_vendor);
+        $kontrakTerhapus->softDelete();
+
+        $this->postJson('/api/supir-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakTerhapus->id_kontrak_vendor,
+            'nama'              => 'Supir Kontrak Terhapus',
+        ])->assertStatus(404);
+    }
+
+    public function test_update_melepas_tautan_kontrak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor);
+        $supir = SupirVendorModel::create([
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nama'              => 'Supir Lepas Kontrak',
+        ]);
+
+        $res = $this->putJson("/api/supir-vendor/{$supir->id_supir_vendor}", [
+            'id_kontrak_vendor' => null,
+        ]);
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.id_kontrak_vendor', null);
+
+        $this->assertDatabaseHas('supir_vendor', [
+            'id_supir_vendor'   => $supir->id_supir_vendor,
+            'id_kontrak_vendor' => null,
         ]);
     }
 

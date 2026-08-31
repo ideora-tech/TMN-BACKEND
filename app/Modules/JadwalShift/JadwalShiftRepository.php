@@ -12,7 +12,7 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
 {
     private const COLUMNS = [
         'jadwal_shift.id_jadwal_shift', 'jadwal_shift.id_proyek', 'jadwal_shift.id_shift',
-        'jadwal_shift.id_supir', 'jadwal_shift.tanggal',
+        'jadwal_shift.id_supir', 'jadwal_shift.id_supir_vendor', 'jadwal_shift.tanggal',
         'jadwal_shift.id_supir_pengganti', 'jadwal_shift.id_armada_override',
         'jadwal_shift.id_pengajuan',
     ];
@@ -66,6 +66,59 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             ->select(array_merge(self::COLUMNS, self::JOINED, ['proyek.nama_proyek']))
             ->lockForUpdate()
             ->first();
+    }
+
+    public function findAktifBySupirVendorTanggal(string $idSupirVendor, string $tanggal): ?object
+    {
+        return DB::table('jadwal_shift')
+            ->join('shift', 'shift.id_shift', '=', 'jadwal_shift.id_shift')
+            ->join('proyek', 'proyek.id_proyek', '=', 'jadwal_shift.id_proyek')
+            ->whereNull('jadwal_shift.dihapus_pada')
+            ->where('jadwal_shift.id_supir_vendor', $idSupirVendor)
+            ->where('jadwal_shift.tanggal', $tanggal)
+            ->select(array_merge(self::COLUMNS, self::JOINED, ['proyek.nama_proyek']))
+            ->lockForUpdate()
+            ->first();
+    }
+
+    public function listShiftSupirVendor(string $idSupirVendor, string $dari, string $sampai): array
+    {
+        return DB::table('jadwal_shift')
+            ->join('shift', 'shift.id_shift', '=', 'jadwal_shift.id_shift')
+            ->whereNull('jadwal_shift.dihapus_pada')
+            ->where('jadwal_shift.id_supir_vendor', $idSupirVendor)
+            ->where('jadwal_shift.tanggal', '>=', $dari)
+            ->where('jadwal_shift.tanggal', '<=', $sampai)
+            ->orderBy('jadwal_shift.tanggal')
+            ->select(array_merge(self::COLUMNS, self::JOINED))
+            ->get()
+            ->all();
+    }
+
+    public function supirVendorAktifMilikPerusahaan(string $idSupirVendor, string $idPerusahaan): bool
+    {
+        return DB::table('supir_vendor')
+            ->join('vendor', 'vendor.id_vendor', '=', 'supir_vendor.id_vendor')
+            ->whereNull('supir_vendor.dihapus_pada')
+            ->whereNull('vendor.dihapus_pada')
+            ->where('supir_vendor.id_supir_vendor', $idSupirVendor)
+            ->where('supir_vendor.aktif', 1)
+            ->where('vendor.id_perusahaan', $idPerusahaan)
+            ->exists();
+    }
+
+    public function opsiSupirVendor(string $idPerusahaan): array
+    {
+        return DB::table('supir_vendor')
+            ->join('vendor', 'vendor.id_vendor', '=', 'supir_vendor.id_vendor')
+            ->whereNull('supir_vendor.dihapus_pada')
+            ->whereNull('vendor.dihapus_pada')
+            ->where('supir_vendor.aktif', 1)
+            ->where('vendor.id_perusahaan', $idPerusahaan)
+            ->orderBy('supir_vendor.nama')
+            ->select('supir_vendor.id_supir_vendor', 'supir_vendor.nama', 'vendor.nama_vendor')
+            ->get()
+            ->all();
     }
 
     public function listShiftSupir(string $idSupir, string $dari, string $sampai): array

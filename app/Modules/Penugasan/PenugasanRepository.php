@@ -262,20 +262,36 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         $model->softDelete();
     }
 
-    public function syncTitikDrop(string $idPenugasan, array $lokasiList): void
+    public function syncTitikDrop(string $idPenugasan, array $items): void
     {
         DB::table('titik_drop_penugasan')
             ->where('id_penugasan', $idPenugasan)
             ->whereNull('dihapus_pada')
             ->update(RecordHelper::stampDelete());
 
-        foreach (array_values($lokasiList) as $i => $lokasi) {
+        foreach (array_values($items) as $i => $item) {
+            [$lokasi, $uangJalanTambahan] = $this->pecahItemTitikDrop($item);
             DB::table('titik_drop_penugasan')->insert(RecordHelper::stampCreate([
-                'id_penugasan' => $idPenugasan,
-                'urutan'       => $i + 1,
-                'lokasi'       => trim((string) $lokasi),
+                'id_penugasan'         => $idPenugasan,
+                'urutan'               => $i + 1,
+                'lokasi'               => $lokasi,
+                'uang_jalan_tambahan'  => $uangJalanTambahan,
             ], 'id_titik_drop'));
         }
+    }
+
+    /**
+     * Item titik_drop diterima dalam 2 bentuk: string polos (caller lama)
+     * atau objek {lokasi, uang_jalan_tambahan} (dialog Penugasan Harian).
+     *
+     * @return array{0: string, 1: float}
+     */
+    private function pecahItemTitikDrop(mixed $item): array
+    {
+        if (is_array($item)) {
+            return [trim((string) ($item['lokasi'] ?? '')), (float) ($item['uang_jalan_tambahan'] ?? 0)];
+        }
+        return [trim((string) $item), 0.0];
     }
 
     public function titikDropUntukBanyak(array $idPenugasan): array
@@ -291,6 +307,25 @@ class PenugasanRepository implements PenugasanRepositoryInterface
             ->get(['id_penugasan', 'lokasi'])
             ->groupBy('id_penugasan')
             ->map(fn ($g) => $g->pluck('lokasi')->all())
+            ->all();
+    }
+
+    public function titikDropDetailUntukBanyak(array $idPenugasanList): array
+    {
+        if ($idPenugasanList === []) {
+            return [];
+        }
+
+        return DB::table('titik_drop_penugasan')
+            ->whereIn('id_penugasan', $idPenugasanList)
+            ->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['id_penugasan', 'lokasi', 'uang_jalan_tambahan'])
+            ->groupBy('id_penugasan')
+            ->map(fn ($g) => $g->map(fn ($r) => [
+                'lokasi'              => $r->lokasi,
+                'uang_jalan_tambahan' => (float) $r->uang_jalan_tambahan,
+            ])->values()->all())
             ->all();
     }
 

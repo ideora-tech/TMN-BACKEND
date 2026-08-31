@@ -8,6 +8,8 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class UpdatePenugasanRequest extends FormRequest
 {
+    use ValidasiTitikDropCampuran;
+
     public function authorize(): bool
     {
         return true;
@@ -29,7 +31,7 @@ class UpdatePenugasanRequest extends FormRequest
             'id_armada_vendor'  => ['sometimes', 'nullable', 'string', 'max:36'],
             'id_supir_vendor'   => ['sometimes', 'nullable', 'string', 'max:36'],
             'titik_drop'   => ['sometimes', 'array', 'max:10'],
-            'titik_drop.*' => ['required', 'string', 'max:200'],
+            'titik_drop.*' => $this->aturanTitikDropCampuran(),
         ];
     }
 }

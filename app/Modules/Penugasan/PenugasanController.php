@@ -75,9 +75,12 @@ class PenugasanController extends Controller
             $result = $this->service->listByPerusahaan((string) $request->user()->id_perusahaan, $page, $limit, $sumber, $status);
         }
 
-        $map = $this->service->titikDropBanyak(array_map(fn ($r) => (string) $r->id_penugasan, [...$result['data']]));
+        $idList = array_map(fn ($r) => (string) $r->id_penugasan, [...$result['data']]);
+        $map = $this->service->titikDropBanyak($idList);
+        $detailMap = $this->service->titikDropDetailBanyak($idList);
         foreach ($result['data'] as $row) {
             $row->titik_drop = $map[$row->id_penugasan] ?? [];
+            $row->titik_drop_detail = $detailMap[$row->id_penugasan] ?? [];
         }
 
         return ApiResponse::paginated(
@@ -90,6 +93,7 @@ class PenugasanController extends Controller
     {
         $record = $this->service->findOrFail($id);
         $record->titik_drop = $this->service->titikDropUntuk((string) $record->id_penugasan);
+        $record->titik_drop_detail = $this->service->titikDropDetailUntuk((string) $record->id_penugasan);
         return ApiResponse::success(new PenugasanResource($record));
     }
 

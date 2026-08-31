@@ -275,7 +275,10 @@ class TripService
 
         $hariIni = $tanggal ?? now()->toDateString();
         $shiftHariIni = null;
-        foreach ($tipe === 'vendor' ? [] : $this->jadwalShiftRepo->listShiftSupir($idSupir, $hariIni, $hariIni) as $row) {
+        $shiftRows = $tipe === 'vendor'
+            ? $this->jadwalShiftRepo->listShiftSupirVendor($idSupir, $hariIni, $hariIni)
+            : $this->jadwalShiftRepo->listShiftSupir($idSupir, $hariIni, $hariIni);
+        foreach ($shiftRows as $row) {
             if ((string) $row->id_proyek === (string) $penugasan->id_proyek) {
                 $shiftHariIni = [
                     'nama'        => $row->shift_nama,
@@ -439,7 +442,8 @@ class TripService
             );
             if ($tripAktif !== null) {
                 $status = str_replace('_', ' ', $tripAktif->status);
-                abort(422, "Supir/armada masih memiliki trip aktif di proyek {$tripAktif->nama_proyek} (status: {$status}) — selesaikan atau batalkan trip tersebut dahulu");
+                $tanggal = \Carbon\Carbon::parse($tripAktif->tanggal_tugas)->locale('id')->translatedFormat('d F Y');
+                abort(422, "Supir/armada masih memiliki trip aktif tanggal {$tanggal} di proyek {$tripAktif->nama_proyek} (status: {$status}) — selesaikan atau batalkan trip tersebut dahulu");
             }
 
             $idRute = $data['id_rute'] ?? ($penugasan->id_rute !== null ? (string) $penugasan->id_rute : null);

@@ -94,6 +94,42 @@ class TripTitikDropTest extends TestCase
         $this->assertSame(['JLB', 'MRY'], $lokasi);
     }
 
+    public function test_mulai_trip_menyalin_uang_jalan_tambahan_titik_drop_dari_penugasan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idArmada = ArmadaModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nopol'         => 'B ' . rand(1000, 9999) . ' TD',
+            'merk'          => 'Hino',
+        ])->id_armada;
+
+        $create = $this->postJson('/api/penugasan', [
+            'id_proyek'  => $this->makeProyek(),
+            'id_armada'  => $idArmada,
+            'id_supir'   => $this->makeSupir(),
+            'titik_drop' => [
+                ['lokasi' => 'JLB', 'uang_jalan_tambahan' => 50000],
+                ['lokasi' => 'MRY', 'uang_jalan_tambahan' => 0],
+            ],
+        ]);
+        $create->assertStatus(201)->assertJsonPath('data.titik_drop', ['JLB', 'MRY']);
+        $this->assertSame(
+            [['lokasi' => 'JLB', 'uang_jalan_tambahan' => 50000], ['lokasi' => 'MRY', 'uang_jalan_tambahan' => 0]],
+            $create->json('data.titik_drop_detail'),
+        );
+
+        $idTrip = $this->mulaiTripUntukPenugasan((string) $create->json('data.id_penugasan'));
+
+        $rows = DB::table('titik_drop_trip')
+            ->where('id_trip', $idTrip)->whereNull('dihapus_pada')->orderBy('urutan')
+            ->get(['lokasi', 'uang_jalan_tambahan']);
+
+        $this->assertSame('JLB', $rows[0]->lokasi);
+        $this->assertEquals(50000.0, (float) $rows[0]->uang_jalan_tambahan);
+        $this->assertSame('MRY', $rows[1]->lokasi);
+        $this->assertEquals(0.0, (float) $rows[1]->uang_jalan_tambahan);
+    }
+
     public function test_edit_titik_drop_penugasan_tidak_mengubah_trip_yang_sudah_ada(): void
     {
         $this->actingAsRole('SUPERADMIN');

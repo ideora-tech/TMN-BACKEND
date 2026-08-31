@@ -26,7 +26,8 @@ interface PenugasanRepositoryInterface
     public function create(array $data): PenugasanModel;
     public function update(PenugasanModel $model, array $data): PenugasanModel;
     public function delete(PenugasanModel $model): void;
-    public function syncTitikDrop(string $idPenugasan, array $lokasiList): void;
+    public function syncTitikDrop(string $idPenugasan, array $items): void;
+    public function titikDropDetailUntukBanyak(array $idPenugasanList): array;
     public function titikDropUntukBanyak(array $idPenugasan): array;
 
     /** Unit armada internal aktif untuk Board Unit, lengkap dengan reverse lookup supir default. */

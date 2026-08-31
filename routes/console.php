@@ -471,7 +471,25 @@ Artisan::command('notifikasi:reminder-shift', function () {
         )
         ->get();
 
-    foreach ($rows as $row) {
+    $rowsVendor = DB::table('jadwal_shift as js')
+        ->join('shift as s', 's.id_shift', '=', 'js.id_shift')
+        ->join('proyek as p', 'p.id_proyek', '=', 'js.id_proyek')
+        ->join('supir_vendor as sv', 'sv.id_supir_vendor', '=', 'js.id_supir_vendor')
+        ->whereNull('js.dihapus_pada')
+        ->whereNull('s.dihapus_pada')
+        ->whereNull('p.dihapus_pada')
+        ->whereNull('sv.dihapus_pada')
+        ->where('s.aktif', 1)
+        ->whereBetween('js.tanggal', [$sekarang->toDateString(), $sekarang->copy()->addDay()->toDateString()])
+        ->select(
+            'js.id_jadwal_shift', 'js.tanggal',
+            's.nama as nama_shift', 's.jam_mulai',
+            'p.nama_proyek', 'p.id_perusahaan',
+            'sv.id_pengguna'
+        )
+        ->get();
+
+    foreach ($rows->concat($rowsVendor) as $row) {
         $tanggal = substr((string) $row->tanggal, 0, 10);
         $mulai = \Illuminate\Support\Carbon::parse($tanggal . ' ' . $row->jam_mulai);
         if ($sekarang->lt($mulai->copy()->subMinutes(60)) || $sekarang->gte($mulai)) {

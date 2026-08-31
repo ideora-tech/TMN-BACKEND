@@ -96,6 +96,11 @@ class JadwalShiftController extends Controller
         return ApiResponse::success(null, 'Jadwal shift berhasil dihapus');
     }
 
+    public function opsiSupirVendor(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->opsiSupirVendor((string) $request->user()->id_perusahaan));
+    }
+
     public function hariIniSaya(Request $request): JsonResponse
     {
         $supir = $this->supirRepo->findByPengguna((string) $request->user()->id_pengguna);

@@ -27,6 +27,7 @@ class KontrakVendorModel extends BaseModel
         'tanggal_mulai',
         'tanggal_selesai',
         'status',
+        'alasan_ditolak_internal',
     ];
 
     protected $casts = [

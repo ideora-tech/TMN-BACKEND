@@ -9,6 +9,10 @@ interface JadwalShiftRepositoryInterface
     public function listByProyek(string $idProyek, ?string $dari, ?string $sampai): array;
     public function findById(string $id): ?object;
     public function findAktifBySupirTanggal(string $idSupir, string $tanggal): ?object;
+    public function findAktifBySupirVendorTanggal(string $idSupirVendor, string $tanggal): ?object;
+    public function listShiftSupirVendor(string $idSupirVendor, string $dari, string $sampai): array;
+    public function supirVendorAktifMilikPerusahaan(string $idSupirVendor, string $idPerusahaan): bool;
+    public function opsiSupirVendor(string $idPerusahaan): array;
     public function findOverrideAktif(string $idSupir, string $idProyek, string $tanggal): ?object;
     public function listTitikDropOverride(string $idJadwalShift): array;
     public function listTitikDropOverrideUntukBanyak(array $idJadwalShiftList): array;

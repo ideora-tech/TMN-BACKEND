@@ -15,6 +15,10 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
         return ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
             ->leftJoin('jenis_kendaraan', 'jenis_kendaraan.id_jenis_kendaraan', '=', 'armada_vendor.id_jenis_kendaraan')
+            ->leftJoin('supir_vendor as sv_default', function ($join) {
+                $join->on('sv_default.id_supir_vendor', '=', 'armada_vendor.id_supir_vendor_default')
+                    ->whereNull('sv_default.dihapus_pada');
+            })
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->whereNull('vendor.dihapus_pada')
             ->when($idVendor, fn ($q) => $q->where('armada_vendor.id_vendor', $idVendor))
@@ -22,7 +26,7 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 $q2->where('armada_vendor.nopol', 'like', "%{$search}%")
                    ->orWhere('armada_vendor.merk', 'like', "%{$search}%");
             }))
-            ->select('armada_vendor.*', 'vendor.nama_vendor', 'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan')
+            ->select('armada_vendor.*', 'vendor.nama_vendor', 'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan', 'sv_default.nama as nama_supir_default')
             ->orderBy('armada_vendor.nopol')
             ->paginate($limit, ['*'], 'page', $page);
     }
@@ -87,6 +91,17 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
         return $id !== null ? (string) $id : null;
     }
 
+    public function findIdVendorByKontrak(string $idKontrakVendor, string $idPerusahaan): ?string
+    {
+        $id = DB::table('kontrak_vendor')
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->value('id_vendor');
+
+        return $id !== null ? (string) $id : null;
+    }
+
     public function nopolTerdaftar(string $nopol, string $idPerusahaan): bool
     {
         return ArmadaVendorModel::active()
@@ -113,18 +128,16 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
     {
         $rows = ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
-            ->join('kontrak_vendor', function ($join) use ($idPerusahaan) {
-                $join->on('kontrak_vendor.id_vendor', '=', 'armada_vendor.id_vendor')
-                    ->where('kontrak_vendor.id_perusahaan', '=', $idPerusahaan)
-                    ->whereNull('kontrak_vendor.dihapus_pada');
-            })
+            ->join('kontrak_vendor', $this->joinKontrakResolusiUnit($idPerusahaan))
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->where('armada_vendor.aktif', 1)
             ->whereNull('vendor.dihapus_pada')
             ->select(
                 'armada_vendor.id_armada_vendor', 'armada_vendor.nopol', 'armada_vendor.merk', 'armada_vendor.jenis',
-                'armada_vendor.id_vendor', 'vendor.nama_vendor',
+                'armada_vendor.id_vendor', 'armada_vendor.id_kontrak_vendor as id_kontrak_vendor_unit', 'vendor.nama_vendor',
+                'armada_vendor.id_supir_vendor_default',
                 'kontrak_vendor.id_kontrak_vendor', 'kontrak_vendor.mekanisme',
+                'kontrak_vendor.status as status_kontrak', 'kontrak_vendor.tanggal_selesai as tanggal_selesai_kontrak',
             )
             ->orderBy('armada_vendor.nopol')
             ->orderByRaw("CASE WHEN kontrak_vendor.mekanisme = 'unit_only' THEN 0 ELSE 1 END")
@@ -137,14 +150,18 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 continue;
             }
             $result[$row->id_armada_vendor] = [
-                'id_armada_vendor'  => $row->id_armada_vendor,
-                'id_kontrak_vendor' => $row->id_kontrak_vendor,
-                'mekanisme'         => $row->mekanisme,
-                'nopol'             => $row->nopol,
-                'merk'              => $row->merk,
-                'jenis'             => $row->jenis,
-                'id_vendor'         => $row->id_vendor,
-                'nama_vendor'       => $row->nama_vendor,
+                'id_armada_vendor'       => $row->id_armada_vendor,
+                'id_kontrak_vendor'      => $row->id_kontrak_vendor,
+                'id_kontrak_vendor_unit' => $row->id_kontrak_vendor_unit,
+                'mekanisme'              => $row->mekanisme,
+                'kontrak_habis'          => $this->kontrakHabis($row->status_kontrak, $row->tanggal_selesai_kontrak),
+                'status_kontrak'         => $row->status_kontrak,
+                'nopol'                  => $row->nopol,
+                'merk'                   => $row->merk,
+                'jenis'                  => $row->jenis,
+                'id_vendor'              => $row->id_vendor,
+                'nama_vendor'            => $row->nama_vendor,
+                'id_supir_vendor_default' => $row->id_supir_vendor_default,
             ];
         }
 
@@ -155,18 +172,15 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
     {
         $rows = ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
-            ->join('kontrak_vendor', function ($join) use ($idPerusahaan) {
-                $join->on('kontrak_vendor.id_vendor', '=', 'armada_vendor.id_vendor')
-                    ->where('kontrak_vendor.mekanisme', '=', 'unit_only')
-                    ->where('kontrak_vendor.id_perusahaan', '=', $idPerusahaan)
-                    ->whereNull('kontrak_vendor.dihapus_pada');
-            })
+            ->join('kontrak_vendor', $this->joinKontrakResolusiUnit($idPerusahaan, 'unit_only'))
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->where('armada_vendor.aktif', 1)
             ->whereNull('vendor.dihapus_pada')
             ->select(
                 'armada_vendor.id_armada_vendor', 'armada_vendor.nopol', 'armada_vendor.merk', 'armada_vendor.jenis',
-                'armada_vendor.id_vendor', 'vendor.nama_vendor', 'kontrak_vendor.id_kontrak_vendor',
+                'armada_vendor.id_vendor', 'armada_vendor.id_kontrak_vendor as id_kontrak_vendor_unit', 'vendor.nama_vendor',
+                'kontrak_vendor.id_kontrak_vendor',
+                'kontrak_vendor.status as status_kontrak', 'kontrak_vendor.tanggal_selesai as tanggal_selesai_kontrak',
             )
             ->orderBy('armada_vendor.nopol')
             ->orderByDesc('kontrak_vendor.dibuat_pada')
@@ -178,17 +192,47 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 continue;
             }
             $result[$row->id_armada_vendor] = [
-                'id_armada_vendor'  => $row->id_armada_vendor,
-                'id_kontrak_vendor' => $row->id_kontrak_vendor,
-                'nopol'             => $row->nopol,
-                'merk'              => $row->merk,
-                'jenis'             => $row->jenis,
-                'id_vendor'         => $row->id_vendor,
-                'nama_vendor'       => $row->nama_vendor,
+                'id_armada_vendor'       => $row->id_armada_vendor,
+                'id_kontrak_vendor'      => $row->id_kontrak_vendor,
+                'id_kontrak_vendor_unit' => $row->id_kontrak_vendor_unit,
+                'kontrak_habis'          => $this->kontrakHabis($row->status_kontrak, $row->tanggal_selesai_kontrak),
+                'nopol'                  => $row->nopol,
+                'merk'                   => $row->merk,
+                'jenis'                  => $row->jenis,
+                'id_vendor'              => $row->id_vendor,
+                'nama_vendor'            => $row->nama_vendor,
             ];
         }
 
         return array_values($result);
+    }
+
+    private function joinKontrakResolusiUnit(string $idPerusahaan, ?string $mekanisme = null): \Closure
+    {
+        return function ($join) use ($idPerusahaan, $mekanisme) {
+            $join->where('kontrak_vendor.id_perusahaan', '=', $idPerusahaan)
+                ->whereNull('kontrak_vendor.dihapus_pada')
+                ->when($mekanisme, fn ($q) => $q->where('kontrak_vendor.mekanisme', '=', $mekanisme))
+                ->where(function ($cocok) {
+                    $cocok->whereColumn('kontrak_vendor.id_kontrak_vendor', 'armada_vendor.id_kontrak_vendor')
+                        ->orWhere(function ($fallback) {
+                            $fallback->whereNull('armada_vendor.id_kontrak_vendor')
+                                ->whereColumn('kontrak_vendor.id_vendor', 'armada_vendor.id_vendor');
+                        });
+                });
+        };
+    }
+
+    private function kontrakHabis(?string $status, mixed $tanggalSelesai): bool
+    {
+        if ($status !== null && $status !== 'aktif') {
+            return true;
+        }
+        if (empty($tanggalSelesai)) {
+            return false;
+        }
+
+        return substr((string) $tanggalSelesai, 0, 10) < now()->toDateString();
     }
 
     public function create(array $data): ArmadaVendorModel
@@ -207,6 +251,21 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
             ->first();
 
         return $fresh ?? $model;
+    }
+
+    public function listAktifByKontrak(string $idKontrakVendor): \Illuminate\Support\Collection
+    {
+        return ArmadaVendorModel::active()
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->get()
+            ->toBase();
+    }
+
+    public function lepasSupirDefault(string $idSupirVendor): void
+    {
+        ArmadaVendorModel::active()
+            ->where('id_supir_vendor_default', $idSupirVendor)
+            ->update(['id_supir_vendor_default' => null]);
     }
 
     public function delete(ArmadaVendorModel $model): void

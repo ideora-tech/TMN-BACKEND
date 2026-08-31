@@ -10,12 +10,15 @@ use Illuminate\Support\Facades\DB;
 
 class NotifikasiRepository implements NotifikasiRepositoryInterface
 {
-    public function paginateForUser(string $idPengguna, string $idPerusahaan, int $page, int $limit, ?string $tipe, ?int $dibaca): LengthAwarePaginator
+    public function paginateForUser(string $idPengguna, string $idPerusahaan, int $page, int $limit, ?string $tipe, ?int $dibaca, bool $termasukBroadcast = true): LengthAwarePaginator
     {
         $paginator = NotifikasiModel::active()
             ->where('id_perusahaan', $idPerusahaan)
-            ->where(function ($q) use ($idPengguna) {
-                $q->where('id_pengguna', $idPengguna)->orWhereNull('id_pengguna');
+            ->where(function ($q) use ($idPengguna, $termasukBroadcast) {
+                $q->where('id_pengguna', $idPengguna);
+                if ($termasukBroadcast) {
+                    $q->orWhereNull('id_pengguna');
+                }
             })
             ->when($tipe, fn ($q) => $q->where('tipe', $tipe))
             ->when($dibaca !== null, fn ($q) => $q->where('dibaca', $dibaca))
@@ -71,12 +74,15 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
         return $n;
     }
 
-    public function unreadCount(string $idPengguna, string $idPerusahaan): int
+    public function unreadCount(string $idPengguna, string $idPerusahaan, bool $termasukBroadcast = true): int
     {
         return NotifikasiModel::active()
             ->where('id_perusahaan', $idPerusahaan)
-            ->where(function ($q) use ($idPengguna) {
-                $q->where('id_pengguna', $idPengguna)->orWhereNull('id_pengguna');
+            ->where(function ($q) use ($idPengguna, $termasukBroadcast) {
+                $q->where('id_pengguna', $idPengguna);
+                if ($termasukBroadcast) {
+                    $q->orWhereNull('id_pengguna');
+                }
             })
             ->where('dibaca', 0)
             ->count();
@@ -115,12 +121,15 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
             ->value('id_pengguna');
     }
 
-    public function markAllRead(string $idPengguna, string $idPerusahaan): int
+    public function markAllRead(string $idPengguna, string $idPerusahaan, bool $termasukBroadcast = true): int
     {
         return NotifikasiModel::active()
             ->where('id_perusahaan', $idPerusahaan)
-            ->where(function ($q) use ($idPengguna) {
-                $q->where('id_pengguna', $idPengguna)->orWhereNull('id_pengguna');
+            ->where(function ($q) use ($idPengguna, $termasukBroadcast) {
+                $q->where('id_pengguna', $idPengguna);
+                if ($termasukBroadcast) {
+                    $q->orWhereNull('id_pengguna');
+                }
             })
             ->where('dibaca', 0)
             ->update(['dibaca' => 1, 'dibaca_pada' => now()]);

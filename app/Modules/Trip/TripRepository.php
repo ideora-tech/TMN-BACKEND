@@ -361,7 +361,7 @@ class TripRepository implements TripRepositoryInterface
                     $q->orWhere('p.id_supir_vendor', $idSupirVendor);
                 }
             })
-            ->select('t.id_trip', 't.status', 't.dibuat_pada', 'pr.nama_proyek')
+            ->select('t.id_trip', 't.status', 't.dibuat_pada', 'pr.nama_proyek', 'p.tanggal_tugas')
             ->lockForUpdate()
             ->first();
     }
@@ -622,13 +622,14 @@ class TripRepository implements TripRepositoryInterface
             ->where('id_penugasan', $idPenugasan)
             ->whereNull('dihapus_pada')
             ->orderBy('urutan')
-            ->get(['urutan', 'lokasi']);
+            ->get(['urutan', 'lokasi', 'uang_jalan_tambahan']);
 
         foreach ($rows as $row) {
             DB::table('titik_drop_trip')->insert(RecordHelper::stampCreate([
-                'id_trip' => $idTrip,
-                'urutan'  => (int) $row->urutan,
-                'lokasi'  => $row->lokasi,
+                'id_trip'             => $idTrip,
+                'urutan'              => (int) $row->urutan,
+                'lokasi'              => $row->lokasi,
+                'uang_jalan_tambahan' => (float) $row->uang_jalan_tambahan,
             ], 'id_titik_drop'));
         }
     }

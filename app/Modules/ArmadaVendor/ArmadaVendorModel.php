@@ -14,6 +14,8 @@ class ArmadaVendorModel extends BaseModel
     protected $fillable = [
         'id_armada_vendor',
         'id_vendor',
+        'id_kontrak_vendor',
+        'id_supir_vendor_default',
         'nopol',
         'merk',
         'jenis',

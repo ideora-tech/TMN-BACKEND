@@ -42,6 +42,7 @@ interface ApprovalRepositoryInterface
     public function findPengajuanAktifUntukReferensi(string $idEventType, string $idReferensi): ?ApprovalPengajuanModel;
     public function findPengajuanAktifUntukReferensiForUpdate(string $idEventType, string $idReferensi, string $idPerusahaan): ?ApprovalPengajuanModel;
     public function progressApproval(string $idApproval): array;
+    public function statusUntukReferensi(string $kode, string $idReferensi, string $idPerusahaan): ?array;
     public function listMenungguApprovalSaya(string $idPengguna, string $idPerusahaan): Collection;
     public function listRiwayatApprovalSaya(string $idPengguna, string $idPerusahaan): Collection;
     public function voidKeputusanUntukApproval(string $idApproval): void;

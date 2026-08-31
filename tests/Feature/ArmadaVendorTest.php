@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Modules\ArmadaVendor\ArmadaVendorModel;
+use App\Modules\KontrakVendor\KontrakVendorModel;
 use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,15 @@ class ArmadaVendorTest extends TestCase
         ]);
     }
 
+    private function makeKontrak(string $idVendor, ?string $idPerusahaan = null): KontrakVendorModel
+    {
+        return KontrakVendorModel::create([
+            'id_perusahaan' => $idPerusahaan ?? self::PERUSAHAAN_ID,
+            'id_vendor'     => $idVendor,
+            'mekanisme'     => 'unit_only',
+        ]);
+    }
+
     public function test_armada_vendor_dengan_jenis_kendaraan_master(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -61,6 +71,8 @@ class ArmadaVendorTest extends TestCase
             'id_vendor'          => $vendor->id_vendor,
             'nopol'              => 'B 7001 JK',
             'id_jenis_kendaraan' => $idJenis,
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
         ])->assertStatus(201)
             ->assertJsonPath('data.id_jenis_kendaraan', $idJenis);
 
@@ -75,6 +87,8 @@ class ArmadaVendorTest extends TestCase
             'id_vendor'          => $vendor->id_vendor,
             'nopol'              => 'B 7002 JK',
             'id_jenis_kendaraan' => $idJenisLain,
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
         ])->assertStatus(404);
     }
 
@@ -89,6 +103,8 @@ class ArmadaVendorTest extends TestCase
             'merk'      => 'Hino',
             'jenis'     => 'Truk',
             'tahun'     => 2021,
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
         ]);
 
         $res->assertStatus(201)
@@ -112,6 +128,8 @@ class ArmadaVendorTest extends TestCase
         $res = $this->postJson('/api/armada-vendor', [
             'id_vendor' => $vendorLain->id_vendor,
             'nopol'     => 'B 8888 XX',
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
         ]);
 
         $res->assertStatus(404);
@@ -210,6 +228,111 @@ class ArmadaVendorTest extends TestCase
         $this->assertDatabaseHas('armada_vendor', [
             'id_armada_vendor' => $armada->id_armada_vendor,
             'id_vendor'        => $vendor->id_vendor,
+        ]);
+    }
+
+    public function test_membuat_armada_vendor_tertaut_kontrak_milik_vendor_sama(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor);
+
+        $res = $this->postJson('/api/armada-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nopol'             => 'B 7101 KT',
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
+        ]);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.id_kontrak_vendor', $kontrak->id_kontrak_vendor);
+
+        $this->assertDatabaseHas('armada_vendor', [
+            'nopol'             => 'B 7101 KT',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+        ]);
+    }
+
+    public function test_menolak_kontrak_milik_vendor_lain(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $vendorLain = $this->makeVendor();
+        $kontrakLain = $this->makeKontrak($vendorLain->id_vendor);
+
+        $res = $this->postJson('/api/armada-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakLain->id_kontrak_vendor,
+            'nopol'             => 'B 7102 KT',
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
+        ]);
+
+        $res->assertStatus(422)
+            ->assertJsonPath('message', 'Kontrak bukan milik vendor ini');
+
+        $this->assertDatabaseMissing('armada_vendor', ['nopol' => 'B 7102 KT']);
+    }
+
+    public function test_kontrak_perusahaan_lain_atau_terhapus_mengembalikan_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+
+        $idPerusahaanLain = $this->makePerusahaanLain();
+        $vendorPerusahaanLain = $this->makeVendor($idPerusahaanLain);
+        $kontrakPerusahaanLain = $this->makeKontrak($vendorPerusahaanLain->id_vendor, $idPerusahaanLain);
+
+        $this->postJson('/api/armada-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakPerusahaanLain->id_kontrak_vendor,
+            'nopol'             => 'B 7103 KT',
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
+        ])->assertStatus(404);
+
+        $this->postJson('/api/armada-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => (string) Str::uuid(),
+            'nopol'             => 'B 7104 KT',
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
+        ])->assertStatus(404);
+
+        $kontrakTerhapus = $this->makeKontrak($vendor->id_vendor);
+        $kontrakTerhapus->softDelete();
+
+        $this->postJson('/api/armada-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakTerhapus->id_kontrak_vendor,
+            'nopol'             => 'B 7105 KT',
+            'masa_berlaku_stnk' => '2027-06-01',
+            'masa_berlaku_kir'  => '2027-06-02',
+        ])->assertStatus(404);
+    }
+
+    public function test_update_melepas_tautan_kontrak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor);
+        $armada = ArmadaVendorModel::create([
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nopol'             => 'B 7106 KT',
+        ]);
+
+        $res = $this->putJson("/api/armada-vendor/{$armada->id_armada_vendor}", [
+            'id_kontrak_vendor' => null,
+        ]);
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.id_kontrak_vendor', null);
+
+        $this->assertDatabaseHas('armada_vendor', [
+            'id_armada_vendor'  => $armada->id_armada_vendor,
+            'id_kontrak_vendor' => null,
         ]);
     }
 

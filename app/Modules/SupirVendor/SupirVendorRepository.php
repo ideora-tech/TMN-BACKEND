@@ -72,6 +72,17 @@ class SupirVendorRepository implements SupirVendorRepositoryInterface
         return $id !== null ? (string) $id : null;
     }
 
+    public function findIdVendorByKontrak(string $idKontrakVendor, string $idPerusahaan): ?string
+    {
+        $id = DB::table('kontrak_vendor')
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->value('id_vendor');
+
+        return $id !== null ? (string) $id : null;
+    }
+
     public function noSimTerdaftar(string $noSim, string $idPerusahaan): bool
     {
         return SupirVendorModel::active()
@@ -98,6 +109,14 @@ class SupirVendorRepository implements SupirVendorRepositoryInterface
             ->first();
 
         return $fresh ?? $model;
+    }
+
+    public function listAktifByKontrak(string $idKontrakVendor): \Illuminate\Support\Collection
+    {
+        return SupirVendorModel::active()
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->get()
+            ->toBase();
     }
 
     public function delete(SupirVendorModel $model): void

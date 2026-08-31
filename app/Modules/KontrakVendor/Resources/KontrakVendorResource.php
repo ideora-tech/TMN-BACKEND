@@ -30,6 +30,7 @@ class KontrakVendorResource extends JsonResource
             'tanggal_mulai'     => $this->tanggal_mulai,
             'tanggal_selesai'   => $this->tanggal_selesai,
             'status'            => $this->status,
+            'alasan_ditolak_internal' => $this->alasan_ditolak_internal ?? null,
             'dibuat_pada'       => $this->dibuat_pada,
             'diubah_pada'       => $this->diubah_pada,
         ];

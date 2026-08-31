@@ -319,6 +319,62 @@ class KonsolidasiKlienTest extends TestCase
             ->assertJsonPath('data.ringkasan.estimasi_nilai', 1150000);
     }
 
+    public function test_rekap_menjumlahkan_uang_jalan_tambahan_titik_drop_ke_biaya_tambahan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyek = $this->buatProyek();
+        $this->buatProyekRute($proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
+        $trip = $this->buatTrip($proyek->id_proyek, true, 120);
+
+        DB::table('titik_drop_trip')->insert([
+            [
+                'id_titik_drop' => (string) Str::uuid(), 'id_trip' => $trip->id_trip,
+                'urutan' => 1, 'lokasi' => 'JLB', 'uang_jalan_tambahan' => 50000, 'dibuat_pada' => now(),
+            ],
+            [
+                'id_titik_drop' => (string) Str::uuid(), 'id_trip' => $trip->id_trip,
+                'urutan' => 2, 'lokasi' => 'MRY', 'uang_jalan_tambahan' => 75000, 'dibuat_pada' => now(),
+            ],
+        ]);
+
+        $idLaporan = DB::table('laporan_perjalanan')->where('id_trip', $trip->id_trip)->value('id_laporan');
+        DB::table('biaya_tagihan_trip')->insert([
+            'id_biaya_tagihan' => (string) Str::uuid(), 'id_laporan' => $idLaporan,
+            'nama_biaya' => 'Bongkar Muat', 'nominal' => 150000, 'dibuat_pada' => now(),
+        ]);
+
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res->assertStatus(200)
+            ->assertJsonPath('data.trips.0.biaya_tambahan', 275000)
+            ->assertJsonPath('data.ringkasan.estimasi_nilai', 1275000);
+
+        $biayaTagihan = collect($res->json('data.trips.0.biaya_tagihan'));
+        $this->assertSame(150000, $biayaTagihan->firstWhere('nama_biaya', 'Bongkar Muat')['nominal']);
+        $this->assertSame(125000, $biayaTagihan->firstWhere('nama_biaya', 'Uang Jalan Tambahan')['nominal']);
+    }
+
+    public function test_titik_drop_tanpa_uang_jalan_tambahan_tidak_menambah_biaya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyek = $this->buatProyek();
+        $this->buatProyekRute($proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
+        $trip = $this->buatTrip($proyek->id_proyek, true, 120);
+
+        DB::table('titik_drop_trip')->insert([
+            'id_titik_drop' => (string) Str::uuid(), 'id_trip' => $trip->id_trip,
+            'urutan' => 1, 'lokasi' => 'JLB', 'dibuat_pada' => now(),
+        ]);
+
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res->assertStatus(200)
+            ->assertJsonPath('data.trips.0.biaya_tambahan', 0)
+            ->assertJsonPath('data.ringkasan.estimasi_nilai', 1000000);
+    }
+
     public function test_harga_fallback_baris_jenis_kendaraan_null_dipakai_saat_tidak_ada_baris_spesifik(): void
     {
         $this->actingAsRole('SUPERADMIN');

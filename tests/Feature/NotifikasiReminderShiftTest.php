@@ -61,6 +61,79 @@ class NotifikasiReminderShiftTest extends TestCase
         return ['id_supir' => $idSupir, 'id_pengguna' => $idPengguna];
     }
 
+    private function makeSupirVendor(bool $denganAkun = true): array
+    {
+        $idPengguna = null;
+        if ($denganAkun) {
+            $pengguna = Pengguna::create([
+                'id_pengguna'   => (string) Str::uuid(),
+                'id_perusahaan' => self::PERUSAHAAN_ID,
+                'kode_peran'    => 'SUPIR_VENDOR',
+                'username'      => 'sv_' . Str::random(8),
+                'email'         => Str::random(8) . '@vendor.id',
+                'kata_sandi'    => bcrypt('Password123!'),
+                'aktif'         => 1,
+            ]);
+            $idPengguna = $pengguna->id_pengguna;
+        }
+
+        $idVendor = (string) Str::uuid();
+        DB::table('vendor')->insert([
+            'id_vendor'     => $idVendor,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor'   => 'VDR-' . Str::random(8),
+            'nama_vendor'   => 'Vendor Reminder Test',
+            'dibuat_pada'   => now(),
+        ]);
+
+        $idSupirVendor = (string) Str::uuid();
+        DB::table('supir_vendor')->insert([
+            'id_supir_vendor' => $idSupirVendor,
+            'id_vendor'       => $idVendor,
+            'id_pengguna'     => $idPengguna,
+            'nama'            => 'Supir Vendor Reminder Test',
+            'dibuat_pada'     => now(),
+        ]);
+
+        return ['id_supir_vendor' => $idSupirVendor, 'id_pengguna' => $idPengguna];
+    }
+
+    private function makeJadwalVendor(string $idSupirVendor, string $tanggal, string $jamMulai): string
+    {
+        $idProyek = (string) Str::uuid();
+        DB::table('proyek')->insert([
+            'id_proyek'     => $idProyek,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => (string) Str::uuid(),
+            'kode_proyek'   => 'PRJ-' . Str::random(8),
+            'nama_proyek'   => 'Proyek Reminder Vendor',
+            'dibuat_pada'   => now(),
+        ]);
+
+        $idShift = (string) Str::uuid();
+        DB::table('shift')->insert([
+            'id_shift'      => $idShift,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama'          => 'Pagi',
+            'jam_mulai'     => $jamMulai,
+            'jam_selesai'   => '17:00:00',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+
+        $idJadwal = (string) Str::uuid();
+        DB::table('jadwal_shift')->insert([
+            'id_jadwal_shift' => $idJadwal,
+            'id_proyek'       => $idProyek,
+            'id_shift'        => $idShift,
+            'id_supir_vendor' => $idSupirVendor,
+            'tanggal'         => $tanggal,
+            'dibuat_pada'     => now(),
+        ]);
+
+        return $idJadwal;
+    }
+
     private function makeJadwal(string $idSupir, string $tanggal, string $jamMulai): string
     {
         $idProyek = (string) Str::uuid();
@@ -165,6 +238,45 @@ class NotifikasiReminderShiftTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-08-12 07:30:00'));
         $supir = $this->makeSupir(denganAkun: false);
         $this->makeJadwal($supir['id_supir'], '2026-08-12', '08:00:00');
+
+        $this->artisan('notifikasi:reminder-shift')->assertExitCode(0);
+
+        $this->assertSame(0, NotifikasiModel::count());
+    }
+
+    public function test_reminder_shift_vendor_terkirim_30_menit_sebelum_mulai(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-12 07:30:00'));
+        $supirVendor = $this->makeSupirVendor();
+        $idJadwal = $this->makeJadwalVendor($supirVendor['id_supir_vendor'], '2026-08-12', '08:00:00');
+
+        $this->artisan('notifikasi:reminder-shift')->assertExitCode(0);
+
+        $notif = NotifikasiModel::where('referensi_id', $idJadwal)->first();
+        $this->assertNotNull($notif);
+        $this->assertSame('reminder_shift', $notif->tipe);
+        $this->assertSame('jadwal_shift', $notif->referensi_tipe);
+        $this->assertSame($supirVendor['id_pengguna'], $notif->id_pengguna);
+        $this->assertStringContainsString('08:00', $notif->judul);
+    }
+
+    public function test_reminder_shift_vendor_tidak_dobel_saat_jalan_dua_kali(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-12 07:30:00'));
+        $supirVendor = $this->makeSupirVendor();
+        $idJadwal = $this->makeJadwalVendor($supirVendor['id_supir_vendor'], '2026-08-12', '08:00:00');
+
+        $this->artisan('notifikasi:reminder-shift')->assertExitCode(0);
+        $this->artisan('notifikasi:reminder-shift')->assertExitCode(0);
+
+        $this->assertSame(1, NotifikasiModel::where('referensi_id', $idJadwal)->count());
+    }
+
+    public function test_supir_vendor_tanpa_akun_dilewati(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-12 07:30:00'));
+        $supirVendor = $this->makeSupirVendor(denganAkun: false);
+        $this->makeJadwalVendor($supirVendor['id_supir_vendor'], '2026-08-12', '08:00:00');
 
         $this->artisan('notifikasi:reminder-shift')->assertExitCode(0);
 

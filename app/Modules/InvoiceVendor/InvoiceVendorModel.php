@@ -20,7 +20,11 @@ class InvoiceVendorModel extends BaseModel
         'tanggal_invoice',
         'jatuh_tempo',
         'no_po',
-        'no_do',
+        'no_kontrak',
+        'nopol',
+        'tipe_kendaraan',
+        'tipe_pembayaran',
+        'top_hari',
         'periode_dari',
         'periode_sampai',
         'dpp',
@@ -43,5 +47,6 @@ class InvoiceVendorModel extends BaseModel
         'pph'               => 'float',
         'total'             => 'float',
         'diverifikasi_pada' => 'datetime',
+        'top_hari'          => 'integer',
     ];
 }

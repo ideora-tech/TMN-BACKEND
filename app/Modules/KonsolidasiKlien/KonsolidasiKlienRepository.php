@@ -128,6 +128,48 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->all();
     }
 
+    public function uangJalanTambahanPerTrip(array $idTrips): array
+    {
+        if ($idTrips === []) {
+            return [];
+        }
+
+        return DB::table('titik_drop_trip')
+            ->whereIn('id_trip', $idTrips)
+            ->whereNull('dihapus_pada')
+            ->where('uang_jalan_tambahan', '>', 0)
+            ->groupBy('id_trip')
+            ->selectRaw('id_trip, SUM(uang_jalan_tambahan) as total')
+            ->pluck('total', 'id_trip')
+            ->map(fn ($v) => (float) $v)
+            ->all();
+    }
+
+    /**
+     * Nama biaya SENGAJA konstan (bukan disisipi lokasi) — KonsolidasiKlienExport
+     * membuat satu kolom Excel per nama_biaya unik, jadi nama harus stabil
+     * supaya beberapa titik drop tidak meledak jadi banyak kolom terpisah.
+     */
+    public function uangJalanTambahanDetailPerTrip(array $idTrips): array
+    {
+        if ($idTrips === []) {
+            return [];
+        }
+
+        return DB::table('titik_drop_trip')
+            ->whereIn('id_trip', $idTrips)
+            ->whereNull('dihapus_pada')
+            ->where('uang_jalan_tambahan', '>', 0)
+            ->orderBy('urutan')
+            ->get(['id_trip', 'uang_jalan_tambahan'])
+            ->groupBy('id_trip')
+            ->map(fn ($g) => [[
+                'nama_biaya' => 'Uang Jalan Tambahan',
+                'nominal'    => (float) $g->sum('uang_jalan_tambahan'),
+            ]])
+            ->all();
+    }
+
     public function namaJenisKendaraanMap(array $ids): array
     {
         if ($ids === []) {

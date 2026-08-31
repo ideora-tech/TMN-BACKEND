@@ -27,6 +27,7 @@ class NotifikasiController extends Controller
             (int) $request->query('limit', 20),
             $request->query('tipe'),
             $request->has('dibaca') ? (int) $request->query('dibaca') : null,
+            $this->bolehLihatBroadcast($user),
         );
 
         return ApiResponse::paginated(NotifikasiResource::collection($result['data']), $result['meta']);
@@ -38,7 +39,7 @@ class NotifikasiController extends Controller
         if (!$user->id_perusahaan) {
             return ApiResponse::success(['count' => 0]);
         }
-        $count = $this->service->unreadCount($user->id_pengguna ?? $user->id, $user->id_perusahaan);
+        $count = $this->service->unreadCount($user->id_pengguna ?? $user->id, $user->id_perusahaan, $this->bolehLihatBroadcast($user));
 
         return ApiResponse::success(['count' => $count]);
     }
@@ -56,8 +57,18 @@ class NotifikasiController extends Controller
         if (!$user->id_perusahaan) {
             return ApiResponse::success(['updated' => 0], 'Semua notifikasi ditandai sudah dibaca');
         }
-        $count = $this->service->markAllRead($user->id_pengguna ?? $user->id, $user->id_perusahaan);
+        $count = $this->service->markAllRead($user->id_pengguna ?? $user->id, $user->id_perusahaan, $this->bolehLihatBroadcast($user));
 
         return ApiResponse::success(['updated' => $count], 'Semua notifikasi ditandai sudah dibaca');
+    }
+
+    /**
+     * Notifikasi broadcast perusahaan (id_pengguna null: reminder trip, dokumen
+     * kadaluarsa, dsb.) hanya untuk akun kantor — akun supir/driver vendor cukup
+     * menerima notifikasi yang ditujukan ke akunnya sendiri.
+     */
+    private function bolehLihatBroadcast(object $user): bool
+    {
+        return !in_array((string) ($user->kode_peran ?? ''), ['SUPIR', 'SUPIR_VENDOR'], true);
     }
 }

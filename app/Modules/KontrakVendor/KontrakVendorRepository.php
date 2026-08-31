@@ -105,6 +105,19 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
             ->exists();
     }
 
+    public function relinkUnitDanSupir(string $idKontrakLama, string $idKontrakBaru): void
+    {
+        foreach (['armada_vendor', 'supir_vendor'] as $tabel) {
+            DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_kontrak_vendor', $idKontrakLama)
+                ->update([
+                    'id_kontrak_vendor' => $idKontrakBaru,
+                    'diubah_pada'       => now(),
+                ]);
+        }
+    }
+
     public function update(KontrakVendorModel $model, array $data): KontrakVendorModel
     {
         $model->update($data);
@@ -116,5 +129,64 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
     public function delete(KontrakVendorModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function turunkanKeDraftJikaPerluApprovalUlang(string $idKontrak): ?string
+    {
+        $kontrak = $this->findById($idKontrak);
+        if ($kontrak === null || !in_array($kontrak->status, ['aktif', 'menunggu_approval'], true)) {
+            return null;
+        }
+        $statusSebelum = $kontrak->status;
+        $this->update($kontrak, ['status' => 'draft', 'alasan_ditolak_internal' => null]);
+        return $statusSebelum;
+    }
+
+    public function getNamaVendor(string $idVendor): ?string
+    {
+        return DB::table('vendor')->where('id_vendor', $idVendor)->value('nama_vendor');
+    }
+
+    public function getPerusahaan(string $idPerusahaan): ?object
+    {
+        return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
+    }
+
+    public function adaPenugasanNonFinalUntukArmadaVendor(string $idArmadaVendor): bool
+    {
+        return \Illuminate\Support\Facades\DB::table('penugasan')
+            ->whereNull('dihapus_pada')
+            ->where('id_armada_vendor', $idArmadaVendor)
+            ->whereNotIn('status', ['selesai', 'batal'])
+            ->exists();
+    }
+
+    public function adaPenugasanNonFinalUntukSupirVendor(string $idSupirVendor): bool
+    {
+        return \Illuminate\Support\Facades\DB::table('penugasan')
+            ->whereNull('dihapus_pada')
+            ->where('id_supir_vendor', $idSupirVendor)
+            ->whereNotIn('status', ['selesai', 'batal'])
+            ->exists();
+    }
+
+    public function adaPenugasanUntukKontrak(string $idKontrakVendor): bool
+    {
+        return DB::table('penugasan')
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->exists();
+    }
+
+    public function lepasTautanUnitDanSupir(string $idKontrakVendor): void
+    {
+        foreach (['armada_vendor', 'supir_vendor'] as $tabel) {
+            DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_kontrak_vendor', $idKontrakVendor)
+                ->update([
+                    'id_kontrak_vendor' => null,
+                    'diubah_pada'       => now(),
+                ]);
+        }
     }
 }

@@ -14,7 +14,15 @@ interface KontrakVendorRepositoryInterface
     public function findById(string $id): ?KontrakVendorModel;
     public function findAktifMilikPerusahaan(string $id, string $idPerusahaan): ?KontrakVendorModel;
     public function vendorMilikPerusahaan(string $idVendor, string $idPerusahaan): bool;
+    public function relinkUnitDanSupir(string $idKontrakLama, string $idKontrakBaru): void;
     public function create(array $data): KontrakVendorModel;
     public function update(KontrakVendorModel $model, array $data): KontrakVendorModel;
     public function delete(KontrakVendorModel $model): void;
+    public function adaPenugasanUntukKontrak(string $idKontrakVendor): bool;
+    public function getNamaVendor(string $idVendor): ?string;
+    public function turunkanKeDraftJikaPerluApprovalUlang(string $idKontrak): ?string;
+    public function getPerusahaan(string $idPerusahaan): ?object;
+    public function adaPenugasanNonFinalUntukArmadaVendor(string $idArmadaVendor): bool;
+    public function adaPenugasanNonFinalUntukSupirVendor(string $idSupirVendor): bool;
+    public function lepasTautanUnitDanSupir(string $idKontrakVendor): void;
 }

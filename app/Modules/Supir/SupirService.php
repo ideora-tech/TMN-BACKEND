@@ -231,7 +231,7 @@ class SupirService
             if ($tglRaw !== null) {
                 $tglKadaluarsa = $this->parseTanggal($tglRaw);
                 if ($tglKadaluarsa === null) {
-                    $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Tanggal kadaluarsa SIM tidak valid'];
+                    $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Tanggal habis masa berlaku SIM tidak valid'];
                     continue;
                 }
             }

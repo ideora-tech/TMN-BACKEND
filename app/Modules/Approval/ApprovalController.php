@@ -83,6 +83,16 @@ class ApprovalController extends Controller
         return ApiResponse::success(null, 'Approver dihapus');
     }
 
+    public function statusReferensi(Request $request): JsonResponse
+    {
+        $data = $this->service->statusUntukReferensi(
+            (string) $request->query('kode'),
+            (string) $request->query('id_referensi'),
+            (string) $request->user()->id_perusahaan,
+        );
+        return ApiResponse::success($data);
+    }
+
     public function menungguSaya(Request $request): JsonResponse
     {
         $data = $this->service->menungguApprovalSaya(

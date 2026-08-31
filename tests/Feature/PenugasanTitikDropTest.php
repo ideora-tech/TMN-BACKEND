@@ -200,4 +200,23 @@ class PenugasanTitikDropTest extends TestCase
         $res->assertStatus(200);
         $this->assertSame(['JLB'], $res->json('data.0.titik_drop'));
     }
+
+    public function test_index_penugasan_melampirkan_titik_drop_detail(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+
+        $this->postJson('/api/penugasan', [
+            'id_proyek'  => $proyek->id_proyek,
+            'titik_drop' => [['lokasi' => 'JLB', 'uang_jalan_tambahan' => 25000]],
+        ])->assertStatus(201);
+
+        $res = $this->getJson('/api/penugasan?id_proyek=' . $proyek->id_proyek);
+
+        $res->assertStatus(200);
+        $this->assertSame(
+            [['lokasi' => 'JLB', 'uang_jalan_tambahan' => 25000]],
+            $res->json('data.0.titik_drop_detail'),
+        );
+    }
 }

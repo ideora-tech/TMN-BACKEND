@@ -16,9 +16,9 @@ class NotifikasiService
         private readonly PengirimPush $push,
     ) {}
 
-    public function list(string $idPengguna, string $idPerusahaan, int $page = 1, int $limit = 20, ?string $tipe = null, ?int $dibaca = null): array
+    public function list(string $idPengguna, string $idPerusahaan, int $page = 1, int $limit = 20, ?string $tipe = null, ?int $dibaca = null, bool $termasukBroadcast = true): array
     {
-        $paginator = $this->repo->paginateForUser($idPengguna, $idPerusahaan, $page, $limit, $tipe, $dibaca);
+        $paginator = $this->repo->paginateForUser($idPengguna, $idPerusahaan, $page, $limit, $tipe, $dibaca, $termasukBroadcast);
         return [
             'data' => $paginator->items(),
             'meta' => [
@@ -26,7 +26,7 @@ class NotifikasiService
                 'limit'       => $paginator->perPage(),
                 'total'       => $paginator->total(),
                 'totalPages'  => $paginator->lastPage(),
-                'unreadCount' => $this->repo->unreadCount($idPengguna, $idPerusahaan),
+                'unreadCount' => $this->repo->unreadCount($idPengguna, $idPerusahaan, $termasukBroadcast),
             ],
         ];
     }
@@ -109,13 +109,13 @@ class NotifikasiService
         return $this->repo->markRead($this->findOrFail($id));
     }
 
-    public function markAllRead(string $idPengguna, string $idPerusahaan): int
+    public function markAllRead(string $idPengguna, string $idPerusahaan, bool $termasukBroadcast = true): int
     {
-        return $this->repo->markAllRead($idPengguna, $idPerusahaan);
+        return $this->repo->markAllRead($idPengguna, $idPerusahaan, $termasukBroadcast);
     }
 
-    public function unreadCount(string $idPengguna, string $idPerusahaan): int
+    public function unreadCount(string $idPengguna, string $idPerusahaan, bool $termasukBroadcast = true): int
     {
-        return $this->repo->unreadCount($idPengguna, $idPerusahaan);
+        return $this->repo->unreadCount($idPengguna, $idPerusahaan, $termasukBroadcast);
     }
 }

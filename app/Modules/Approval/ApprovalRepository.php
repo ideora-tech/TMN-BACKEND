@@ -319,6 +319,47 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         return ['disetujui' => $disetujui, 'total' => $total];
     }
 
+    public function statusUntukReferensi(string $kode, string $idReferensi, string $idPerusahaan): ?array
+    {
+        $eventType = $this->findEventTypeByKode($kode, $idPerusahaan);
+        if ($eventType === null) {
+            return null;
+        }
+
+        $pengajuan = ApprovalPengajuanModel::active()
+            ->where('id_event_type', $eventType->id_event_type)
+            ->where('id_referensi', $idReferensi)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->orderByDesc('dibuat_pada')
+            ->first();
+        if ($pengajuan === null) {
+            return null;
+        }
+
+        $namaPengaju = DB::table('pengguna')->where('id_pengguna', $pengajuan->id_pengguna_pengaju)->value('username');
+        $keputusan = DB::table('approval_keputusan as ak')
+            ->leftJoin('pengguna as p', 'p.id_pengguna', '=', 'ak.id_pengguna')
+            ->where('ak.id_approval', $pengajuan->id_approval)
+            ->whereNull('ak.dihapus_pada')
+            ->orderBy('ak.dibuat_pada')
+            ->get(['ak.status', 'ak.catatan', 'ak.waktu_aksi', 'p.username']);
+
+        return [
+            'id_approval'   => $pengajuan->id_approval,
+            'status'        => $pengajuan->status,
+            'nominal'       => $pengajuan->nominal !== null ? (float) $pengajuan->nominal : null,
+            'diajukan_oleh' => $namaPengaju,
+            'diajukan_pada' => $pengajuan->dibuat_pada,
+            'progress'      => $this->progressApproval($pengajuan->id_approval),
+            'approver'      => $keputusan->map(static fn (object $r) => [
+                'nama'       => $r->username ?? '-',
+                'status'     => $r->status,
+                'catatan'    => $r->catatan,
+                'waktu_aksi' => $r->waktu_aksi,
+            ])->values()->all(),
+        ];
+    }
+
     public function listMenungguApprovalSaya(string $idPengguna, string $idPerusahaan): Collection
     {
         return ApprovalPengajuanModel::active()

@@ -34,6 +34,7 @@ class ApprovalServiceProvider extends ServiceProvider
 
                 Route::get('approval-pengajuan/menunggu-saya', [ApprovalController::class, 'menungguSaya']);
                 Route::get('approval-pengajuan/riwayat-saya', [ApprovalController::class, 'riwayatSaya']);
+                Route::get('approval-pengajuan/status-referensi', [ApprovalController::class, 'statusReferensi']);
                 Route::get('approval-pengajuan/export-saya', [ApprovalController::class, 'exportSaya']);
                 Route::patch('approval-pengajuan/{id}/keputusan', [ApprovalController::class, 'putuskan']);
             });

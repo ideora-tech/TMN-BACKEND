@@ -120,6 +120,7 @@ class PenugasanHarianTest extends TestCase
             'id_perusahaan' => self::PERUSAHAAN_ID,
             'id_vendor'     => $vendor->id_vendor,
             'mekanisme'     => 'unit_only',
+            'status'        => 'aktif',
         ]);
         $armadaVendor = ArmadaVendorModel::create([
             'id_vendor' => $vendor->id_vendor,
@@ -170,6 +171,7 @@ class PenugasanHarianTest extends TestCase
             'id_perusahaan' => self::PERUSAHAAN_ID,
             'id_vendor'     => $vendor->id_vendor,
             'mekanisme'     => $mekanisme,
+            'status'        => 'aktif',
         ]);
         $armadaVendor = ArmadaVendorModel::create([
             'id_vendor' => $vendor->id_vendor,
@@ -267,6 +269,79 @@ class PenugasanHarianTest extends TestCase
         $this->assertNotNull($unit);
         $this->assertSame('full', $unit['mekanisme']);
         $this->assertSame('vendor', $unit['tipe']);
+    }
+
+    public function test_board_menyertakan_status_kontrak_unit_vendor(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $paket = $this->makeVendorPaket('unit_only');
+        DB::table('kontrak_vendor')
+            ->where('id_kontrak_vendor', $paket['id_kontrak_vendor'])
+            ->update(['status' => 'draft']);
+
+        $res = $this->getJson('/api/penugasan/board?dari=2026-09-01&sampai=2026-09-02')
+            ->assertStatus(200);
+
+        $unit = collect($res->json('data.units'))
+            ->firstWhere('id_armada_vendor', $paket['id_armada_vendor']);
+        $this->assertNotNull($unit);
+        $this->assertSame('draft', $unit['status_kontrak']);
+        $this->assertTrue($unit['kontrak_habis']);
+    }
+
+    public function test_assign_harian_menyimpan_titik_drop_dengan_uang_jalan_tambahan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute   = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, 100000.0);
+        $armada = $this->makeArmada();
+        $supir  = $this->makeSupir();
+
+        $res = $this->postJson('/api/penugasan/harian', [
+            'tanggal'    => '2026-09-01',
+            'id_armada'  => $armada->id_armada,
+            'id_supir'   => $supir,
+            'id_proyek'  => $proyek->id_proyek,
+            'id_rute'    => $rute,
+            'titik_drop' => [
+                ['lokasi' => 'Gudang A', 'uang_jalan_tambahan' => 50000],
+                ['lokasi' => 'Gudang B'],
+            ],
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.sukses', 1);
+
+        $idPenugasan = $res->json('data.penugasan.0.id_penugasan');
+        $rows = DB::table('titik_drop_penugasan')
+            ->where('id_penugasan', $idPenugasan)->whereNull('dihapus_pada')->orderBy('urutan')
+            ->get(['lokasi', 'uang_jalan_tambahan']);
+
+        $this->assertSame('Gudang A', $rows[0]->lokasi);
+        $this->assertEquals(50000.0, (float) $rows[0]->uang_jalan_tambahan);
+        $this->assertSame('Gudang B', $rows[1]->lokasi);
+        $this->assertEquals(0.0, (float) $rows[1]->uang_jalan_tambahan);
+    }
+
+    public function test_assign_harian_titik_drop_tanpa_lokasi_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute   = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, 100000.0);
+        $armada = $this->makeArmada();
+        $supir  = $this->makeSupir();
+
+        $res = $this->postJson('/api/penugasan/harian', [
+            'tanggal'    => '2026-09-01',
+            'id_armada'  => $armada->id_armada,
+            'id_supir'   => $supir,
+            'id_proyek'  => $proyek->id_proyek,
+            'id_rute'    => $rute,
+            'titik_drop' => [['uang_jalan_tambahan' => 50000]],
+        ]);
+
+        $res->assertStatus(422);
     }
 
     public function test_assign_rentang_membuat_baris_per_tanggal_dan_satu_pengajuan(): void

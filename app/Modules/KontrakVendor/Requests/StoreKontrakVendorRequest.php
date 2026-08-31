@@ -29,6 +29,22 @@ class StoreKontrakVendorRequest extends FormRequest
             'tanggal_mulai'          => ['sometimes', 'nullable', 'date'],
             'tanggal_selesai'        => ['sometimes', 'nullable', 'date', 'after_or_equal:tanggal_mulai'],
             'status'                 => ['sometimes', 'string', 'max:50'],
+            'salin_dari_kontrak'     => ['sometimes', 'nullable', 'string', 'max:36'],
+            'unit'                   => ['sometimes', 'array'],
+            'unit.*.nopol'              => ['required', 'string', 'max:20'],
+            'unit.*.merk'               => ['sometimes', 'nullable', 'string', 'max:100'],
+            'unit.*.jenis'              => ['sometimes', 'nullable', 'string', 'max:100'],
+            'unit.*.id_jenis_kendaraan' => ['sometimes', 'nullable', 'string', 'max:36'],
+            'unit.*.kapasitas'          => ['sometimes', 'nullable', 'string', 'max:50'],
+            'unit.*.tahun'              => ['sometimes', 'nullable', 'integer'],
+            'unit.*.masa_berlaku_stnk'  => ['required', 'date'],
+            'unit.*.masa_berlaku_kir'   => ['required', 'date'],
+            'unit.*.supir_index'        => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'supir'                  => ['sometimes', 'array'],
+            'supir.*.nama'             => ['required', 'string', 'max:150'],
+            'supir.*.telepon'          => ['sometimes', 'nullable', 'string', 'max:30'],
+            'supir.*.no_sim'           => ['sometimes', 'nullable', 'string', 'max:50'],
+            'supir.*.masa_berlaku_sim' => ['sometimes', 'nullable', 'date'],
         ];
     }
 }

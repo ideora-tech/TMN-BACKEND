@@ -26,13 +26,15 @@ class KonsolidasiKlienService
         $dropMap   = $this->repo->titikDropPerTrip($idTrips);
         $biayaMap  = $this->repo->biayaTagihanPerTrip($idTrips);
         $biayaDetailMap = $this->repo->biayaTagihanDetailPerTrip($idTrips);
+        $uangJalanTambahanMap = $this->repo->uangJalanTambahanPerTrip($idTrips);
+        $uangJalanTambahanDetailMap = $this->repo->uangJalanTambahanDetailPerTrip($idTrips);
         $jenisMap  = $this->repo->namaJenisKendaraanMap(array_values(array_unique(array_filter(array_map(
             fn ($r) => $r->id_jenis_kendaraan ?? $r->id_jenis_kendaraan_vendor ?? null,
             $rows
         )))));
 
         $trips = array_map(
-            fn ($row) => $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap),
+            fn ($row) => $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap, $uangJalanTambahanMap, $uangJalanTambahanDetailMap),
             $rows
         );
 
@@ -51,7 +53,7 @@ class KonsolidasiKlienService
         ];
     }
 
-    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap): array
+    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap, array $uangJalanTambahanMap, array $uangJalanTambahanDetailMap): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
         $borongan = ($row->tipe_harga ?? 'per_rit') === 'borongan';
@@ -86,8 +88,8 @@ class KonsolidasiKlienService
             'borongan'          => $borongan,
             'sudah_difakturkan' => (int) $row->sudah_difakturkan === 1,
             'titik_drop'        => $dropMap[$row->id_trip] ?? [],
-            'biaya_tambahan'    => $biayaMap[$row->id_trip] ?? 0.0,
-            'biaya_tagihan'     => $biayaDetailMap[$row->id_trip] ?? [],
+            'biaya_tambahan'    => ($biayaMap[$row->id_trip] ?? 0.0) + ($uangJalanTambahanMap[$row->id_trip] ?? 0.0),
+            'biaya_tagihan'     => array_merge($biayaDetailMap[$row->id_trip] ?? [], $uangJalanTambahanDetailMap[$row->id_trip] ?? []),
             'jenis_kendaraan'   => $idJenisKendaraan !== null ? ($jenisMap[$idJenisKendaraan] ?? null) : null,
         ];
     }

@@ -117,13 +117,17 @@ class PenugasanService
         }
 
         $unitVendor = array_map(fn (array $baris) => [
-            'tipe'             => 'vendor',
-            'id_armada_vendor' => $baris['id_armada_vendor'],
-            'nopol'            => $baris['nopol'],
-            'nama_jenis'       => $baris['jenis'],
-            'nama_vendor'      => $baris['nama_vendor'],
-            'id_vendor'        => $baris['id_vendor'],
-            'mekanisme'        => $baris['mekanisme'],
+            'tipe'                   => 'vendor',
+            'id_armada_vendor'       => $baris['id_armada_vendor'],
+            'nopol'                  => $baris['nopol'],
+            'nama_jenis'             => $baris['jenis'],
+            'nama_vendor'            => $baris['nama_vendor'],
+            'id_vendor'              => $baris['id_vendor'],
+            'mekanisme'              => $baris['mekanisme'],
+            'id_kontrak_vendor'      => $baris['id_kontrak_vendor'],
+            'id_kontrak_vendor_unit' => $baris['id_kontrak_vendor_unit'],
+            'kontrak_habis'          => $baris['kontrak_habis'],
+            'status_kontrak'         => $baris['status_kontrak'],
         ], $this->armadaVendorRepo->listOpsiBoard($idPerusahaan));
 
         $assignments = $this->repo->boardAssignments($idPerusahaan, $dari, $sampai);
@@ -205,7 +209,8 @@ class PenugasanService
         if ($titikDrop !== null) {
             $this->repo->syncTitikDrop((string) $record->id_penugasan, $titikDrop);
         }
-        $record->titik_drop = $titikDrop ?? [];
+        $record->titik_drop = $this->lokasiSajaTitikDrop($titikDrop);
+        $record->titik_drop_detail = $this->detailTitikDrop($titikDrop);
 
         if (!empty($record->id_supir)) {
             $this->notifikasiPenugasan($record);
@@ -291,6 +296,9 @@ class PenugasanService
                 if ($opsi === null) {
                     abort(422, 'Unit vendor ini tidak memiliki kontrak aktif');
                 }
+                if (in_array($opsi['status_kontrak'] ?? null, ['draft', 'menunggu_approval'], true)) {
+                    abort(422, 'Kontrak unit ini belum disetujui — ajukan dan selesaikan approval kontrak terlebih dahulu');
+                }
 
                 if ($opsi['mekanisme'] === 'unit_only') {
                     if ($idSupirInternal === null) {
@@ -304,6 +312,11 @@ class PenugasanService
                     if (!$this->supirVendorRepo->milikVendor($idSupirVendor, (string) $opsi['id_vendor'])) {
                         abort(422, 'Supir vendor tidak terdaftar pada vendor unit ini');
                     }
+                    $this->assertKontrakSupirCocokDenganUnit(
+                        !empty($armadaVendor->id_kontrak_vendor) ? (string) $armadaVendor->id_kontrak_vendor : null,
+                        $idSupirVendor,
+                        $idPerusahaan,
+                    );
                     $rowDasar['id_supir_vendor'] = $idSupirVendor;
                 }
 
@@ -380,8 +393,11 @@ class PenugasanService
             }
 
             /** Atribut virtual titik_drop diisi TERAKHIR — tidak boleh sebelum repo->update() di atas, karena Eloquent akan menganggapnya kolom dirty dan ikut ditulis (kolomnya memang tidak ada, hidup di tabel titik_drop_penugasan terpisah). */
+            $lokasiSaja = $this->lokasiSajaTitikDrop($titikDrop);
+            $detailDrop = $this->detailTitikDrop($titikDrop);
             foreach ($rekaman as $record) {
-                $record->titik_drop = $titikDrop ?? [];
+                $record->titik_drop = $lokasiSaja;
+                $record->titik_drop_detail = $detailDrop;
             }
 
             return [
@@ -515,6 +531,7 @@ class PenugasanService
                 $this->repo->syncTitikDrop($id, $titikDrop ?? []);
             }
             $updated->titik_drop = $this->repo->titikDropUntukBanyak([$id])[$id] ?? [];
+            $updated->titik_drop_detail = $this->repo->titikDropDetailUntukBanyak([$id])[$id] ?? [];
 
             if ($idPengajuanUntukSinkron !== null) {
                 $this->arusKasService->sinkronPengajuanSetelahPenugasanDihapus($idPengajuanUntukSinkron);
@@ -707,6 +724,31 @@ class PenugasanService
         if (!empty($data['id_supir_vendor']) && !$this->supirVendorRepo->milikVendor((string) $data['id_supir_vendor'], $kontrak->id_vendor)) {
             abort(422, 'Supir vendor tidak sesuai dengan vendor kontrak');
         }
+
+        if (!empty($data['id_armada_vendor']) && !empty($data['id_supir_vendor'])) {
+            $armadaVendor = $this->armadaVendorRepo->findByIdMilikPerusahaan((string) $data['id_armada_vendor'], $idPerusahaan);
+            $this->assertKontrakSupirCocokDenganUnit(
+                $armadaVendor !== null && !empty($armadaVendor->id_kontrak_vendor) ? (string) $armadaVendor->id_kontrak_vendor : null,
+                (string) $data['id_supir_vendor'],
+                $idPerusahaan,
+            );
+        }
+    }
+
+    private function assertKontrakSupirCocokDenganUnit(?string $idKontrakUnit, string $idSupirVendor, string $idPerusahaan): void
+    {
+        if (empty($idKontrakUnit)) {
+            return;
+        }
+
+        $supirVendor = $this->supirVendorRepo->findByIdMilikPerusahaan($idSupirVendor, $idPerusahaan);
+        if ($supirVendor === null || empty($supirVendor->id_kontrak_vendor)) {
+            return;
+        }
+
+        if ((string) $supirVendor->id_kontrak_vendor !== $idKontrakUnit) {
+            abort(422, 'Supir vendor bukan bagian dari kontrak unit ini');
+        }
     }
 
     public function titikDropUntuk(string $idPenugasan): array
@@ -714,9 +756,45 @@ class PenugasanService
         return $this->repo->titikDropUntukBanyak([$idPenugasan])[$idPenugasan] ?? [];
     }
 
+    public function titikDropDetailUntuk(string $idPenugasan): array
+    {
+        return $this->repo->titikDropDetailUntukBanyak([$idPenugasan])[$idPenugasan] ?? [];
+    }
+
+    /** Item titik_drop bisa berupa string polos atau objek {lokasi, uang_jalan_tambahan} — dipakai untuk atribut virtual titik_drop (selalu string[]). */
+    private function lokasiSajaTitikDrop(?array $items): array
+    {
+        return collect($items ?? [])
+            ->map(fn ($item) => trim((string) (is_array($item) ? ($item['lokasi'] ?? '') : $item)))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /** Sama seperti lokasiSajaTitikDrop() tapi mempertahankan uang_jalan_tambahan — dipakai untuk atribut virtual titik_drop_detail. */
+    private function detailTitikDrop(?array $items): array
+    {
+        return collect($items ?? [])
+            ->map(function ($item) {
+                $lokasi = trim((string) (is_array($item) ? ($item['lokasi'] ?? '') : $item));
+                return $lokasi === '' ? null : [
+                    'lokasi'              => $lokasi,
+                    'uang_jalan_tambahan' => (float) (is_array($item) ? ($item['uang_jalan_tambahan'] ?? 0) : 0),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
     public function titikDropBanyak(array $idPenugasanList): array
     {
         return $this->repo->titikDropUntukBanyak($idPenugasanList);
+    }
+
+    public function titikDropDetailBanyak(array $idPenugasanList): array
+    {
+        return $this->repo->titikDropDetailUntukBanyak($idPenugasanList);
     }
 
     public function delete(string $id): void

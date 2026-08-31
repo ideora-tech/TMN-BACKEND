@@ -14,7 +14,10 @@ class ArmadaVendorService
     private const TAHUN_MIN = 1950;
     private const TAHUN_MAX = 2100;
 
-    public function __construct(private readonly ArmadaVendorRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly ArmadaVendorRepositoryInterface $repo,
+        private readonly \App\Modules\KontrakVendor\Contracts\KontrakVendorRepositoryInterface $kontrakVendorRepo,
+    ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idVendor = null, ?string $search = null): array
     {
@@ -46,13 +49,25 @@ class ArmadaVendorService
             abort(404, 'Vendor tidak ditemukan');
         }
         $this->pastikanJenisKendaraanMilikPerusahaan($data, $idPerusahaan);
+        $this->pastikanKontrakMilikVendor($data, $idPerusahaan, (string) $data['id_vendor']);
+        $this->pastikanSupirDefaultSeVendor($data, (string) $data['id_vendor']);
 
-        return $this->repo->create($data);
+        $record = $this->repo->create($data);
+
+        if (!empty($data['id_kontrak_vendor'])) {
+            $this->tarikApprovalKontrak((string) $data['id_kontrak_vendor'], $idPerusahaan);
+        }
+
+        return $record;
     }
 
     public function update(string $id, array $data, string $idPerusahaan): ArmadaVendorModel
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+
+        if (array_key_exists('id_supir_vendor_default', $data)) {
+            $this->pastikanSupirDefaultSeVendor($data, (string) ($data['id_vendor'] ?? $record->id_vendor));
+        }
 
         if (isset($data['id_vendor']) && $data['id_vendor'] !== $record->id_vendor) {
             if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $idPerusahaan)) {
@@ -60,8 +75,34 @@ class ArmadaVendorService
             }
         }
         $this->pastikanJenisKendaraanMilikPerusahaan($data, $idPerusahaan);
+        $this->pastikanKontrakMilikVendor($data, $idPerusahaan, (string) ($data['id_vendor'] ?? $record->id_vendor));
 
-        return $this->repo->update($record, $data);
+        $kontrakSebelum = $record->id_kontrak_vendor;
+        $diperbarui = $this->repo->update($record, $data);
+
+        if (array_key_exists('id_kontrak_vendor', $data) && ($data['id_kontrak_vendor'] ?? null) !== $kontrakSebelum) {
+            foreach ([$kontrakSebelum, $data['id_kontrak_vendor'] ?? null] as $idKontrak) {
+                if (!empty($idKontrak)) {
+                    $this->tarikApprovalKontrak((string) $idKontrak, $idPerusahaan);
+                }
+            }
+        }
+
+        return $diperbarui;
+    }
+
+    private function pastikanKontrakMilikVendor(array $data, string $idPerusahaan, string $idVendor): void
+    {
+        if (empty($data['id_kontrak_vendor'])) {
+            return;
+        }
+        $idVendorKontrak = $this->repo->findIdVendorByKontrak((string) $data['id_kontrak_vendor'], $idPerusahaan);
+        if ($idVendorKontrak === null) {
+            abort(404, 'Kontrak vendor tidak ditemukan');
+        }
+        if ($idVendorKontrak !== $idVendor) {
+            abort(422, 'Kontrak bukan milik vendor ini');
+        }
     }
 
     private function pastikanJenisKendaraanMilikPerusahaan(array $data, string $idPerusahaan): void
@@ -74,10 +115,42 @@ class ArmadaVendorService
         }
     }
 
+    private function pastikanSupirDefaultSeVendor(array $data, string $idVendor): void
+    {
+        if (empty($data['id_supir_vendor_default'])) {
+            return;
+        }
+        $milik = \App\Modules\SupirVendor\SupirVendorModel::active()
+            ->where('id_supir_vendor', $data['id_supir_vendor_default'])
+            ->where('id_vendor', $idVendor)
+            ->exists();
+        if (!$milik) {
+            abort(422, 'Supir bawaan harus milik vendor yang sama dengan unitnya');
+        }
+    }
+
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->kontrakVendorRepo->adaPenugasanNonFinalUntukArmadaVendor($id)) {
+            abort(422, 'Unit masih dipakai penugasan aktif — selesaikan atau batalkan penugasannya terlebih dahulu');
+        }
+
         $this->repo->delete($record);
+
+        if (!empty($record->id_kontrak_vendor)) {
+            $this->tarikApprovalKontrak((string) $record->id_kontrak_vendor, $idPerusahaan);
+        }
+    }
+
+    private function tarikApprovalKontrak(string $idKontrak, string $idPerusahaan): void
+    {
+        $statusSebelum = $this->kontrakVendorRepo->turunkanKeDraftJikaPerluApprovalUlang($idKontrak);
+        if ($statusSebelum === 'menunggu_approval') {
+            app(\App\Modules\Approval\ApprovalService::class)
+                ->batalkanUntukReferensi(['kontrak_vendor'], $idKontrak, $idPerusahaan);
+        }
     }
 
     /**

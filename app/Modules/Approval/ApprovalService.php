@@ -247,6 +247,11 @@ class ApprovalService
         return $this->putuskan($pengajuan->id_approval, $idPengguna, $keputusan, $catatan, $idPerusahaan);
     }
 
+    public function statusUntukReferensi(string $kode, string $idReferensi, string $idPerusahaan): ?array
+    {
+        return $this->repo->statusUntukReferensi($kode, $idReferensi, $idPerusahaan);
+    }
+
     public function adaEventTypeAktif(string $kode, string $idPerusahaan): bool
     {
         return $this->repo->findEventTypeAktifByKode($kode, $idPerusahaan) !== null;

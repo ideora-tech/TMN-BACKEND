@@ -42,7 +42,23 @@ class SupirVendorService
         if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $idPerusahaan)) {
             abort(404, 'Vendor tidak ditemukan');
         }
+        $this->pastikanKontrakMilikVendor($data, $idPerusahaan, (string) $data['id_vendor']);
+
         return $this->repo->create($data);
+    }
+
+    private function pastikanKontrakMilikVendor(array $data, string $idPerusahaan, string $idVendor): void
+    {
+        if (empty($data['id_kontrak_vendor'])) {
+            return;
+        }
+        $idVendorKontrak = $this->repo->findIdVendorByKontrak((string) $data['id_kontrak_vendor'], $idPerusahaan);
+        if ($idVendorKontrak === null) {
+            abort(404, 'Kontrak vendor tidak ditemukan');
+        }
+        if ($idVendorKontrak !== $idVendor) {
+            abort(422, 'Kontrak bukan milik vendor ini');
+        }
     }
 
     public function update(string $id, array $data, string $idPerusahaan): SupirVendorModel
@@ -74,6 +90,7 @@ class SupirVendorService
                 abort(404, 'Vendor tidak ditemukan');
             }
         }
+        $this->pastikanKontrakMilikVendor($data, $idPerusahaan, (string) ($data['id_vendor'] ?? $record->id_vendor));
 
         return $this->repo->update($record, $data);
     }
@@ -81,6 +98,7 @@ class SupirVendorService
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+        app(\App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface::class)->lepasSupirDefault($id);
         $this->repo->delete($record);
     }
 
