@@ -156,6 +156,29 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.rute_tersedia', []);
     }
 
+    public function test_detail_penugasan_menyertakan_titik_drop_dan_uang_jalan_tambahan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+
+        DB::table('titik_drop_penugasan')->insert([
+            'id_titik_drop'       => (string) Str::uuid(),
+            'id_penugasan'        => $penugasan->id_penugasan,
+            'urutan'              => 1,
+            'lokasi'              => 'Gudang Cabang B',
+            'uang_jalan_tambahan' => 75000,
+            'dibuat_pada'         => now(),
+        ]);
+
+        $response = $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.penugasan.titik_drop', ['Gudang Cabang B'])
+            ->assertJsonPath('data.penugasan.titik_drop_detail.0.lokasi', 'Gudang Cabang B')
+            ->assertJsonPath('data.penugasan.titik_drop_detail.0.uang_jalan_tambahan', 75000);
+    }
+
     public function test_detail_penugasan_menyertakan_nama_dan_peran_yang_menugaskan(): void
     {
         $ctx = $this->actingAsSupir();
@@ -822,7 +845,7 @@ class TripSayaTest extends TestCase
             ->assertStatus(403);
     }
 
-    public function test_supir_bisa_mulai_trip_kedua_dari_penugasan_yang_sama(): void
+    public function test_supir_tidak_bisa_mulai_trip_kedua_dari_penugasan_yang_sudah_selesai(): void
     {
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
@@ -837,13 +860,9 @@ class TripSayaTest extends TestCase
 
         $this->postJson("/api/trip/{$idTripPertama}/checkout-saya")->assertStatus(200);
 
-        $mulaiKedua = $this->postJson('/api/trip/mulai-saya', [
+        $this->postJson('/api/trip/mulai-saya', [
             'id_penugasan' => $penugasan->id_penugasan,
-        ]);
-
-        $mulaiKedua->assertStatus(201)
-            ->assertJsonPath('data.status', 'berjalan');
-        $this->assertNotSame($idTripPertama, $mulaiKedua->json('data.id_trip'));
+        ])->assertStatus(422);
     }
 
     public function test_checkout_ditolak_tanpa_laporan_perjalanan(): void

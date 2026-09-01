@@ -157,7 +157,7 @@ class KontrakVendorApprovalTest extends TestCase
         $this->assertNull($res->json('data'));
     }
 
-    public function test_export_excel_dan_pdf_kontrak(): void
+    public function test_export_pdf_kontrak(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
@@ -169,7 +169,6 @@ class KontrakVendorApprovalTest extends TestCase
             'status'        => 'aktif',
         ]);
 
-        $this->get("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}/export/excel")->assertStatus(200);
         $this->get("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}/export/pdf")->assertStatus(200);
     }
 

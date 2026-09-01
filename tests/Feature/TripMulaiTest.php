@@ -198,7 +198,7 @@ class TripMulaiTest extends TestCase
         $this->assertStringNotContainsString('Proyek Baru', $res->json('message'));
     }
 
-    public function test_setelah_checkout_bisa_mulai_trip_lagi(): void
+    public function test_setelah_checkout_tidak_bisa_mulai_trip_lagi(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan();
@@ -213,7 +213,7 @@ class TripMulaiTest extends TestCase
         ]);
         $this->postJson("/api/trip/{$idTrip}/checkout")->assertStatus(200);
 
-        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])->assertStatus(201);
+        $this->postJson('/api/trip/mulai', ['id_penugasan' => $penugasan->id_penugasan])->assertStatus(422);
     }
 
     public function test_mulai_trip_penugasan_perusahaan_lain_404(): void

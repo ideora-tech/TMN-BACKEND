@@ -27,7 +27,9 @@ class InvoiceVendorServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:invoice-vendor'])
             ->group(function () {
                 Route::get('invoice-vendor/monitoring', [InvoiceVendorController::class, 'monitoring']);
+                Route::get('invoice-vendor/trip-siap-tagih', [InvoiceVendorController::class, 'tripSiapTagih']);
                 Route::get('invoice-vendor', [InvoiceVendorController::class, 'index']);
+                Route::get('invoice-vendor/{id}/export/pdf', [InvoiceVendorController::class, 'exportPdf']);
                 Route::get('invoice-vendor/{id}', [InvoiceVendorController::class, 'show']);
 
                 Route::middleware('role:SUPERADMIN,KEUANGAN')->group(function () {

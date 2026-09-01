@@ -31,11 +31,20 @@ interface InvoiceVendorRepositoryInterface
 
     public function vendorInfo(string $idVendor): ?object;
 
+    public function getPerusahaan(string $idPerusahaan): ?object;
+
     public function totalDibayar(string $idInvoice): float;
 
     public function daftarPembayaran(string $idInvoice): array;
 
     public function outstandingUntukMonitoring(string $idPerusahaan): array;
+
+    /** @return array<int, array{id_trip: string, tanggal: string, nopol: ?string, driver_nama: ?string, id_proyek: string, kode_proyek: ?string, nama_proyek: string, rute: ?string}> */
+    public function tripSiapTagih(string $idPerusahaan, string $idKontrakVendor, ?string $dari, ?string $sampai, ?string $idProyek = null, bool $lock = false): array;
+
+    public function insertInvoiceVendorTrip(string $idInvoiceVendor, string $idTrip): void;
+
+    public function tripTerkaitUntukInvoice(string $idInvoiceVendor): array;
 
     public function create(array $data): InvoiceVendorModel;
 

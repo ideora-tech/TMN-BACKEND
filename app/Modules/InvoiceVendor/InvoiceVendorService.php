@@ -7,6 +7,7 @@ namespace App\Modules\InvoiceVendor;
 use App\Modules\InvoiceVendor\Contracts\InvoiceVendorRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class InvoiceVendorService
 {
@@ -96,12 +97,53 @@ class InvoiceVendorService
                 ? ['id_vendor' => $vendor->id_vendor, 'nama_vendor' => $vendor->nama_vendor]
                 : null,
             'kontrak'            => $kontrak !== null
-                ? ['id_kontrak_vendor' => $kontrak->id_kontrak_vendor, 'nomor_kontrak' => $kontrak->nomor_kontrak]
+                ? [
+                    'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+                    'nomor_kontrak'     => $kontrak->nomor_kontrak,
+                    'nilai_kontrak'     => (float) $kontrak->nilai_kontrak,
+                ]
                 : null,
             'total_dibayar'      => $totalDibayar,
             'sisa'               => round(max(0, (float) $record->total - $totalDibayar), 2),
             'pembayaran'         => $pembayaran,
+            'trip_terkait'       => array_map(static fn (object $row) => [
+                'id_trip'        => $row->id_trip,
+                'tanggal'        => $row->tanggal,
+                'rute'           => $row->nama_rute ?? $row->rute_teks,
+                'nopol'          => $row->nopol,
+                'driver_nama'    => $row->driver_nama,
+                'kode_proyek'    => $row->kode_proyek,
+                'nama_proyek'    => $row->nama_proyek,
+                'status'         => $row->status,
+            ], $this->repo->tripTerkaitUntukInvoice($record->id_invoice_vendor)),
         ];
+    }
+
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->repo->getPerusahaan($idPerusahaan);
+    }
+
+    /** Trip vendor yang sudah selesai & belum terpakai di invoice manapun — untuk picker "Berdasarkan Trip". */
+    public function tripSiapTagih(string $idKontrakVendor, string $idPerusahaan, ?string $dari, ?string $sampai, ?string $idProyek = null): array
+    {
+        $kontrak = $this->repo->findKontrakMilikPerusahaan($idKontrakVendor, $idPerusahaan);
+        if ($kontrak === null) {
+            abort(404, 'Kontrak vendor tidak ditemukan');
+        }
+
+        $rows = $this->repo->tripSiapTagih($idPerusahaan, $idKontrakVendor, $dari, $sampai, $idProyek);
+
+        return array_map(static fn (object $row) => [
+            'id_trip'     => $row->id_trip,
+            'tanggal'     => $row->tanggal,
+            'rute'        => $row->nama_rute ?? $row->rute_teks,
+            'nopol'       => $row->nopol,
+            'driver_nama' => $row->driver_nama,
+            'id_proyek'   => $row->id_proyek,
+            'kode_proyek' => $row->kode_proyek,
+            'nama_proyek' => $row->nama_proyek,
+        ], $rows);
     }
 
     public function monitoring(string $idPerusahaan): array
@@ -175,6 +217,12 @@ class InvoiceVendorService
             abort(409, 'Nomor invoice sudah digunakan');
         }
 
+        $tripIds = array_unique($data['trip_ids'] ?? []);
+        unset($data['trip_ids']);
+        if ($tripIds !== [] && $kontrak === null) {
+            abort(422, 'Trip hanya bisa dikaitkan bila kontrak vendor dipilih');
+        }
+
         $dpp = (float) $data['dpp'];
         $ppn = (float) ($data['ppn'] ?? 0);
         $pph = (float) ($data['pph'] ?? 0);
@@ -190,11 +238,28 @@ class InvoiceVendorService
                 ->toDateString();
         }
 
-        return $this->repo->create(array_merge($data, [
-            'id_perusahaan'     => $idPerusahaan,
-            'status'            => 'draft',
-            'status_pembayaran' => 'belum',
-        ]));
+        return DB::transaction(function () use ($data, $idPerusahaan, $kontrak, $tripIds) {
+            $record = $this->repo->create(array_merge($data, [
+                'id_perusahaan'     => $idPerusahaan,
+                'status'            => 'draft',
+                'status_pembayaran' => 'belum',
+            ]));
+
+            if ($tripIds !== []) {
+                $siapTagih = collect($this->repo->tripSiapTagih(
+                    $idPerusahaan, (string) $kontrak->id_kontrak_vendor, null, null, null, true
+                ))->keyBy('id_trip');
+
+                foreach ($tripIds as $idTrip) {
+                    if (!$siapTagih->has($idTrip)) {
+                        abort(422, "Trip {$idTrip} tidak valid, sudah masuk invoice lain, atau bukan milik kontrak ini");
+                    }
+                    $this->repo->insertInvoiceVendorTrip((string) $record->id_invoice_vendor, (string) $idTrip);
+                }
+            }
+
+            return $record;
+        });
     }
 
     public function update(string $id, string $idPerusahaan, array $data): InvoiceVendorModel

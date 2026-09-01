@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Modules\KontrakVendor;
 
 use App\Helpers\ApiResponse;
-use App\Modules\KontrakVendor\Exports\KontrakVendorDetailExport;
 use App\Modules\KontrakVendor\Requests\ParseExcelKontrakVendorRequest;
 use App\Modules\KontrakVendor\Requests\StoreKontrakVendorRequest;
 use App\Modules\KontrakVendor\Requests\UpdateKontrakVendorRequest;
@@ -15,8 +14,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
-use Maatwebsite\Excel\Facades\Excel;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class KontrakVendorController extends Controller
 {
@@ -138,16 +135,6 @@ class KontrakVendorController extends Controller
         $pdf = Pdf::loadView('exports.kontrak-vendor', $data + ['logoBase64' => $this->logoBase64()]);
 
         return $pdf->download('kontrak-' . $this->namaFileAman($data['kontrak']->nomor_kontrak) . '.pdf');
-    }
-
-    public function exportExcel(Request $request, string $id): BinaryFileResponse
-    {
-        $data = $this->service->dataCetak($id, (string) $request->user()->id_perusahaan);
-
-        return Excel::download(
-            new KontrakVendorDetailExport($data),
-            'kontrak-' . $this->namaFileAman($data['kontrak']->nomor_kontrak) . '.xlsx'
-        );
     }
 
     private function namaFileAman(?string $nomor): string

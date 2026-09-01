@@ -764,6 +764,42 @@ class ApprovalEngineTest extends TestCase
             ->assertJsonPath('data.0.pihak_referensi', 'Klien Ringkasan Referensi');
     }
 
+    public function test_menunggu_approval_saya_menyertakan_ringkasan_referensi_kontrak_vendor(): void
+    {
+        $idEventType = $this->makeEventType('pinned', 'kontrak_vendor');
+        $idJabatan   = $this->makeJabatan('Approver Kontrak Vendor');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Approver Kontrak Vendor');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType,
+            'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'dibuat_pada' => now(),
+        ]);
+
+        $idVendor = (string) Str::uuid();
+        DB::table('vendor')->insert([
+            'id_vendor' => $idVendor, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_vendor' => 'V-RINGKAS', 'nama_vendor' => 'Vendor Ringkasan Referensi', 'dibuat_pada' => now(),
+        ]);
+        $idKontrak = (string) Str::uuid();
+        DB::table('kontrak_vendor')->insert([
+            'id_kontrak_vendor' => $idKontrak, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_vendor' => $idVendor,
+            'nomor_kontrak' => 'KV-RINGKAS-1', 'mekanisme' => 'unit_only', 'status' => 'menunggu_approval',
+            'nilai_kontrak' => 90000000, 'dibuat_pada' => now(),
+        ]);
+
+        $pengaju = $this->actingAsRole('SUPERADMIN');
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $service->ajukan('kontrak_vendor', $idKontrak, $pengaju->id_pengguna, 90000000.0, self::PERUSAHAAN_ID);
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+        $res = $this->getJson('/api/approval-pengajuan/menunggu-saya');
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.0.kode_event_type', 'kontrak_vendor')
+            ->assertJsonPath('data.0.nomor_referensi', 'KV-RINGKAS-1')
+            ->assertJsonPath('data.0.keterangan_referensi', 'Unit Only')
+            ->assertJsonPath('data.0.pihak_referensi', 'Vendor Ringkasan Referensi');
+    }
+
     public function test_endpoint_menunggu_saya_dan_keputusan(): void
     {
         $idEventType = $this->makeEventType('pinned', 'test_dummy_http');

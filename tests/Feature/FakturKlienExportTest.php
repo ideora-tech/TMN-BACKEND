@@ -51,19 +51,6 @@ class FakturKlienExportTest extends TestCase
         return $faktur;
     }
 
-    public function test_export_faktur_excel_per_faktur_berhasil(): void
-    {
-        $this->actingAsRole('SUPERADMIN');
-        $idKlien = $this->makeKlien('PT Klien Excel');
-        $faktur  = $this->makeFaktur($idKlien);
-
-        $res = $this->get("/api/faktur/{$faktur->id_faktur}/export/excel");
-
-        $res->assertStatus(200);
-        $this->assertStringContainsString('spreadsheetml', $res->headers->get('Content-Type'));
-        $this->assertStringContainsString($faktur->nomor_faktur, $res->headers->get('Content-Disposition'));
-    }
-
     public function test_export_faktur_pdf_per_faktur_berhasil(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -126,24 +113,6 @@ class FakturKlienExportTest extends TestCase
         $view->assertSee('7285139591', false);
     }
 
-    public function test_excel_export_collection_menyertakan_baris_subtotal_dan_pajak(): void
-    {
-        $idKlien = $this->makeKlien('PT Klien Pajak Excel');
-        $faktur  = $this->makeFaktur($idKlien);
-        $faktur->update(['nama_pajak' => 'PPN', 'persen_pajak' => 11, 'total' => 1665000]);
-        $faktur = $faktur->fresh()->load('items');
-
-        $rows = (new \App\Modules\Faktur\Exports\FakturDetailExport($faktur))->collection();
-
-        $this->assertSame('Subtotal', $rows[1][1]);
-        $this->assertSame(1500000.0, $rows[1][4]);
-        $this->assertSame('PPN (11%)', $rows[2][1]);
-        $this->assertSame(165000.0, $rows[2][4]);
-        $this->assertSame('TOTAL', $rows[3][1]);
-        $this->assertSame(1665000.0, $rows[3][4]);
-        $this->assertSame('Terbilang: Satu Juta Enam Ratus Enam Puluh Lima Ribu Rupiah', $rows[4][1]);
-    }
-
     public function test_export_faktur_milik_perusahaan_lain_ditolak_404(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -167,7 +136,6 @@ class FakturKlienExportTest extends TestCase
 
         $faktur = $this->makeFaktur($idKlienLain, $idPerusahaanLain);
 
-        $this->get("/api/faktur/{$faktur->id_faktur}/export/excel")->assertStatus(404);
         $this->get("/api/faktur/{$faktur->id_faktur}/export/pdf")->assertStatus(404);
     }
 }

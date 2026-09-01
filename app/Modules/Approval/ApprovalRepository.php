@@ -489,6 +489,21 @@ class ApprovalRepository implements ApprovalRepositoryInterface
                     'keterangan' => $row->keterangan,
                     'pihak'      => $row->nama_vendor,
                 ];
+
+            case 'kontrak_vendor':
+                $row = DB::table('kontrak_vendor as kv')
+                    ->leftJoin('vendor as v', 'v.id_vendor', '=', 'kv.id_vendor')
+                    ->where('kv.id_kontrak_vendor', $idReferensi)
+                    ->first(['kv.nomor_kontrak', 'kv.mekanisme', 'v.nama_vendor']);
+                if ($row === null) {
+                    return $kosong;
+                }
+                $mekanismeLabel = ['unit_only' => 'Unit Only', 'unit_driver' => 'Unit + Driver', 'full' => 'All In'];
+                return [
+                    'nomor'      => $row->nomor_kontrak,
+                    'keterangan' => $mekanismeLabel[$row->mekanisme] ?? $row->mekanisme,
+                    'pihak'      => $row->nama_vendor,
+                ];
         }
 
         return $kosong;

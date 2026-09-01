@@ -22,6 +22,7 @@ class PembayaranVendorServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:invoice-vendor'])
             ->group(function () {
                 Route::get('invoice-vendor/{idInvoice}/pembayaran', [PembayaranVendorController::class, 'indexByInvoice']);
+                Route::get('invoice-vendor/{idInvoice}/pembayaran/{id}/export/pdf', [PembayaranVendorController::class, 'exportPdf']);
 
                 Route::middleware('role:SUPERADMIN,KEUANGAN')->group(function () {
                     Route::post('invoice-vendor/{idInvoice}/pembayaran', [PembayaranVendorController::class, 'store']);

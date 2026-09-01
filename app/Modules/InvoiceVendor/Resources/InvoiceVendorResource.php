@@ -20,6 +20,7 @@ class InvoiceVendorResource extends JsonResource
                 'nama_vendor' => $this->nama_vendor,
             ] : null,
             'id_kontrak_vendor'  => $this->id_kontrak_vendor,
+            'nilai_kontrak'      => $this->nilai_kontrak_vendor !== null ? (float) $this->nilai_kontrak_vendor : null,
             'nomor_invoice'      => $this->nomor_invoice,
             'tanggal_invoice'    => $this->tanggal_invoice?->toDateString(),
             'jatuh_tempo'        => $this->jatuh_tempo?->toDateString(),

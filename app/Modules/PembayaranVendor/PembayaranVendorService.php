@@ -69,6 +69,26 @@ class PembayaranVendorService
         });
     }
 
+    public function dataCetak(string $id, string $idInvoice, string $idPerusahaan): object
+    {
+        $this->findInvoiceOrFail($idInvoice, $idPerusahaan);
+
+        $data = $this->repo->dataCetak($id, $idInvoice, $idPerusahaan);
+        if ($data === null) {
+            abort(404, 'Pembayaran vendor tidak ditemukan');
+        }
+
+        $data->nominal = (float) $data->nominal;
+        $data->total_invoice = (float) $data->total_invoice;
+
+        return $data;
+    }
+
+    public function dataPerusahaan(string $idPerusahaan): ?object
+    {
+        return $this->repo->getPerusahaan($idPerusahaan);
+    }
+
     private function findInvoiceOrFail(string $idInvoice, string $idPerusahaan): object
     {
         $invoice = $this->repo->findInvoiceUntukPerusahaan($idInvoice, $idPerusahaan);

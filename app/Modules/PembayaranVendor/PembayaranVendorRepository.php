@@ -91,4 +91,30 @@ class PembayaranVendorRepository implements PembayaranVendorRepositoryInterface
             ->where('id_invoice_vendor', $idInvoice)
             ->update(['status_pembayaran' => $status, 'diubah_pada' => now()]);
     }
+
+    public function getPerusahaan(string $idPerusahaan): ?object
+    {
+        return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
+    }
+
+    public function dataCetak(string $id, string $idInvoice, string $idPerusahaan): ?object
+    {
+        return DB::table('pembayaran_vendor as pv')
+            ->join('invoice_vendor as iv', 'iv.id_invoice_vendor', '=', 'pv.id_invoice_vendor')
+            ->leftJoin('vendor as v', 'v.id_vendor', '=', 'iv.id_vendor')
+            ->leftJoin('kontrak_vendor as kv', 'kv.id_kontrak_vendor', '=', 'iv.id_kontrak_vendor')
+            ->where('pv.id_pembayaran_vendor', $id)
+            ->where('pv.id_invoice_vendor', $idInvoice)
+            ->where('iv.id_perusahaan', $idPerusahaan)
+            ->whereNull('pv.dihapus_pada')
+            ->whereNull('iv.dihapus_pada')
+            ->select([
+                'pv.id_pembayaran_vendor', 'pv.tanggal_bayar', 'pv.nominal', 'pv.metode',
+                'pv.bank_pengirim', 'pv.no_referensi', 'pv.catatan',
+                'iv.nomor_invoice', 'iv.total as total_invoice',
+                'v.nama_vendor',
+                'kv.nomor_kontrak',
+            ])
+            ->first();
+    }
 }

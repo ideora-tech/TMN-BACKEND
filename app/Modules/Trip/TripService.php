@@ -299,6 +299,9 @@ class TripService
             ? $this->repo->infoPengguna((string) $penugasan->dibuat_oleh)
             : null;
 
+        $penugasan->titik_drop = $this->penugasanService->titikDropUntuk((string) $penugasan->id_penugasan);
+        $penugasan->titik_drop_detail = $this->penugasanService->titikDropDetailUntuk((string) $penugasan->id_penugasan);
+
         return [
             'penugasan' => $penugasan,
             'trip' => $tripAktif,
@@ -432,6 +435,9 @@ class TripService
             }
             if (in_array($penugasan->status, ['selesai', 'batal'], true)) {
                 abort(422, 'Penugasan sudah berstatus ' . $penugasan->status . ' — trip tidak dapat dimulai');
+            }
+            if ($this->repo->adaTripSelesaiUntukPenugasan($penugasan->id_penugasan)) {
+                abort(422, 'Penugasan ini sudah menyelesaikan trip — buat penugasan baru untuk perjalanan berikutnya');
             }
 
             $tripAktif = $this->repo->findTripAktifUntukAktor(

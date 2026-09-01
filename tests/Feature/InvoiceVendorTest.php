@@ -90,7 +90,7 @@ class InvoiceVendorTest extends TestCase
         return $this->makeVendor($idPerusahaanLain);
     }
 
-    private function makeKontrak(string $idVendor, ?int $termin = null, ?string $idPerusahaan = null): string
+    private function makeKontrak(string $idVendor, ?int $termin = null, ?string $idPerusahaan = null, ?float $nilaiKontrak = null): string
     {
         $id = (string) Str::uuid();
         DB::table('kontrak_vendor')->insert([
@@ -100,6 +100,7 @@ class InvoiceVendorTest extends TestCase
             'nomor_kontrak'          => 'KV-' . Str::random(8),
             'mekanisme'              => 'unit_only',
             'termin_pembayaran_hari' => $termin,
+            'nilai_kontrak'          => $nilaiKontrak ?? 0,
             'status'                 => 'aktif',
             'dibuat_pada'            => now(),
         ]);
@@ -138,6 +139,65 @@ class InvoiceVendorTest extends TestCase
             'dibuat_pada'          => now(),
         ]);
         return $id;
+    }
+
+    private function makeTipePembayaran(string $kode, string $nama, bool $aktif = true): void
+    {
+        DB::table('tipe_pembayaran')->insert([
+            'id_tipe_pembayaran' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_tipe' => $kode, 'nama_tipe' => $nama, 'aktif' => $aktif ? 1 : 0, 'dibuat_pada' => now(),
+        ]);
+    }
+
+    public function test_membuat_invoice_dengan_tipe_pembayaran_valid_berhasil(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $this->makeTipePembayaran('top', 'TOP');
+
+        $res = $this->postJson('/api/invoice-vendor', [
+            'id_vendor'       => $vendor->id_vendor,
+            'nomor_invoice'   => 'INV-TP-001',
+            'tanggal_invoice' => '2026-07-01',
+            'dpp'             => 1000000,
+            'tipe_pembayaran' => 'top',
+            'top_hari'        => 30,
+        ]);
+
+        $res->assertStatus(201)->assertJsonPath('data.tipe_pembayaran', 'top');
+    }
+
+    public function test_membuat_invoice_dengan_tipe_pembayaran_tidak_terdaftar_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+
+        $res = $this->postJson('/api/invoice-vendor', [
+            'id_vendor'       => $vendor->id_vendor,
+            'nomor_invoice'   => 'INV-TP-002',
+            'tanggal_invoice' => '2026-07-01',
+            'dpp'             => 1000000,
+            'tipe_pembayaran' => 'cicilan_tidak_ada',
+        ]);
+
+        $res->assertStatus(422);
+    }
+
+    public function test_membuat_invoice_dengan_tipe_pembayaran_nonaktif_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $this->makeTipePembayaran('dp', 'DP', false);
+
+        $res = $this->postJson('/api/invoice-vendor', [
+            'id_vendor'       => $vendor->id_vendor,
+            'nomor_invoice'   => 'INV-TP-003',
+            'tanggal_invoice' => '2026-07-01',
+            'dpp'             => 1000000,
+            'tipe_pembayaran' => 'dp',
+        ]);
+
+        $res->assertStatus(422);
     }
 
     public function test_membuat_invoice_total_dihitung_server(): void
@@ -318,6 +378,25 @@ class InvoiceVendorTest extends TestCase
         $this->assertCount(1, $bySearch->json('data'));
     }
 
+    public function test_list_invoice_menyertakan_nilai_kontrak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $idKontrak = $this->makeKontrak($vendor->id_vendor, null, null, 150000000);
+        $this->insertInvoice($vendor->id_vendor, [
+            'nomor_invoice'     => 'INV-KONTRAK',
+            'id_kontrak_vendor' => $idKontrak,
+        ]);
+        $this->insertInvoice($vendor->id_vendor, ['nomor_invoice' => 'INV-TANPA-KONTRAK']);
+
+        $res = $this->getJson('/api/invoice-vendor');
+
+        $res->assertStatus(200);
+        $rows = collect($res->json('data'))->keyBy('nomor_invoice');
+        $this->assertSame(150000000.0, (float) $rows['INV-KONTRAK']['nilai_kontrak']);
+        $this->assertNull($rows['INV-TANPA-KONTRAK']['nilai_kontrak']);
+    }
+
     public function test_list_tidak_bocor_lintas_perusahaan(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -338,7 +417,7 @@ class InvoiceVendorTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
-        $idKontrak = $this->makeKontrak($vendor->id_vendor, 30);
+        $idKontrak = $this->makeKontrak($vendor->id_vendor, 30, null, 250000000);
         $id = $this->insertInvoice($vendor->id_vendor, [
             'id_kontrak_vendor' => $idKontrak,
             'status'            => 'diverifikasi',
@@ -354,7 +433,8 @@ class InvoiceVendorTest extends TestCase
             ->assertJsonPath('data.id_invoice_vendor', $id)
             ->assertJsonPath('data.vendor.id_vendor', $vendor->id_vendor)
             ->assertJsonPath('data.vendor.nama_vendor', 'Vendor Test')
-            ->assertJsonPath('data.kontrak.id_kontrak_vendor', $idKontrak);
+            ->assertJsonPath('data.kontrak.id_kontrak_vendor', $idKontrak)
+            ->assertJsonPath('data.kontrak.nilai_kontrak', 250000000);
 
         $this->assertSame(4000000.0, (float) $res->json('data.total_dibayar'));
         $this->assertSame(6000000.0, (float) $res->json('data.sisa'));
@@ -735,6 +815,167 @@ class InvoiceVendorTest extends TestCase
             $monitoring->json('data.outstanding'),
             fn ($row) => $row['id_invoice_vendor'] === $id
         ));
+    }
+
+    private function makeProyek(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('proyek')->insert([
+            'id_proyek' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_klien' => (string) Str::uuid(),
+            'kode_proyek' => 'PRJ-' . Str::random(8), 'nama_proyek' => 'Proyek Trip Vendor', 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
+    private function makeKontrakLengkap(string $idVendor, string $mekanisme = 'full', ?float $rate = 500000, ?string $satuan = 'per trip'): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('kontrak_vendor')->insert([
+            'id_kontrak_vendor' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_vendor' => $idVendor,
+            'nomor_kontrak' => 'KV-' . Str::random(8), 'mekanisme' => $mekanisme,
+            'rate' => $rate, 'satuan' => $satuan, 'status' => 'aktif', 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
+    private function buatTripSelesaiUntukKontrak(string $idVendor, string $idKontrak, string $idProyek, string $status = 'selesai'): string
+    {
+        $idArmadaVendor = (string) Str::uuid();
+        DB::table('armada_vendor')->insert([
+            'id_armada_vendor' => $idArmadaVendor, 'id_vendor' => $idVendor,
+            'nopol' => 'B ' . random_int(1000, 9999) . ' IV', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idSupirVendor = (string) Str::uuid();
+        DB::table('supir_vendor')->insert([
+            'id_supir_vendor' => $idSupirVendor, 'id_vendor' => $idVendor,
+            'nama' => 'Supir IV ' . Str::random(4), 'dibuat_pada' => now(),
+        ]);
+        $idPenugasan = (string) Str::uuid();
+        DB::table('penugasan')->insert([
+            'id_penugasan' => $idPenugasan, 'id_proyek' => $idProyek, 'sumber' => 'vendor',
+            'id_kontrak_vendor' => $idKontrak, 'id_armada_vendor' => $idArmadaVendor, 'id_supir_vendor' => $idSupirVendor,
+            'status' => 'aktif', 'dibuat_pada' => now(),
+        ]);
+        $idJadwal = (string) Str::uuid();
+        DB::table('jadwal_keberangkatan')->insert([
+            'id_jadwal' => $idJadwal, 'id_penugasan' => $idPenugasan, 'waktu_berangkat' => now()->subDay(), 'dibuat_pada' => now(),
+        ]);
+        $idTrip = (string) Str::uuid();
+        DB::table('trip')->insert([
+            'id_trip' => $idTrip, 'id_jadwal' => $idJadwal, 'status' => $status, 'dibuat_pada' => now(),
+        ]);
+        return $idTrip;
+    }
+
+    public function test_trip_siap_tagih_mengembalikan_trip_selesai_belum_ditagih(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $proyek = $this->makeProyek();
+        $kontrak = $this->makeKontrakLengkap($vendor->id_vendor);
+        $tripSelesai = $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyek);
+        $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyek, 'berjalan');
+
+        $res = $this->getJson("/api/invoice-vendor/trip-siap-tagih?id_kontrak_vendor={$kontrak}");
+
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame($tripSelesai, $res->json('data.0.id_trip'));
+        $this->assertNotNull($res->json('data.0.nopol'));
+        $this->assertNotNull($res->json('data.0.driver_nama'));
+        $this->assertNotNull($res->json('data.0.nama_proyek'));
+    }
+
+    public function test_trip_siap_tagih_filter_proyek(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $proyekA = $this->makeProyek();
+        $proyekB = $this->makeProyek();
+        $kontrak = $this->makeKontrakLengkap($vendor->id_vendor);
+        $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyekA);
+        $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyekB);
+
+        $res = $this->getJson("/api/invoice-vendor/trip-siap-tagih?id_kontrak_vendor={$kontrak}&id_proyek={$proyekA}");
+
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame($proyekA, $res->json('data.0.id_proyek'));
+    }
+
+    public function test_membuat_invoice_dengan_trip_ids_mengunci_trip(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $proyek = $this->makeProyek();
+        $kontrak = $this->makeKontrakLengkap($vendor->id_vendor);
+        $trip1 = $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyek);
+        $trip2 = $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyek);
+
+        $res = $this->postJson('/api/invoice-vendor', [
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak,
+            'nomor_invoice'     => 'INV-TRIP-001',
+            'tanggal_invoice'   => '2026-07-01',
+            'dpp'               => 1000000,
+            'trip_ids'          => [$trip1, $trip2],
+        ]);
+
+        $res->assertStatus(201);
+        $idInvoice = $res->json('data.id_invoice_vendor');
+
+        $this->assertDatabaseHas('invoice_vendor_trip', ['id_invoice_vendor' => $idInvoice, 'id_trip' => $trip1]);
+        $this->assertDatabaseHas('invoice_vendor_trip', ['id_invoice_vendor' => $idInvoice, 'id_trip' => $trip2]);
+
+        $detail = $this->getJson("/api/invoice-vendor/{$idInvoice}");
+        $this->assertCount(2, $detail->json('data.trip_terkait'));
+
+        // Trip sekarang sudah terkunci — tidak lagi muncul di trip-siap-tagih.
+        $siapTagih = $this->getJson("/api/invoice-vendor/trip-siap-tagih?id_kontrak_vendor={$kontrak}");
+        $this->assertCount(0, $siapTagih->json('data'));
+    }
+
+    public function test_membuat_invoice_dengan_trip_sudah_terpakai_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $proyek = $this->makeProyek();
+        $kontrak = $this->makeKontrakLengkap($vendor->id_vendor);
+        $trip = $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyek);
+
+        $this->postJson('/api/invoice-vendor', [
+            'id_vendor' => $vendor->id_vendor, 'id_kontrak_vendor' => $kontrak,
+            'nomor_invoice' => 'INV-TRIP-A', 'tanggal_invoice' => '2026-07-01',
+            'dpp' => 500000, 'trip_ids' => [$trip],
+        ])->assertStatus(201);
+
+        $res = $this->postJson('/api/invoice-vendor', [
+            'id_vendor' => $vendor->id_vendor, 'id_kontrak_vendor' => $kontrak,
+            'nomor_invoice' => 'INV-TRIP-B', 'tanggal_invoice' => '2026-07-01',
+            'dpp' => 500000, 'trip_ids' => [$trip],
+        ]);
+
+        $res->assertStatus(422);
+        $this->assertDatabaseMissing('invoice_vendor', ['nomor_invoice' => 'INV-TRIP-B']);
+    }
+
+    public function test_trip_ids_tanpa_kontrak_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $proyek = $this->makeProyek();
+        $kontrak = $this->makeKontrakLengkap($vendor->id_vendor);
+        $trip = $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyek);
+
+        $res = $this->postJson('/api/invoice-vendor', [
+            'id_vendor'       => $vendor->id_vendor,
+            'nomor_invoice'   => 'INV-TRIP-NOKONTRAK',
+            'tanggal_invoice' => '2026-07-01',
+            'dpp'             => 500000,
+            'trip_ids'        => [$trip],
+        ]);
+
+        $res->assertStatus(422);
     }
 
     public function test_menolak_dpp_lebih_dari_dua_desimal(): void

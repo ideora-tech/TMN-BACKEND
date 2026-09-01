@@ -289,6 +289,17 @@ class TripRepository implements TripRepositoryInterface
             ->exists();
     }
 
+    public function adaTripSelesaiUntukPenugasan(string $idPenugasan): bool
+    {
+        return DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->where('jk.id_penugasan', $idPenugasan)
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->where('t.status', 'selesai')
+            ->exists();
+    }
+
     public function findPenugasanMilikPerusahaan(string $idPenugasan, string $idPerusahaan): ?object
     {
         return DB::table('penugasan as p')

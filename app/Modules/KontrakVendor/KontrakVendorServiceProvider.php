@@ -42,7 +42,6 @@ class KontrakVendorServiceProvider extends ServiceProvider
                 Route::post('kontrak-vendor/{id}/timpa-supir', [KontrakVendorController::class, 'timpaSupir']);
                 Route::post('kontrak-vendor/parse-supir', [KontrakVendorController::class, 'parseSupir']);
                 Route::get('kontrak-vendor/{id}/export/pdf', [KontrakVendorController::class, 'exportPdf']);
-                Route::get('kontrak-vendor/{id}/export/excel', [KontrakVendorController::class, 'exportExcel']);
                 Route::get('kontrak-vendor/{id}', [KontrakVendorController::class, 'show']);
                 Route::put('kontrak-vendor/{id}', [KontrakVendorController::class, 'update']);
                 Route::delete('kontrak-vendor/{id}', [KontrakVendorController::class, 'destroy']);

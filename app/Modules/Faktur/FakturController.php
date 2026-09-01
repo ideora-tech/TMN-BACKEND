@@ -9,14 +9,11 @@ use App\Modules\Faktur\Requests\StoreFakturRequest;
 use App\Modules\Faktur\Requests\UpdateFakturRequest;
 use App\Modules\Faktur\Requests\UpdateStatusFakturRequest;
 use App\Modules\Faktur\Resources\FakturResource;
-use App\Modules\Faktur\Exports\FakturDetailExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
-use Maatwebsite\Excel\Facades\Excel;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FakturController extends Controller
 {
@@ -89,16 +86,6 @@ class FakturController extends Controller
     {
         $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Invoice berhasil dihapus');
-    }
-
-    public function exportExcel(Request $request, string $id): BinaryFileResponse
-    {
-        $faktur = $this->service->untukCetak($id, (string) $request->user()->id_perusahaan);
-
-        return Excel::download(
-            new FakturDetailExport($faktur),
-            'invoice-' . $this->namaFileAman($faktur->nomor_faktur) . '.xlsx'
-        );
     }
 
     public function exportPdf(Request $request, string $id): Response

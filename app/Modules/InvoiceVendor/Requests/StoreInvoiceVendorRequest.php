@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\InvoiceVendor\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreInvoiceVendorRequest extends FormRequest
 {
@@ -25,7 +26,8 @@ class StoreInvoiceVendorRequest extends FormRequest
             'no_kontrak'        => ['sometimes', 'nullable', 'string', 'max:100'],
             'nopol'             => ['sometimes', 'nullable', 'string', 'max:20'],
             'tipe_kendaraan'    => ['sometimes', 'nullable', 'string', 'max:100'],
-            'tipe_pembayaran'   => ['sometimes', 'nullable', 'in:full_payment,dp,top,advance_payment'],
+            'tipe_pembayaran'   => ['sometimes', 'nullable', 'string', Rule::exists('tipe_pembayaran', 'kode_tipe')
+                ->where(fn ($q) => $q->where('id_perusahaan', $this->user()->id_perusahaan)->where('aktif', 1)->whereNull('dihapus_pada'))],
             'top_hari'          => ['sometimes', 'nullable', 'integer', 'min:1'],
             'periode_dari'      => ['sometimes', 'nullable', 'date_format:Y-m-d'],
             'periode_sampai'    => ['sometimes', 'nullable', 'date_format:Y-m-d', 'after_or_equal:periode_dari'],
@@ -33,6 +35,8 @@ class StoreInvoiceVendorRequest extends FormRequest
             'ppn'               => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0'],
             'pph'               => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0'],
             'keterangan'        => ['sometimes', 'nullable', 'string'],
+            'trip_ids'          => ['sometimes', 'array'],
+            'trip_ids.*'        => ['required', 'string', 'max:36'],
         ];
     }
 }

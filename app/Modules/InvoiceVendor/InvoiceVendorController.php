@@ -8,8 +8,10 @@ use App\Helpers\ApiResponse;
 use App\Modules\InvoiceVendor\Requests\StoreInvoiceVendorRequest;
 use App\Modules\InvoiceVendor\Requests\UpdateInvoiceVendorRequest;
 use App\Modules\InvoiceVendor\Resources\InvoiceVendorResource;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 
 class InvoiceVendorController extends Controller
@@ -46,6 +48,55 @@ class InvoiceVendorController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         return ApiResponse::success($this->service->detail($id, $idPerusahaan));
+    }
+
+    public function exportPdf(Request $request, string $id): Response
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $data = $this->service->detail($id, $idPerusahaan);
+
+        $pdf = Pdf::loadView('exports.invoice-vendor', [
+            'd'          => $data,
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
+        ]);
+
+        return $pdf->download('invoice-vendor-' . $this->namaFileAman($data['nomor_invoice']) . '.pdf');
+    }
+
+    private function namaFileAman(?string $nomor): string
+    {
+        $bersih = preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) $nomor);
+        return trim((string) $bersih, '-') ?: 'invoice-vendor';
+    }
+
+    private function logoBase64(): ?string
+    {
+        $path = public_path('img/logo/logo-sli.png');
+        if (!is_file($path)) {
+            return null;
+        }
+        return 'data:image/png;base64,' . base64_encode(file_get_contents($path));
+    }
+
+    public function tripSiapTagih(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id_kontrak_vendor' => ['required', 'string', 'max:36'],
+            'id_proyek'         => ['sometimes', 'nullable', 'string', 'max:36'],
+            'dari'              => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'sampai'            => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $rows = $this->service->tripSiapTagih(
+            $validated['id_kontrak_vendor'],
+            (string) $request->user()->id_perusahaan,
+            $validated['dari'] ?? null,
+            $validated['sampai'] ?? null,
+            $validated['id_proyek'] ?? null,
+        );
+
+        return ApiResponse::success($rows);
     }
 
     public function store(StoreInvoiceVendorRequest $request): JsonResponse
