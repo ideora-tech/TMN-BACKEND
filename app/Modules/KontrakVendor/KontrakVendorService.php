@@ -90,7 +90,7 @@ class KontrakVendorService
             }
         }
 
-        $this->validasiUnitBaru($unitList, (string) $data['id_perusahaan'], (string) $data['id_vendor']);
+        $this->validasiUnitBaru($unitList, (string) $data['id_perusahaan']);
         $this->validasiSupirBaru($supirList, (string) $data['id_perusahaan']);
 
         // Kolom nilai_kontrak NOT NULL DEFAULT 0 — input kosong dari klien
@@ -103,6 +103,7 @@ class KontrakVendorService
         return DB::transaction(function () use ($data, $unitList, $supirList, $kontrakSumber) {
             $kontrak = $this->repo->create($data);
 
+            $unitDiambilAlih = [];
             $idSupirPerIndex = [];
             foreach ($supirList as $indexSupir => $supir) {
                 $dibuat = $this->supirVendorRepo->create(array_merge($supir, [
@@ -126,12 +127,20 @@ class KontrakVendorService
                     'id_supir_vendor_default' => $supirIndex !== null ? $idSupirPerIndex[(int) $supirIndex] : null,
                 ]);
 
-                $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol((string) $unit['nopol'], (string) $kontrak->id_vendor);
+                $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol((string) $unit['nopol'], (string) $kontrak->id_perusahaan);
                 if ($adopsi !== null) {
+                    if ((string) $adopsi->id_vendor !== (string) $kontrak->id_vendor) {
+                        $pemilikLama = $this->armadaVendorRepo->infoNopolTerdaftar((string) $unit['nopol'], (string) $kontrak->id_perusahaan);
+                        $unitDiambilAlih[] = "{$unit['nopol']} (sebelumnya vendor \"" . ($pemilikLama->nama_vendor ?? '-') . '")';
+                    }
                     $this->armadaVendorRepo->update($adopsi, $dataUnit);
                 } else {
                     $this->armadaVendorRepo->create($dataUnit);
                 }
+            }
+
+            if ($unitDiambilAlih !== []) {
+                $kontrak->unit_diambil_alih = $unitDiambilAlih;
             }
 
             if ($kontrakSumber !== null) {
@@ -142,7 +151,7 @@ class KontrakVendorService
         });
     }
 
-    private function validasiUnitBaru(array $unitList, string $idPerusahaan, string $idVendor): void
+    private function validasiUnitBaru(array $unitList, string $idPerusahaan): void
     {
         $frekuensi = [];
         foreach ($unitList as $unit) {
@@ -155,11 +164,16 @@ class KontrakVendorService
             if (($frekuensi[mb_strtoupper(trim($nopol))] ?? 0) > 1) {
                 abort(422, "Nopol {$nopol} duplikat di dalam daftar unit");
             }
-            // Nopol yang sudah terdaftar tetap boleh bila itu unit vendor yang sama
-            // yang sedang tanpa kontrak — nanti diadopsi (di-relink) alih-alih dibuat baru.
+            // Nopol yang sudah terdaftar tetap boleh selama unitnya sedang TIDAK
+            // terikat kontrak — vendor manapun (unit bisa berpindah vendor di
+            // lapangan); nanti diambil alih (di-relink + pindah vendor) alih-alih
+            // dibuat baru. Yang ditolak hanya unit yang masih terikat kontrak aktif.
             if ($this->armadaVendorRepo->nopolTerdaftar($nopol, $idPerusahaan)
-                && $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, $idVendor) === null) {
-                abort(422, "Nopol {$nopol} sudah terdaftar dan masih terikat kontrak/vendor lain");
+                && $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, $idPerusahaan) === null) {
+                $pemilik = $this->armadaVendorRepo->infoNopolTerdaftar($nopol, $idPerusahaan);
+                abort(422, "Nopol {$nopol} masih terikat kontrak aktif"
+                    . ($pemilik !== null ? " milik vendor \"{$pemilik->nama_vendor}\"" : '')
+                    . ' — akhiri/lepaskan kontrak lamanya dulu');
             }
             if (!empty($unit['id_jenis_kendaraan'])
                 && !$this->armadaVendorRepo->jenisKendaraanMilikPerusahaan((string) $unit['id_jenis_kendaraan'], $idPerusahaan)) {
@@ -239,9 +253,10 @@ class KontrakVendorService
                     continue;
                 }
 
-                $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, (string) $kontrak->id_vendor);
+                $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, $idPerusahaan);
                 if ($adopsi !== null) {
                     $this->armadaVendorRepo->update($adopsi, array_merge($unit, [
+                        'id_vendor'         => $kontrak->id_vendor,
                         'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
                     ]));
                     $ditambah++;
@@ -342,8 +357,9 @@ class KontrakVendorService
                 $ada = $lama->get($kunci);
 
                 if ($ada === null) {
-                    $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, (string) $kontrak->id_vendor);
+                    $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, $idPerusahaan);
                     if ($adopsi !== null) {
+                        $dataUnit['id_vendor']         = $kontrak->id_vendor;
                         $dataUnit['id_kontrak_vendor'] = $kontrak->id_kontrak_vendor;
                         $ada = $adopsi;
                     }

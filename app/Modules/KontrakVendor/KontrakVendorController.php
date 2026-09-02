@@ -188,7 +188,14 @@ class KontrakVendorController extends Controller
         );
 
         $record = $this->service->create($data);
-        return ApiResponse::success(new KontrakVendorResource($record), 'Kontrak vendor berhasil dibuat', 201);
+
+        $pesan = 'Kontrak vendor berhasil dibuat';
+        $diambilAlih = $record->unit_diambil_alih ?? [];
+        if ($diambilAlih !== []) {
+            $pesan .= ' — Perhatian: unit diambil alih dari vendor lain: ' . implode(', ', $diambilAlih);
+        }
+
+        return ApiResponse::success(new KontrakVendorResource($record), $pesan, 201);
     }
 
     public function update(UpdateKontrakVendorRequest $request, string $id): JsonResponse

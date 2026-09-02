@@ -155,6 +155,38 @@ class KontrakVendorCrudTest extends TestCase
             ->where('nopol', 'B 1213 VND')->whereNull('dihapus_pada')->count());
     }
 
+    public function test_kontrak_baru_mengambil_alih_unit_tanpa_kontrak_dari_vendor_lain(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendorLama = $this->makeVendor();
+        $vendorBaru = $this->makeVendor();
+        $unit = ArmadaVendorModel::create([
+            'id_vendor' => $vendorLama->id_vendor,
+            'nopol'     => 'B 5555 PINDAH',
+        ]);
+
+        $res = $this->postJson('/api/kontrak-vendor', [
+            'id_vendor'     => $vendorBaru->id_vendor,
+            'mekanisme'     => 'unit_only',
+            'nomor_kontrak' => 'KV-PINDAH-1',
+            'unit'          => [[
+                'nopol'             => 'B 5555 PINDAH',
+                'masa_berlaku_stnk' => '2027-03-01',
+                'masa_berlaku_kir'  => '2026-12-15',
+            ]],
+        ]);
+        $res->assertStatus(201);
+        $this->assertStringContainsString('diambil alih', $res->json('message'));
+
+        $this->assertDatabaseHas('armada_vendor', [
+            'id_armada_vendor'  => $unit->id_armada_vendor,
+            'id_vendor'         => $vendorBaru->id_vendor,
+            'id_kontrak_vendor' => $res->json('data.id_kontrak_vendor'),
+        ]);
+        $this->assertSame(1, DB::table('armada_vendor')
+            ->where('nopol', 'B 5555 PINDAH')->whereNull('dihapus_pada')->count());
+    }
+
     public function test_kontrak_baru_tetap_menolak_nopol_yang_masih_terikat_kontrak_lain(): void
     {
         $this->actingAsRole('SUPERADMIN');

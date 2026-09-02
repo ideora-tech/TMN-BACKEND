@@ -103,16 +103,31 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
     }
 
     /**
-     * Unit aktif milik vendor yang sama yang sedang TIDAK terikat kontrak manapun
-     * (mis. kontraknya baru dihapus) — kandidat "diadopsi" ulang oleh kontrak baru
-     * alih-alih ditolak sebagai nopol duplikat.
+     * Unit aktif di perusahaan ini yang sedang TIDAK terikat kontrak manapun
+     * (mis. kontraknya baru dihapus/berakhir) — kandidat "diambil alih" oleh
+     * kontrak baru, vendor manapun (di lapangan unit bisa berpindah vendor;
+     * yang mengikat hanya kontrak), alih-alih ditolak sebagai nopol duplikat.
      */
-    public function findAktifTanpaKontrakByNopol(string $nopol, string $idVendor): ?ArmadaVendorModel
+    public function findAktifTanpaKontrakByNopol(string $nopol, string $idPerusahaan): ?ArmadaVendorModel
     {
         return ArmadaVendorModel::active()
-            ->where('id_vendor', $idVendor)
-            ->whereNull('id_kontrak_vendor')
-            ->whereRaw('UPPER(TRIM(nopol)) = ?', [mb_strtoupper(trim($nopol))])
+            ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->where('vendor.id_perusahaan', $idPerusahaan)
+            ->whereNull('vendor.dihapus_pada')
+            ->whereNull('armada_vendor.id_kontrak_vendor')
+            ->whereRaw('UPPER(TRIM(armada_vendor.nopol)) = ?', [mb_strtoupper(trim($nopol))])
+            ->select('armada_vendor.*')
+            ->first();
+    }
+
+    public function infoNopolTerdaftar(string $nopol, string $idPerusahaan): ?object
+    {
+        return ArmadaVendorModel::active()
+            ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->where('vendor.id_perusahaan', $idPerusahaan)
+            ->whereNull('vendor.dihapus_pada')
+            ->whereRaw('UPPER(TRIM(armada_vendor.nopol)) = ?', [mb_strtoupper(trim($nopol))])
+            ->select('vendor.nama_vendor', 'armada_vendor.id_vendor', 'armada_vendor.id_kontrak_vendor')
             ->first();
     }
 

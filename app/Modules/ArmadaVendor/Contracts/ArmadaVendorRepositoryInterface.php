@@ -19,7 +19,9 @@ interface ArmadaVendorRepositoryInterface
     public function findIdVendorByKontrak(string $idKontrakVendor, string $idPerusahaan): ?string;
     public function nopolTerdaftar(string $nopol, string $idPerusahaan): bool;
 
-    public function findAktifTanpaKontrakByNopol(string $nopol, string $idVendor): ?ArmadaVendorModel;
+    public function findAktifTanpaKontrakByNopol(string $nopol, string $idPerusahaan): ?ArmadaVendorModel;
+
+    public function infoNopolTerdaftar(string $nopol, string $idPerusahaan): ?object;
 
     /** @return array<int, array{id_armada_vendor: string, id_kontrak_vendor: string, id_kontrak_vendor_unit: ?string, kontrak_habis: bool, nopol: string, merk: ?string, jenis: ?string, id_vendor: string, nama_vendor: string}> */
     public function listOpsiUnitOnly(string $idPerusahaan): array;
