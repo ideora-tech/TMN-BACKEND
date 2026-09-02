@@ -119,6 +119,74 @@ class KontrakVendorCrudTest extends TestCase
         $this->assertNotSame($kontrakLain->id_kontrak_vendor, $baris['id_kontrak_vendor']);
     }
 
+    public function test_hapus_kontrak_ditolak_bila_ada_penugasan_hidup(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor);
+        DB::table('penugasan')->insert([
+            'id_penugasan'      => (string) Str::uuid(),
+            'id_proyek'         => (string) Str::uuid(),
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'sumber'            => 'vendor',
+            'status'            => 'aktif',
+            'dibuat_pada'       => now(),
+        ]);
+
+        $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")->assertStatus(422);
+    }
+
+    public function test_hapus_kontrak_boleh_bila_penugasannya_sudah_dihapus_tanpa_trip(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor);
+        DB::table('penugasan')->insert([
+            'id_penugasan'      => (string) Str::uuid(),
+            'id_proyek'         => (string) Str::uuid(),
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'sumber'            => 'vendor',
+            'status'            => 'aktif',
+            'dibuat_pada'       => now(),
+            'dihapus_pada'      => now(),
+        ]);
+
+        $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")->assertStatus(200);
+        $this->assertNotNull(DB::table('kontrak_vendor')
+            ->where('id_kontrak_vendor', $kontrak->id_kontrak_vendor)->value('dihapus_pada'));
+    }
+
+    public function test_hapus_kontrak_ditolak_bila_penugasan_terhapus_punya_trip(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor);
+        $idPenugasan = (string) Str::uuid();
+        DB::table('penugasan')->insert([
+            'id_penugasan'      => $idPenugasan,
+            'id_proyek'         => (string) Str::uuid(),
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'sumber'            => 'vendor',
+            'status'            => 'aktif',
+            'dibuat_pada'       => now(),
+            'dihapus_pada'      => now(),
+        ]);
+        $idJadwal = (string) Str::uuid();
+        DB::table('jadwal_keberangkatan')->insert([
+            'id_jadwal'    => $idJadwal,
+            'id_penugasan' => $idPenugasan,
+            'dibuat_pada'  => now(),
+        ]);
+        DB::table('trip')->insert([
+            'id_trip'     => (string) Str::uuid(),
+            'id_jadwal'   => $idJadwal,
+            'status'      => 'selesai',
+            'dibuat_pada' => now(),
+        ]);
+
+        $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")->assertStatus(422);
+    }
+
     public function test_kontrak_baru_mengadopsi_unit_lama_yang_kontraknya_sudah_dihapus(): void
     {
         $this->actingAsRole('SUPERADMIN');

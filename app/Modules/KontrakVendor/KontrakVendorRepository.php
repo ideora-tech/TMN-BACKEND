@@ -170,10 +170,27 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
             ->exists();
     }
 
+    /**
+     * Penugasan hidup apa pun mengunci kontrak dari penghapusan. Penugasan yang
+     * sudah dihapus hanya ikut mengunci bila sempat menghasilkan trip — trip
+     * historis tetap butuh kontraknya untuk penagihan/audit; penugasan coba-coba
+     * yang dihapus tanpa pernah jalan tidak perlu memblokir.
+     */
     public function adaPenugasanUntukKontrak(string $idKontrakVendor): bool
     {
-        return DB::table('penugasan')
+        $adaHidup = DB::table('penugasan')
             ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->whereNull('dihapus_pada')
+            ->exists();
+        if ($adaHidup) {
+            return true;
+        }
+
+        return DB::table('penugasan as p')
+            ->join('jadwal_keberangkatan as jk', 'jk.id_penugasan', '=', 'p.id_penugasan')
+            ->join('trip as t', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->where('p.id_kontrak_vendor', $idKontrakVendor)
+            ->whereNotNull('p.dihapus_pada')
             ->exists();
     }
 
