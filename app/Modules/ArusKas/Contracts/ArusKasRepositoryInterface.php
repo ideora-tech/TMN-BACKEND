@@ -24,6 +24,8 @@ interface ArusKasRepositoryInterface
     public function findPengajuanByPerawatan(string $idPerawatan): ?PengajuanPengeluaranModel;
     public function dataPerawatanUntukPengajuan(string $idPerawatan): ?object;
     public function findPengajuanByPembelian(string $idPembelian): ?PengajuanPengeluaranModel;
+
+    public function totalPengajuanBerjalanUntukInvoiceVendor(string $idInvoiceVendor): float;
     public function dataPembelianUntukPengajuan(string $idPembelian): ?object;
     public function statusPembelian(string $idPembelian): ?string;
     public function sinkronPembelianSetujui(string $idPembelian): void;

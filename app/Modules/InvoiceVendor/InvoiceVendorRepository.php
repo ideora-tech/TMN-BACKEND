@@ -113,6 +113,16 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
     }
 
+    public function pengajuanPembayaranUntukInvoice(string $idInvoiceVendor): array
+    {
+        return DB::table('pengajuan_pengeluaran')
+            ->where('id_invoice_vendor', $idInvoiceVendor)
+            ->whereNull('dihapus_pada')
+            ->orderBy('dibuat_pada')
+            ->get(['id_pengajuan', 'nomor_pengajuan', 'tanggal_pengajuan', 'nominal', 'status', 'alasan_ditolak'])
+            ->all();
+    }
+
     public function totalDibayar(string $idInvoice): float
     {
         return (float) DB::table('pembayaran_vendor')

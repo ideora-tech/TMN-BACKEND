@@ -35,6 +35,7 @@ class ArusKasService
         'penggajian',
         'pembelian_aset',
         'pembayaran_pinjaman',
+        'pembayaran_vendor',
         'lainnya',
     ];
 
@@ -42,6 +43,7 @@ class ArusKasService
         private readonly ArusKasRepositoryInterface $repo,
         private readonly NotifikasiService $notifikasiService,
         private readonly \App\Modules\Approval\ApprovalService $approvalService,
+        private readonly \App\Modules\PembayaranVendor\Contracts\PembayaranVendorRepositoryInterface $pembayaranVendorRepo,
     ) {}
 
     public function infoPengajuanTrip(string $idTrip): ?array
@@ -168,6 +170,7 @@ class ArusKasService
             'nomor_pengajuan' => $record->nomor_pengajuan,
             'status'          => $record->status,
             'nominal'         => (float) $record->nominal,
+            'url_bukti'       => PenyimpananBerkas::url($record->url_bukti),
             'riwayat'         => $riwayat,
             'periode'         => $record->periode_dari !== null ? [
                 'dari'           => $record->periode_dari,
@@ -563,7 +566,84 @@ class ArusKasService
                     $this->repo->sinkronPembelianUangMuka($terkunci->id_pembelian, $tanggalTransfer);
                 }
             }
+            if ($terkunci->id_invoice_vendor !== null) {
+                $this->catatPembayaranInvoiceVendor($updated, $tanggalTransfer);
+            }
             return $updated;
+        });
+    }
+
+    /**
+     * Realisasi transfer pengajuan berkategori pembayaran_vendor: baris
+     * pembayaran_vendor dibuat otomatis di sini (bukan dicatat manual dari
+     * halaman invoice) supaya arus kas tidak dobel dan invoice langsung
+     * ter-update status pembayarannya.
+     */
+    private function catatPembayaranInvoiceVendor(PengajuanPengeluaranModel $pengajuan, string $tanggalTransfer): void
+    {
+        $invoice = $this->pembayaranVendorRepo->kunciInvoice((string) $pengajuan->id_invoice_vendor);
+        if ($invoice === null) {
+            abort(409, 'Invoice vendor tautan pengajuan ini sudah tidak ditemukan — transfer dibatalkan');
+        }
+
+        $dibayar = $this->pembayaranVendorRepo->totalDibayar((string) $pengajuan->id_invoice_vendor);
+        if (round($dibayar + (float) $pengajuan->nominal, 2) > round((float) $invoice->total, 2)) {
+            abort(409, 'Nominal pengajuan melebihi sisa tagihan invoice — periksa pembayaran lain yang sudah tercatat');
+        }
+
+        $this->pembayaranVendorRepo->create([
+            'id_invoice_vendor' => $pengajuan->id_invoice_vendor,
+            'tanggal_bayar'     => $tanggalTransfer,
+            'nominal'           => (float) $pengajuan->nominal,
+            'metode'            => 'transfer',
+            'no_referensi'      => $pengajuan->nomor_pengajuan,
+            'url_bukti'         => $pengajuan->url_bukti,
+            'catatan'           => $pengajuan->keterangan,
+        ]);
+        $this->pembayaranVendorRepo->recalcStatusPembayaran((string) $pengajuan->id_invoice_vendor);
+    }
+
+    /**
+     * Pengajuan pembayaran invoice vendor masuk alur Proses Pembayaran —
+     * boleh lebih dari satu per invoice (termin/cicilan); guard totalnya
+     * (sudah dibayar + pengajuan yang masih berjalan) tidak melebihi total invoice.
+     */
+    public function buatPengajuanPembayaranInvoiceVendor(
+        string $idInvoiceVendor,
+        string $idPerusahaan,
+        float $nominal,
+        ?string $catatan,
+        string $namaVendor,
+        string $nomorInvoice,
+    ): PengajuanPengeluaranModel {
+        return DB::transaction(function () use ($idInvoiceVendor, $idPerusahaan, $nominal, $catatan, $namaVendor, $nomorInvoice) {
+            $invoice = $this->pembayaranVendorRepo->kunciInvoice($idInvoiceVendor);
+            if ($invoice === null) {
+                abort(404, 'Invoice vendor tidak ditemukan');
+            }
+            if ($invoice->status !== 'diverifikasi') {
+                abort(409, 'Invoice belum diverifikasi — pembayaran belum bisa diajukan');
+            }
+
+            $dibayar   = $this->pembayaranVendorRepo->totalDibayar($idInvoiceVendor);
+            $berjalan  = $this->repo->totalPengajuanBerjalanUntukInvoiceVendor($idInvoiceVendor);
+            if (round($dibayar + $berjalan + $nominal, 2) > round((float) $invoice->total, 2)) {
+                abort(409, 'Nominal melebihi sisa tagihan (termasuk pengajuan pembayaran lain yang masih berjalan)');
+            }
+
+            $record = $this->repo->createPengajuan([
+                'id_perusahaan'     => $idPerusahaan,
+                'id_invoice_vendor' => $idInvoiceVendor,
+                'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
+                'kategori'          => 'pembayaran_vendor',
+                'nominal'           => $nominal,
+                'tanggal_pengajuan' => now()->toDateString(),
+                'penerima'          => $namaVendor,
+                'keterangan'        => trim("Pembayaran invoice {$nomorInvoice}" . ($catatan !== null && $catatan !== '' ? " — {$catatan}" : '')),
+                'status'            => self::STATUS_DIAJUKAN,
+            ]);
+
+            return $this->masukTahapApproval($record);
         });
     }
 

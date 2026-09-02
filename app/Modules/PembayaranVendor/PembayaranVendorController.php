@@ -24,6 +24,28 @@ class PembayaranVendorController extends Controller
         return ApiResponse::success(PembayaranVendorResource::collection($records));
     }
 
+    public function ajukan(Request $request, string $idInvoice): JsonResponse
+    {
+        $validated = $request->validate([
+            'nominal' => ['required', 'numeric', 'min:1'],
+            'catatan' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+
+        $record = $this->service->ajukanPembayaran(
+            $idInvoice,
+            (string) $request->user()->id_perusahaan,
+            (float) $validated['nominal'],
+            $validated['catatan'] ?? null,
+        );
+
+        return ApiResponse::success([
+            'id_pengajuan'    => $record->id_pengajuan,
+            'nomor_pengajuan' => $record->nomor_pengajuan,
+            'status'          => $record->status,
+            'nominal'         => (float) $record->nominal,
+        ], 'Pengajuan pembayaran dibuat — pantau prosesnya di menu Proses Pembayaran', 201);
+    }
+
     public function store(StorePembayaranVendorRequest $request, string $idInvoice): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;

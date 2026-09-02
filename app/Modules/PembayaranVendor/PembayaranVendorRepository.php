@@ -97,6 +97,16 @@ class PembayaranVendorRepository implements PembayaranVendorRepositoryInterface
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
     }
 
+    public function infoInvoiceUntukPengajuan(string $idInvoice, string $idPerusahaan): ?object
+    {
+        return DB::table('invoice_vendor as iv')
+            ->leftJoin('vendor as v', 'v.id_vendor', '=', 'iv.id_vendor')
+            ->where('iv.id_invoice_vendor', $idInvoice)
+            ->where('iv.id_perusahaan', $idPerusahaan)
+            ->whereNull('iv.dihapus_pada')
+            ->first(['iv.id_invoice_vendor', 'iv.nomor_invoice', 'iv.status', 'iv.total', 'v.nama_vendor']);
+    }
+
     public function dataCetak(string $id, string $idInvoice, string $idPerusahaan): ?object
     {
         return DB::table('pembayaran_vendor as pv')

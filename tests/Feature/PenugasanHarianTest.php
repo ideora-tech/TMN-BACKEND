@@ -104,7 +104,7 @@ class PenugasanHarianTest extends TestCase
     {
         return ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID,
-            'nopol'         => 'B ' . random_int(1000, 9999) . ' HR',
+            'nopol'         => 'B ' . random_int(1000, 9999) . ' ' . strtoupper(Str::random(3)),
             'merk'          => 'Hino',
         ]);
     }
@@ -123,8 +123,9 @@ class PenugasanHarianTest extends TestCase
             'status'        => 'aktif',
         ]);
         $armadaVendor = ArmadaVendorModel::create([
-            'id_vendor' => $vendor->id_vendor,
-            'nopol'     => 'B ' . random_int(1000, 9999) . ' VD',
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nopol'             => 'B ' . random_int(1000, 9999) . ' VD',
         ]);
 
         return [
@@ -174,8 +175,9 @@ class PenugasanHarianTest extends TestCase
             'status'        => 'aktif',
         ]);
         $armadaVendor = ArmadaVendorModel::create([
-            'id_vendor' => $vendor->id_vendor,
-            'nopol'     => 'B ' . random_int(1000, 9999) . ' PK',
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nopol'             => 'B ' . random_int(1000, 9999) . ' PK',
         ]);
         $idSupirVendor = (string) Str::uuid();
         \Illuminate\Support\Facades\DB::table('supir_vendor')->insert([

@@ -20,6 +20,7 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         'penggajian',
         'pembelian_aset',
         'pembayaran_pinjaman',
+        'pembayaran_vendor',
         'lainnya',
         'persetujuan_transfer',
     ];

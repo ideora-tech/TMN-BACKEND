@@ -25,6 +25,7 @@ class PembayaranVendorServiceProvider extends ServiceProvider
                 Route::get('invoice-vendor/{idInvoice}/pembayaran/{id}/export/pdf', [PembayaranVendorController::class, 'exportPdf']);
 
                 Route::middleware('role:SUPERADMIN,KEUANGAN')->group(function () {
+                    Route::post('invoice-vendor/{idInvoice}/pembayaran/ajukan', [PembayaranVendorController::class, 'ajukan']);
                     Route::post('invoice-vendor/{idInvoice}/pembayaran', [PembayaranVendorController::class, 'store']);
                     Route::delete('invoice-vendor/{idInvoice}/pembayaran/{id}', [PembayaranVendorController::class, 'destroy']);
                 });

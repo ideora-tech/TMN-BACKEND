@@ -26,5 +26,7 @@ interface PembayaranVendorRepositoryInterface
 
     public function getPerusahaan(string $idPerusahaan): ?object;
 
+    public function infoInvoiceUntukPengajuan(string $idInvoice, string $idPerusahaan): ?object;
+
     public function dataCetak(string $id, string $idInvoice, string $idPerusahaan): ?object;
 }

@@ -183,6 +183,14 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         return PengajuanPengeluaranModel::active()->where('id_pembelian', $idPembelian)->first();
     }
 
+    public function totalPengajuanBerjalanUntukInvoiceVendor(string $idInvoiceVendor): float
+    {
+        return (float) PengajuanPengeluaranModel::active()
+            ->where('id_invoice_vendor', $idInvoiceVendor)
+            ->whereNotIn('status', ['ditolak', 'ditransfer'])
+            ->sum('nominal');
+    }
+
     public function dataPembelianUntukPengajuan(string $idPembelian): ?object
     {
         return DB::table('pembelian_sparepart as p')
@@ -399,8 +407,11 @@ class ArusKasRepository implements ArusKasRepositoryInterface
 
     private function queryPengajuanPengeluaran(string $idPerusahaan, string $dari, string $sampai): Builder
     {
+        // Pengajuan bertaut invoice vendor dikecualikan: realisasinya sudah tercatat
+        // sebagai baris pembayaran_vendor (queryPembayaranVendor) — jangan dihitung dobel.
         return DB::table('pengajuan_pengeluaran')
             ->whereNull('dihapus_pada')
+            ->whereNull('id_invoice_vendor')
             ->where('id_perusahaan', $idPerusahaan)
             ->where('status', 'ditransfer')
             ->whereBetween('tanggal_transfer', [$dari, $sampai])
@@ -476,6 +487,7 @@ class ArusKasRepository implements ArusKasRepositoryInterface
 
         $keluarPengajuan = (float) DB::table('pengajuan_pengeluaran')
             ->whereNull('dihapus_pada')
+            ->whereNull('id_invoice_vendor')
             ->where('id_perusahaan', $idPerusahaan)
             ->where('status', 'ditransfer')
             ->where('tanggal_transfer', '<', $sebelumTanggal)

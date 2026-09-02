@@ -18,6 +18,7 @@ class PengajuanPengeluaranModel extends BaseModel
         'id_perawatan',
         'id_pembelian',
         'id_periode',
+        'id_invoice_vendor',
         'id_supir',
         'id_proyek',
         'periode_dari',

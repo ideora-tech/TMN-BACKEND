@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Modules\ArmadaVendor\ArmadaVendorModel;
 use App\Modules\KontrakVendor\KontrakVendorModel;
 use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -89,6 +90,33 @@ class KontrakVendorCrudTest extends TestCase
             ->where('id_kontrak_vendor', $kontrak->id_kontrak_vendor)
             ->first();
         $this->assertNotNull($row->dihapus_pada);
+    }
+
+    public function test_hapus_kontrak_tidak_membuat_unit_meminjam_kontrak_lain_milik_vendor(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrakLain = $this->makeKontrak($vendor);
+        $kontrakDihapus = $this->makeKontrak($vendor);
+        $unit = ArmadaVendorModel::create([
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakDihapus->id_kontrak_vendor,
+            'nopol'             => 'B 9999 TS',
+        ]);
+
+        $this->deleteJson("/api/kontrak-vendor/{$kontrakDihapus->id_kontrak_vendor}")->assertStatus(200);
+
+        $this->assertDatabaseHas('armada_vendor', [
+            'id_armada_vendor'  => $unit->id_armada_vendor,
+            'id_kontrak_vendor' => null,
+        ]);
+
+        $res = $this->getJson('/api/penugasan/board?dari=2026-09-01&sampai=2026-09-02')->assertStatus(200);
+        $baris = collect($res->json('data.units'))->firstWhere('id_armada_vendor', $unit->id_armada_vendor);
+        $this->assertNotNull($baris);
+        $this->assertNull($baris['id_kontrak_vendor']);
+        $this->assertNull($baris['mekanisme']);
+        $this->assertNotSame($kontrakLain->id_kontrak_vendor, $baris['id_kontrak_vendor']);
     }
 
     public function test_show_kontrak_vendor_perusahaan_lain_mengembalikan_404(): void

@@ -113,22 +113,18 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
     }
 
     /**
-     * Unit vendor yang tersedia untuk dipilih di Penugasan Operasional — hanya unit
-     * aktif milik vendor yang punya kontrak bermekanisme 'unit_only' (vendor hanya
-     * menyewakan unit, supirnya tetap internal). id_kontrak_vendor diresolusi otomatis
-     * di sini (kontrak terbaru per unit) supaya form Operasional tidak perlu meminta
-     * dispatcher memilih kontrak secara manual.
-     */
-    /**
-     * Semua unit vendor aktif untuk papan Penugasan — satu baris per unit,
-     * kontrak unit_only diprioritaskan (menjaga perilaku lama), selain itu
-     * kontrak terbaru yang dipakai sebagai penentu mekanisme.
+     * Semua unit vendor aktif untuk papan Penugasan — satu baris per unit. Kontrak
+     * diresolusi HANYA dari tautan eksplisit armada_vendor.id_kontrak_vendor (left join,
+     * tanpa fallback ke kontrak lain milik vendor yang sama). Unit yang tautannya
+     * kosong/mengarah ke kontrak yang sudah dihapus tetap ikut tampil (tidak hilang
+     * dari board) tapi dengan mekanisme/status_kontrak null — frontend menandainya
+     * sebagai "tidak ada kontrak" alih-alih diam-diam menampilkan info kontrak lain.
      */
     public function listOpsiBoard(string $idPerusahaan): array
     {
         $rows = ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
-            ->join('kontrak_vendor', $this->joinKontrakResolusiUnit($idPerusahaan))
+            ->leftJoin('kontrak_vendor', $this->joinKontrakResolusiUnit($idPerusahaan))
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->where('armada_vendor.aktif', 1)
             ->whereNull('vendor.dihapus_pada')
@@ -140,8 +136,6 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 'kontrak_vendor.status as status_kontrak', 'kontrak_vendor.tanggal_selesai as tanggal_selesai_kontrak',
             )
             ->orderBy('armada_vendor.nopol')
-            ->orderByRaw("CASE WHEN kontrak_vendor.mekanisme = 'unit_only' THEN 0 ELSE 1 END")
-            ->orderByDesc('kontrak_vendor.dibuat_pada')
             ->get();
 
         $result = [];
@@ -168,6 +162,13 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
         return array_values($result);
     }
 
+    /**
+     * Unit vendor yang tersedia untuk dipilih di Penugasan Operasional — hanya unit
+     * aktif milik vendor yang punya kontrak bermekanisme 'unit_only' (vendor hanya
+     * menyewakan unit, supirnya tetap internal), ditautkan lewat id_kontrak_vendor
+     * eksplisit. Unit tanpa tautan kontrak unit_only yang valid sengaja dikecualikan
+     * di sini (inner join) — operasional butuh kepastian mekanisme sebelum menugaskan.
+     */
     public function listOpsiUnitOnly(string $idPerusahaan): array
     {
         $rows = ArmadaVendorModel::active()
@@ -207,19 +208,20 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
         return array_values($result);
     }
 
+    /**
+     * Resolusi kontrak murni berdasarkan tautan eksplisit di armada_vendor.id_kontrak_vendor
+     * — TIDAK ADA fallback "pinjam kontrak lain milik vendor yang sama". Unit yang
+     * tautannya null/mengarah ke kontrak yang sudah dihapus (mis. kontraknya baru saja
+     * dihapus karena belum pernah dipakai) harus tampil apa adanya sebagai "tidak ada
+     * kontrak" — bukan diam-diam menampilkan info kontrak lain yang tidak relevan.
+     */
     private function joinKontrakResolusiUnit(string $idPerusahaan, ?string $mekanisme = null): \Closure
     {
         return function ($join) use ($idPerusahaan, $mekanisme) {
             $join->where('kontrak_vendor.id_perusahaan', '=', $idPerusahaan)
                 ->whereNull('kontrak_vendor.dihapus_pada')
                 ->when($mekanisme, fn ($q) => $q->where('kontrak_vendor.mekanisme', '=', $mekanisme))
-                ->where(function ($cocok) {
-                    $cocok->whereColumn('kontrak_vendor.id_kontrak_vendor', 'armada_vendor.id_kontrak_vendor')
-                        ->orWhere(function ($fallback) {
-                            $fallback->whereNull('armada_vendor.id_kontrak_vendor')
-                                ->whereColumn('kontrak_vendor.id_vendor', 'armada_vendor.id_vendor');
-                        });
-                });
+                ->whereColumn('kontrak_vendor.id_kontrak_vendor', 'armada_vendor.id_kontrak_vendor');
         };
     }
 

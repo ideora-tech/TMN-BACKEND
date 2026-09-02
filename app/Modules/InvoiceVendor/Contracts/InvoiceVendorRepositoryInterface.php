@@ -33,6 +33,8 @@ interface InvoiceVendorRepositoryInterface
 
     public function getPerusahaan(string $idPerusahaan): ?object;
 
+    public function pengajuanPembayaranUntukInvoice(string $idInvoiceVendor): array;
+
     public function totalDibayar(string $idInvoice): float;
 
     public function daftarPembayaran(string $idInvoice): array;

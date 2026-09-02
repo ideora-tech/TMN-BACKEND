@@ -775,9 +775,13 @@ class KontrakVendorPaketTest extends TestCase
         $this->assertSame($kontrakPaket->id_kontrak_vendor, $barisPaket['id_kontrak_vendor_unit']);
         $this->assertFalse($barisPaket['kontrak_habis']);
 
+        // Unit tanpa id_kontrak_vendor sendiri TIDAK LAGI meminjam kontrak lain milik
+        // vendor yang sama (fallback dihapus) — tetap tampil di board tapi mekanisme/
+        // status_kontrak-nya null, ditandai FE sebagai "tidak ada kontrak".
         $barisUmum = $units->firstWhere('id_armada_vendor', $unitUmum->id_armada_vendor);
         $this->assertNotNull($barisUmum);
-        $this->assertSame('unit_only', $barisUmum['mekanisme']);
+        $this->assertNull($barisUmum['mekanisme']);
+        $this->assertNull($barisUmum['id_kontrak_vendor']);
         $this->assertNull($barisUmum['id_kontrak_vendor_unit']);
     }
 

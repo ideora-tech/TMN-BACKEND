@@ -13,6 +13,28 @@ class PembayaranVendorService
 {
     public function __construct(private readonly PembayaranVendorRepositoryInterface $repo) {}
 
+    /**
+     * Pembayaran invoice vendor tidak lagi dicatat langsung — diajukan dulu ke
+     * alur Proses Pembayaran (kategori pembayaran_vendor); baris pembayaran_vendor
+     * baru tercipta otomatis saat pengajuan itu ditransfer.
+     */
+    public function ajukanPembayaran(string $idInvoice, string $idPerusahaan, float $nominal, ?string $catatan): \App\Modules\ArusKas\PengajuanPengeluaranModel
+    {
+        $info = $this->repo->infoInvoiceUntukPengajuan($idInvoice, $idPerusahaan);
+        if ($info === null) {
+            abort(404, 'Invoice vendor tidak ditemukan');
+        }
+
+        return app(\App\Modules\ArusKas\ArusKasService::class)->buatPengajuanPembayaranInvoiceVendor(
+            $idInvoice,
+            $idPerusahaan,
+            $nominal,
+            $catatan,
+            (string) ($info->nama_vendor ?? '-'),
+            (string) $info->nomor_invoice,
+        );
+    }
+
     public function listByInvoice(string $idInvoice, string $idPerusahaan): array
     {
         $this->findInvoiceOrFail($idInvoice, $idPerusahaan);

@@ -58,12 +58,12 @@ class PenugasanOpsiArmadaVendorTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $vendorA = $this->makeVendor();
-        $this->makeKontrak($vendorA->id_vendor, 'unit_only');
-        $unitA = $this->makeArmadaVendor($vendorA->id_vendor);
+        $kontrakA = $this->makeKontrak($vendorA->id_vendor, 'unit_only');
+        $unitA = $this->makeArmadaVendor($vendorA->id_vendor, ['id_kontrak_vendor' => $kontrakA->id_kontrak_vendor]);
 
         $vendorB = $this->makeVendor();
-        $this->makeKontrak($vendorB->id_vendor, 'unit_driver');
-        $this->makeArmadaVendor($vendorB->id_vendor);
+        $kontrakB = $this->makeKontrak($vendorB->id_vendor, 'unit_driver');
+        $this->makeArmadaVendor($vendorB->id_vendor, ['id_kontrak_vendor' => $kontrakB->id_kontrak_vendor]);
 
         $res = $this->getJson('/api/penugasan/opsi-armada-vendor');
         $res->assertStatus(200);
@@ -79,8 +79,8 @@ class PenugasanOpsiArmadaVendorTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
-        $this->makeKontrak($vendor->id_vendor, 'unit_only');
-        $this->makeArmadaVendor($vendor->id_vendor, ['aktif' => 0]);
+        $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
+        $this->makeArmadaVendor($vendor->id_vendor, ['id_kontrak_vendor' => $kontrak->id_kontrak_vendor, 'aktif' => 0]);
 
         $res = $this->getJson('/api/penugasan/opsi-armada-vendor');
         $res->assertStatus(200);
@@ -98,8 +98,8 @@ class PenugasanOpsiArmadaVendorTest extends TestCase
             'dibuat_pada'   => now(),
         ]);
         $vendorLain = $this->makeVendor($idPerusahaanLain);
-        $this->makeKontrak($vendorLain->id_vendor, 'unit_only', $idPerusahaanLain);
-        $this->makeArmadaVendor($vendorLain->id_vendor);
+        $kontrakLain = $this->makeKontrak($vendorLain->id_vendor, 'unit_only', $idPerusahaanLain);
+        $this->makeArmadaVendor($vendorLain->id_vendor, ['id_kontrak_vendor' => $kontrakLain->id_kontrak_vendor]);
 
         $res = $this->getJson('/api/penugasan/opsi-armada-vendor');
         $res->assertStatus(200);

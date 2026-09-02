@@ -106,6 +106,14 @@ class InvoiceVendorService
             'total_dibayar'      => $totalDibayar,
             'sisa'               => round(max(0, (float) $record->total - $totalDibayar), 2),
             'pembayaran'         => $pembayaran,
+            'pengajuan_pembayaran' => array_map(static fn (object $row) => [
+                'id_pengajuan'      => $row->id_pengajuan,
+                'nomor_pengajuan'   => $row->nomor_pengajuan,
+                'tanggal_pengajuan' => substr((string) $row->tanggal_pengajuan, 0, 10),
+                'nominal'           => (float) $row->nominal,
+                'status'            => $row->status,
+                'alasan_ditolak'    => $row->alasan_ditolak,
+            ], $this->repo->pengajuanPembayaranUntukInvoice($record->id_invoice_vendor)),
             'trip_terkait'       => array_map(static fn (object $row) => [
                 'id_trip'        => $row->id_trip,
                 'tanggal'        => $row->tanggal,
