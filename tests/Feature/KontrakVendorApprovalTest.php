@@ -295,6 +295,35 @@ class KontrakVendorApprovalTest extends TestCase
         ])->assertStatus(200)->assertJsonPath('data.status', 'draft');
     }
 
+    public function test_ubah_komitmen_kontrak_aktif_membatalkan_pengajuan_approval_lama(): void
+    {
+        $pengaju = $this->actingAsRole('SUPERADMIN');
+        $approver = $this->makeApprover();
+        $this->makeEventTypeDanApprover($approver);
+        $vendor = $this->makeVendor();
+        $kontrak = KontrakVendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_vendor'     => $vendor->id_vendor,
+            'mekanisme'     => 'unit_only',
+            'status'        => 'draft',
+            'nilai_kontrak' => 10000000,
+        ]);
+
+        $this->postJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}/ajukan-approval")->assertStatus(200);
+        app(\App\Modules\Approval\ApprovalService::class)->putuskanUntukReferensi(
+            'kontrak_vendor', (string) $kontrak->id_kontrak_vendor, $approver, 'setuju', null, self::PERUSAHAAN_ID
+        );
+        $this->assertSame('aktif', $kontrak->fresh()->status);
+
+        $this->putJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}", [
+            'nilai_kontrak' => 20000000,
+        ])->assertStatus(200)->assertJsonPath('data.status', 'draft');
+
+        $res = $this->getJson('/api/approval-pengajuan/status-referensi?kode=kontrak_vendor&id_referensi=' . $kontrak->id_kontrak_vendor);
+        $res->assertStatus(200);
+        $this->assertSame('dibatalkan', $res->json('data.status'));
+    }
+
     public function test_update_administratif_kontrak_aktif_tidak_menurunkan_status(): void
     {
         $this->actingAsRole('SUPERADMIN');

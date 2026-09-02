@@ -810,7 +810,10 @@ class KontrakVendorService
     private function tarikApprovalKarenaUnit(string $idKontrak, string $idPerusahaan): void
     {
         $statusSebelum = $this->repo->turunkanKeDraftJikaPerluApprovalUlang($idKontrak);
-        if ($statusSebelum === 'menunggu_approval') {
+        // Pengajuan lama dibatalkan baik saat masih menunggu maupun yang sudah
+        // disetujui (kontrak aktif) — status kontrak kembali draft, log approval
+        // harus mencerminkan bahwa persetujuan lama tidak berlaku lagi.
+        if (in_array($statusSebelum, ['menunggu_approval', 'aktif'], true)) {
             app(\App\Modules\Approval\ApprovalService::class)
                 ->batalkanUntukReferensi(['kontrak_vendor'], $idKontrak, $idPerusahaan);
         }
@@ -923,7 +926,9 @@ class KontrakVendorService
             }
         }
 
-        // Perubahan komitmen finansial pada kontrak aktif wajib approval ulang.
+        // Perubahan komitmen finansial pada kontrak aktif wajib approval ulang —
+        // pengajuan approval lama ikut dibatalkan supaya Log Approval tidak
+        // menampilkan "Disetujui" untuk kontrak yang sudah kembali ke draft.
         if ($record->status === 'aktif') {
             $adaPerubahanKomitmen =
                 (array_key_exists('nilai_kontrak', $data) && (float) $data['nilai_kontrak'] !== (float) $record->nilai_kontrak)
@@ -933,6 +938,8 @@ class KontrakVendorService
             if ($adaPerubahanKomitmen) {
                 $data['status'] = 'draft';
                 $data['alasan_ditolak_internal'] = null;
+                app(\App\Modules\Approval\ApprovalService::class)
+                    ->batalkanUntukReferensi(['kontrak_vendor'], (string) $record->id_kontrak_vendor, $idPerusahaan);
             }
         }
 
