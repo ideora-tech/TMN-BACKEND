@@ -668,11 +668,14 @@ class KontrakVendorPaketTest extends TestCase
         $this->assertDatabaseCount('supir_vendor', 0);
     }
 
-    public function test_nopol_duplikat_atau_sudah_terdaftar_ditolak_422(): void
+    public function test_nopol_duplikat_atau_sudah_terikat_kontrak_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
-        $this->makeArmadaVendor($vendor->id_vendor, ['nopol' => 'B 9999 ADA', 'masa_berlaku_stnk' => '2027-06-01', 'masa_berlaku_kir' => '2027-06-02']);
+        // Unit yang MASIH terikat kontrak lain tetap ditolak — hanya unit tanpa
+        // kontrak (yatim) yang boleh diadopsi kontrak baru.
+        $kontrakLain = $this->makeKontrak($vendor->id_vendor, 'unit_only');
+        $this->makeArmadaVendor($vendor->id_vendor, ['nopol' => 'B 9999 ADA', 'id_kontrak_vendor' => $kontrakLain->id_kontrak_vendor, 'masa_berlaku_stnk' => '2027-06-01', 'masa_berlaku_kir' => '2027-06-02']);
 
         $this->postJson('/api/kontrak-vendor', [
             'id_vendor' => $vendor->id_vendor,
@@ -686,7 +689,7 @@ class KontrakVendorPaketTest extends TestCase
             'unit'      => [['nopol' => 'B 9999 ADA', 'masa_berlaku_stnk' => '2027-06-01', 'masa_berlaku_kir' => '2027-06-02']],
         ])->assertStatus(422);
 
-        $this->assertDatabaseCount('kontrak_vendor', 0);
+        $this->assertDatabaseCount('kontrak_vendor', 1);
         $this->assertSame(1, ArmadaVendorModel::count());
     }
 

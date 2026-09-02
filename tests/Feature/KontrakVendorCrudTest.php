@@ -119,6 +119,65 @@ class KontrakVendorCrudTest extends TestCase
         $this->assertNotSame($kontrakLain->id_kontrak_vendor, $baris['id_kontrak_vendor']);
     }
 
+    public function test_kontrak_baru_mengadopsi_unit_lama_yang_kontraknya_sudah_dihapus(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrakLama = $this->makeKontrak($vendor);
+        $unitLama = ArmadaVendorModel::create([
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakLama->id_kontrak_vendor,
+            'nopol'             => 'B 1213 VND',
+        ]);
+
+        $this->deleteJson("/api/kontrak-vendor/{$kontrakLama->id_kontrak_vendor}")->assertStatus(200);
+
+        $res = $this->postJson('/api/kontrak-vendor', [
+            'id_vendor'     => $vendor->id_vendor,
+            'mekanisme'     => 'unit_only',
+            'nomor_kontrak' => 'KV-ADOPSI-1',
+            'unit'          => [[
+                'nopol'             => 'B 1213 VND',
+                'merk'              => 'Hino Baru',
+                'masa_berlaku_stnk' => '2027-03-01',
+                'masa_berlaku_kir'  => '2026-12-15',
+            ]],
+        ]);
+        $res->assertStatus(201);
+        $idKontrakBaru = $res->json('data.id_kontrak_vendor');
+
+        $this->assertDatabaseHas('armada_vendor', [
+            'id_armada_vendor'  => $unitLama->id_armada_vendor,
+            'id_kontrak_vendor' => $idKontrakBaru,
+            'merk'              => 'Hino Baru',
+        ]);
+        $this->assertSame(1, DB::table('armada_vendor')
+            ->where('nopol', 'B 1213 VND')->whereNull('dihapus_pada')->count());
+    }
+
+    public function test_kontrak_baru_tetap_menolak_nopol_yang_masih_terikat_kontrak_lain(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrakAktif = $this->makeKontrak($vendor);
+        ArmadaVendorModel::create([
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrakAktif->id_kontrak_vendor,
+            'nopol'             => 'B 7777 VND',
+        ]);
+
+        $this->postJson('/api/kontrak-vendor', [
+            'id_vendor'     => $vendor->id_vendor,
+            'mekanisme'     => 'unit_only',
+            'nomor_kontrak' => 'KV-ADOPSI-2',
+            'unit'          => [[
+                'nopol'             => 'B 7777 VND',
+                'masa_berlaku_stnk' => '2027-03-01',
+                'masa_berlaku_kir'  => '2026-12-15',
+            ]],
+        ])->assertStatus(422);
+    }
+
     public function test_show_kontrak_vendor_perusahaan_lain_mengembalikan_404(): void
     {
         $this->actingAsRole('SUPERADMIN');

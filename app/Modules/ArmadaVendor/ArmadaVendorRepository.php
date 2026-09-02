@@ -102,6 +102,20 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
         return $id !== null ? (string) $id : null;
     }
 
+    /**
+     * Unit aktif milik vendor yang sama yang sedang TIDAK terikat kontrak manapun
+     * (mis. kontraknya baru dihapus) — kandidat "diadopsi" ulang oleh kontrak baru
+     * alih-alih ditolak sebagai nopol duplikat.
+     */
+    public function findAktifTanpaKontrakByNopol(string $nopol, string $idVendor): ?ArmadaVendorModel
+    {
+        return ArmadaVendorModel::active()
+            ->where('id_vendor', $idVendor)
+            ->whereNull('id_kontrak_vendor')
+            ->whereRaw('UPPER(TRIM(nopol)) = ?', [mb_strtoupper(trim($nopol))])
+            ->first();
+    }
+
     public function nopolTerdaftar(string $nopol, string $idPerusahaan): bool
     {
         return ArmadaVendorModel::active()

@@ -90,7 +90,7 @@ class KontrakVendorService
             }
         }
 
-        $this->validasiUnitBaru($unitList, (string) $data['id_perusahaan']);
+        $this->validasiUnitBaru($unitList, (string) $data['id_perusahaan'], (string) $data['id_vendor']);
         $this->validasiSupirBaru($supirList, (string) $data['id_perusahaan']);
 
         // Kolom nilai_kontrak NOT NULL DEFAULT 0 — input kosong dari klien
@@ -120,11 +120,18 @@ class KontrakVendorService
                     abort(422, "Pasangan supir untuk unit {$unit['nopol']} tidak ditemukan di daftar supir");
                 }
 
-                $this->armadaVendorRepo->create(array_merge($unit, [
+                $dataUnit = array_merge($unit, [
                     'id_vendor'               => $kontrak->id_vendor,
                     'id_kontrak_vendor'       => $kontrak->id_kontrak_vendor,
                     'id_supir_vendor_default' => $supirIndex !== null ? $idSupirPerIndex[(int) $supirIndex] : null,
-                ]));
+                ]);
+
+                $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol((string) $unit['nopol'], (string) $kontrak->id_vendor);
+                if ($adopsi !== null) {
+                    $this->armadaVendorRepo->update($adopsi, $dataUnit);
+                } else {
+                    $this->armadaVendorRepo->create($dataUnit);
+                }
             }
 
             if ($kontrakSumber !== null) {
@@ -135,7 +142,7 @@ class KontrakVendorService
         });
     }
 
-    private function validasiUnitBaru(array $unitList, string $idPerusahaan): void
+    private function validasiUnitBaru(array $unitList, string $idPerusahaan, string $idVendor): void
     {
         $frekuensi = [];
         foreach ($unitList as $unit) {
@@ -148,8 +155,11 @@ class KontrakVendorService
             if (($frekuensi[mb_strtoupper(trim($nopol))] ?? 0) > 1) {
                 abort(422, "Nopol {$nopol} duplikat di dalam daftar unit");
             }
-            if ($this->armadaVendorRepo->nopolTerdaftar($nopol, $idPerusahaan)) {
-                abort(422, "Nopol {$nopol} sudah terdaftar");
+            // Nopol yang sudah terdaftar tetap boleh bila itu unit vendor yang sama
+            // yang sedang tanpa kontrak — nanti diadopsi (di-relink) alih-alih dibuat baru.
+            if ($this->armadaVendorRepo->nopolTerdaftar($nopol, $idPerusahaan)
+                && $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, $idVendor) === null) {
+                abort(422, "Nopol {$nopol} sudah terdaftar dan masih terikat kontrak/vendor lain");
             }
             if (!empty($unit['id_jenis_kendaraan'])
                 && !$this->armadaVendorRepo->jenisKendaraanMilikPerusahaan((string) $unit['id_jenis_kendaraan'], $idPerusahaan)) {
@@ -226,6 +236,15 @@ class KontrakVendorService
                         'masa_berlaku_kir'   => $unit['masa_berlaku_kir'] ?? null,
                     ]);
                     $diperbarui++;
+                    continue;
+                }
+
+                $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, (string) $kontrak->id_vendor);
+                if ($adopsi !== null) {
+                    $this->armadaVendorRepo->update($adopsi, array_merge($unit, [
+                        'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+                    ]));
+                    $ditambah++;
                     continue;
                 }
 
@@ -321,6 +340,14 @@ class KontrakVendorService
                 ];
 
                 $ada = $lama->get($kunci);
+
+                if ($ada === null) {
+                    $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, (string) $kontrak->id_vendor);
+                    if ($adopsi !== null) {
+                        $dataUnit['id_kontrak_vendor'] = $kontrak->id_kontrak_vendor;
+                        $ada = $adopsi;
+                    }
+                }
 
                 if ($ada === null && $this->armadaVendorRepo->nopolTerdaftar($nopol, $idPerusahaan)) {
                     $gagal[] = ['label' => $nopol, 'alasan' => 'Nopol sudah terdaftar di kontrak/vendor lain'];
