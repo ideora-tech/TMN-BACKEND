@@ -9,4 +9,9 @@ interface RuteRepositoryInterface {
     public function create(array $data): object;
     public function update(object $record, array $data): object;
     public function delete(object $record): void;
+
+    /**
+     * Rute masih dirujuk penawaran/proyek/penugasan/jadwal hidup — pengunci penghapusan.
+     */
+    public function dipakaiRelasiAktif(string $idRute): bool;
 }

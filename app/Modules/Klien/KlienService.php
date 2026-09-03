@@ -25,10 +25,10 @@ class KlienService
         ];
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Klien tidak ditemukan');
         }
         return $record;
@@ -47,7 +47,7 @@ class KlienService
 
     public function update(string $id, array $data, string $idPerusahaan): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (isset($data['kode_klien']) && $data['kode_klien'] !== $record->kode_klien) {
             if ($this->repo->findByKode($idPerusahaan, $data['kode_klien'])) {
@@ -58,9 +58,14 @@ class KlienService
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, string $idPerusahaan): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->punyaRelasiAktif($id)) {
+            abort(422, 'Klien masih memiliki penawaran/proyek/invoice — nonaktifkan saja klien ini');
+        }
+
         $this->repo->delete($record);
     }
 

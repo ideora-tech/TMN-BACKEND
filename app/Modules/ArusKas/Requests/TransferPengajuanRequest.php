@@ -17,7 +17,14 @@ class TransferPengajuanRequest extends FormRequest
     {
         return [
             'tanggal_transfer' => ['required', 'date'],
-            'bukti'            => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'bukti'            => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'bukti.required' => 'Bukti transfer wajib dilampirkan',
         ];
     }
 }

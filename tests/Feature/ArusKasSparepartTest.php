@@ -320,8 +320,9 @@ class ArusKasSparepartTest extends TestCase
 
         $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->toDateString();
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => $tanggalTransfer,
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
         $rowPengajuan = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->first();
@@ -337,8 +338,9 @@ class ArusKasSparepartTest extends TestCase
 
         $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->toDateString();
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => $tanggalTransfer,
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200);
 
         $dari   = now()->startOfMonth()->toDateString();
@@ -359,8 +361,9 @@ class ArusKasSparepartTest extends TestCase
         DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->update(['status' => 'diajukan']);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(409);
 
         $rowPengajuan = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->first();
@@ -386,8 +389,9 @@ class ArusKasSparepartTest extends TestCase
 
         $this->actingAsRole('KEUANGAN');
         $tanggalTransfer = now()->addDay()->toDateString();
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => $tanggalTransfer,
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
         $row = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
@@ -431,8 +435,9 @@ class ArusKasSparepartTest extends TestCase
         $this->assertCount(0, collect($rekapSebelum->json('data.transaksi'))->where('kategori', 'sparepart'));
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200);
 
         $rekapSesudah = $this->getJson("/api/arus-kas?dari={$dari}&sampai={$sampai}");

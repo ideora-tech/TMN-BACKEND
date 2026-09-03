@@ -135,4 +135,43 @@ class RuteTest extends TestCase
         $row = DB::table('rute')->where('id_rute', $item->id_rute)->first();
         $this->assertNotNull($row->dihapus_pada);
     }
+
+    public function test_hapus_rute_yang_dipakai_penugasan_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $item = $this->makeRute(self::PERUSAHAAN_ID, 'RUT-PK');
+        $idProyek = (string) Str::uuid();
+        DB::table('proyek')->insert([
+            'id_proyek'     => $idProyek,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => (string) Str::uuid(),
+            'kode_proyek'   => 'PRJ-RUT-1',
+            'nama_proyek'   => 'Proyek Rute',
+            'status'        => 'aktif',
+            'dibuat_pada'   => now(),
+        ]);
+        DB::table('penugasan')->insert([
+            'id_penugasan'  => (string) Str::uuid(),
+            'id_proyek'     => $idProyek,
+            'id_rute'       => $item->id_rute,
+            'tanggal_tugas' => now()->toDateString(),
+            'status'        => 'terjadwal',
+            'dibuat_pada'   => now(),
+        ]);
+
+        $this->deleteJson("/api/rute/{$item->id_rute}")->assertStatus(422);
+        $this->assertNull(DB::table('rute')->where('id_rute', $item->id_rute)->value('dihapus_pada'));
+    }
+
+    public function test_show_update_hapus_rute_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idLain = $this->makePerusahaanLain();
+        $milikLain = $this->makeRute($idLain, 'RUT-X', 'Milik Lain');
+
+        $this->getJson("/api/rute/{$milikLain->id_rute}")->assertStatus(404);
+        $this->putJson("/api/rute/{$milikLain->id_rute}", ['nama_rute' => 'Bajak'])->assertStatus(404);
+        $this->deleteJson("/api/rute/{$milikLain->id_rute}")->assertStatus(404);
+        $this->assertNull(DB::table('rute')->where('id_rute', $milikLain->id_rute)->value('dihapus_pada'));
+    }
 }

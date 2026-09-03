@@ -253,9 +253,10 @@ class PenugasanService
             }
 
             $rowDasar = [
-                'id_proyek' => $data['id_proyek'],
-                'id_rute'   => $data['id_rute'],
-                'status'    => 'aktif',
+                'id_proyek'   => $data['id_proyek'],
+                'id_rute'     => $data['id_rute'],
+                'status'      => 'aktif',
+                'keterangan'  => $data['keterangan'] ?? null,
             ];
 
             $idJenisKendaraanUnit = null;

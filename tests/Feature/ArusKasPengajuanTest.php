@@ -208,6 +208,18 @@ class ArusKasPengajuanTest extends TestCase
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/transfer", [])->assertStatus(422);
     }
 
+    public function test_transfer_wajib_bukti(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatPengajuan();
+        DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->update(['status' => 'siap_transfer']);
+
+        $this->actingAsRole('KEUANGAN');
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString()])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.bukti.0', 'Bukti transfer wajib dilampirkan');
+    }
+
     public function test_tolak_dari_disetujui_dan_dari_dicek_dengan_alasan(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -250,7 +262,7 @@ class ArusKasPengajuanTest extends TestCase
         $id = $this->buatPengajuan();
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString()])
+        $this->patch("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString(), 'bukti' => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg')])
             ->assertStatus(409);
 
         $this->actingAsRole('MANAGER');
@@ -587,7 +599,7 @@ class ArusKasPengajuanTest extends TestCase
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")->assertStatus(200)->assertJsonPath('data.status', 'dicek');
 
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString()])
+        $this->patch("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString(), 'bukti' => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg')])
             ->assertStatus(409);
 
         $idApproval = DB::table('approval_pengajuan')->where('id_referensi', $id)->value('id_approval');
@@ -595,7 +607,8 @@ class ArusKasPengajuanTest extends TestCase
         $this->patchJson("/api/approval-pengajuan/{$idApproval}/keputusan", ['keputusan' => 'setuju'])->assertStatus(200);
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString()])
+        Storage::fake('public');
+        $this->patch("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString(), 'bukti' => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg')])
             ->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
     }
 

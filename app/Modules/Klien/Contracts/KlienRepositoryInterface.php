@@ -16,6 +16,11 @@ interface KlienRepositoryInterface
     public function delete(object $record): void;
 
     /**
+     * Klien masih dirujuk penawaran/proyek/faktur hidup — pengunci penghapusan.
+     */
+    public function punyaRelasiAktif(string $idKlien): bool;
+
+    /**
      * Riwayat proyek milik satu klien, terbaru lebih dulu.
      */
     public function paginateProyek(string $idKlien, int $page, int $limit): LengthAwarePaginator;

@@ -8,8 +8,10 @@ use App\Modules\Armada\ArmadaModel;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -459,7 +461,8 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
 
-        $this->patchJson("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString()])
+        Storage::fake('public');
+        $this->patch("/api/arus-kas/pengajuan/{$id}/transfer", ['tanggal_transfer' => now()->toDateString(), 'bukti' => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg')])
             ->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
     }
 
@@ -727,7 +730,8 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
 
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", ['tanggal_transfer' => now()->toDateString()])
+        Storage::fake('public');
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", ['tanggal_transfer' => now()->toDateString(), 'bukti' => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg')])
             ->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
         $this->actingAsRole('SUPERADMIN');

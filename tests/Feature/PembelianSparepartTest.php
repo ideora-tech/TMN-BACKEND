@@ -287,8 +287,9 @@ class PembelianSparepartTest extends TestCase
         ])->assertStatus(200)->assertJsonPath('data.status', 'dibeli');
 
         $this->actingAsRole('KEUANGAN');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
         $rowFinal = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
@@ -357,8 +358,9 @@ class PembelianSparepartTest extends TestCase
             ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
 
         $tanggalTransfer = now()->toDateString();
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => $tanggalTransfer,
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200);
 
         return [$idPembelian, $items, $idPengajuan, $tanggalTransfer];

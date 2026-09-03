@@ -112,4 +112,51 @@ class KlienTest extends TestCase
         $row = DB::table('klien')->where('id_klien', $item->id_klien)->first();
         $this->assertNotNull($row->dihapus_pada);
     }
+
+    public function test_hapus_klien_yang_punya_proyek_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $item = $this->makeKlien(self::PERUSAHAAN_ID);
+        DB::table('proyek')->insert([
+            'id_proyek'     => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien'      => $item->id_klien,
+            'kode_proyek'   => 'PRJ-KLN-1',
+            'nama_proyek'   => 'Proyek Klien',
+            'status'        => 'aktif',
+            'dibuat_pada'   => now(),
+        ]);
+
+        $this->deleteJson("/api/klien/{$item->id_klien}")->assertStatus(422);
+        $this->assertNull(DB::table('klien')->where('id_klien', $item->id_klien)->value('dihapus_pada'));
+    }
+
+    public function test_hapus_klien_yang_punya_penawaran_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $item = $this->makeKlien(self::PERUSAHAAN_ID);
+        DB::table('penawaran')->insert([
+            'id_penawaran'    => (string) Str::uuid(),
+            'id_perusahaan'   => self::PERUSAHAAN_ID,
+            'id_klien'        => $item->id_klien,
+            'nomor_penawaran' => 'PNW-KLN-1',
+            'judul'           => 'Penawaran Klien',
+            'status'          => 'draft',
+            'dibuat_pada'     => now(),
+        ]);
+
+        $this->deleteJson("/api/klien/{$item->id_klien}")->assertStatus(422);
+    }
+
+    public function test_show_update_hapus_klien_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idLain = $this->makePerusahaanLain();
+        $milikLain = $this->makeKlien($idLain, 'KLN-X', 'Milik Lain');
+
+        $this->getJson("/api/klien/{$milikLain->id_klien}")->assertStatus(404);
+        $this->putJson("/api/klien/{$milikLain->id_klien}", ['nama_klien' => 'Bajak'])->assertStatus(404);
+        $this->deleteJson("/api/klien/{$milikLain->id_klien}")->assertStatus(404);
+        $this->assertNull(DB::table('klien')->where('id_klien', $milikLain->id_klien)->value('dihapus_pada'));
+    }
 }

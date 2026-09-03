@@ -31,6 +31,8 @@ class StoreLaporanPerjalananRequest extends FormRequest
             'biaya_tagihan.*.nominal'     => ['required_with:biaya_tagihan', 'numeric', 'min:0'],
             'foto'                        => ['sometimes', 'array'],
             'foto.*'                      => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:10240'],
+            'foto_keterangan'             => ['sometimes', 'array'],
+            'foto_keterangan.*'           => ['nullable', 'string', 'max:200'],
         ];
     }
 }

@@ -26,7 +26,7 @@ class RuteController extends Controller {
     }
 
     public function show(Request $request, string $id): JsonResponse {
-        $rute = $this->service->findOrFail($id);
+        $rute = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new RuteResource($rute));
     }
 
@@ -41,12 +41,12 @@ class RuteController extends Controller {
     }
 
     public function update(UpdateRuteRequest $request, string $id): JsonResponse {
-        $rute = $this->service->update($id, $request->validated());
+        $rute = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new RuteResource($rute), 'Rute berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse {
-        $this->service->delete($id);
+    public function destroy(Request $request, string $id): JsonResponse {
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Rute berhasil dihapus');
     }
 

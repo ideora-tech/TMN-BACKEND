@@ -73,6 +73,20 @@ class KlienRepository implements KlienRepositoryInterface
             ->update(RecordHelper::stampDelete());
     }
 
+    public function punyaRelasiAktif(string $idKlien): bool
+    {
+        foreach (['penawaran', 'proyek', 'faktur'] as $tabel) {
+            $ada = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_klien', $idKlien)
+                ->exists();
+            if ($ada) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public function paginateProyek(string $idKlien, int $page, int $limit): LengthAwarePaginator
     {
         return ProyekModel::active()

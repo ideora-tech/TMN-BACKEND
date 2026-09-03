@@ -59,7 +59,7 @@ class LaporanPerjalananController extends Controller
     public function storeFotoSaya(StoreFotoLaporanRequest $request, string $idLaporan): JsonResponse
     {
         [$tipe, $idSupir] = $this->konteksSupirSaya($request);
-        $records = $this->service->addFotoUntukSupir($idLaporan, $idSupir, $request->file('foto'), $request->validated('keterangan'), $tipe);
+        $records = $this->service->addFotoUntukSupir($idLaporan, $idSupir, $request->file('foto'), $request->validated('keterangan'), $tipe, $request->validated('foto_keterangan'));
         return ApiResponse::success(FotoLaporanResource::collection($records), 'Foto laporan berhasil diunggah', 201);
     }
 
@@ -94,7 +94,7 @@ class LaporanPerjalananController extends Controller
     public function storeFoto(StoreFotoLaporanRequest $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $records = $this->service->addFoto($id, $request->file('foto'), $idPerusahaan, $request->validated('keterangan'));
+        $records = $this->service->addFoto($id, $request->file('foto'), $idPerusahaan, $request->validated('keterangan'), $request->validated('foto_keterangan'));
         return ApiResponse::success(FotoLaporanResource::collection($records), 'Foto laporan berhasil diunggah', 201);
     }
 

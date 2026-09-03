@@ -12,6 +12,8 @@ use Illuminate\Http\UploadedFile;
 
 class LaporanPerjalananService
 {
+    private const PESAN_FOTO_TERKUNCI = 'Foto laporan terkunci setelah trip selesai — hubungi kantor untuk koreksi';
+
     public function __construct(
         private readonly LaporanPerjalananRepositoryInterface $repo,
         private readonly TripRepositoryInterface $tripRepo,
@@ -44,7 +46,8 @@ class LaporanPerjalananService
         }
 
         $biayaLain = $data['biaya_lain'] ?? [];
-        unset($data['biaya_lain'], $data['foto']);
+        $fotoKeterangan = $data['foto_keterangan'] ?? null;
+        unset($data['biaya_lain'], $data['foto'], $data['foto_keterangan']);
 
         if ($fotoFiles === []) {
             abort(422, 'Laporan wajib menyertakan minimal 1 foto bukti');
@@ -58,7 +61,7 @@ class LaporanPerjalananService
         if ($hasBiayaTagihan) {
             $this->repo->syncBiayaTagihan($laporan, $biayaTagihan);
         }
-        $this->simpanFotoFiles($laporan, $fotoFiles);
+        $this->simpanFotoFiles($laporan, $fotoFiles, null, $fotoKeterangan);
 
         return $this->repo->reload($laporan);
     }
@@ -110,6 +113,9 @@ class LaporanPerjalananService
         $this->tolakBiayaTanggunganVendor($idTrip, $data);
 
         $existing = $this->repo->findByTrip($idTrip);
+        if ($existing !== null && $trip->status === 'selesai' && $fotoFiles !== []) {
+            abort(422, self::PESAN_FOTO_TERKUNCI);
+        }
         if ($existing === null) {
             $this->pastikanBiayaBbmDiisi($idTrip, $data);
         }
@@ -120,7 +126,8 @@ class LaporanPerjalananService
 
         $hasBiayaLain = array_key_exists('biaya_lain', $data);
         $biayaLain = $data['biaya_lain'] ?? [];
-        unset($data['biaya_lain'], $data['foto']);
+        $fotoKeterangan = $data['foto_keterangan'] ?? null;
+        unset($data['biaya_lain'], $data['foto'], $data['foto_keterangan']);
 
         $laporan = $existing === null
             ? $this->repo->create(array_merge($data, ['id_trip' => $idTrip, 'id_perusahaan' => $idPerusahaan]))
@@ -129,7 +136,7 @@ class LaporanPerjalananService
         if ($hasBiayaLain) {
             $this->repo->syncBiayaLain($laporan, $biayaLain);
         }
-        $this->simpanFotoFiles($laporan, $fotoFiles);
+        $this->simpanFotoFiles($laporan, $fotoFiles, null, $fotoKeterangan);
 
         return $this->repo->reload($laporan);
     }
@@ -138,24 +145,34 @@ class LaporanPerjalananService
      * @param UploadedFile[] $files
      * @return FotoLaporanPerjalananModel[]
      */
-    public function addFotoUntukSupir(string $idLaporan, string $idSupir, array $files, ?string $keterangan = null, string $tipe = 'internal'): array
+    public function addFotoUntukSupir(string $idLaporan, string $idSupir, array $files, ?string $keterangan = null, string $tipe = 'internal', ?array $fotoKeterangan = null): array
     {
         $laporan = $this->findOrFail($idLaporan);
         $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir, $tipe);
+        $this->pastikanFotoTidakTerkunci((string) $laporan->id_trip);
 
-        return $this->simpanFotoFiles($laporan, $files, $keterangan);
+        return $this->simpanFotoFiles($laporan, $files, $keterangan, $fotoKeterangan);
     }
 
     public function deleteFotoUntukSupir(string $idLaporan, string $idFoto, string $idSupir, string $tipe = 'internal'): void
     {
         $laporan = $this->findOrFail($idLaporan);
         $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir, $tipe);
+        $this->pastikanFotoTidakTerkunci((string) $laporan->id_trip);
 
         $foto = $this->repo->findFotoById($idLaporan, $idFoto);
         if (!$foto) {
             abort(404, 'Foto laporan tidak ditemukan');
         }
         $this->repo->deleteFoto($foto);
+    }
+
+    private function pastikanFotoTidakTerkunci(string $idTrip): void
+    {
+        $trip = $this->tripRepo->findById($idTrip);
+        if ($trip !== null && $trip->status === 'selesai') {
+            abort(422, self::PESAN_FOTO_TERKUNCI);
+        }
     }
 
     public function findOrFail(string $id): LaporanPerjalananModel
@@ -193,7 +210,8 @@ class LaporanPerjalananService
 
         $hasBiayaLain = array_key_exists('biaya_lain', $data);
         $biayaLain = $data['biaya_lain'] ?? [];
-        unset($data['biaya_lain'], $data['foto']);
+        $fotoKeterangan = $data['foto_keterangan'] ?? null;
+        unset($data['biaya_lain'], $data['foto'], $data['foto_keterangan']);
 
         $record = $this->repo->update($record, $data);
 
@@ -203,7 +221,7 @@ class LaporanPerjalananService
         if ($hasBiayaTagihan) {
             $this->repo->syncBiayaTagihan($record, $biayaTagihan);
         }
-        $this->simpanFotoFiles($record, $fotoFiles);
+        $this->simpanFotoFiles($record, $fotoFiles, null, $fotoKeterangan);
 
         return $this->repo->reload($record);
     }
@@ -264,24 +282,26 @@ class LaporanPerjalananService
      * @param UploadedFile[] $files
      * @return FotoLaporanPerjalananModel[]
      */
-    public function addFoto(string $idLaporan, array $files, string $idPerusahaan, ?string $keterangan = null): array
+    public function addFoto(string $idLaporan, array $files, string $idPerusahaan, ?string $keterangan = null, ?array $fotoKeterangan = null): array
     {
         $laporan = $this->findOrFailMilik($idLaporan, $idPerusahaan);
 
-        return $this->simpanFotoFiles($laporan, $files, $keterangan);
+        return $this->simpanFotoFiles($laporan, $files, $keterangan, $fotoKeterangan);
     }
 
     /**
      * @param UploadedFile[] $files
+     * @param string[]|null $fotoKeterangan
      * @return FotoLaporanPerjalananModel[]
      */
-    private function simpanFotoFiles(LaporanPerjalananModel $laporan, array $files, ?string $keterangan = null): array
+    private function simpanFotoFiles(LaporanPerjalananModel $laporan, array $files, ?string $keterangan = null, ?array $fotoKeterangan = null): array
     {
         $hasil = [];
-        foreach ($files as $file) {
+        foreach (array_values($files) as $i => $file) {
+            $ket = !empty($fotoKeterangan[$i]) ? $fotoKeterangan[$i] : $keterangan;
             $hasil[] = $this->repo->addFoto($laporan->id_laporan, [
                 'url_file'   => PenyimpananBerkas::simpan($file, 'laporan-perjalanan'),
-                'keterangan' => $keterangan,
+                'keterangan' => $ket,
             ]);
         }
         return $hasil;

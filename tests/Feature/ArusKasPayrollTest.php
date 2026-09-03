@@ -4,7 +4,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -143,8 +145,10 @@ class ArusKasPayrollTest extends TestCase
 
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        Storage::fake('public');
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => '2026-08-20',
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200);
 
         $this->postJson("/api/payroll/periode/{$idPeriode}/batal-finalisasi")->assertStatus(409);
@@ -173,8 +177,10 @@ class ArusKasPayrollTest extends TestCase
 
         $this->patchJson("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
-        $this->patchJson("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/transfer", [
+        Storage::fake('public');
+        $this->patch("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/transfer", [
             'tanggal_transfer' => '2026-08-20',
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200);
 
         $rekapSesudah = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31');

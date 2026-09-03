@@ -26,6 +26,7 @@ class PenugasanModel extends BaseModel
         'tanggal_tugas',
         'status',
         'estimasi_biaya',
+        'keterangan',
         'sumber',
         'id_kontrak_vendor',
         'id_armada_vendor',

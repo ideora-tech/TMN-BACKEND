@@ -37,9 +37,10 @@ class KlienController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new KlienResource($this->service->findOrFail($id)));
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success(new KlienResource($this->service->findOrFail($id, $idPerusahaan)));
     }
 
     public function store(StoreKlienRequest $request): JsonResponse
@@ -60,9 +61,10 @@ class KlienController extends Controller
         return ApiResponse::success(new KlienResource($record), 'Klien berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $this->service->delete($id, $idPerusahaan);
         return ApiResponse::success(null, 'Klien berhasil dihapus');
     }
 

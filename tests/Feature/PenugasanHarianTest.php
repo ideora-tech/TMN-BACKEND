@@ -1020,4 +1020,95 @@ class PenugasanHarianTest extends TestCase
             'periode_sampai' => '2026-09-03',
         ]);
     }
+
+    public function test_assign_harian_menyimpan_keterangan_dan_muncul_di_resource(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute   = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, 100000.0);
+        $armada = $this->makeArmada();
+        $supir  = $this->makeSupir('Keterangan Harian');
+
+        $res = $this->postJson('/api/penugasan/harian', [
+            'tanggal'    => '2026-09-01',
+            'id_armada'  => $armada->id_armada,
+            'id_supir'   => $supir,
+            'id_proyek'  => $proyek->id_proyek,
+            'id_rute'    => $rute,
+            'keterangan' => 'Bawa muatan pecah belah',
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.sukses', 1);
+        $this->assertSame('Bawa muatan pecah belah', $res->json('data.penugasan.0.keterangan'));
+
+        $idPenugasan = $res->json('data.penugasan.0.id_penugasan');
+        $this->assertDatabaseHas('penugasan', [
+            'id_penugasan' => $idPenugasan,
+            'keterangan'   => 'Bawa muatan pecah belah',
+        ]);
+
+        $show = $this->getJson('/api/penugasan/' . $idPenugasan);
+        $show->assertStatus(200)->assertJsonPath('data.keterangan', 'Bawa muatan pecah belah');
+
+        $board = $this->getJson('/api/penugasan/board?dari=2026-09-01&sampai=2026-09-01');
+        $board->assertStatus(200);
+        $assignment = collect($board->json('data.assignments'))->firstWhere('id_penugasan', $idPenugasan);
+        $this->assertNotNull($assignment);
+        $this->assertSame('Bawa muatan pecah belah', $assignment['keterangan']);
+    }
+
+    public function test_assign_harian_rentang_menyimpan_keterangan_di_semua_baris(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute   = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, 100000.0);
+        $armada = $this->makeArmada();
+        $supir  = $this->makeSupir('Keterangan Rentang');
+
+        $this->postJson('/api/penugasan/harian', [
+            'tanggal'        => '2026-09-01',
+            'tanggal_sampai' => '2026-09-02',
+            'id_armada'      => $armada->id_armada,
+            'id_supir'       => $supir,
+            'id_proyek'      => $proyek->id_proyek,
+            'id_rute'        => $rute,
+            'keterangan'     => 'Muatan pecah belah',
+        ])->assertJsonPath('data.sukses', 2);
+
+        $this->assertSame(2, DB::table('penugasan')
+            ->where('id_supir', $supir)
+            ->where('keterangan', 'Muatan pecah belah')
+            ->count());
+    }
+
+    public function test_edit_penugasan_menyimpan_keterangan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute   = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, null);
+        $armada = $this->makeArmada();
+        $supir  = $this->makeSupir('Edit Keterangan');
+
+        $penugasan = \App\Modules\Penugasan\PenugasanModel::create([
+            'id_proyek'     => $proyek->id_proyek,
+            'id_rute'       => $rute,
+            'id_armada'     => $armada->id_armada,
+            'id_supir'      => $supir,
+            'tanggal_tugas' => '2026-09-10',
+            'status'        => 'aktif',
+        ]);
+
+        $res = $this->putJson('/api/penugasan/' . $penugasan->id_penugasan, [
+            'keterangan' => 'Koreksi dari operasional',
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.keterangan', 'Koreksi dari operasional');
+        $this->assertDatabaseHas('penugasan', [
+            'id_penugasan' => $penugasan->id_penugasan,
+            'keterangan'   => 'Koreksi dari operasional',
+        ]);
+    }
 }

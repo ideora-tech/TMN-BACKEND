@@ -28,9 +28,11 @@ class RuteService {
         ];
     }
 
-    public function findOrFail(string $id): object {
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object {
         $rute = $this->repo->findById($id);
-        if (!$rute) abort(404, 'Rute tidak ditemukan');
+        if (!$rute || ($idPerusahaan !== null && $rute->id_perusahaan !== $idPerusahaan)) {
+            abort(404, 'Rute tidak ditemukan');
+        }
         return $rute;
     }
 
@@ -44,8 +46,8 @@ class RuteService {
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): object {
-        $rute = $this->findOrFail($id);
+    public function update(string $id, array $data, ?string $idPerusahaan = null): object {
+        $rute = $this->findOrFail($id, $idPerusahaan);
         if (isset($data['kode_rute']) && $data['kode_rute'] !== $rute->kode_rute) {
             if ($this->repo->findByKode($rute->id_perusahaan, $data['kode_rute'], $id)) {
                 abort(409, 'Kode rute sudah digunakan');
@@ -55,8 +57,13 @@ class RuteService {
         return $this->repo->update($rute, $data);
     }
 
-    public function delete(string $id): void {
-        $rute = $this->findOrFail($id);
+    public function delete(string $id, string $idPerusahaan): void {
+        $rute = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Rute masih dipakai penawaran/proyek/penugasan — nonaktifkan saja rute ini');
+        }
+
         $this->repo->delete($rute);
     }
 

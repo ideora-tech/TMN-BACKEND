@@ -7,7 +7,9 @@ namespace Tests\Feature;
 use App\Modules\ArusKas\ArusKasService;
 use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -118,8 +120,10 @@ class PembayaranVendorPengajuanTest extends TestCase
             ->json('data.id_pengajuan');
 
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")->assertStatus(200);
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        Storage::fake('public');
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200);
 
         $this->assertDatabaseHas('pembayaran_vendor', [
@@ -161,8 +165,10 @@ class PembayaranVendorPengajuanTest extends TestCase
         $idPengajuan = $this->postJson("/api/invoice-vendor/{$idInvoice}/pembayaran/ajukan", ['nominal' => 5000000])
             ->json('data.id_pengajuan');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")->assertStatus(200);
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        Storage::fake('public');
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200);
 
         $dari = now()->subDay()->toDateString();

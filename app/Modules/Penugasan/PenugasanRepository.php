@@ -412,6 +412,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
                 'p.id_rute',
                 'r.nama_rute',
                 'p.estimasi_biaya',
+                'p.keterangan',
                 'p.id_pengajuan',
                 'p.status',
             )

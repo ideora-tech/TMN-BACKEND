@@ -374,8 +374,9 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(200);
 
         $this->realisasi($idPembelian, $items, 65000, 75000)->assertStatus(200);
@@ -452,8 +453,9 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")
             ->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
-        $transfer = $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $transfer = $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ]);
         $transfer->assertStatus(200)->assertJsonPath('data.status', 'ditransfer');
 
@@ -512,8 +514,9 @@ class ReapprovalNominalRealisasiTest extends TestCase
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)
             ->update(['status' => 'menunggu_approval']);
 
-        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
+        $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
+            'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),
         ])->assertStatus(409);
 
         $pengajuan = $this->pengajuanUntukPembelian($idPembelian);

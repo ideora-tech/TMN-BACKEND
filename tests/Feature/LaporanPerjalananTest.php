@@ -477,4 +477,62 @@ class LaporanPerjalananTest extends TestCase
         $this->assertSame(2, DB::table('foto_laporan_perjalanan')
             ->where('id_laporan', $res->json('data.id_laporan'))->whereNull('dihapus_pada')->count());
     }
+
+    public function test_upload_foto_dengan_foto_keterangan_per_index(): void
+    {
+        Storage::fake('public');
+        $this->actingAsRole('SUPERADMIN');
+        $trip = $this->makeTrip('selesai');
+
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_bbm'       => 500000,
+            'jarak_tempuh_km' => 120,
+            'uang_jalan'      => 200000,
+            ...$this->fotoDummy(),
+        ]);
+        $idLaporan = $createRes->json('data.id_laporan');
+
+        $res = $this->postJson("/api/laporan-perjalanan/{$idLaporan}/foto", [
+            'foto' => [
+                UploadedFile::fake()->image('bbm.jpg'),
+                UploadedFile::fake()->image('tol.jpg'),
+            ],
+            'foto_keterangan' => ['BBM', 'Uang Tol'],
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertSame('BBM', $res->json('data.0.keterangan'));
+        $this->assertSame('Uang Tol', $res->json('data.1.keterangan'));
+
+        $this->assertDatabaseHas('foto_laporan_perjalanan', ['id_laporan' => $idLaporan, 'keterangan' => 'BBM']);
+        $this->assertDatabaseHas('foto_laporan_perjalanan', ['id_laporan' => $idLaporan, 'keterangan' => 'Uang Tol']);
+    }
+
+    public function test_upload_foto_keterangan_fallback_ke_keterangan_bersama(): void
+    {
+        Storage::fake('public');
+        $this->actingAsRole('SUPERADMIN');
+        $trip = $this->makeTrip('selesai');
+
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-perjalanan", [
+            'biaya_bbm'       => 500000,
+            'jarak_tempuh_km' => 120,
+            'uang_jalan'      => 200000,
+            ...$this->fotoDummy(),
+        ]);
+        $idLaporan = $createRes->json('data.id_laporan');
+
+        $res = $this->postJson("/api/laporan-perjalanan/{$idLaporan}/foto", [
+            'foto' => [
+                UploadedFile::fake()->image('a.jpg'),
+                UploadedFile::fake()->image('b.jpg'),
+            ],
+            'foto_keterangan' => ['Insiden', null],
+            'keterangan'      => 'Lainnya',
+        ]);
+
+        $res->assertStatus(201);
+        $this->assertSame('Insiden', $res->json('data.0.keterangan'));
+        $this->assertSame('Lainnya', $res->json('data.1.keterangan'));
+    }
 }

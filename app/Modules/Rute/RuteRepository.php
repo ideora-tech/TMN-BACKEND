@@ -63,4 +63,17 @@ class RuteRepository implements RuteRepositoryInterface {
             ->where('id_rute', $record->id_rute)
             ->update(RecordHelper::stampDelete());
     }
+
+    public function dipakaiRelasiAktif(string $idRute): bool {
+        foreach (['penawaran_item', 'proyek_rute', 'penugasan', 'jadwal_keberangkatan'] as $tabel) {
+            $ada = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_rute', $idRute)
+                ->exists();
+            if ($ada) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
