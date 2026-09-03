@@ -45,7 +45,7 @@ class PenawaranController extends Controller
     public function show(Request $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        return ApiResponse::success(new PenawaranResource($this->service->findOrFail($id, $idPerusahaan)));
+        return ApiResponse::success(new PenawaranResource($this->service->detailDenganInfoProyek($id, $idPerusahaan)));
     }
 
     public function store(StorePenawaranRequest $request): JsonResponse

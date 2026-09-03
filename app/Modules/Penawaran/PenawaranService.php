@@ -60,6 +60,23 @@ class PenawaranService
         return $record;
     }
 
+    public function detailDenganInfoProyek(string $id, string $idPerusahaan): PenawaranModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($record->id_proyek !== null) {
+            $proyek = $this->proyekRepo->findById((string) $record->id_proyek);
+            // Atribut tempelan bukan kolom tabel — sinkronkan ke original supaya
+            // tidak dianggap dirty dan ikut tersimpan bila model ini di-update.
+            $record->setAttribute('proyek_status', $proyek->status ?? null);
+            $record->syncOriginalAttribute('proyek_status');
+            $record->setAttribute('kode_proyek', $proyek->kode_proyek ?? null);
+            $record->syncOriginalAttribute('kode_proyek');
+        }
+
+        return $record;
+    }
+
     public function create(array $data): PenawaranModel
     {
         $idPerusahaan = $data['id_perusahaan'];

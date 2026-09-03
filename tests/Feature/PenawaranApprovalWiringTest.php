@@ -109,6 +109,24 @@ class PenawaranApprovalWiringTest extends TestCase
         $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $id, 'status' => 'menunggu']);
     }
 
+    public function test_detail_penawaran_menyertakan_status_proyek_batal(): void
+    {
+        $sales = $this->actingAsRole('SUPERADMIN');
+        $idProyek = (string) Str::uuid();
+        DB::table('proyek')->insert([
+            'id_proyek' => $idProyek, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien' => $this->makeKlien(), 'kode_proyek' => 'PRJ-BATAL-1',
+            'nama_proyek' => 'Proyek Batal', 'status' => 'batal', 'dibuat_pada' => now(),
+        ]);
+        $id = $this->buatPenawaranDraft($sales->id_pengguna);
+        DB::table('penawaran')->where('id_penawaran', $id)->update(['id_proyek' => $idProyek, 'status' => 'disetujui']);
+
+        $this->getJson("/api/penawaran/{$id}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.proyek_status', 'batal')
+            ->assertJsonPath('data.kode_proyek', 'PRJ-BATAL-1');
+    }
+
     public function test_ajukan_approval_tanpa_item_rute_ditolak_422(): void
     {
         $sales = $this->actingAsRole('SUPERADMIN');

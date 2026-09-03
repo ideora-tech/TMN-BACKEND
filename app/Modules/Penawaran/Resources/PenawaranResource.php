@@ -25,6 +25,8 @@ class PenawaranResource extends JsonResource
             'catatan'          => $this->catatan,
             'alasan_ditolak_internal' => $this->alasan_ditolak_internal,
             'id_proyek'        => $this->id_proyek,
+            'proyek_status'    => $this->proyek_status ?? null,
+            'kode_proyek'      => $this->kode_proyek ?? null,
             'id_penawaran_induk' => $this->id_penawaran_induk,
             'aktif'            => (bool) $this->aktif,
             'dibuat_pada'      => $this->dibuat_pada,
