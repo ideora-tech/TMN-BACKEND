@@ -12,4 +12,5 @@ interface SupplierRepositoryInterface
     public function create(array $data): object;
     public function update(object $record, array $data): object;
     public function delete(object $record): void;
+    public function dipakaiPembelian(string $idSupplier): bool;
 }

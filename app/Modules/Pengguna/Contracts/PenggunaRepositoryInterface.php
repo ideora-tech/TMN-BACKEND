@@ -16,4 +16,6 @@ interface PenggunaRepositoryInterface
     public function create(array $data): Pengguna;
     public function update(Pengguna $model, array $data): Pengguna;
     public function delete(Pengguna $model): void;
+    public function terdaftarSebagaiApprover(string $idPengguna): bool;
+    public function jadiApproverLewatJabatan(string $idPengguna): bool;
 }

@@ -111,9 +111,9 @@ class PenugasanController extends Controller
         return ApiResponse::success(new PenugasanResource($record), 'Penugasan berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Penugasan berhasil dihapus');
     }
 }

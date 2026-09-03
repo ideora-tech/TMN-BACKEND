@@ -77,4 +77,22 @@ class JenisKendaraanRepository implements JenisKendaraanRepositoryInterface
             ->where('id_jenis_kendaraan', $record->id_jenis_kendaraan)
             ->update(RecordHelper::stampDelete());
     }
+
+    public function dipakaiRelasiAktif(string $idJenisKendaraan): bool
+    {
+        $tabelPerujuk = [
+            'armada', 'armada_vendor', 'penawaran_item', 'proyek_rute',
+            'parameter_bok', 'paket_perawatan_sparepart', 'interval_perawatan',
+        ];
+        foreach ($tabelPerujuk as $tabel) {
+            $ada = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_jenis_kendaraan', $idJenisKendaraan)
+                ->exists();
+            if ($ada) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

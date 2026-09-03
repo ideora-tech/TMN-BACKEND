@@ -14,4 +14,5 @@ interface LokasiRepositoryInterface
     public function create(array $data): LokasiModel;
     public function update(LokasiModel $model, array $data): LokasiModel;
     public function delete(LokasiModel $model): void;
+    public function dipakaiRute(string $idLokasi): bool;
 }

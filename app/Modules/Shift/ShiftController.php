@@ -33,9 +33,9 @@ class ShiftController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new ShiftResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new ShiftResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function store(StoreShiftRequest $request): JsonResponse
@@ -51,13 +51,13 @@ class ShiftController extends Controller
 
     public function update(UpdateShiftRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new ShiftResource($record), 'Shift berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Shift berhasil dihapus');
     }
 }

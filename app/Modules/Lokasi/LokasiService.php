@@ -48,6 +48,11 @@ class LokasiService
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRute($id)) {
+            abort(422, 'Lokasi masih dipakai sebagai asal/tujuan rute — nonaktifkan saja');
+        }
+
         $this->repo->delete($record);
     }
 }

@@ -16,4 +16,5 @@ interface VendorRepositoryInterface
     public function create(array $data): VendorModel;
     public function update(VendorModel $model, array $data): VendorModel;
     public function delete(VendorModel $model): void;
+    public function dipakaiRelasiAktif(string $idVendor): bool;
 }

@@ -64,6 +64,11 @@ class VendorService
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Vendor masih punya kontrak/armada/supir/invoice aktif — hapus atau selesaikan dulu data terkaitnya');
+        }
+
         $this->repo->delete($record);
     }
 

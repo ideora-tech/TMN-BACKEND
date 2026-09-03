@@ -66,4 +66,18 @@ class JenisPerawatanRepository implements JenisPerawatanRepositoryInterface
             ->where('id_jenis_perawatan', $idJenisPerawatan)
             ->count();
     }
+
+    public function dipakaiRelasiLain(string $idJenisPerawatan): bool
+    {
+        foreach (['interval_perawatan', 'paket_perawatan_sparepart'] as $tabel) {
+            $ada = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_jenis_perawatan', $idJenisPerawatan)
+                ->exists();
+            if ($ada) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

@@ -27,10 +27,10 @@ class PenggunaService
         ];
     }
 
-    public function findOrFail(string $id): Pengguna
+    public function findOrFail(string $id, ?string $idPerusahaan = null): Pengguna
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Pengguna tidak ditemukan');
         }
         return $record;
@@ -55,9 +55,9 @@ class PenggunaService
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): Pengguna
+    public function update(string $id, array $data, ?string $idPerusahaan = null): Pengguna
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         // Check username uniqueness if being changed
         if (isset($data['username']) && $data['username'] !== $record->username) {
@@ -90,9 +90,18 @@ class PenggunaService
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->terdaftarSebagaiApprover($id)) {
+            abort(422, 'Pengguna masih terdaftar sebagai approver di konfigurasi approval — ganti dulu approver-nya');
+        }
+
+        if ($this->repo->jadiApproverLewatJabatan($id)) {
+            abort(422, 'Pengguna ini pejabat approver (lewat jabatan karyawannya) — nonaktifkan saja akunnya');
+        }
+
         $this->repo->delete($record);
     }
 

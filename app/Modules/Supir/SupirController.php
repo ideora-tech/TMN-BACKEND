@@ -47,9 +47,9 @@ class SupirController extends Controller
         return ApiResponse::paginated(SupirResource::collection($result['data']), $result['meta']);
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new SupirResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new SupirResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function me(Request $request): JsonResponse
@@ -98,9 +98,9 @@ class SupirController extends Controller
         return ApiResponse::success(new SupirResource($record), 'Supir berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Supir berhasil dihapus');
     }
 }

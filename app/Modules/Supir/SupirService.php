@@ -83,10 +83,12 @@ class SupirService
         ];
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) { abort(404, 'Supir tidak ditemukan'); }
+        if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
+            abort(404, 'Supir tidak ditemukan');
+        }
         return $record;
     }
 
@@ -120,7 +122,7 @@ class SupirService
 
     public function update(string $id, array $data, string $idPerusahaan): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
         $this->assertArmadaDefaultRules($data, $idPerusahaan, $record->id_supir);
         $this->assertKaryawanRules($data, $idPerusahaan, $record->id_supir);
         $this->assertPenggunaRules($data, $idPerusahaan, $record->id_supir);
@@ -155,9 +157,14 @@ class SupirService
         }
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Supir masih punya riwayat penugasan/jadwal shift — ubah statusnya menjadi tidak aktif saja');
+        }
+
         $this->repo->delete($record);
     }
 

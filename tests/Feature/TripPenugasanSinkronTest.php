@@ -404,13 +404,26 @@ class TripPenugasanSinkronTest extends TestCase
         $this->assertDatabaseHas('penugasan', ['id_penugasan' => $penugasan->id_penugasan, 'dihapus_pada' => null]);
     }
 
-    public function test_hapus_penugasan_dengan_semua_trip_final_tetap_boleh(): void
+    public function test_hapus_penugasan_dengan_semua_trip_dibatalkan_tetap_boleh(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $penugasan = $this->makePenugasan('digunakan', 'aktif');
+        $this->makeTripUntukPenugasan($penugasan, 'dibatalkan');
+
+        $this->deleteJson("/api/penugasan/{$penugasan->id_penugasan}")->assertStatus(200);
+    }
+
+    public function test_hapus_penugasan_dengan_trip_selesai_ditolak(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $penugasan = $this->makePenugasan('digunakan', 'aktif');
         $this->makeTripUntukPenugasan($penugasan, 'selesai');
 
-        $this->deleteJson("/api/penugasan/{$penugasan->id_penugasan}")->assertStatus(200);
+        $res = $this->deleteJson("/api/penugasan/{$penugasan->id_penugasan}");
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('trip selesai', $res->json('message'));
+        $this->assertDatabaseHas('penugasan', ['id_penugasan' => $penugasan->id_penugasan, 'dihapus_pada' => null]);
     }
 
     public function test_hapus_penugasan_selesai_ditolak(): void

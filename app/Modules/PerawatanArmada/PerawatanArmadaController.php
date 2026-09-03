@@ -59,14 +59,14 @@ class PerawatanArmadaController extends Controller
         );
     }
 
-    public function show(string $idArmada, string $id): JsonResponse
+    public function show(Request $request, string $idArmada, string $id): JsonResponse
     {
-        return ApiResponse::success(new PerawatanArmadaResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new PerawatanArmadaResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
-    public function infoPengajuan(string $idArmada, string $id): JsonResponse
+    public function infoPengajuan(Request $request, string $idArmada, string $id): JsonResponse
     {
-        return ApiResponse::success($this->service->infoPengajuan($id));
+        return ApiResponse::success($this->service->infoPengajuan($id, (string) $request->user()->id_perusahaan));
     }
 
     public function store(StorePerawatanArmadaRequest $request, string $idArmada): JsonResponse
@@ -77,7 +77,7 @@ class PerawatanArmadaController extends Controller
 
     public function update(UpdatePerawatanArmadaRequest $request, string $idArmada, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new PerawatanArmadaResource($record), 'Perawatan armada berhasil diperbarui');
     }
 
@@ -88,7 +88,7 @@ class PerawatanArmadaController extends Controller
             ['alasan.required' => 'Alasan penghapusan wajib diisi'],
         );
 
-        $this->service->delete($id, $validated['alasan']);
+        $this->service->delete($id, $validated['alasan'], (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Perawatan armada berhasil dihapus');
     }
 
@@ -99,19 +99,19 @@ class PerawatanArmadaController extends Controller
             ['alasan.required' => 'Alasan pembatalan wajib diisi'],
         );
 
-        $record = $this->service->batal($id, $validated['alasan']);
+        $record = $this->service->batal($id, $validated['alasan'], (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new PerawatanArmadaResource($record), 'Perawatan armada dibatalkan');
     }
 
     public function storeBukti(UploadBuktiPerawatanRequest $request, string $idArmada, string $id): JsonResponse
     {
-        $record = $this->service->tambahBukti($id, $request->file('bukti', []));
+        $record = $this->service->tambahBukti($id, $request->file('bukti', []), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new PerawatanArmadaResource($record), 'Bukti perawatan berhasil diunggah');
     }
 
-    public function destroyBukti(string $idArmada, string $id, string $idBukti): JsonResponse
+    public function destroyBukti(Request $request, string $idArmada, string $id, string $idBukti): JsonResponse
     {
-        $this->service->hapusBukti($id, $idBukti);
+        $this->service->hapusBukti($id, $idBukti, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Bukti perawatan berhasil dihapus');
     }
 

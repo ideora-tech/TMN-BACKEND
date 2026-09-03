@@ -52,9 +52,9 @@ class ArmadaController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new ArmadaResource($this->service->detail($id)));
+        return ApiResponse::success(new ArmadaResource($this->service->detail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function store(StoreArmadaRequest $request): JsonResponse
@@ -75,9 +75,9 @@ class ArmadaController extends Controller
         return ApiResponse::success(new ArmadaResource($record), 'Armada berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Armada berhasil dihapus');
     }
 

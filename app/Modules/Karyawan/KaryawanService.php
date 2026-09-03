@@ -31,10 +31,10 @@ class KaryawanService
         ];
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Karyawan tidak ditemukan');
         }
         return $record;
@@ -53,9 +53,9 @@ class KaryawanService
         return $record;
     }
 
-    public function update(string $id, array $data): object
+    public function update(string $id, array $data, ?string $idPerusahaan = null): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         $jabatanBerubah = array_key_exists('id_jabatan', $data)
             && ($data['id_jabatan'] ?? null) !== $record->id_jabatan;
@@ -81,9 +81,14 @@ class KaryawanService
         return $this->repo->riwayatJabatan($id);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Karyawan masih punya akun/riwayat kepegawaian (kontrak, absensi, payroll, cuti) — ubah statusnya saja, jangan dihapus');
+        }
+
         $this->repo->delete($record);
     }
 

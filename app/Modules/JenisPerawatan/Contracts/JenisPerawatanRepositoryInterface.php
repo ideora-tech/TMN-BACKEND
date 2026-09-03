@@ -14,4 +14,5 @@ interface JenisPerawatanRepositoryInterface
     public function update(object $record, array $data): object;
     public function delete(object $record): void;
     public function countActiveUsage(string $idJenisPerawatan): int;
+    public function dipakaiRelasiLain(string $idJenisPerawatan): bool;
 }

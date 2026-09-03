@@ -33,9 +33,9 @@ class JenisPerawatanController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new JenisPerawatanResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new JenisPerawatanResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function store(StoreJenisPerawatanRequest $request): JsonResponse
@@ -51,13 +51,13 @@ class JenisPerawatanController extends Controller
 
     public function update(UpdateJenisPerawatanRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new JenisPerawatanResource($record), 'Jenis perawatan berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Jenis perawatan berhasil dihapus');
     }
 }

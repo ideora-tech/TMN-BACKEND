@@ -30,10 +30,10 @@ class TipePembayaranService
         return $this->repo->listAktifByPerusahaan($idPerusahaan);
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Tipe pembayaran tidak ditemukan');
         }
         return $record;
@@ -58,7 +58,7 @@ class TipePembayaranService
 
     public function update(string $id, array $data, string $idPerusahaan): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (isset($data['kode_tipe']) && $data['kode_tipe'] !== $record->kode_tipe) {
             if ($this->repo->findByKode($idPerusahaan, $data['kode_tipe'])) {
@@ -69,9 +69,14 @@ class TipePembayaranService
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiInvoiceVendor($record->id_perusahaan, $record->kode_tipe)) {
+            abort(422, 'Tipe pembayaran masih dipakai di invoice vendor — nonaktifkan saja');
+        }
+
         $this->repo->delete($record);
     }
 }

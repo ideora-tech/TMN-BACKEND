@@ -123,6 +123,28 @@ class ArmadaRepository implements ArmadaRepositoryInterface
         $model->softDelete();
     }
 
+    public function dipakaiRelasiAktif(string $idArmada): bool
+    {
+        foreach (['penugasan', 'perawatan_armada'] as $tabel) {
+            $ada = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_armada', $idArmada)
+                ->exists();
+            if ($ada) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function lepasArmadaDefaultSupir(string $idArmada): void
+    {
+        DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_armada_default', $idArmada)
+            ->update(['id_armada_default' => null, 'diubah_pada' => now()]);
+    }
+
     public function findServisJatuhTempo(string $idPerusahaan, int $days): array
     {
         $batas = now()->addDays($days)->toDateString();

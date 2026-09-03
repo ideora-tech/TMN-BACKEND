@@ -97,6 +97,21 @@ class KaryawanRepository implements KaryawanRepositoryInterface
             ->update(RecordHelper::stampDelete());
     }
 
+    public function dipakaiRelasiAktif(string $idKaryawan): bool
+    {
+        foreach (['pengguna', 'supir', 'penugasan', 'kontrak_karyawan', 'absensi', 'payroll_slip', 'pengajuan_cuti', 'karyawan_exit'] as $tabel) {
+            $dipakai = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_karyawan', $idKaryawan)
+                ->exists();
+            if ($dipakai) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function exitHistory(string $idKaryawan): array
     {
         return DB::table('karyawan_exit')

@@ -7,6 +7,7 @@ namespace App\Modules\Pengguna;
 use App\Models\Pengguna;
 use App\Modules\Pengguna\Contracts\PenggunaRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class PenggunaRepository implements PenggunaRepositoryInterface
 {
@@ -51,5 +52,37 @@ class PenggunaRepository implements PenggunaRepositoryInterface
     public function delete(Pengguna $model): void
     {
         $model->softDelete();
+    }
+
+    public function terdaftarSebagaiApprover(string $idPengguna): bool
+    {
+        return DB::table('approval_config_approver')
+            ->whereNull('dihapus_pada')
+            ->where('tipe', 'pengguna')
+            ->where('id_pengguna', $idPengguna)
+            ->exists();
+    }
+
+    /**
+     * Mencerminkan rantai resolusi approver jabatan di ApprovalRepository:
+     * config jabatan → karyawan aktif pemegang jabatan → pengguna aktif.
+     * Pengguna nonaktif sudah lepas dari resolusi, jadi boleh dihapus.
+     */
+    public function jadiApproverLewatJabatan(string $idPengguna): bool
+    {
+        return DB::table('pengguna as p')
+            ->join('karyawan as k', function ($join) {
+                $join->on('k.id_karyawan', '=', 'p.id_karyawan')
+                    ->where('k.aktif', 1)
+                    ->whereNull('k.dihapus_pada');
+            })
+            ->join('approval_config_approver as ac', function ($join) {
+                $join->on('ac.id_jabatan', '=', 'k.id_jabatan')
+                    ->where('ac.tipe', 'jabatan')
+                    ->whereNull('ac.dihapus_pada');
+            })
+            ->where('p.id_pengguna', $idPengguna)
+            ->where('p.aktif', 1)
+            ->exists();
     }
 }

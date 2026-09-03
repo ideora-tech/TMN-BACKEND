@@ -54,4 +54,12 @@ class SupplierRepository implements SupplierRepositoryInterface
         DB::table('supplier')->where('id_supplier', $record->id_supplier)
             ->update(RecordHelper::stampDelete());
     }
+
+    public function dipakaiPembelian(string $idSupplier): bool
+    {
+        return DB::table('pembelian_sparepart')
+            ->whereNull('dihapus_pada')
+            ->where('id_supplier', $idSupplier)
+            ->exists();
+    }
 }

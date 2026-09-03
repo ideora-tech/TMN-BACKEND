@@ -6,6 +6,7 @@ namespace App\Modules\Vendor;
 
 use App\Modules\Vendor\Contracts\VendorRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class VendorRepository implements VendorRepositoryInterface
 {
@@ -56,5 +57,20 @@ class VendorRepository implements VendorRepositoryInterface
     public function delete(VendorModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function dipakaiRelasiAktif(string $idVendor): bool
+    {
+        foreach (['kontrak_vendor', 'armada_vendor', 'supir_vendor', 'invoice_vendor'] as $tabel) {
+            $dipakai = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_vendor', $idVendor)
+                ->exists();
+            if ($dipakai) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

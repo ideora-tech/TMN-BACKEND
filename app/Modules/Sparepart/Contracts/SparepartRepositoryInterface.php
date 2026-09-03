@@ -16,6 +16,7 @@ interface SparepartRepositoryInterface
     public function update(object $record, array $data): object;
     public function delete(object $record): void;
     public function countActiveUsage(string $idSparepart): int;
+    public function dipakaiRelasiLain(string $idSparepart): bool;
     public function setStok(string $id, int $stokBaru): void;
     public function insertMutasi(array $data): void;
     public function paginateMutasi(string $idSparepart, int $page, int $limit): LengthAwarePaginator;

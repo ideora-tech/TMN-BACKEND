@@ -92,6 +92,22 @@ class DepartemenRepository implements DepartemenRepositoryInterface
             ->update(RecordHelper::stampDelete());
     }
 
+    public function dipakaiRelasiAktif(string $idDepartemen): bool
+    {
+        $adaJabatan = DB::table('jabatan')
+            ->whereNull('dihapus_pada')
+            ->where('id_departemen', $idDepartemen)
+            ->exists();
+        if ($adaJabatan) {
+            return true;
+        }
+
+        return DB::table('departemen')
+            ->whereNull('dihapus_pada')
+            ->where('id_departemen_induk', $idDepartemen)
+            ->exists();
+    }
+
     private function buildTree(Collection $items, ?string $parentId): array
     {
         return $items->where('id_departemen_induk', $parentId)->values()->map(function ($item) use ($items) {

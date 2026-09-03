@@ -36,18 +36,18 @@ class ArmadaService
         ];
     }
 
-    public function findOrFail(string $id): ArmadaModel
+    public function findOrFail(string $id, ?string $idPerusahaan = null): ArmadaModel
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Armada tidak ditemukan');
         }
         return $record;
     }
 
-    public function detail(string $id): ArmadaModel
+    public function detail(string $id, ?string $idPerusahaan = null): ArmadaModel
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
         $record->setAttribute('jumlah_penugasan_aktif', $this->repo->countPenugasanAktif($id));
         return $record;
     }
@@ -71,7 +71,7 @@ class ArmadaService
 
     public function update(string $id, array $data, string $idPerusahaan, ?UploadedFile $foto = null): ArmadaModel
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (isset($data['nopol']) && $data['nopol'] !== $record->nopol) {
             $existing = $this->repo->findByNopol($data['nopol']);
@@ -107,9 +107,15 @@ class ArmadaService
         return PenyimpananBerkas::simpan($foto, 'armada');
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Armada masih punya riwayat penugasan/perawatan — ubah statusnya menjadi tidak aktif saja');
+        }
+
+        $this->repo->lepasArmadaDefaultSupir($id);
         $this->repo->delete($record);
     }
 

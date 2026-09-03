@@ -36,9 +36,9 @@ class SparepartController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new SparepartResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new SparepartResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function store(StoreSparepartRequest $request): JsonResponse
@@ -59,9 +59,9 @@ class SparepartController extends Controller
         return ApiResponse::success(new SparepartResource($record), 'Spare part berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Spare part berhasil dihapus');
     }
 

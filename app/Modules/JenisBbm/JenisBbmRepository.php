@@ -6,6 +6,7 @@ namespace App\Modules\JenisBbm;
 
 use App\Modules\JenisBbm\Contracts\JenisBbmRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class JenisBbmRepository implements JenisBbmRepositoryInterface
 {
@@ -44,6 +45,20 @@ class JenisBbmRepository implements JenisBbmRepositoryInterface
     public function delete(JenisBbmModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function dipakaiRelasiAktif(string $idJenisBbm): bool
+    {
+        foreach (['laporan_perjalanan', 'parameter_bok'] as $tabel) {
+            $ada = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_jenis_bbm', $idJenisBbm)
+                ->exists();
+            if ($ada) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function hargaEfektif(string $idJenisBbm): ?float

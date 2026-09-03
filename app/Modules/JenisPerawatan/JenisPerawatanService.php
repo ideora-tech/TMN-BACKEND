@@ -25,10 +25,10 @@ class JenisPerawatanService
         ];
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Jenis perawatan tidak ditemukan');
         }
         return $record;
@@ -39,19 +39,23 @@ class JenisPerawatanService
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): object
+    public function update(string $id, array $data, ?string $idPerusahaan = null): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         $dipakai = $this->repo->countActiveUsage($id);
         if ($dipakai > 0) {
             abort(422, "Jenis perawatan masih dipakai di {$dipakai} catatan perawatan aktif, tidak bisa dihapus");
+        }
+
+        if ($this->repo->dipakaiRelasiLain($id)) {
+            abort(422, 'Jenis perawatan masih dipakai di interval/paket perawatan — hapus dulu konfigurasinya');
         }
 
         $this->repo->delete($record);

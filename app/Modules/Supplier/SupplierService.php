@@ -47,6 +47,11 @@ class SupplierService
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiPembelian($id)) {
+            abort(422, 'Supplier masih dipakai di pengajuan pembelian sparepart — nonaktifkan saja');
+        }
+
         $this->repo->delete($record);
     }
 }

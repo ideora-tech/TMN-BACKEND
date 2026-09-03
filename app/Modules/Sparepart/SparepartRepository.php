@@ -107,6 +107,24 @@ class SparepartRepository implements SparepartRepositoryInterface
             ->count();
     }
 
+    /**
+     * sparepart_mutasi sengaja TIDAK dihitung — itu jejak audit milik sparepart
+     * sendiri (pengembalian stok pun mencatat mutasi), bukan rujukan eksternal.
+     */
+    public function dipakaiRelasiLain(string $idSparepart): bool
+    {
+        foreach (['pembelian_sparepart_item', 'paket_perawatan_sparepart'] as $tabel) {
+            $ada = DB::table($tabel)
+                ->whereNull('dihapus_pada')
+                ->where('id_sparepart', $idSparepart)
+                ->exists();
+            if ($ada) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public function setStok(string $id, int $stokBaru): void
     {
         DB::table('sparepart')

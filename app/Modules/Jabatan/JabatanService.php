@@ -26,10 +26,10 @@ class JabatanService
         ];
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Jabatan tidak ditemukan');
         }
         return $record;
@@ -48,18 +48,23 @@ class JabatanService
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): object
+    public function update(string $id, array $data, ?string $idPerusahaan = null): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
         if (array_key_exists('id_jabatan_induk', $data)) {
             $this->validasiJabatanInduk($data['id_jabatan_induk'], (string) $record->id_perusahaan, $id);
         }
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Jabatan masih dipakai karyawan, jabatan bawahan, atau konfigurasi approval — pindahkan dulu penggunaannya');
+        }
+
         $this->repo->delete($record);
     }
 

@@ -16,6 +16,7 @@ interface JenisBbmRepositoryInterface
     public function create(array $data): JenisBbmModel;
     public function update(JenisBbmModel $model, array $data): JenisBbmModel;
     public function delete(JenisBbmModel $model): void;
+    public function dipakaiRelasiAktif(string $idJenisBbm): bool;
     public function hargaEfektif(string $idJenisBbm): ?float;
     public function riwayatHarga(string $idJenisBbm): array;
     public function createHarga(string $idJenisBbm, array $data): HargaBbmModel;

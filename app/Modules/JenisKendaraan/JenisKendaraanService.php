@@ -25,10 +25,10 @@ class JenisKendaraanService
         ];
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Jenis kendaraan tidak ditemukan');
         }
         return $record;
@@ -47,7 +47,7 @@ class JenisKendaraanService
 
     public function update(string $id, array $data, string $idPerusahaan): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (isset($data['kode_jenis']) && $data['kode_jenis'] !== $record->kode_jenis) {
             if ($this->repo->findByKode($idPerusahaan, $data['kode_jenis'])) {
@@ -58,9 +58,14 @@ class JenisKendaraanService
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, string $idPerusahaan): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Jenis kendaraan masih dipakai armada/penawaran/proyek/perawatan — nonaktifkan saja');
+        }
+
         $this->repo->delete($record);
     }
 }

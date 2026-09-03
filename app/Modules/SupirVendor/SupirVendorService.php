@@ -98,6 +98,13 @@ class SupirVendorService
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+
+        $adaPenugasan = app(\App\Modules\KontrakVendor\Contracts\KontrakVendorRepositoryInterface::class)
+            ->adaPenugasanNonFinalUntukSupirVendor($id);
+        if ($adaPenugasan) {
+            abort(422, 'Supir vendor masih punya penugasan yang belum selesai — selesaikan/batalkan dulu penugasannya');
+        }
+
         app(\App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface::class)->lepasSupirDefault($id);
         $this->repo->delete($record);
     }

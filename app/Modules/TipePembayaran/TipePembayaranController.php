@@ -43,9 +43,9 @@ class TipePembayaranController extends Controller
         return ApiResponse::success(TipePembayaranResource::collection($this->service->listAktif($idPerusahaan)));
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new TipePembayaranResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new TipePembayaranResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function store(StoreTipePembayaranRequest $request): JsonResponse
@@ -66,9 +66,9 @@ class TipePembayaranController extends Controller
         return ApiResponse::success(new TipePembayaranResource($record), 'Tipe pembayaran berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Tipe pembayaran berhasil dihapus');
     }
 }

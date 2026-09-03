@@ -153,4 +153,31 @@ class SupirRepository implements SupirRepositoryInterface
             ->where('id_supir', $record->id_supir)
             ->update(RecordHelper::stampDelete());
     }
+
+    public function dipakaiRelasiAktif(string $idSupir): bool
+    {
+        $adaPenugasan = DB::table('penugasan')
+            ->whereNull('dihapus_pada')
+            ->where('id_supir', $idSupir)
+            ->exists();
+        if ($adaPenugasan) {
+            return true;
+        }
+
+        $adaJadwal = DB::table('jadwal_shift')
+            ->whereNull('dihapus_pada')
+            ->where(function ($q) use ($idSupir) {
+                $q->where('id_supir', $idSupir)
+                  ->orWhere('id_supir_pengganti', $idSupir);
+            })
+            ->exists();
+        if ($adaJadwal) {
+            return true;
+        }
+
+        return DB::table('supir_proyek')
+            ->whereNull('dihapus_pada')
+            ->where('id_supir', $idSupir)
+            ->exists();
+    }
 }

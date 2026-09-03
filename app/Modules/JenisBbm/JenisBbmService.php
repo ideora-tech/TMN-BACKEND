@@ -60,6 +60,11 @@ class JenisBbmService
     public function delete(string $id, string $idPerusahaan): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Jenis BBM masih dipakai di laporan perjalanan/parameter BOK — nonaktifkan saja');
+        }
+
         $this->repo->delete($record);
     }
 

@@ -11,6 +11,7 @@ interface PerawatanArmadaRepositoryInterface
     public function paginateByArmada(string $idArmada, int $page, int $limit): LengthAwarePaginator;
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false, ?string $search = null, ?string $tanggalDari = null, ?string $tanggalSampai = null): LengthAwarePaginator;
     public function findById(string $id): ?object;
+    public function milikPerusahaan(string $idPerawatan, string $idPerusahaan): bool;
     public function create(array $data): object;
     public function update(object $record, array $data): object;
     public function delete(object $record): void;

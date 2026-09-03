@@ -14,6 +14,7 @@ interface KaryawanRepositoryInterface
     public function create(array $data): object;
     public function update(object $record, array $data): object;
     public function delete(object $record): void;
+    public function dipakaiRelasiAktif(string $idKaryawan): bool;
     public function exitHistory(string $idKaryawan): array;
     public function insertRiwayatJabatan(string $idPerusahaan, string $idKaryawan, ?string $idJabatanLama, ?string $idJabatanBaru): void;
     public function riwayatJabatan(string $idKaryawan): array;

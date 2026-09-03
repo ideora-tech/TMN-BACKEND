@@ -77,6 +77,19 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->first();
     }
 
+    public function milikPerusahaan(string $idPerawatan, string $idPerusahaan): bool
+    {
+        return DB::table('perawatan_armada')
+            ->join('armada', function ($join) use ($idPerusahaan) {
+                $join->on('armada.id_armada', '=', 'perawatan_armada.id_armada')
+                    ->where('armada.id_perusahaan', $idPerusahaan)
+                    ->whereNull('armada.dihapus_pada');
+            })
+            ->whereNull('perawatan_armada.dihapus_pada')
+            ->where('perawatan_armada.id_perawatan', $idPerawatan)
+            ->exists();
+    }
+
     public function getPerusahaan(string $idPerusahaan): ?object
     {
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();

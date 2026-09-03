@@ -31,10 +31,10 @@ class DepartemenService
         return $this->repo->tree($idPerusahaan);
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Departemen tidak ditemukan');
         }
         return $record;
@@ -51,15 +51,20 @@ class DepartemenService
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): object
+    public function update(string $id, array $data, ?string $idPerusahaan = null): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->dipakaiRelasiAktif($id)) {
+            abort(422, 'Departemen masih punya jabatan atau sub-departemen — pindahkan atau hapus dulu isinya');
+        }
+
         $this->repo->delete($record);
     }
 }

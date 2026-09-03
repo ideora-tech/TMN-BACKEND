@@ -6,6 +6,7 @@ namespace App\Modules\Lokasi;
 
 use App\Modules\Lokasi\Contracts\LokasiRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class LokasiRepository implements LokasiRepositoryInterface
 {
@@ -37,5 +38,16 @@ class LokasiRepository implements LokasiRepositoryInterface
     public function delete(LokasiModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function dipakaiRute(string $idLokasi): bool
+    {
+        return DB::table('rute')
+            ->whereNull('dihapus_pada')
+            ->where(function ($q) use ($idLokasi) {
+                $q->where('id_lokasi_asal', $idLokasi)
+                  ->orWhere('id_lokasi_tujuan', $idLokasi);
+            })
+            ->exists();
     }
 }

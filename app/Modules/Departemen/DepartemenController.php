@@ -43,9 +43,9 @@ class DepartemenController extends Controller
         return ApiResponse::success(DepartemenResource::collection($data));
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new DepartemenResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new DepartemenResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function store(StoreDepartemenRequest $request): JsonResponse
@@ -61,13 +61,13 @@ class DepartemenController extends Controller
 
     public function update(UpdateDepartemenRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new DepartemenResource($record), 'Departemen berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Departemen berhasil dihapus');
     }
 }

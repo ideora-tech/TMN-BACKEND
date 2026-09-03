@@ -36,9 +36,9 @@ class JenisKendaraanController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new JenisKendaraanResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new JenisKendaraanResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function store(StoreJenisKendaraanRequest $request): JsonResponse
@@ -59,9 +59,9 @@ class JenisKendaraanController extends Controller
         return ApiResponse::success(new JenisKendaraanResource($record), 'Jenis kendaraan berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Jenis kendaraan berhasil dihapus');
     }
 }

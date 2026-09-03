@@ -20,6 +20,8 @@ interface ArmadaRepositoryInterface
     public function create(array $data): ArmadaModel;
     public function update(ArmadaModel $model, array $data): ArmadaModel;
     public function delete(ArmadaModel $model): void;
+    public function dipakaiRelasiAktif(string $idArmada): bool;
+    public function lepasArmadaDefaultSupir(string $idArmada): void;
     public function findServisJatuhTempo(string $idPerusahaan, int $days): array;
     public function findServisJatuhTempoKm(string $idPerusahaan): array;
     public function hitungStatusArmada(string $idPerusahaan): array;

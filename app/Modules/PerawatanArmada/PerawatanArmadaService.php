@@ -176,16 +176,16 @@ class PerawatanArmadaService
         return $this->repo->getPerusahaan($idPerusahaan);
     }
 
-    public function infoPengajuan(string $id): ?array
+    public function infoPengajuan(string $id, ?string $idPerusahaan = null): ?array
     {
-        $this->findOrFail($id);
+        $this->findOrFail($id, $idPerusahaan);
         return $this->arusKasService->infoPengajuanPerawatan($id);
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && !$this->repo->milikPerusahaan($id, $idPerusahaan))) {
             abort(404, 'Perawatan armada tidak ditemukan');
         }
 
@@ -208,9 +208,9 @@ class PerawatanArmadaService
     }
 
     /** @param UploadedFile[] $files */
-    public function tambahBukti(string $idPerawatan, array $files): object
+    public function tambahBukti(string $idPerawatan, array $files, ?string $idPerusahaan = null): object
     {
-        $this->findOrFail($idPerawatan);
+        $this->findOrFail($idPerawatan, $idPerusahaan);
 
         foreach ($files as $file) {
             $this->repo->insertBukti([
@@ -223,9 +223,9 @@ class PerawatanArmadaService
         return $this->findOrFail($idPerawatan);
     }
 
-    public function hapusBukti(string $idPerawatan, string $idBukti): void
+    public function hapusBukti(string $idPerawatan, string $idBukti, ?string $idPerusahaan = null): void
     {
-        $this->findOrFail($idPerawatan);
+        $this->findOrFail($idPerawatan, $idPerusahaan);
 
         $bukti = $this->repo->findBukti($idPerawatan, $idBukti);
         if ($bukti === null) {
@@ -250,9 +250,9 @@ class PerawatanArmadaService
         });
     }
 
-    public function update(string $id, array $data): object
+    public function update(string $id, array $data, ?string $idPerusahaan = null): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (in_array($record->status, ['selesai', 'dibatalkan'], true)) {
             abort(422, 'Perawatan yang sudah selesai atau dibatalkan tidak dapat diubah');
@@ -289,9 +289,9 @@ class PerawatanArmadaService
         $this->arusKasService->sinkronNominalPengajuanPerawatan($record->id_perawatan, $totalBiaya);
     }
 
-    public function delete(string $id, string $alasan): void
+    public function delete(string $id, string $alasan, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if ($record->status === 'selesai') {
             abort(422, 'Perawatan yang sudah selesai tidak dapat dihapus');
@@ -308,9 +308,9 @@ class PerawatanArmadaService
         });
     }
 
-    public function batal(string $id, string $alasan): object
+    public function batal(string $id, string $alasan, ?string $idPerusahaan = null): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (!in_array($record->status, ['terjadwal', 'dalam_proses'], true)) {
             abort(422, 'Hanya perawatan terjadwal atau dalam proses yang dapat dibatalkan');

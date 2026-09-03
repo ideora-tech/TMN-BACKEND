@@ -36,10 +36,10 @@ class SparepartService
         ];
     }
 
-    public function findOrFail(string $id): object
+    public function findOrFail(string $id, ?string $idPerusahaan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Spare part tidak ditemukan');
         }
         return $record;
@@ -55,7 +55,7 @@ class SparepartService
 
     public function update(string $id, array $data, string $idPerusahaan): object
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if (isset($data['kode']) && $data['kode'] !== $record->kode) {
             if ($this->repo->findByKode($idPerusahaan, $data['kode'], $id)) {
@@ -66,13 +66,17 @@ class SparepartService
         return $this->repo->update($record, $data);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         $dipakai = $this->repo->countActiveUsage($id);
         if ($dipakai > 0) {
             abort(422, "Spare part masih dipakai di {$dipakai} item catatan servis aktif, tidak bisa dihapus");
+        }
+
+        if ($this->repo->dipakaiRelasiLain($id)) {
+            abort(422, 'Spare part masih dipakai di pembelian/paket perawatan — nonaktifkan saja');
         }
 
         $this->repo->delete($record);

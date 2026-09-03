@@ -195,6 +195,18 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return PenugasanModel::active()->find($id);
     }
 
+    public function milikPerusahaan(string $idPenugasan, string $idPerusahaan): bool
+    {
+        return PenugasanModel::active()
+            ->join('proyek', function ($join) use ($idPerusahaan) {
+                $join->on('proyek.id_proyek', '=', 'penugasan.id_proyek')
+                    ->where('proyek.id_perusahaan', $idPerusahaan)
+                    ->whereNull('proyek.dihapus_pada');
+            })
+            ->where('penugasan.id_penugasan', $idPenugasan)
+            ->exists();
+    }
+
     public function hasConflict(string $idKaryawan, string $tanggalTugas, ?string $excludeId = null): bool
     {
         $query = PenugasanModel::active()

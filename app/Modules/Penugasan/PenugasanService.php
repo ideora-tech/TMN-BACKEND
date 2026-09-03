@@ -798,9 +798,13 @@ class PenugasanService
         return $this->repo->titikDropDetailUntukBanyak($idPenugasanList);
     }
 
-    public function delete(string $id): void
+    public function delete(string $id, ?string $idPerusahaan = null): void
     {
         $record = $this->findOrFail($id);
+
+        if ($idPerusahaan !== null && !$this->repo->milikPerusahaan($id, $idPerusahaan)) {
+            abort(404, 'Penugasan tidak ditemukan');
+        }
 
         if ($record->status === 'selesai') {
             abort(422, 'Penugasan yang sudah selesai tidak dapat dihapus — buka kembali statusnya bila memang perlu diubah');
@@ -808,6 +812,10 @@ class PenugasanService
 
         if ($this->tripRepo->adaTripNonFinalUntukPenugasan($id)) {
             abort(422, 'Penugasan masih memiliki trip yang belum selesai — selesaikan atau batalkan trip terlebih dahulu');
+        }
+
+        if ($this->tripRepo->adaTripSelesaiUntukPenugasan($id)) {
+            abort(422, 'Penugasan sudah punya trip selesai — jejaknya dipakai laporan & penagihan, tidak bisa dihapus');
         }
 
         $idPengajuan = $record->id_pengajuan;

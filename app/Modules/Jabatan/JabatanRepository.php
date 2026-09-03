@@ -84,6 +84,30 @@ class JabatanRepository implements JabatanRepositoryInterface
             ->update(RecordHelper::stampDelete());
     }
 
+    public function dipakaiRelasiAktif(string $idJabatan): bool
+    {
+        $adaKaryawan = DB::table('karyawan')
+            ->whereNull('dihapus_pada')
+            ->where('id_jabatan', $idJabatan)
+            ->exists();
+        if ($adaKaryawan) {
+            return true;
+        }
+
+        $adaBawahan = DB::table('jabatan')
+            ->whereNull('dihapus_pada')
+            ->where('id_jabatan_induk', $idJabatan)
+            ->exists();
+        if ($adaBawahan) {
+            return true;
+        }
+
+        return DB::table('approval_config_approver')
+            ->whereNull('dihapus_pada')
+            ->where('id_jabatan', $idJabatan)
+            ->exists();
+    }
+
     public function strukturOrganisasi(string $idPerusahaan): array
     {
         $rows = DB::table('jabatan as j')

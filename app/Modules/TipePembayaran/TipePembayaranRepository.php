@@ -88,4 +88,13 @@ class TipePembayaranRepository implements TipePembayaranRepositoryInterface
             ->where('id_tipe_pembayaran', $record->id_tipe_pembayaran)
             ->update(RecordHelper::stampDelete());
     }
+
+    public function dipakaiInvoiceVendor(string $idPerusahaan, string $kodeTipe): bool
+    {
+        return DB::table('invoice_vendor')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('tipe_pembayaran', $kodeTipe)
+            ->exists();
+    }
 }
