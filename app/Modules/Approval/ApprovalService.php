@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Approval;
 
 use App\Modules\Approval\Contracts\ApprovalRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -250,6 +251,29 @@ class ApprovalService
     public function statusUntukReferensi(string $kode, string $idReferensi, string $idPerusahaan): ?array
     {
         return $this->repo->statusUntukReferensi($kode, $idReferensi, $idPerusahaan);
+    }
+
+    /**
+     * Lampiran hanya boleh menempel selama pengajuan masih menunggu — setelah
+     * diputus, dokumen pendukung dikunci supaya jejak keputusan tidak berubah.
+     */
+    public function tambahLampiranUntukReferensi(string $kode, string $idReferensi, string $idPerusahaan, array $files): array
+    {
+        $pengajuan = $this->repo->findPengajuanMenungguUntukReferensi($kode, $idReferensi, $idPerusahaan);
+        if ($pengajuan === null) {
+            abort(404, 'Pengajuan approval yang masih menunggu untuk referensi ini tidak ditemukan');
+        }
+
+        $lampiranList = [];
+        foreach ($files as $file) {
+            $lampiranList[] = [
+                'nama_file' => $file->getClientOriginalName(),
+                'url_file'  => PenyimpananBerkas::simpan($file, 'lampiran-approval'),
+            ];
+        }
+        $this->repo->tambahLampiran($pengajuan->id_approval, $lampiranList);
+
+        return $this->repo->lampiranUntukApproval($pengajuan->id_approval);
     }
 
     public function adaEventTypeAktif(string $kode, string $idPerusahaan): bool

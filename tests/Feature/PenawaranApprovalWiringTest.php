@@ -62,7 +62,35 @@ class PenawaranApprovalWiringTest extends TestCase
             'nilai_penawaran' => 5000000, 'status' => 'draft', 'aktif' => 1,
             'dibuat_pada' => now(), 'dibuat_oleh' => $idPengguna,
         ]);
+        $this->tambahItemRute($id);
         return $id;
+    }
+
+    private function tambahItemRute(string $idPenawaran): void
+    {
+        $idRute = (string) Str::uuid();
+        DB::table('rute')->insert([
+            'id_rute' => $idRute, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_rute' => 'RT-W' . Str::random(5), 'nama_rute' => 'Rute Wiring',
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $idJenis = (string) Str::uuid();
+        DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $idJenis, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_jenis' => 'JW' . Str::random(5), 'nama_jenis' => 'Jenis Wiring',
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        DB::table('penawaran_item')->insert([
+            'id_penawaran_item' => (string) Str::uuid(),
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'id_penawaran'      => $idPenawaran,
+            'id_rute'           => $idRute,
+            'id_jenis_kendaraan' => $idJenis,
+            'harga_satuan'      => 500000,
+            'estimasi_ritase'   => 10,
+            'subtotal'          => 5000000,
+            'dibuat_pada'       => now(),
+        ]);
     }
 
     public function test_ajukan_approval_pindah_ke_menunggu_approval_dan_membuat_approval_pengajuan(): void
@@ -79,6 +107,23 @@ class PenawaranApprovalWiringTest extends TestCase
         $res->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $id, 'status' => 'menunggu']);
+    }
+
+    public function test_ajukan_approval_tanpa_item_rute_ditolak_422(): void
+    {
+        $sales = $this->actingAsRole('SUPERADMIN');
+        $id = (string) Str::uuid();
+        DB::table('penawaran')->insert([
+            'id_penawaran' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_klien' => $this->makeKlien(),
+            'nomor_penawaran' => 'PNW-NO-ITEM', 'judul' => 'Tanpa Item', 'status' => 'draft',
+            'tipe_harga' => 'per_rit',
+            'aktif' => 1, 'dibuat_pada' => now(), 'dibuat_oleh' => $sales->id_pengguna,
+        ]);
+
+        $this->postJson("/api/penawaran/{$id}/ajukan-approval")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Penawaran belum punya item rute — tambahkan minimal 1 rute sebelum diajukan approval');
     }
 
     public function test_ajukan_approval_dari_status_bukan_draft_ditolak_422(): void

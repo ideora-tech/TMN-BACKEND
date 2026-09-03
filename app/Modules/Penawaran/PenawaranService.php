@@ -173,6 +173,10 @@ class PenawaranService
             abort(422, 'Lengkapi klien terlebih dahulu sebelum mengajukan approval');
         }
 
+        if ($record->tipe_harga !== 'borongan' && $this->itemRepo->listByPenawaran($id)->isEmpty()) {
+            abort(422, 'Penawaran belum punya item rute — tambahkan minimal 1 rute sebelum diajukan approval');
+        }
+
         return DB::transaction(function () use ($id, $idPerusahaan, $idPengguna) {
             $terkunci = $this->repo->findForUpdate($id);
             if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
@@ -183,6 +187,9 @@ class PenawaranService
             }
             if ($terkunci->id_klien === null) {
                 abort(422, 'Lengkapi klien terlebih dahulu sebelum mengajukan approval');
+            }
+            if ($terkunci->tipe_harga !== 'borongan' && $this->itemRepo->listByPenawaran($id)->isEmpty()) {
+                abort(422, 'Penawaran belum punya item rute — tambahkan minimal 1 rute sebelum diajukan approval');
             }
 
             app(\App\Modules\Approval\ApprovalService::class)->ajukan(

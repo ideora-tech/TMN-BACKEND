@@ -6,8 +6,10 @@ namespace Tests\Feature;
 
 use App\Models\Pengguna;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -1018,5 +1020,49 @@ class ApprovalEngineTest extends TestCase
             ->assertJsonPath('data.0.kode_event_type', 'sparepart')
             ->assertJsonPath('data.0.nomor_referensi', 'PP-SPAREPART-1')
             ->assertJsonPath('data.0.pihak_referensi', 'Toko Sparepart Ringkasan');
+    }
+
+    public function test_upload_lampiran_dan_muncul_di_status_referensi(): void
+    {
+        Storage::fake('public');
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned', 'test_lampiran');
+        $idReferensi = (string) Str::uuid();
+        DB::table('approval_pengajuan')->insert([
+            'id_approval'         => (string) Str::uuid(),
+            'id_perusahaan'       => self::PERUSAHAAN_ID,
+            'id_event_type'       => $idEventType,
+            'id_referensi'        => $idReferensi,
+            'id_pengguna_pengaju' => (string) Str::uuid(),
+            'status'              => 'menunggu',
+            'dibuat_pada'         => now(),
+        ]);
+
+        $this->post('/api/approval-pengajuan/lampiran', [
+            'kode'         => 'test_lampiran',
+            'id_referensi' => $idReferensi,
+            'lampiran'     => [
+                UploadedFile::fake()->create('penawaran-vendor.pdf', 50, 'application/pdf'),
+                UploadedFile::fake()->create('foto-barang.jpg', 30, 'image/jpeg'),
+            ],
+        ])->assertStatus(201)->assertJsonCount(2, 'data');
+
+        $status = $this->getJson('/api/approval-pengajuan/status-referensi?kode=test_lampiran&id_referensi=' . $idReferensi);
+        $status->assertStatus(200);
+        $this->assertCount(2, $status->json('data.lampiran'));
+        $this->assertSame('penawaran-vendor.pdf', $status->json('data.lampiran.0.nama_file'));
+        $this->assertNotEmpty($status->json('data.lampiran.0.url_file'));
+    }
+
+    public function test_upload_lampiran_tanpa_pengajuan_menunggu_404(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->makeEventType('pinned', 'test_lampiran_404');
+
+        $this->post('/api/approval-pengajuan/lampiran', [
+            'kode'         => 'test_lampiran_404',
+            'id_referensi' => (string) Str::uuid(),
+            'lampiran'     => [UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')],
+        ])->assertStatus(404);
     }
 }

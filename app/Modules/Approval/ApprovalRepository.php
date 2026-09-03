@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Approval;
 
 use App\Modules\Approval\Contracts\ApprovalRepositoryInterface;
+use App\Support\PenyimpananBerkas;
 use App\Support\RecordHelper;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -352,6 +353,7 @@ class ApprovalRepository implements ApprovalRepositoryInterface
             'diajukan_oleh' => $namaPengaju,
             'diajukan_pada' => $pengajuan->dibuat_pada,
             'progress'      => $this->progressApproval($pengajuan->id_approval),
+            'lampiran'      => $this->lampiranUntukApproval($pengajuan->id_approval),
             'approver'      => $keputusan->map(static fn (object $r) => [
                 'nama'       => $r->username ?? '-',
                 'status'     => $r->status,
@@ -359,6 +361,47 @@ class ApprovalRepository implements ApprovalRepositoryInterface
                 'waktu_aksi' => $r->waktu_aksi,
             ])->values()->all(),
         ];
+    }
+
+    public function findPengajuanMenungguUntukReferensi(string $kode, string $idReferensi, string $idPerusahaan): ?ApprovalPengajuanModel
+    {
+        $eventType = $this->findEventTypeByKode($kode, $idPerusahaan);
+        if ($eventType === null) {
+            return null;
+        }
+
+        return ApprovalPengajuanModel::active()
+            ->where('id_event_type', $eventType->id_event_type)
+            ->where('id_referensi', $idReferensi)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', 'menunggu')
+            ->orderByDesc('dibuat_pada')
+            ->first();
+    }
+
+    public function tambahLampiran(string $idApproval, array $lampiranList): void
+    {
+        foreach ($lampiranList as $lampiran) {
+            DB::table('approval_lampiran')->insert(RecordHelper::stampCreate([
+                'id_approval' => $idApproval,
+                'nama_file'   => $lampiran['nama_file'],
+                'url_file'    => $lampiran['url_file'],
+            ], 'id_lampiran'));
+        }
+    }
+
+    public function lampiranUntukApproval(string $idApproval): array
+    {
+        return DB::table('approval_lampiran')
+            ->whereNull('dihapus_pada')
+            ->where('id_approval', $idApproval)
+            ->orderBy('dibuat_pada')
+            ->get(['id_lampiran', 'nama_file', 'url_file'])
+            ->map(static fn (object $r) => [
+                'id_lampiran' => $r->id_lampiran,
+                'nama_file'   => $r->nama_file,
+                'url_file'    => PenyimpananBerkas::url($r->url_file),
+            ])->values()->all();
     }
 
     public function listMenungguApprovalSaya(string $idPengguna, string $idPerusahaan): Collection

@@ -93,6 +93,27 @@ class ApprovalController extends Controller
         return ApiResponse::success($data);
     }
 
+    public function uploadLampiran(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'kode'         => ['required', 'string', 'max:100'],
+            'id_referensi' => ['required', 'string', 'max:36'],
+            'lampiran'     => ['required', 'array', 'min:1', 'max:10'],
+            'lampiran.*'   => ['file', 'mimes:jpg,jpeg,png,pdf,xls,xlsx,doc,docx', 'max:5120'],
+        ], [
+            'lampiran.required' => 'Minimal 1 file lampiran wajib disertakan',
+        ]);
+
+        $data = $this->service->tambahLampiranUntukReferensi(
+            $validated['kode'],
+            $validated['id_referensi'],
+            (string) $request->user()->id_perusahaan,
+            $request->file('lampiran'),
+        );
+
+        return ApiResponse::success($data, 'Lampiran berhasil diunggah', 201);
+    }
+
     public function menungguSaya(Request $request): JsonResponse
     {
         $data = $this->service->menungguApprovalSaya(
