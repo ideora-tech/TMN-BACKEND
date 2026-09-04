@@ -253,6 +253,11 @@ class ApprovalService
         return $this->repo->statusUntukReferensi($kode, $idReferensi, $idPerusahaan);
     }
 
+    public function eventTypeAktifAda(string $kode, string $idPerusahaan): bool
+    {
+        return $this->repo->findEventTypeAktifByKode($kode, $idPerusahaan) !== null;
+    }
+
     /**
      * Lampiran hanya boleh menempel selama pengajuan masih menunggu — setelah
      * diputus, dokumen pendukung dikunci supaya jejak keputusan tidak berubah.

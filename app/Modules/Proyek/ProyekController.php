@@ -50,9 +50,9 @@ class ProyekController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        $proyek = $this->service->findOrFail($id);
+        $proyek = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
 
         $klien = $proyek->id_klien ? $this->klienRepo->findById((string) $proyek->id_klien) : null;
         $proyek->nama_klien = $klien->nama_klien ?? null;
@@ -81,13 +81,23 @@ class ProyekController extends Controller
 
     public function updateStatus(UpdateStatusProyekRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->updateStatus($id, $request->validated()['status']);
+        $record = $this->service->updateStatus($id, $request->validated()['status'], (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new ProyekResource($record), 'Status proyek berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function ajukanApproval(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $record = $this->service->ajukanApproval(
+            $id,
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->id_perusahaan,
+        );
+        return ApiResponse::success(new ProyekResource($record), 'Proyek diajukan untuk approval');
+    }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Proyek berhasil dihapus');
     }
 

@@ -60,13 +60,24 @@ class ProyekService
         ];
     }
 
-    public function findOrFail(string $id): ProyekModel
+    public function findOrFail(string $id, ?string $idPerusahaan = null): ProyekModel
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idPerusahaan !== null && (string) $record->id_perusahaan !== $idPerusahaan)) {
             abort(404, 'Proyek tidak ditemukan');
         }
         return $record;
+    }
+
+    /** Proyek manual = tidak lahir dari penawaran; gerbang approval hanya berlaku untuk jalur ini. */
+    private function proyekManual(string $idProyek): bool
+    {
+        return $this->penawaranRepo->penawaranPertamaProyek($idProyek) === null;
+    }
+
+    private function gerbangApprovalAktif(string $idPerusahaan): bool
+    {
+        return app(\App\Modules\Approval\ApprovalService::class)->eventTypeAktifAda('proyek', $idPerusahaan);
     }
 
     public function create(array $data): ProyekModel
@@ -77,6 +88,10 @@ class ProyekService
         $ruteManual  = $data['rute'] ?? [];
         unset($data['id_penawaran'], $data['rute']);
         $data['tipe_harga'] = $data['tipe_harga'] ?? 'per_rit';
+
+        if ($idPenawaran === null && $this->gerbangApprovalAktif((string) $idPerusahaan)) {
+            $data['status'] = 'draft';
+        }
 
         return DB::transaction(function () use ($data, $idPenawaran, $ruteManual, $idPerusahaan) {
             $penawaran = null;
@@ -353,20 +368,88 @@ class ProyekService
         return $this->repo->update($record, $data);
     }
 
-    public function updateStatus(string $id, string $status): ProyekModel
+    public function updateStatus(string $id, string $status, ?string $idPerusahaan = null): ProyekModel
     {
         if (!in_array($status, self::ALLOWED_STATUSES, true)) {
             abort(422, 'Status tidak valid');
         }
 
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($record->status === 'menunggu_approval') {
+            abort(422, 'Proyek sedang menunggu approval — tunggu keputusan approver terlebih dahulu');
+        }
+
+        if (
+            $status === 'aktif'
+            && $record->status === 'draft'
+            && $this->proyekManual($id)
+            && $this->gerbangApprovalAktif((string) $record->id_perusahaan)
+        ) {
+            $info = app(\App\Modules\Approval\ApprovalService::class)
+                ->statusUntukReferensi('proyek', $id, (string) $record->id_perusahaan);
+            if (($info['status'] ?? null) !== 'disetujui') {
+                abort(422, 'Proyek tanpa penawaran harus melalui approval — ajukan approval terlebih dahulu');
+            }
+        }
 
         return $this->repo->update($record, ['status' => $status]);
     }
 
-    public function delete(string $id): void
+    public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): ProyekModel
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($record->status !== 'draft') {
+            abort(422, 'Hanya proyek berstatus draft yang bisa diajukan approval');
+        }
+
+        if (!$this->proyekManual($id)) {
+            abort(422, 'Proyek dari penawaran tidak perlu approval — sudah disetujui lewat penawarannya');
+        }
+
+        return DB::transaction(function () use ($id, $idPerusahaan, $idPengguna) {
+            $terkunci = $this->repo->findByIdForUpdate($id);
+            if ($terkunci === null || (string) $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Proyek tidak ditemukan');
+            }
+            if ($terkunci->status !== 'draft') {
+                abort(422, 'Hanya proyek berstatus draft yang bisa diajukan approval');
+            }
+
+            $nominal = $terkunci->harga_proyek ?? $terkunci->harga_penawaran;
+
+            app(\App\Modules\Approval\ApprovalService::class)->ajukan(
+                'proyek',
+                $id,
+                $idPengguna,
+                $nominal !== null ? (float) $nominal : null,
+                $idPerusahaan,
+            );
+
+            return $this->repo->update($this->findOrFail($id), ['status' => 'menunggu_approval']);
+        });
+    }
+
+    public function terapkanKeputusanApproval(string $idProyek, string $idPerusahaan, string $keputusan): void
+    {
+        $record = $this->repo->findById($idProyek);
+        if ($record === null || (string) $record->id_perusahaan !== $idPerusahaan) {
+            \Illuminate\Support\Facades\Log::warning("ProyekApprovalListener: proyek {$idProyek} tidak ditemukan atau beda perusahaan");
+            return;
+        }
+        if ($record->status !== 'menunggu_approval') {
+            return;
+        }
+
+        $this->repo->update($record, [
+            'status' => $keputusan === 'disetujui' ? 'aktif' : 'draft',
+        ]);
+    }
+
+    public function delete(string $id, ?string $idPerusahaan = null): void
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
 
         if ($record->status === 'aktif') {
             abort(422, 'Proyek berstatus aktif tidak dapat dihapus — batalkan atau selesaikan proyek terlebih dahulu');
@@ -379,6 +462,9 @@ class ProyekService
         if ($this->repo->punyaDataTerkait($record->id_proyek)) {
             abort(422, 'Proyek tidak dapat dihapus karena sudah memiliki penugasan, faktur, atau penawaran tertaut');
         }
+
+        app(\App\Modules\Approval\ApprovalService::class)
+            ->batalkanUntukReferensi(['proyek'], $id, (string) $record->id_perusahaan);
 
         $this->repo->delete($record);
     }
