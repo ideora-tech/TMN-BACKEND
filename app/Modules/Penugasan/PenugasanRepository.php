@@ -241,11 +241,23 @@ class PenugasanRepository implements PenugasanRepositoryInterface
 
     public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, string $idProyek, ?string $idRute, ?string $excludeId = null): bool
     {
+        // Penugasan yang sudah menyelesaikan tripnya tidak bisa dipakai trip
+        // lagi (TripService memaksa "buat penugasan baru"), jadi tidak boleh
+        // ikut memblokir penugasan berikutnya walau statusnya masih 'aktif'.
         $query = PenugasanModel::active()
             ->where('id_supir', $idSupir)
             ->where('tanggal_tugas', $tanggal)
             ->where('id_proyek', $idProyek)
-            ->whereNotIn('status', ['batal', 'selesai']);
+            ->whereNotIn('status', ['batal', 'selesai'])
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('trip as t')
+                    ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+                    ->whereColumn('jk.id_penugasan', 'penugasan.id_penugasan')
+                    ->whereNull('t.dihapus_pada')
+                    ->whereNull('jk.dihapus_pada')
+                    ->where('t.status', 'selesai');
+            });
 
         if ($idRute !== null) {
             $query->where('id_rute', $idRute);
