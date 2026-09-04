@@ -85,6 +85,7 @@ class ProyekApprovalWiringTest extends TestCase
 
         $res->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $id, 'status' => 'menunggu']);
+        $this->assertDatabaseHas('notifikasi', ['link' => '/persetujuan-saya']);
     }
 
     public function test_proyek_dari_penawaran_tidak_bisa_diajukan_approval(): void
@@ -115,6 +116,7 @@ class ProyekApprovalWiringTest extends TestCase
             ->putuskanUntukReferensi('proyek', $id, $idApprover, 'setuju', null, self::PERUSAHAAN_ID);
 
         $this->assertDatabaseHas('proyek', ['id_proyek' => $id, 'status' => 'aktif']);
+        $this->assertDatabaseHas('notifikasi', ['link' => "/project/{$id}"]);
     }
 
     public function test_ditolak_mengembalikan_proyek_ke_draft(): void

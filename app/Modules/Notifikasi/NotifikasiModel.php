@@ -20,6 +20,7 @@ class NotifikasiModel extends BaseModel
         'tipe',
         'referensi_id',
         'referensi_tipe',
+        'link',
         'dibaca',
         'dibaca_pada',
         'aktif',

@@ -145,6 +145,7 @@ class ApprovalService
                     'tipe'           => 'approval_generik',
                     'referensi_id'   => $pengajuan->id_approval,
                     'referensi_tipe' => 'approval_pengajuan',
+                    'link'           => '/persetujuan-saya',
                     'dibaca'         => 0,
                 ]);
             }
@@ -259,6 +260,27 @@ class ApprovalService
     }
 
     /**
+     * Link tujuan notifikasi untuk PENGAJU setelah pengajuannya diputuskan —
+     * mengarah ke halaman detail dokumen yang di-aksi. Kode kategori
+     * pengeluaran keuangan tidak punya halaman detail sendiri, jadi diarahkan
+     * ke Proses Pembayaran.
+     */
+    private function linkReferensi(string $kode, string $idReferensi): string
+    {
+        return match ($kode) {
+            'penawaran'      => "/penawaran/{$idReferensi}",
+            'proyek'         => "/project/{$idReferensi}",
+            'faktur'         => "/faktur/{$idReferensi}",
+            'invoice_vendor' => "/invoice-vendor/{$idReferensi}",
+            'kontrak_vendor' => "/kontrak-vendor/{$idReferensi}",
+            'pengajuan_pengeluaran', 'uang_jalan', 'legalitas', 'perawatan', 'sparepart',
+            'penggajian', 'pembelian_aset', 'pembayaran_pinjaman', 'lainnya',
+            'persetujuan_transfer', 'pembayaran_vendor' => '/proses-pembayaran',
+            default          => '/persetujuan-saya',
+        };
+    }
+
+    /**
      * Lampiran hanya boleh menempel selama pengajuan masih menunggu — setelah
      * diputus, dokumen pendukung dikunci supaya jejak keputusan tidak berubah.
      */
@@ -332,6 +354,7 @@ class ApprovalService
             'tipe'           => 'approval_generik',
             'referensi_id'   => $pengajuan->id_approval,
             'referensi_tipe' => 'approval_pengajuan',
+            'link'           => $this->linkReferensi($eventType->kode, (string) $pengajuan->id_referensi),
             'dibaca'         => 0,
         ]);
 
