@@ -495,6 +495,38 @@ class PenugasanHarianTest extends TestCase
         $this->assertCount(0, $res->json('data.gagal'));
     }
 
+    public function test_supir_sedang_jalan_boleh_diberi_penugasan_rit_berikutnya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek  = $this->makeProyek();
+        $rute    = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, null);
+        $armadaA = $this->makeArmada();
+        $armadaB = $this->makeArmada();
+        $supir   = $this->makeSupir('Dadang Sedang Jalan');
+
+        $lama = \App\Modules\Penugasan\PenugasanModel::create([
+            'id_proyek'     => $proyek->id_proyek,
+            'id_rute'       => $rute,
+            'id_armada'     => $armadaA->id_armada,
+            'id_supir'      => $supir,
+            'tanggal_tugas' => '2026-09-10',
+            'status'        => 'aktif',
+        ]);
+        $this->makeTripUntukPenugasan((string) $lama->id_penugasan, 'berjalan');
+
+        $res = $this->postJson('/api/penugasan/harian', [
+            'tanggal'   => '2026-09-10',
+            'id_armada' => $armadaB->id_armada,
+            'id_supir'  => $supir,
+            'id_proyek' => $proyek->id_proyek,
+            'id_rute'   => $rute,
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.sukses', 1);
+        $this->assertCount(0, $res->json('data.gagal'));
+    }
+
     public function test_supir_boleh_dobel_tanggal_sama_jika_proyek_berbeda(): void
     {
         $this->actingAsRole('SUPERADMIN');
