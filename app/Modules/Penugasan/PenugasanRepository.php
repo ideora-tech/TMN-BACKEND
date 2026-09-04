@@ -245,7 +245,7 @@ class PenugasanRepository implements PenugasanRepositoryInterface
             ->where('id_supir', $idSupir)
             ->where('tanggal_tugas', $tanggal)
             ->where('id_proyek', $idProyek)
-            ->where('status', '!=', 'batal');
+            ->whereNotIn('status', ['batal', 'selesai']);
 
         if ($idRute !== null) {
             $query->where('id_rute', $idRute);

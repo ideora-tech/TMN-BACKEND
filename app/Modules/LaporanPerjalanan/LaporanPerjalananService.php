@@ -12,7 +12,7 @@ use Illuminate\Http\UploadedFile;
 
 class LaporanPerjalananService
 {
-    private const PESAN_FOTO_TERKUNCI = 'Foto laporan terkunci setelah trip selesai — hubungi kantor untuk koreksi';
+    private const PESAN_LAPORAN_TERKUNCI = 'Laporan terkunci setelah trip selesai — hubungi kantor untuk koreksi';
 
     public function __construct(
         private readonly LaporanPerjalananRepositoryInterface $repo,
@@ -109,13 +109,14 @@ class LaporanPerjalananService
             abort(422, 'Laporan hanya bisa diisi untuk trip yang sedang berjalan atau sudah selesai');
         }
 
+        $existing = $this->repo->findByTrip($idTrip);
+        if ($existing !== null && $trip->status === 'selesai') {
+            abort(422, self::PESAN_LAPORAN_TERKUNCI);
+        }
+
         $this->pastikanJenisBbmMilikPerusahaan($data, $idPerusahaan);
         $this->tolakBiayaTanggunganVendor($idTrip, $data);
 
-        $existing = $this->repo->findByTrip($idTrip);
-        if ($existing !== null && $trip->status === 'selesai' && $fotoFiles !== []) {
-            abort(422, self::PESAN_FOTO_TERKUNCI);
-        }
         if ($existing === null) {
             $this->pastikanBiayaBbmDiisi($idTrip, $data);
         }
@@ -171,7 +172,7 @@ class LaporanPerjalananService
     {
         $trip = $this->tripRepo->findById($idTrip);
         if ($trip !== null && $trip->status === 'selesai') {
-            abort(422, self::PESAN_FOTO_TERKUNCI);
+            abort(422, self::PESAN_LAPORAN_TERKUNCI);
         }
     }
 

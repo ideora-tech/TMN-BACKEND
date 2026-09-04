@@ -432,6 +432,37 @@ class PenugasanHarianTest extends TestCase
         $this->assertStringContainsString('Supir', $resSupir->json('data.gagal.0.alasan'));
     }
 
+    public function test_supir_boleh_ditugaskan_lagi_jika_penugasan_sebelumnya_sudah_selesai(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek  = $this->makeProyek();
+        $rute    = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, null);
+        $armadaA = $this->makeArmada();
+        $armadaB = $this->makeArmada();
+        $supir   = $this->makeSupir('Dadang Selesai');
+
+        \App\Modules\Penugasan\PenugasanModel::create([
+            'id_proyek'     => $proyek->id_proyek,
+            'id_rute'       => $rute,
+            'id_armada'     => $armadaA->id_armada,
+            'id_supir'      => $supir,
+            'tanggal_tugas' => '2026-09-10',
+            'status'        => 'selesai',
+        ]);
+
+        $res = $this->postJson('/api/penugasan/harian', [
+            'tanggal'   => '2026-09-10',
+            'id_armada' => $armadaB->id_armada,
+            'id_supir'  => $supir,
+            'id_proyek' => $proyek->id_proyek,
+            'id_rute'   => $rute,
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.sukses', 1);
+        $this->assertCount(0, $res->json('data.gagal'));
+    }
+
     public function test_supir_boleh_dobel_tanggal_sama_jika_proyek_berbeda(): void
     {
         $this->actingAsRole('SUPERADMIN');

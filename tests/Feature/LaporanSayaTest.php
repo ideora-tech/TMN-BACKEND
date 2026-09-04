@@ -201,7 +201,7 @@ class LaporanSayaTest extends TestCase
     {
         $ctx = $this->actingAsSupir();
         $proyek = $this->makeProyek();
-        $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'selesai');
+        $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'berjalan');
 
         Storage::fake('public');
         $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
@@ -340,10 +340,39 @@ class LaporanSayaTest extends TestCase
             'foto'       => [UploadedFile::fake()->image('lagi.jpg')],
         ])->assertStatus(422);
 
-        $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
+        $fieldsOnlyRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'  => 400000,
             'uang_jalan' => 150000,
-        ])->assertStatus(201)->assertJsonPath('data.biaya_bbm', 400000);
+        ]);
+        $fieldsOnlyRes->assertStatus(422);
+        $this->assertStringContainsString('terkunci', (string) $fieldsOnlyRes->json('message'));
+
+        $this->assertDatabaseHas('laporan_perjalanan', [
+            'id_laporan' => $idLaporan,
+            'biaya_bbm'  => 300000,
+        ]);
+    }
+
+    public function test_upsert_fields_only_boleh_saat_trip_masih_berjalan(): void
+    {
+        Storage::fake('public');
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'berjalan');
+
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
+            'biaya_bbm'  => 300000,
+            'uang_jalan' => 150000,
+            'foto'       => [UploadedFile::fake()->image('bukti.jpg')],
+        ]);
+        $createRes->assertStatus(201);
+
+        $res = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
+            'biaya_bbm'  => 350000,
+            'uang_jalan' => 175000,
+        ]);
+
+        $res->assertStatus(201)->assertJsonPath('data.biaya_bbm', 350000);
     }
 
     public function test_foto_boleh_diubah_saat_trip_masih_berjalan(): void
