@@ -7,6 +7,8 @@ namespace App\Modules\KontrakVendor;
 use App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface;
 use App\Modules\ArmadaVendor\Imports\ArmadaVendorImport;
 use App\Modules\KontrakVendor\Contracts\KontrakVendorRepositoryInterface;
+use App\Modules\PermintaanVendor\Contracts\PermintaanVendorRepositoryInterface;
+use App\Modules\PermintaanVendor\PermintaanVendorModel;
 use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
 use App\Modules\SupirVendor\Imports\SupirVendorImport;
 use App\Support\ExcelCellHelper;
@@ -23,6 +25,7 @@ class KontrakVendorService
         private readonly KontrakVendorRepositoryInterface $repo,
         private readonly ArmadaVendorRepositoryInterface $armadaVendorRepo,
         private readonly SupirVendorRepositoryInterface $supirVendorRepo,
+        private readonly PermintaanVendorRepositoryInterface $permintaanVendorRepo,
     ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $idVendor = null, ?string $search = null): array
@@ -70,10 +73,19 @@ class KontrakVendorService
             abort(404, 'Vendor tidak ditemukan');
         }
 
+        if (!empty($data['id_kontrak_induk'])) {
+            $this->validasiKontrakInduk((string) $data['id_kontrak_induk'], (string) $data['id_vendor'], (string) $data['id_perusahaan']);
+        }
+
         $unitList  = $data['unit'] ?? [];
         $supirList = $data['supir'] ?? [];
         $salinDari = $data['salin_dari_kontrak'] ?? null;
-        unset($data['unit'], $data['supir'], $data['salin_dari_kontrak']);
+        $idPermintaan = $data['id_permintaan'] ?? null;
+        unset($data['unit'], $data['supir'], $data['salin_dari_kontrak'], $data['id_permintaan']);
+
+        if (!empty($idPermintaan)) {
+            $this->pastikanPermintaanBisaDikontrakkan((string) $idPermintaan, (string) $data['id_perusahaan']);
+        }
 
         if ($supirList !== [] && ($data['mekanisme'] ?? '') === 'unit_only') {
             abort(422, 'Supir vendor hanya untuk kontrak bermekanisme unit_driver atau full');
@@ -100,8 +112,16 @@ class KontrakVendorService
         // Kontrak baru selalu lahir draft — aktif hanya lewat approval.
         $data['status'] = 'draft';
 
-        return DB::transaction(function () use ($data, $unitList, $supirList, $kontrakSumber) {
+        return DB::transaction(function () use ($data, $unitList, $supirList, $kontrakSumber, $idPermintaan) {
             $kontrak = $this->repo->create($data);
+
+            if (!empty($idPermintaan)) {
+                $permintaan = $this->pastikanPermintaanBisaDikontrakkan((string) $idPermintaan, (string) $data['id_perusahaan'], true);
+                $this->permintaanVendorRepo->update($permintaan, [
+                    'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+                    'status'            => 'dikontrakkan',
+                ]);
+            }
 
             $unitDiambilAlih = [];
             $idSupirPerIndex = [];
@@ -149,6 +169,48 @@ class KontrakVendorService
 
             return $kontrak;
         });
+    }
+
+    private function pastikanPermintaanBisaDikontrakkan(string $idPermintaan, string $idPerusahaan, bool $kunci = false): PermintaanVendorModel
+    {
+        $permintaan = $kunci
+            ? $this->permintaanVendorRepo->findForUpdate($idPermintaan)
+            : $this->permintaanVendorRepo->findAktifMilikPerusahaan($idPermintaan, $idPerusahaan);
+
+        if ($permintaan === null || (string) $permintaan->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Permintaan vendor tidak ditemukan');
+        }
+        if ($permintaan->id_kontrak_vendor !== null) {
+            abort(422, 'Permintaan ini sudah dikontrakkan');
+        }
+        if ($permintaan->status !== 'disetujui') {
+            abort(422, 'Hanya permintaan berstatus disetujui yang bisa dibuatkan kontrak');
+        }
+
+        return $permintaan;
+    }
+
+    private function validasiKontrakInduk(string $idKontrakInduk, string $idVendor, string $idPerusahaan, ?string $idKontrakSelf = null): void
+    {
+        if ($idKontrakSelf !== null) {
+            if ($idKontrakInduk === $idKontrakSelf) {
+                abort(422, 'Kontrak tidak boleh menjadi induk dirinya sendiri');
+            }
+            if ($this->repo->jumlahTurunan($idKontrakSelf) > 0) {
+                abort(422, 'Kontrak ini sudah menjadi payung — tidak bisa dijadikan turunan');
+            }
+        }
+
+        $induk = $this->repo->findAktifMilikPerusahaan($idKontrakInduk, $idPerusahaan);
+        if ($induk === null) {
+            abort(404, 'Kontrak payung tidak ditemukan');
+        }
+        if ((string) $induk->id_vendor !== $idVendor) {
+            abort(422, 'Kontrak payung harus milik vendor yang sama');
+        }
+        if ($induk->id_kontrak_induk !== null) {
+            abort(422, 'Kontrak payung tidak boleh berupa kontrak turunan');
+        }
     }
 
     private function validasiUnitBaru(array $unitList, string $idPerusahaan): void
@@ -864,7 +926,16 @@ class KontrakVendorService
             abort(422, 'Hanya kontrak berstatus draft yang bisa diajukan approval');
         }
 
-        app(\App\Modules\Approval\ApprovalService::class)->ajukan(
+        $approvalService = app(\App\Modules\Approval\ApprovalService::class);
+
+        if (!$approvalService->eventTypeAktifAda('kontrak_vendor', $idPerusahaan)) {
+            return $this->repo->update($record, [
+                'status'                  => 'aktif',
+                'alasan_ditolak_internal' => null,
+            ]);
+        }
+
+        $approvalService->ajukan(
             'kontrak_vendor',
             $id,
             $idPengguna,
@@ -910,6 +981,11 @@ class KontrakVendorService
             }
         }
 
+        if (array_key_exists('id_kontrak_induk', $data) && $data['id_kontrak_induk'] !== null) {
+            $idVendorEfektif = (string) ($data['id_vendor'] ?? $record->id_vendor);
+            $this->validasiKontrakInduk((string) $data['id_kontrak_induk'], $idVendorEfektif, $idPerusahaan, (string) $record->id_kontrak_vendor);
+        }
+
         if (array_key_exists('nilai_kontrak', $data) && $data['nilai_kontrak'] === null) {
             $data['nilai_kontrak'] = 0;
         }
@@ -953,6 +1029,10 @@ class KontrakVendorService
 
         if ($this->repo->adaPenugasanUntukKontrak((string) $record->id_kontrak_vendor)) {
             abort(422, 'Kontrak sudah memiliki riwayat penugasan — ubah statusnya menjadi nonaktif saja');
+        }
+
+        if ($this->repo->jumlahTurunan((string) $record->id_kontrak_vendor) > 0) {
+            abort(422, 'Kontrak ini menjadi payung bagi kontrak lain — lepaskan tautannya dulu');
         }
 
         DB::transaction(function () use ($record) {

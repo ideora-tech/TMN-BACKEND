@@ -52,11 +52,17 @@ class ProyekController extends Controller
 
     public function show(Request $request, string $id): JsonResponse
     {
-        $proyek = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $proyek = $this->service->findOrFail($id, $idPerusahaan);
 
         $klien = $proyek->id_klien ? $this->klienRepo->findById((string) $proyek->id_klien) : null;
         $proyek->nama_klien = $klien->nama_klien ?? null;
         $proyek->realisasi  = $this->service->ringkasanRealisasi($proyek);
+        $proyek->setAttribute(
+            'approval_aktif',
+            app(\App\Modules\Approval\ApprovalService::class)->eventTypeAktifAda('proyek', $idPerusahaan),
+        );
+        $proyek->syncOriginalAttribute('approval_aktif');
 
         return ApiResponse::success(new ProyekResource($proyek));
     }

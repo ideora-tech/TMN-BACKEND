@@ -14,8 +14,12 @@ use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
+use App\Modules\Penugasan\Imports\PenugasanUnitImport;
+use App\Support\ExcelCellHelper;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class PenugasanService
 {
@@ -796,6 +800,108 @@ class PenugasanService
     public function titikDropDetailBanyak(array $idPenugasanList): array
     {
         return $this->repo->titikDropDetailUntukBanyak($idPenugasanList);
+    }
+
+    /**
+     * Parse Excel unit penugasan (nopol, nama_supir, kode_rute) — mode
+     * "sebagian valid + laporan gagal" seperti parseUnit KontrakVendor.
+     *
+     * @return array{baris_valid: array<int, array{id_armada: string, nopol: string, id_supir: string, nama_supir: string, id_rute: string, label_rute: string}>, baris_gagal: array<int, array{baris: int, alasan: string}>}
+     */
+    public function parseUnitExcel(UploadedFile $file, string $idProyek, string $idPerusahaan): array
+    {
+        $rows = Excel::toArray(new PenugasanUnitImport(), $file)[0] ?? [];
+
+        $petaArmada = $this->repo->petaArmadaAktifByNopol($idPerusahaan);
+        $petaSupir  = $this->repo->petaSupirAktifByNama($idPerusahaan);
+
+        // Rute bisa dicocokkan lewat kode ATAU nama — kode menang bila bentrok.
+        $ruteTerdaftar = $this->repo->ruteProyekTerdaftar($idProyek, $idPerusahaan);
+        $petaRute = [];
+        foreach ($ruteTerdaftar as $rute) {
+            $entri = ['id' => $rute['id'], 'label' => trim($rute['kode'] . ' — ' . $rute['nama'])];
+            $petaRute[mb_strtoupper(trim($rute['kode']))] = $entri;
+        }
+        foreach ($ruteTerdaftar as $rute) {
+            $kunciNama = mb_strtoupper(trim($rute['nama']));
+            if ($kunciNama !== '' && !isset($petaRute[$kunciNama])) {
+                $petaRute[$kunciNama] = ['id' => $rute['id'], 'label' => trim($rute['kode'] . ' — ' . $rute['nama'])];
+            }
+        }
+        $daftarKode = implode(', ', array_map(static fn (array $r) => $r['kode'], array_slice($ruteTerdaftar, 0, 5)));
+
+        $barisValid = [];
+        $barisGagal = [];
+        $nopolDipakai = [];
+        $supirDipakai = [];
+
+        foreach ($rows as $index => $row) {
+            $baris = $index + 2;
+
+            $nopol     = ExcelCellHelper::cellToString($row['nopol'] ?? null);
+            $namaSupir = ExcelCellHelper::cellToString($row['nama_supir'] ?? null);
+            $kodeRute  = ExcelCellHelper::cellToString($row['kode_rute'] ?? null);
+
+            if ($nopol === null && $namaSupir === null && $kodeRute === null) {
+                continue;
+            }
+
+            if ($nopol === null) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => 'Nopol wajib diisi'];
+                continue;
+            }
+            $kunciNopol = mb_strtoupper($nopol);
+            if (!isset($petaArmada[$kunciNopol])) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => "Armada '{$nopol}' tidak ditemukan atau tidak aktif"];
+                continue;
+            }
+            if (isset($nopolDipakai[$kunciNopol])) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => "Nopol '{$nopol}' duplikat di dalam file"];
+                continue;
+            }
+
+            if ($namaSupir === null) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => 'Nama supir wajib diisi'];
+                continue;
+            }
+            $kunciSupir = mb_strtoupper($namaSupir);
+            if (!isset($petaSupir[$kunciSupir])) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => "Supir '{$namaSupir}' tidak ditemukan atau tidak aktif"];
+                continue;
+            }
+            if ($petaSupir[$kunciSupir]['ganda']) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => "Ada lebih dari satu supir bernama '{$namaSupir}' — pilih manual di form"];
+                continue;
+            }
+            if (isset($supirDipakai[$kunciSupir])) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => "Supir '{$namaSupir}' dipakai lebih dari satu baris — satu supir hanya bisa membawa satu unit"];
+                continue;
+            }
+
+            if ($kodeRute === null) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => 'Kode rute wajib diisi'];
+                continue;
+            }
+            $kunciRute = mb_strtoupper($kodeRute);
+            if (!isset($petaRute[$kunciRute])) {
+                $petunjuk = $daftarKode !== '' ? " — kode terdaftar: {$daftarKode}" : '';
+                $barisGagal[] = ['baris' => $baris, 'alasan' => "Rute '{$kodeRute}' tidak terdaftar di rate card proyek ini{$petunjuk}"];
+                continue;
+            }
+
+            $nopolDipakai[$kunciNopol] = true;
+            $supirDipakai[$kunciSupir] = true;
+            $barisValid[] = [
+                'id_armada'  => $petaArmada[$kunciNopol]['id'],
+                'nopol'      => $petaArmada[$kunciNopol]['label'],
+                'id_supir'   => $petaSupir[$kunciSupir]['id'],
+                'nama_supir' => $petaSupir[$kunciSupir]['label'],
+                'id_rute'    => $petaRute[$kunciRute]['id'],
+                'label_rute' => $petaRute[$kunciRute]['label'],
+            ];
+        }
+
+        return ['baris_valid' => $barisValid, 'baris_gagal' => $barisGagal];
     }
 
     public function delete(string $id, ?string $idPerusahaan = null): void

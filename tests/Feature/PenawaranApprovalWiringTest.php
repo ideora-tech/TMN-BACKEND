@@ -109,6 +109,46 @@ class PenawaranApprovalWiringTest extends TestCase
         $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $id, 'status' => 'menunggu']);
     }
 
+    public function test_ajukan_tanpa_event_type_aktif_langsung_terkirim(): void
+    {
+        $sales = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatPenawaranDraft($sales->id_pengguna);
+
+        $res = $this->postJson("/api/penawaran/{$id}/ajukan-approval");
+
+        $res->assertStatus(200)->assertJsonPath('data.status', 'terkirim');
+        $this->assertDatabaseMissing('approval_pengajuan', ['id_referensi' => $id]);
+    }
+
+    public function test_hapus_penawaran_menunggu_approval_membatalkan_pengajuannya(): void
+    {
+        $approver = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'MANAGER',
+            'username' => 'sm_' . Str::random(6), 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+        $this->makeEventTypeDanApprover($approver->id_pengguna);
+        $sales = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatPenawaranDraft($sales->id_pengguna);
+        $this->postJson("/api/penawaran/{$id}/ajukan-approval")->assertStatus(200);
+
+        $this->deleteJson("/api/penawaran/{$id}")->assertStatus(200);
+
+        $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $id, 'status' => 'dibatalkan']);
+        $this->assertSoftDeleted('penawaran', ['id_penawaran' => $id], deletedAtColumn: 'dihapus_pada');
+    }
+
+    public function test_hapus_penawaran_disetujui_tetap_ditolak_422(): void
+    {
+        $sales = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatPenawaranDraft($sales->id_pengguna);
+        DB::table('penawaran')->where('id_penawaran', $id)->update(['status' => 'disetujui']);
+
+        $res = $this->deleteJson("/api/penawaran/{$id}");
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('draft atau menunggu approval', $res->json('message'));
+    }
+
     public function test_detail_penawaran_menyertakan_status_proyek_batal(): void
     {
         $sales = $this->actingAsRole('SUPERADMIN');

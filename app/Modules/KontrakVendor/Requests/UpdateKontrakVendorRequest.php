@@ -17,6 +17,7 @@ class UpdateKontrakVendorRequest extends FormRequest
     {
         return [
             'id_vendor'              => ['sometimes', 'string', 'max:36'],
+            'id_kontrak_induk'       => ['sometimes', 'nullable', 'string', 'max:36'],
             'id_proyek'              => ['sometimes', 'nullable', 'string', 'max:36'],
             'nomor_kontrak'          => ['sometimes', 'nullable', 'string', 'max:100'],
             'mekanisme'              => ['sometimes', 'string', 'in:unit_only,unit_driver,full'],

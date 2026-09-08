@@ -25,6 +25,7 @@ class ProyekResource extends JsonResource
             'tipe_harga'      => $this->tipe_harga,
             'keterangan'      => $this->keterangan,
             'realisasi'       => $this->realisasi ?? null,
+            'approval_aktif'  => $this->approval_aktif ?? null,
             'dibuat_pada'     => $this->dibuat_pada,
             'diubah_pada'     => $this->diubah_pada,
         ];

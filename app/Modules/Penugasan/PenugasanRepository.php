@@ -195,6 +195,67 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return PenugasanModel::active()->find($id);
     }
 
+    /** @return array<string, array{id: string, label: string}> kunci = nopol UPPERCASE */
+    public function petaArmadaAktifByNopol(string $idPerusahaan): array
+    {
+        $peta = [];
+        $rows = DB::table('armada')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', '!=', 'tidak_aktif')
+            ->get(['id_armada', 'nopol']);
+        foreach ($rows as $row) {
+            $peta[mb_strtoupper(trim((string) $row->nopol))] = ['id' => (string) $row->id_armada, 'label' => (string) $row->nopol];
+        }
+        return $peta;
+    }
+
+    /** @return array<string, array{id: string, label: string, ganda: bool}> kunci = nama UPPERCASE */
+    public function petaSupirAktifByNama(string $idPerusahaan): array
+    {
+        $peta = [];
+        $rows = DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', 'aktif')
+            ->get(['id_supir', 'nama']);
+        foreach ($rows as $row) {
+            $kunci = mb_strtoupper(trim((string) $row->nama));
+            if (isset($peta[$kunci])) {
+                $peta[$kunci]['ganda'] = true;
+                continue;
+            }
+            $peta[$kunci] = ['id' => (string) $row->id_supir, 'label' => (string) $row->nama, 'ganda' => false];
+        }
+        return $peta;
+    }
+
+    /** @return array<int, array{id: string, kode: string, nama: string}> hanya rute yang terdaftar di rate card proyek */
+    public function ruteProyekTerdaftar(string $idProyek, string $idPerusahaan): array
+    {
+        return DB::table('proyek_rute')
+            ->join('rute', function ($join) {
+                $join->on('rute.id_rute', '=', 'proyek_rute.id_rute')
+                    ->whereNull('rute.dihapus_pada');
+            })
+            ->join('proyek', function ($join) use ($idPerusahaan) {
+                $join->on('proyek.id_proyek', '=', 'proyek_rute.id_proyek')
+                    ->where('proyek.id_perusahaan', $idPerusahaan)
+                    ->whereNull('proyek.dihapus_pada');
+            })
+            ->whereNull('proyek_rute.dihapus_pada')
+            ->where('proyek_rute.id_proyek', $idProyek)
+            ->get(['rute.id_rute', 'rute.kode_rute', 'rute.nama_rute'])
+            ->map(fn ($row) => [
+                'id'   => (string) $row->id_rute,
+                'kode' => (string) $row->kode_rute,
+                'nama' => (string) $row->nama_rute,
+            ])
+            ->unique('id')
+            ->values()
+            ->all();
+    }
+
     public function milikPerusahaan(string $idPenugasan, string $idPerusahaan): bool
     {
         return PenugasanModel::active()

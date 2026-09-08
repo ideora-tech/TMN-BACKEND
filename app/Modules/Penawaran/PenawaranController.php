@@ -83,7 +83,12 @@ class PenawaranController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $record = $this->service->ajukanApproval($id, (string) $request->user()->id_pengguna, $idPerusahaan);
-        return ApiResponse::success(new PenawaranResource($record), 'Penawaran diajukan untuk approval');
+
+        $pesan = $record->status === 'terkirim'
+            ? 'Approval penawaran nonaktif — penawaran langsung ditandai terkirim'
+            : 'Penawaran diajukan untuk approval';
+
+        return ApiResponse::success(new PenawaranResource($record), $pesan);
     }
 
     public function exportPdf(Request $request, string $id): Response

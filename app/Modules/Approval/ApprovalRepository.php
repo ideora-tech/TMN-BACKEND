@@ -548,6 +548,35 @@ class ApprovalRepository implements ApprovalRepositoryInterface
                     'keterangan' => $mekanismeLabel[$row->mekanisme] ?? $row->mekanisme,
                     'pihak'      => $row->nama_vendor,
                 ];
+
+            case 'permintaan_vendor':
+                $row = DB::table('permintaan_vendor as pv')
+                    ->leftJoin('jenis_kendaraan as jk', 'jk.id_jenis_kendaraan', '=', 'pv.id_jenis_kendaraan')
+                    ->leftJoin('proyek as pr', 'pr.id_proyek', '=', 'pv.id_proyek')
+                    ->where('pv.id_permintaan', $idReferensi)
+                    ->first(['pv.nomor_permintaan', 'pv.jumlah_unit', 'pv.mekanisme', 'jk.nama_jenis', 'pr.nama_proyek']);
+                if ($row === null) {
+                    return $kosong;
+                }
+                $mekanismeLabel = ['unit_only' => 'Unit Only', 'unit_driver' => 'Unit + Driver', 'full' => 'All In'];
+                $labelMekanisme = $mekanismeLabel[$row->mekanisme] ?? $row->mekanisme;
+
+                $items = DB::table('permintaan_vendor_unit as pvu')
+                    ->leftJoin('jenis_kendaraan as jk2', 'jk2.id_jenis_kendaraan', '=', 'pvu.id_jenis_kendaraan')
+                    ->where('pvu.id_permintaan', $idReferensi)
+                    ->whereNull('pvu.dihapus_pada')
+                    ->orderBy('pvu.urutan')
+                    ->get(['pvu.jumlah_unit', 'jk2.nama_jenis']);
+
+                $keterangan = $items->isNotEmpty()
+                    ? $items->map(fn ($item) => "{$item->jumlah_unit} " . ($item->nama_jenis ?? 'unit'))->implode(' + ')
+                    : "{$row->jumlah_unit} unit " . ($row->nama_jenis ?? 'unit');
+
+                return [
+                    'nomor'      => $row->nomor_permintaan,
+                    'keterangan' => "{$keterangan} · {$labelMekanisme}",
+                    'pihak'      => $row->nama_proyek,
+                ];
         }
 
         return $kosong;

@@ -29,6 +29,7 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
 
         $this->attachNamaVendor($paginator->getCollection());
+        $this->attachInfoTurunan($paginator->getCollection());
 
         return $paginator;
     }
@@ -42,6 +43,7 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
 
         $this->attachNamaVendor($paginator->getCollection());
+        $this->attachInfoTurunan($paginator->getCollection());
 
         return $paginator;
     }
@@ -64,6 +66,8 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
 
         if ($record !== null) {
             $this->attachNamaVendor(collect([$record]));
+            $this->attachInfoTurunan(collect([$record]));
+            $this->attachTurunan($record);
         }
         return $record;
     }
@@ -89,6 +93,90 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
             // tidak dianggap dirty dan ikut tersimpan saat update()/softDelete().
             $record->syncOriginalAttribute('vendor_nama');
         }
+    }
+
+    private function attachInfoTurunan(Collection $records): void
+    {
+        $idKontrakList = $records->pluck('id_kontrak_vendor')->filter()->unique()->values()->all();
+        $idIndukList = $records->pluck('id_kontrak_induk')->filter()->unique()->values()->all();
+
+        $nomorByIdInduk = !empty($idIndukList)
+            ? DB::table('kontrak_vendor')
+                ->whereIn('id_kontrak_vendor', $idIndukList)
+                ->whereNull('dihapus_pada')
+                ->pluck('nomor_kontrak', 'id_kontrak_vendor')
+            : collect();
+
+        $jumlahByIdInduk = !empty($idKontrakList)
+            ? DB::table('kontrak_vendor')
+                ->select('id_kontrak_induk', DB::raw('count(*) as jumlah'))
+                ->whereIn('id_kontrak_induk', $idKontrakList)
+                ->whereNull('dihapus_pada')
+                ->groupBy('id_kontrak_induk')
+                ->pluck('jumlah', 'id_kontrak_induk')
+            : collect();
+
+        $permintaanByKontrak = !empty($idKontrakList)
+            ? DB::table('permintaan_vendor')
+                ->whereIn('id_kontrak_vendor', $idKontrakList)
+                ->whereNull('dihapus_pada')
+                ->get(['id_kontrak_vendor', 'id_permintaan', 'nomor_permintaan'])
+                ->keyBy('id_kontrak_vendor')
+            : collect();
+
+        $idProyekList = $records->pluck('id_proyek')->filter()->unique()->values()->all();
+        $namaProyekById = !empty($idProyekList)
+            ? DB::table('proyek')
+                ->whereIn('id_proyek', $idProyekList)
+                ->whereNull('dihapus_pada')
+                ->pluck('nama_proyek', 'id_proyek')
+            : collect();
+
+        foreach ($records as $record) {
+            $record->nomor_kontrak_induk = $record->id_kontrak_induk !== null
+                ? ($nomorByIdInduk[$record->id_kontrak_induk] ?? null)
+                : null;
+            $record->jumlah_turunan = (int) ($jumlahByIdInduk[$record->id_kontrak_vendor] ?? 0);
+            $asalPermintaan = $permintaanByKontrak[$record->id_kontrak_vendor] ?? null;
+            $record->id_permintaan = $asalPermintaan->id_permintaan ?? null;
+            $record->nomor_permintaan = $asalPermintaan->nomor_permintaan ?? null;
+            $record->nama_proyek = $record->id_proyek !== null
+                ? ($namaProyekById[$record->id_proyek] ?? null)
+                : null;
+            $record->syncOriginalAttribute('nomor_kontrak_induk');
+            $record->syncOriginalAttribute('jumlah_turunan');
+            $record->syncOriginalAttribute('id_permintaan');
+            $record->syncOriginalAttribute('nomor_permintaan');
+            $record->syncOriginalAttribute('nama_proyek');
+        }
+    }
+
+    private function attachTurunan(KontrakVendorModel $record): void
+    {
+        $anak = KontrakVendorModel::active()
+            ->where('id_kontrak_induk', $record->id_kontrak_vendor)
+            ->get(['id_kontrak_vendor', 'nomor_kontrak', 'mekanisme', 'tanggal_mulai', 'tanggal_selesai', 'nilai_kontrak', 'status']);
+
+        $record->turunan = $anak->map(static fn ($a) => [
+            'id_kontrak_vendor' => $a->id_kontrak_vendor,
+            'nomor_kontrak'     => $a->nomor_kontrak,
+            'mekanisme'         => $a->mekanisme,
+            'tanggal_mulai'     => $a->tanggal_mulai,
+            'tanggal_selesai'   => $a->tanggal_selesai,
+            'nilai_kontrak'     => (float) $a->nilai_kontrak,
+            'status'            => $a->status,
+        ])->values()->all();
+
+        $record->total_nilai_turunan = (float) $anak->sum('nilai_kontrak');
+        $record->syncOriginalAttribute('turunan');
+        $record->syncOriginalAttribute('total_nilai_turunan');
+    }
+
+    public function jumlahTurunan(string $idKontrakVendor): int
+    {
+        return KontrakVendorModel::active()
+            ->where('id_kontrak_induk', $idKontrakVendor)
+            ->count();
     }
 
     public function create(array $data): KontrakVendorModel
@@ -123,6 +211,8 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
         $model->update($data);
         $fresh = $model->fresh();
         $this->attachNamaVendor(collect([$fresh]));
+        $this->attachInfoTurunan(collect([$fresh]));
+        $this->attachTurunan($fresh);
         return $fresh;
     }
 

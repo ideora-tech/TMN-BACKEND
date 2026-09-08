@@ -137,17 +137,20 @@ class LaporanSayaTest extends TestCase
             'uang_jalan'      => 150000,
             'uang_tol'        => 20000,
             'catatan_insiden' => 'Lancar tanpa kendala',
+            'no_surat_jalan'  => 'SJ-2026-0099',
             'foto'            => [UploadedFile::fake()->image('bukti.jpg')],
         ]);
 
         $res->assertStatus(201)
             ->assertJsonPath('data.id_trip', $trip->id_trip)
             ->assertJsonPath('data.biaya_bbm', 300000)
+            ->assertJsonPath('data.no_surat_jalan', 'SJ-2026-0099')
             ->assertJsonCount(1, 'data.foto');
 
         $this->assertDatabaseHas('laporan_perjalanan', [
-            'id_trip'       => $trip->id_trip,
-            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_trip'        => $trip->id_trip,
+            'id_perusahaan'  => self::PERUSAHAAN_ID,
+            'no_surat_jalan' => 'SJ-2026-0099',
         ]);
     }
 

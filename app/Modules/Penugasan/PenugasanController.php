@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Penugasan;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Penugasan\Exports\PenugasanUnitTemplateExport;
 use App\Modules\Penugasan\Requests\AssignPenugasanHarianRequest;
 use App\Modules\Penugasan\Requests\StorePenugasanRequest;
 use App\Modules\Penugasan\Requests\UpdatePenugasanRequest;
@@ -12,6 +13,8 @@ use App\Modules\Penugasan\Resources\PenugasanResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class PenugasanController extends Controller
 {
@@ -21,6 +24,27 @@ class PenugasanController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         return ApiResponse::success($this->service->opsiArmadaVendor($idPerusahaan));
+    }
+
+    public function templateUnit(): BinaryFileResponse
+    {
+        return Excel::download(new PenugasanUnitTemplateExport(), 'template-penugasan-unit.xlsx');
+    }
+
+    public function parseUnit(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'file'      => ['required', 'file', 'mimes:xlsx,xls', 'max:5120'],
+            'id_proyek' => ['required', 'string'],
+        ]);
+
+        $result = $this->service->parseUnitExcel(
+            $request->file('file'),
+            (string) $validated['id_proyek'],
+            (string) $request->user()->id_perusahaan,
+        );
+
+        return ApiResponse::success($result, 'File unit selesai diproses');
     }
 
     public function assignHarian(AssignPenugasanHarianRequest $request): JsonResponse

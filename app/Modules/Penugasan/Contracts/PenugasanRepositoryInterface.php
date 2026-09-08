@@ -18,6 +18,9 @@ interface PenugasanRepositoryInterface
     public function countSelesaiByProyek(string $idProyek): int;
     public function findById(string $id): ?PenugasanModel;
     public function milikPerusahaan(string $idPenugasan, string $idPerusahaan): bool;
+    public function petaArmadaAktifByNopol(string $idPerusahaan): array;
+    public function petaSupirAktifByNama(string $idPerusahaan): array;
+    public function ruteProyekTerdaftar(string $idProyek, string $idPerusahaan): array;
     public function hasConflict(string $idKaryawan, string $tanggalTugas, ?string $excludeId = null): bool;
     public function adaKonflikAktorPadaTanggal(string $kolomAktor, string $idAktor, string $tanggalTugas, ?string $excludeId = null): bool;
 

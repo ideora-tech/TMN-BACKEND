@@ -13,6 +13,7 @@ class KodeOtomatis
         'proyek'    => ['prefix' => 'PRJ', 'panjang_digit' => 4, 'reset' => 'tahunan'],
         'rute'      => ['prefix' => 'RT',  'panjang_digit' => 4, 'reset' => 'tidak'],
         'penawaran' => ['prefix' => 'PNW', 'panjang_digit' => 4, 'reset' => 'bulanan'],
+        'permintaan_vendor' => ['prefix' => 'PMV', 'panjang_digit' => 4, 'reset' => 'bulanan'],
         'jabatan'   => ['prefix' => 'JBT', 'panjang_digit' => 4, 'reset' => 'tidak'],
         'departemen' => ['prefix' => 'DEP', 'panjang_digit' => 4, 'reset' => 'tidak'],
     ];

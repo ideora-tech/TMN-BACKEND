@@ -64,6 +64,12 @@ class PenawaranService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
 
+        $record->setAttribute(
+            'approval_aktif',
+            app(\App\Modules\Approval\ApprovalService::class)->eventTypeAktifAda('penawaran', $idPerusahaan),
+        );
+        $record->syncOriginalAttribute('approval_aktif');
+
         if ($record->id_proyek !== null) {
             $proyek = $this->proyekRepo->findById((string) $record->id_proyek);
             // Atribut tempelan bukan kolom tabel — sinkronkan ke original supaya
@@ -209,7 +215,16 @@ class PenawaranService
                 abort(422, 'Penawaran belum punya item rute — tambahkan minimal 1 rute sebelum diajukan approval');
             }
 
-            app(\App\Modules\Approval\ApprovalService::class)->ajukan(
+            $approvalService = app(\App\Modules\Approval\ApprovalService::class);
+
+            if (!$approvalService->eventTypeAktifAda('penawaran', $idPerusahaan)) {
+                return $this->repo->update($terkunci, [
+                    'status'                  => 'terkirim',
+                    'alasan_ditolak_internal' => null,
+                ]);
+            }
+
+            $approvalService->ajukan(
                 'penawaran',
                 $id,
                 $idPengguna,
@@ -294,8 +309,13 @@ class PenawaranService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
 
-        if ($record->status !== 'draft') {
-            abort(422, 'Hanya penawaran berstatus draft yang dapat dihapus');
+        if (!in_array($record->status, ['draft', 'menunggu_approval'], true)) {
+            abort(422, 'Hanya penawaran berstatus draft atau menunggu approval yang dapat dihapus');
+        }
+
+        if ($record->status === 'menunggu_approval') {
+            app(\App\Modules\Approval\ApprovalService::class)
+                ->batalkanUntukReferensi(['penawaran'], $id, $idPerusahaan);
         }
 
         $this->repo->delete($record);

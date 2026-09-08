@@ -15,6 +15,7 @@ class KontrakVendorModel extends BaseModel
         'id_kontrak_vendor',
         'id_perusahaan',
         'id_vendor',
+        'id_kontrak_induk',
         'id_proyek',
         'nomor_kontrak',
         'mekanisme',

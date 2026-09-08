@@ -23,6 +23,7 @@ class StoreLaporanPerjalananRequest extends FormRequest
             'uang_jalan'              => ['sometimes', 'numeric', 'min:0'],
             'uang_tol'                => ['sometimes', 'numeric', 'min:0'],
             'catatan_insiden'         => ['sometimes', 'nullable', 'string'],
+            'no_surat_jalan'          => ['sometimes', 'nullable', 'string', 'max:100'],
             'biaya_lain'                  => ['sometimes', 'array'],
             'biaya_lain.*.nama_biaya'     => ['required_with:biaya_lain', 'string', 'max:100'],
             'biaya_lain.*.nominal'        => ['required_with:biaya_lain', 'numeric', 'min:0'],

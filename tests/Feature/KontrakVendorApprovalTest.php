@@ -210,6 +210,46 @@ class KontrakVendorApprovalTest extends TestCase
         ]);
     }
 
+    public function test_ajukan_approval_tanpa_event_type_langsung_aktif(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrak = KontrakVendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_vendor'     => $vendor->id_vendor,
+            'mekanisme'     => 'unit_only',
+            'status'        => 'draft',
+            'nilai_kontrak' => 1000000,
+        ]);
+
+        $this->postJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}/ajukan-approval")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'aktif');
+
+        $this->assertDatabaseMissing('approval_pengajuan', [
+            'id_referensi' => $kontrak->id_kontrak_vendor,
+        ]);
+    }
+
+    public function test_ajukan_approval_event_type_nonaktif_langsung_aktif(): void
+    {
+        $idApprover = $this->makeApprover();
+        $this->makeEventTypeDanApprover($idApprover);
+        DB::table('approval_event_type')->where('kode', 'kontrak_vendor')->update(['aktif' => 0]);
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrak = KontrakVendorModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_vendor'     => $vendor->id_vendor,
+            'mekanisme'     => 'unit_only',
+            'status'        => 'draft',
+        ]);
+
+        $this->postJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}/ajukan-approval")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'aktif');
+    }
+
     public function test_ajukan_approval_dari_status_bukan_draft_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');

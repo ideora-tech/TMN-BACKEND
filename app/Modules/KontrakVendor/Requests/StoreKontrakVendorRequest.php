@@ -17,6 +17,7 @@ class StoreKontrakVendorRequest extends FormRequest
     {
         return [
             'id_vendor'              => ['required', 'string', 'max:36'],
+            'id_kontrak_induk'       => ['sometimes', 'nullable', 'string', 'max:36'],
             'id_proyek'              => ['sometimes', 'nullable', 'string', 'max:36'],
             'nomor_kontrak'          => ['sometimes', 'nullable', 'string', 'max:100'],
             'mekanisme'              => ['required', 'string', 'in:unit_only,unit_driver,full'],
@@ -30,6 +31,7 @@ class StoreKontrakVendorRequest extends FormRequest
             'tanggal_selesai'        => ['sometimes', 'nullable', 'date', 'after_or_equal:tanggal_mulai'],
             'status'                 => ['sometimes', 'string', 'max:50'],
             'salin_dari_kontrak'     => ['sometimes', 'nullable', 'string', 'max:36'],
+            'id_permintaan'          => ['sometimes', 'nullable', 'string', 'max:36'],
             'unit'                   => ['sometimes', 'array'],
             'unit.*.nopol'              => ['required', 'string', 'max:20'],
             'unit.*.merk'               => ['sometimes', 'nullable', 'string', 'max:100'],

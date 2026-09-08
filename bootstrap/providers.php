@@ -47,6 +47,7 @@ return [
     App\Modules\Penugasan\PenugasanServiceProvider::class,
     App\Modules\Peran\PeranServiceProvider::class,
     App\Modules\PerawatanArmada\PerawatanArmadaServiceProvider::class,
+    App\Modules\PermintaanVendor\PermintaanVendorServiceProvider::class,
     App\Modules\Perusahaan\PerusahaanServiceProvider::class,
     App\Modules\Proyek\ProyekServiceProvider::class,
     App\Modules\ProyekRute\ProyekRuteServiceProvider::class,

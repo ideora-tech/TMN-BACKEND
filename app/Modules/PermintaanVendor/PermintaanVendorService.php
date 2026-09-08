@@ -1,0 +1,209 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\PermintaanVendor;
+
+use App\Modules\PermintaanVendor\Contracts\PermintaanVendorRepositoryInterface;
+use App\Support\KodeOtomatis;
+use Illuminate\Support\Facades\DB;
+
+class PermintaanVendorService
+{
+    public function __construct(
+        private readonly PermintaanVendorRepositoryInterface $repo,
+    ) {}
+
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
+    {
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
+
+        return [
+            'data' => $result->items(),
+            'meta' => [
+                'page'       => $result->currentPage(),
+                'limit'      => $result->perPage(),
+                'total'      => $result->total(),
+                'totalPages' => $result->lastPage(),
+            ],
+        ];
+    }
+
+    public function findOrFail(string $id, string $idPerusahaan): PermintaanVendorModel
+    {
+        $record = $this->repo->findAktifMilikPerusahaan($id, $idPerusahaan);
+        if ($record === null) {
+            abort(404, 'Permintaan vendor tidak ditemukan');
+        }
+        return $record;
+    }
+
+    public function create(array $data): PermintaanVendorModel
+    {
+        $idPerusahaan = (string) $data['id_perusahaan'];
+
+        $this->validasiReferensi($data, $idPerusahaan);
+
+        $unitRows = $this->normalisasiUnit($data['unit'] ?? null, $data['id_jenis_kendaraan'] ?? null, $data['jumlah_unit'] ?? null);
+        $this->validasiUnit($unitRows, $idPerusahaan);
+
+        unset($data['unit']);
+        $data['nomor_permintaan']   = KodeOtomatis::berikutnya($idPerusahaan, 'permintaan_vendor');
+        $data['jumlah_unit']        = array_sum(array_column($unitRows, 'jumlah_unit'));
+        $data['id_jenis_kendaraan'] = $unitRows[0]['id_jenis_kendaraan'];
+        $data['status']             = 'draft';
+
+        return DB::transaction(fn () => $this->repo->create($data, $unitRows));
+    }
+
+    public function update(string $id, array $data, string $idPerusahaan): PermintaanVendorModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if (!in_array($record->status, ['draft', 'ditolak'], true)) {
+            abort(422, 'Hanya permintaan berstatus draft atau ditolak yang dapat diubah');
+        }
+
+        $this->validasiReferensi($data, $idPerusahaan);
+
+        $unitDikirim = array_key_exists('unit', $data)
+            || array_key_exists('id_jenis_kendaraan', $data)
+            || array_key_exists('jumlah_unit', $data);
+
+        $unitRows = null;
+        if ($unitDikirim) {
+            $idJenisUntukUnit = array_key_exists('id_jenis_kendaraan', $data) ? $data['id_jenis_kendaraan'] : $record->id_jenis_kendaraan;
+            $jumlahUntukUnit  = array_key_exists('jumlah_unit', $data) ? $data['jumlah_unit'] : $record->jumlah_unit;
+
+            $unitRows = $this->normalisasiUnit($data['unit'] ?? null, $idJenisUntukUnit, $jumlahUntukUnit);
+            $this->validasiUnit($unitRows, $idPerusahaan);
+
+            unset($data['unit']);
+            $data['jumlah_unit']        = array_sum(array_column($unitRows, 'jumlah_unit'));
+            $data['id_jenis_kendaraan'] = $unitRows[0]['id_jenis_kendaraan'];
+        }
+
+        if ($record->status === 'ditolak') {
+            $cek = clone $record;
+            $cek->fill($data);
+            if ($cek->isDirty()) {
+                $data['status'] = 'draft';
+                $data['alasan_ditolak'] = null;
+            }
+        }
+
+        return DB::transaction(fn () => $this->repo->update($record, $data, $unitRows));
+    }
+
+    public function delete(string $id, string $idPerusahaan): void
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if (!in_array($record->status, ['draft', 'ditolak'], true)) {
+            abort(422, 'Hanya permintaan berstatus draft atau ditolak yang dapat dihapus');
+        }
+
+        $this->repo->delete($record);
+    }
+
+    public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): PermintaanVendorModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($record->status !== 'draft') {
+            abort(422, 'Hanya permintaan berstatus draft yang bisa diajukan approval');
+        }
+
+        return DB::transaction(function () use ($id, $idPengguna, $idPerusahaan) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Permintaan vendor tidak ditemukan');
+            }
+            if ($terkunci->status !== 'draft') {
+                abort(422, 'Hanya permintaan berstatus draft yang bisa diajukan approval');
+            }
+
+            $approvalService = app(\App\Modules\Approval\ApprovalService::class);
+
+            if (!$approvalService->eventTypeAktifAda('permintaan_vendor', $idPerusahaan)) {
+                return $this->repo->update($terkunci, [
+                    'status'         => 'disetujui',
+                    'alasan_ditolak' => null,
+                ]);
+            }
+
+            $approvalService->ajukan(
+                'permintaan_vendor',
+                $id,
+                $idPengguna,
+                null,
+                $idPerusahaan,
+            );
+
+            return $this->repo->update($terkunci, [
+                'status'         => 'menunggu_approval',
+                'alasan_ditolak' => null,
+            ]);
+        });
+    }
+
+    public function terapkanKeputusanApproval(string $idPermintaan, string $idPerusahaan, string $keputusan, ?string $alasanDitolak): void
+    {
+        $record = $this->repo->findAktifMilikPerusahaan($idPermintaan, $idPerusahaan);
+        if ($record === null) {
+            \Illuminate\Support\Facades\Log::warning("PermintaanVendorApprovalListener: permintaan {$idPermintaan} tidak ditemukan atau beda perusahaan");
+            return;
+        }
+        if ($record->status !== 'menunggu_approval') {
+            return;
+        }
+
+        if ($keputusan === 'ditolak') {
+            $this->repo->update($record, [
+                'status'         => 'ditolak',
+                'alasan_ditolak' => $alasanDitolak,
+            ]);
+            return;
+        }
+
+        $this->repo->update($record, ['status' => 'disetujui']);
+    }
+
+    private function validasiReferensi(array $data, string $idPerusahaan): void
+    {
+        if (!empty($data['id_proyek']) && !$this->repo->proyekMilikPerusahaan((string) $data['id_proyek'], $idPerusahaan)) {
+            abort(404, 'Proyek tidak ditemukan');
+        }
+    }
+
+    private function normalisasiUnit(?array $unit, mixed $idJenisFallback, mixed $jumlahFallback): array
+    {
+        if ($unit !== null) {
+            return array_values(array_map(fn (array $baris) => [
+                'id_jenis_kendaraan' => $baris['id_jenis_kendaraan'] ?? null,
+                'jumlah_unit'        => (int) $baris['jumlah_unit'],
+            ], $unit));
+        }
+
+        return [[
+            'id_jenis_kendaraan' => $idJenisFallback,
+            'jumlah_unit'        => (int) ($jumlahFallback ?? 1),
+        ]];
+    }
+
+    private function validasiUnit(array $unitRows, string $idPerusahaan): void
+    {
+        $dilihat = [];
+        foreach ($unitRows as $baris) {
+            $kunci = $baris['id_jenis_kendaraan'] ?? '__kosong__';
+            if (in_array($kunci, $dilihat, true)) {
+                abort(422, 'Jenis kendaraan duplikat di daftar unit');
+            }
+            $dilihat[] = $kunci;
+
+            if (!empty($baris['id_jenis_kendaraan']) && !$this->repo->jenisKendaraanMilikPerusahaan((string) $baris['id_jenis_kendaraan'], $idPerusahaan)) {
+                abort(404, 'Jenis kendaraan tidak ditemukan');
+            }
+        }
+    }
+}

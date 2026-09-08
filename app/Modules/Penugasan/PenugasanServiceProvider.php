@@ -22,6 +22,8 @@ class PenugasanServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:penugasan'])
             ->group(function () {
                 Route::get('penugasan/opsi-armada-vendor', [PenugasanController::class, 'opsiArmadaVendor']);
+                Route::get('penugasan/template-unit', [PenugasanController::class, 'templateUnit']);
+                Route::post('penugasan/parse-unit', [PenugasanController::class, 'parseUnit']);
                 Route::post('penugasan/harian', [PenugasanController::class, 'assignHarian']);
                 Route::get('penugasan/board', [PenugasanController::class, 'board']);
                 Route::get('penugasan/board/aktivitas', [PenugasanController::class, 'aktivitasBoard']);
