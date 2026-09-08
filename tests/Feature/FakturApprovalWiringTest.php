@@ -162,7 +162,7 @@ class FakturApprovalWiringTest extends TestCase
         $this->patchJson("/api/faktur/{$id}/status", ['status' => 'terkirim'])->assertStatus(422);
     }
 
-    public function test_update_invoice_menunggu_approval_ditolak_422(): void
+    public function test_update_invoice_menunggu_approval_menarik_pengajuan_dan_kembali_draft(): void
     {
         $approver = Pengguna::create([
             'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'KEUANGAN',
@@ -175,12 +175,45 @@ class FakturApprovalWiringTest extends TestCase
 
         $res = $this->putJson("/api/faktur/{$id}", [
             'items' => [
-                ['deskripsi' => 'Jasa angkut baru', 'qty' => 1, 'harga_satuan' => 500000000],
+                ['deskripsi' => 'Jasa angkut baru', 'qty' => 1, 'harga_satuan' => 500000],
             ],
         ]);
 
-        $res->assertStatus(422);
-        $this->assertDatabaseHas('faktur', ['id_faktur' => $id, 'total' => 3000000]);
+        $res->assertStatus(200)->assertJsonPath('data.status', 'draft');
+        $this->assertDatabaseHas('faktur', ['id_faktur' => $id, 'status' => 'draft', 'total' => 500000]);
+        $this->assertDatabaseMissing('approval_pengajuan', ['id_referensi' => $id, 'status' => 'menunggu']);
+    }
+
+    public function test_batalkan_invoice_menunggu_approval_membatalkan_pengajuan(): void
+    {
+        $approver = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'KEUANGAN',
+            'username' => 'km_' . Str::random(6), 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+        $this->makeEventTypeDanApprover($approver->id_pengguna);
+        $keuangan = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatFakturDraft($keuangan->id_pengguna);
+        $this->postJson("/api/faktur/{$id}/ajukan-approval")->assertStatus(200);
+
+        $this->patchJson("/api/faktur/{$id}/status", ['status' => 'batal'])
+            ->assertStatus(200)->assertJsonPath('data.status', 'batal');
+
+        $this->assertDatabaseMissing('approval_pengajuan', ['id_referensi' => $id, 'status' => 'menunggu']);
+    }
+
+    public function test_update_invoice_terkirim_tetap_ditolak_422(): void
+    {
+        $keuangan = $this->actingAsRole('SUPERADMIN');
+        $id = (string) Str::uuid();
+        DB::table('faktur')->insert([
+            'id_faktur' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nomor_faktur' => 'FK-WIRING-T', 'total' => 100000, 'status' => 'terkirim',
+            'dibuat_pada' => now(), 'dibuat_oleh' => $keuangan->id_pengguna,
+        ]);
+
+        $this->putJson("/api/faktur/{$id}", [
+            'items' => [['deskripsi' => 'X', 'qty' => 1, 'harga_satuan' => 1]],
+        ])->assertStatus(422);
     }
 
     public function test_hapus_invoice_menunggu_approval_ditolak_422(): void

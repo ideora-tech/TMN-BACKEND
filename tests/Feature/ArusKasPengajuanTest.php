@@ -72,6 +72,122 @@ class ArusKasPengajuanTest extends TestCase
         return $res->json('data.id_pengajuan');
     }
 
+    private function makeSupplierPembelian(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('supplier')->insert([
+            'id_supplier'   => $id,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama'          => 'Toko Sparepart Pengajuan',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        return $id;
+    }
+
+    private function makeSparepartPembelian(string $nama): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('sparepart')->insert([
+            'id_sparepart'  => $id,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode'          => 'SP-' . Str::random(6),
+            'nama'          => $nama,
+            'satuan'        => 'pcs',
+            'harga_standar' => 50000,
+            'stok'          => 0,
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        return $id;
+    }
+
+    private function buatPengajuanViaPembelian(float $nominal = 500000): string
+    {
+        $res = $this->postJson('/api/pembelian-sparepart', [
+            'id_supplier'       => $this->makeSupplierPembelian(),
+            'tanggal_pengajuan' => now()->toDateString(),
+            'items'             => [
+                ['id_sparepart' => $this->makeSparepartPembelian('Item Pengajuan Engine'), 'qty' => 1, 'harga_estimasi' => $nominal],
+            ],
+        ]);
+        $res->assertStatus(201);
+        $idPembelian = $res->json('data.id_pembelian');
+        return (string) DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->value('id_pengajuan');
+    }
+
+    private function buatPengajuanMenungguApprovalViaPembelian(string $idApprover, float $nominal = 500000): string
+    {
+        $idEventType = $this->idEventTypePengajuanPengeluaran();
+        DB::table('approval_config_approver')->insert([
+            'id_config'     => (string) Str::uuid(),
+            'id_event_type' => $idEventType,
+            'tipe'          => 'pengguna',
+            'id_pengguna'   => $idApprover,
+            'dibuat_pada'   => now(),
+        ]);
+
+        $id = $this->buatPengajuanViaPembelian($nominal);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->value('status'));
+        return $id;
+    }
+
+    private function seedPengajuanLegacy(string $status, string $idPembuat, array $override = []): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('pengajuan_pengeluaran')->insert(array_merge([
+            'id_pengajuan'      => $id,
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'nomor_pengajuan'   => 'PP-LEGACY-' . Str::random(6),
+            'kategori'          => 'uang_jalan',
+            'nominal'           => 500000,
+            'tanggal_pengajuan' => now()->toDateString(),
+            'penerima'          => 'Budi Supir',
+            'keterangan'        => 'Legacy seed',
+            'status'            => $status,
+            'dibuat_oleh'       => $idPembuat,
+            'dibuat_pada'       => now(),
+        ], $override));
+        return $id;
+    }
+
+    public function test_toggle_wajib_approval_manual_menghidupkan_gate_pengajuan_manual(): void
+    {
+        $superadmin = $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 0, 'wajib_approval_manual' => true])
+            ->assertStatus(200);
+
+        $id = $this->buatPengajuanMenungguApproval($superadmin->id_pengguna);
+
+        $this->assertDatabaseHas('approval_pengajuan', [
+            'id_referensi' => $id,
+            'status'       => 'menunggu',
+        ]);
+    }
+
+    public function test_toggle_wajib_approval_manual_tanpa_konfigurasi_tetap_langsung_disetujui(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 0, 'wajib_approval_manual' => true])
+            ->assertStatus(200);
+
+        $this->postJson('/api/arus-kas/pengajuan', $this->payload())
+            ->assertStatus(201)->assertJsonPath('data.status', 'disetujui');
+    }
+
+    public function test_pengaturan_approval_menyimpan_dan_mengembalikan_toggle(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->getJson('/api/arus-kas/pengaturan-approval')
+            ->assertStatus(200)->assertJsonPath('data.wajib_approval_manual', false);
+
+        $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 0, 'wajib_approval_manual' => true])
+            ->assertStatus(200);
+
+        $this->getJson('/api/arus-kas/pengaturan-approval')
+            ->assertJsonPath('data.wajib_approval_manual', true);
+    }
+
     public function test_create_tanpa_event_type_apapun_langsung_disetujui_meski_di_atas_batas(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -168,7 +284,7 @@ class ArusKasPengajuanTest extends TestCase
     public function test_update_dan_delete_hanya_saat_menunggu_approval_dan_ditolak(): void
     {
         $superadmin = $this->actingAsRole('SUPERADMIN');
-        $id = $this->buatPengajuanMenungguApproval($superadmin->id_pengguna);
+        $id = $this->seedPengajuanLegacy('menunggu_approval', $superadmin->id_pengguna);
 
         $this->putJson("/api/arus-kas/pengajuan/{$id}", $this->payload(['penerima' => 'Budi Baru']))
             ->assertStatus(200)->assertJsonPath('data.penerima', 'Budi Baru');
@@ -300,7 +416,7 @@ class ArusKasPengajuanTest extends TestCase
     public function test_approval_oleh_bukan_approver_403_tolak_lama_tetap_dibatasi_role_manager(): void
     {
         $superadmin = $this->actingAsRole('SUPERADMIN');
-        $id = $this->buatPengajuanMenungguApproval($superadmin->id_pengguna);
+        $id = $this->buatPengajuanMenungguApprovalViaPembelian($superadmin->id_pengguna);
 
         $this->actingAsRole('KEUANGAN');
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])->assertStatus(403);
@@ -369,9 +485,8 @@ class ArusKasPengajuanTest extends TestCase
         $approver = $this->buatApprover('approver_sparepart');
         $idEventTypeSparepart = $this->buatEventTypeDenganApprover('sparepart', $approver->id_pengguna);
 
-        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['kategori' => 'sparepart', 'nominal' => 500000]));
-        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
-        $id = $res->json('data.id_pengajuan');
+        $id = $this->buatPengajuanViaPembelian(500000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->value('status'));
 
         $this->assertDatabaseHas('approval_pengajuan', [
             'id_referensi'  => $id,
@@ -390,9 +505,8 @@ class ArusKasPengajuanTest extends TestCase
             'tipe' => 'pengguna', 'id_pengguna' => $approver->id_pengguna, 'dibuat_pada' => now(),
         ]);
 
-        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['kategori' => 'legalitas', 'nominal' => 500000]));
-        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
-        $id = $res->json('data.id_pengajuan');
+        $id = $this->buatPengajuanViaPembelian(500000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->value('status'));
 
         $this->assertDatabaseHas('approval_pengajuan', [
             'id_referensi'  => $id,
@@ -419,9 +533,9 @@ class ArusKasPengajuanTest extends TestCase
     {
         $superadmin = $this->actingAsRole('SUPERADMIN');
         app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
-        $id = $this->buatPengajuanMenungguApproval($superadmin->id_pengguna, ['nominal' => 5000000]);
+        $id = $this->buatPengajuanMenungguApprovalViaPembelian($superadmin->id_pengguna, 5000000);
 
-        $this->putJson("/api/arus-kas/pengajuan/{$id}", $this->payload(['nominal' => 500000]))
+        $this->putJson("/api/arus-kas/pengajuan/{$id}", ['nominal' => 500000])
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
 
         $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $id, 'status' => 'dibatalkan']);
@@ -432,9 +546,9 @@ class ArusKasPengajuanTest extends TestCase
     {
         $superadmin = $this->actingAsRole('SUPERADMIN');
         app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
-        $id = $this->buatPengajuanMenungguApproval($superadmin->id_pengguna, ['nominal' => 5000000]);
+        $id = $this->buatPengajuanMenungguApprovalViaPembelian($superadmin->id_pengguna, 5000000);
 
-        $this->putJson("/api/arus-kas/pengajuan/{$id}", $this->payload(['nominal' => 8000000]))
+        $this->putJson("/api/arus-kas/pengajuan/{$id}", ['nominal' => 8000000])
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->assertSame(1, DB::table('approval_pengajuan')->where('id_referensi', $id)->where('status', 'dibatalkan')->count());
@@ -445,7 +559,7 @@ class ArusKasPengajuanTest extends TestCase
     {
         $superadmin = $this->actingAsRole('SUPERADMIN');
         app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
-        $id = $this->buatPengajuanMenungguApproval($superadmin->id_pengguna, ['nominal' => 5000000]);
+        $id = $this->buatPengajuanMenungguApprovalViaPembelian($superadmin->id_pengguna, 5000000);
 
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])
             ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
@@ -455,7 +569,7 @@ class ArusKasPengajuanTest extends TestCase
             ->assertStatus(200)->assertJsonPath('data.status', 'ditolak');
 
         $this->actingAsRole('SUPERADMIN');
-        $this->putJson("/api/arus-kas/pengajuan/{$id}", $this->payload(['nominal' => 6000000]))
+        $this->putJson("/api/arus-kas/pengajuan/{$id}", ['nominal' => 6000000])
             ->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
 
         $this->assertSame(1, DB::table('approval_pengajuan')->where('id_referensi', $id)->where('status', 'menunggu')->count());
@@ -479,7 +593,7 @@ class ArusKasPengajuanTest extends TestCase
     public function test_delete_saat_menunggu_approval_membatalkan_approval_aktif(): void
     {
         $superadmin = $this->actingAsRole('SUPERADMIN');
-        $id = $this->buatPengajuanMenungguApproval($superadmin->id_pengguna);
+        $id = $this->buatPengajuanMenungguApprovalViaPembelian($superadmin->id_pengguna);
 
         $this->deleteJson("/api/arus-kas/pengajuan/{$id}")->assertStatus(200);
 
@@ -632,9 +746,8 @@ class ArusKasPengajuanTest extends TestCase
         $approver = $this->buatApprover('approver_kategori_proses');
         $this->buatEventTypeDenganApprover('sparepart', $approver->id_pengguna);
 
-        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['kategori' => 'sparepart', 'nominal' => 500000]));
-        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
-        $id = $res->json('data.id_pengajuan');
+        $id = $this->buatPengajuanViaPembelian(500000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->value('status'));
 
         Sanctum::actingAs($approver, ['*']);
         $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])

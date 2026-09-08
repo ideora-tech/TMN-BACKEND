@@ -197,17 +197,24 @@ class ArusKasController extends Controller
 
     public function showPengaturanApproval(Request $request): JsonResponse
     {
-        $batas = $this->service->batasApproval((string) $request->user()->id_perusahaan);
-        return ApiResponse::success(['batas' => $batas]);
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        return ApiResponse::success([
+            'batas'                  => $this->service->batasApproval($idPerusahaan),
+            'wajib_approval_manual'  => $this->service->wajibApprovalManual($idPerusahaan),
+        ]);
     }
 
     public function updatePengaturanApproval(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'batas' => ['required', 'numeric', 'min:0'],
+            'batas'                 => ['required', 'numeric', 'min:0'],
+            'wajib_approval_manual' => ['sometimes', 'boolean'],
         ]);
 
         $this->service->setBatasApproval((string) $request->user()->id_perusahaan, (float) $validated['batas']);
+        if (array_key_exists('wajib_approval_manual', $validated)) {
+            $this->service->setWajibApprovalManual((string) $request->user()->id_perusahaan, (bool) $validated['wajib_approval_manual']);
+        }
         return ApiResponse::success(['batas' => (float) $validated['batas']], 'Batas approval berhasil diperbarui');
     }
 }

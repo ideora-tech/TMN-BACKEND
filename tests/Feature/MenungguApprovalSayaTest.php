@@ -54,6 +54,36 @@ class MenungguApprovalSayaTest extends TestCase
         return $id;
     }
 
+    private function makeSupplierPembelian(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('supplier')->insert([
+            'id_supplier'   => $id,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama'          => 'Toko Sparepart Saya',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        return $id;
+    }
+
+    private function makeSparepartPembelian(string $nama): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('sparepart')->insert([
+            'id_sparepart'  => $id,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode'          => 'SP-' . Str::random(6),
+            'nama'          => $nama,
+            'satuan'        => 'pcs',
+            'harga_standar' => 50000,
+            'stok'          => 0,
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        return $id;
+    }
+
     /** @return array{0: string, 1: string, 2: string} [idPengajuan, idApprover1, idApprover2] */
     private function siapkanPengajuanMenungguApproval(float $nominal = 500000): array
     {
@@ -70,15 +100,17 @@ class MenungguApprovalSayaTest extends TestCase
             'tipe' => 'pengguna', 'id_pengguna' => $idApprover2, 'dibuat_pada' => now(),
         ]);
 
-        $res = $this->postJson('/api/arus-kas/pengajuan', [
-            'kategori'          => 'uang_jalan',
-            'nominal'           => $nominal,
+        $res = $this->postJson('/api/pembelian-sparepart', [
+            'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
-            'penerima'          => 'Budi Supir',
-            'keterangan'        => 'Uang jalan trip',
+            'items'             => [
+                ['id_sparepart' => $this->makeSparepartPembelian('Item Antrean Saya'), 'qty' => 1, 'harga_estimasi' => $nominal],
+            ],
         ]);
-        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
-        $idPengajuan = $res->json('data.id_pengajuan');
+        $res->assertStatus(201);
+        $idPembelian = $res->json('data.id_pembelian');
+        $idPengajuan = (string) DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->value('id_pengajuan');
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
 
         return [$idPengajuan, $idApprover1, $idApprover2];
     }

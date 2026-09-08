@@ -44,6 +44,7 @@ class PengajuanPengeluaranResource extends JsonResource
             'dibuat_pada'       => $this->dibuat_pada,
             'diubah_pada'       => $this->diubah_pada,
             'approval'          => $this->approval ?? [],
+            'approval_transfer' => $this->approval_transfer ?? [],
             'approval_progress' => $this->approval_progress ?? null,
             'bisa_approve'      => (bool) ($this->bisa_approve ?? false),
         ];

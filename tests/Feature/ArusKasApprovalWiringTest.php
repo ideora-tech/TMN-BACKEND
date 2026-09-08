@@ -57,6 +57,51 @@ class ArusKasApprovalWiringTest extends TestCase
         ], $override);
     }
 
+    private function makeSupplierPembelian(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('supplier')->insert([
+            'id_supplier'   => $id,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama'          => 'Toko Sparepart Wiring',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        return $id;
+    }
+
+    private function makeSparepartPembelian(string $nama): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('sparepart')->insert([
+            'id_sparepart'  => $id,
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode'          => 'SP-' . Str::random(6),
+            'nama'          => $nama,
+            'satuan'        => 'pcs',
+            'harga_standar' => 50000,
+            'stok'          => 0,
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+        return $id;
+    }
+
+    private function buatPengajuanEngine(float $nominal = 5000000): string
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $res = $this->postJson('/api/pembelian-sparepart', [
+            'id_supplier'       => $this->makeSupplierPembelian(),
+            'tanggal_pengajuan' => now()->toDateString(),
+            'items'             => [
+                ['id_sparepart' => $this->makeSparepartPembelian('Item Wiring Engine'), 'qty' => 1, 'harga_estimasi' => $nominal],
+            ],
+        ]);
+        $res->assertStatus(201);
+        $idPembelian = $res->json('data.id_pembelian');
+        return (string) DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->value('id_pengajuan');
+    }
+
     public function test_create_di_atas_threshold_membuat_approval_pengajuan_via_engine(): void
     {
         $approver = Pengguna::create([
@@ -68,10 +113,9 @@ class ArusKasApprovalWiringTest extends TestCase
         $this->actingAsAdmin();
         app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
 
-        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 5000000]));
-        $res->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval');
+        $idPengajuan = $this->buatPengajuanEngine(5000000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
 
-        $idPengajuan = $res->json('data.id_pengajuan');
         $this->assertDatabaseHas('approval_pengajuan', [
             'id_referensi' => $idPengajuan, 'status' => 'menunggu',
         ]);
@@ -98,8 +142,8 @@ class ArusKasApprovalWiringTest extends TestCase
         $this->actingAsAdmin();
         app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
 
-        $idPengajuan = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 5000000]))
-            ->assertStatus(201)->json('data.id_pengajuan');
+        $idPengajuan = $this->buatPengajuanEngine(5000000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
 
         Sanctum::actingAs($approver, ['*']);
         $res = $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju']);
@@ -116,8 +160,8 @@ class ArusKasApprovalWiringTest extends TestCase
         $this->actingAsAdmin();
         app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
 
-        $idPengajuan = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 5000000]))
-            ->assertStatus(201)->json('data.id_pengajuan');
+        $idPengajuan = $this->buatPengajuanEngine(5000000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
 
         $this->actingAsRole('ADMIN');
         $res = $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/approval", ['keputusan' => 'setuju']);
@@ -134,8 +178,8 @@ class ArusKasApprovalWiringTest extends TestCase
         $this->actingAsAdmin();
         app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
 
-        $idPengajuan = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 5000000]))
-            ->assertStatus(201)->json('data.id_pengajuan');
+        $idPengajuan = $this->buatPengajuanEngine(5000000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
 
         $res = $this->getJson("/api/arus-kas/pengajuan/{$idPengajuan}");
         $res->assertStatus(200)
@@ -160,8 +204,8 @@ class ArusKasApprovalWiringTest extends TestCase
         $admin = $this->actingAsAdmin();
         app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
 
-        $idPengajuan = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 5000000]))
-            ->assertStatus(201)->json('data.id_pengajuan');
+        $idPengajuan = $this->buatPengajuanEngine(5000000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
 
         app(\App\Modules\Approval\ApprovalService::class)->batalkanDanAjukanUlang(
             'pengajuan_pengeluaran',

@@ -24,6 +24,8 @@ class ArusKasService
 
     public const KUNCI_BATAS_APPROVAL = 'batas_approval_keuangan';
 
+    public const KUNCI_WAJIB_APPROVAL_MANUAL = 'wajib_approval_pengajuan_manual';
+
     public const KODE_PERSETUJUAN_TRANSFER = 'persetujuan_transfer';
 
     public const KODE_EVENT_PENGELUARAN = [
@@ -220,20 +222,27 @@ class ArusKasService
 
     private function setAtributApproval(object $record, array $approvalMentah, string $idPenggunaLogin): void
     {
-        $approvalMentah = array_values(array_filter(
-            $approvalMentah,
-            fn (array $baris) => ($baris['kode_event'] ?? null) !== self::KODE_PERSETUJUAN_TRANSFER,
-        ));
-
-        $approval = array_map(fn (array $baris) => [
+        $petakan = fn (array $baris) => [
             'id_pengguna' => $baris['id_pengguna'],
             'nama'        => $baris['nama'],
             'status'      => $baris['status'],
             'catatan'     => $baris['catatan'],
             'waktu_aksi'  => $baris['waktu_aksi'],
-        ], $approvalMentah);
+        ];
+
+        $barisTransfer = array_values(array_filter(
+            $approvalMentah,
+            fn (array $baris) => ($baris['kode_event'] ?? null) === self::KODE_PERSETUJUAN_TRANSFER,
+        ));
+        $approvalMentah = array_values(array_filter(
+            $approvalMentah,
+            fn (array $baris) => ($baris['kode_event'] ?? null) !== self::KODE_PERSETUJUAN_TRANSFER,
+        ));
+
+        $approval = array_map($petakan, $approvalMentah);
 
         $record->approval          = $approval;
+        $record->approval_transfer = array_map($petakan, $barisTransfer);
         $record->approval_progress = $approval === [] ? null : [
             'disetujui' => count(array_filter($approval, fn (array $baris) => $baris['status'] === 'disetujui')),
             'total'     => count($approval),
@@ -263,6 +272,12 @@ class ArusKasService
             $data['nomor_pengajuan'] = $this->repo->nomorPengajuanBerikutnya($idPerusahaan);
             if ($bukti !== null) {
                 $data['url_bukti'] = PenyimpananBerkas::simpan($bukti, 'bukti-kas');
+            }
+
+            if ($this->wajibApprovalManual($idPerusahaan)) {
+                $data['status'] = self::STATUS_DIAJUKAN;
+                $record = $this->repo->createPengajuan($data);
+                return $this->masukTahapApproval($record);
             }
 
             $data['status']         = self::STATUS_DISETUJUI;
@@ -1256,6 +1271,16 @@ class ArusKasService
     public function setBatasApproval(string $idPerusahaan, float $batas): void
     {
         $this->repo->setPengaturan($idPerusahaan, self::KUNCI_BATAS_APPROVAL, (string) $batas);
+    }
+
+    public function wajibApprovalManual(string $idPerusahaan): bool
+    {
+        return $this->repo->getPengaturan($idPerusahaan, self::KUNCI_WAJIB_APPROVAL_MANUAL) === '1';
+    }
+
+    public function setWajibApprovalManual(string $idPerusahaan, bool $wajib): void
+    {
+        $this->repo->setPengaturan($idPerusahaan, self::KUNCI_WAJIB_APPROVAL_MANUAL, $wajib ? '1' : '0');
     }
 
     public function migrasiApprovalPending(): array

@@ -11,7 +11,7 @@ class FakturService
 {
     private const VALID_TRANSITIONS = [
         'draft'             => ['batal'],
-        'menunggu_approval' => [],
+        'menunggu_approval' => ['batal'],
         'terkirim'          => ['lunas', 'batal'],
         'lunas'             => [],
         'batal'             => [],
@@ -136,8 +136,19 @@ class FakturService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
 
-        if ($record->status !== 'draft') {
-            abort(422, 'Hanya invoice berstatus draft yang dapat diubah');
+        if (!in_array($record->status, ['draft', 'menunggu_approval'], true)) {
+            abort(422, 'Hanya invoice berstatus draft atau menunggu approval yang dapat diubah');
+        }
+
+        $tarikPengajuan = $record->status === 'menunggu_approval';
+        if ($tarikPengajuan) {
+            app(\App\Modules\Approval\ApprovalService::class)->batalkanUntukReferensi(
+                ['faktur'],
+                (string) $record->id_faktur,
+                (string) $record->id_perusahaan,
+            );
+            $data['status'] = 'draft';
+            $data['alasan_ditolak_internal'] = null;
         }
 
         if (isset($data['nomor_faktur']) && $data['nomor_faktur'] !== $record->nomor_faktur) {
@@ -173,6 +184,9 @@ class FakturService
 
         $updated = $this->repo->update($record, $data);
         $this->repo->insertStatusLog((string) $record->id_faktur, 'diedit', 'Data invoice diubah');
+        if ($tarikPengajuan) {
+            $this->repo->insertStatusLog((string) $record->id_faktur, 'draft', 'Pengajuan approval ditarik — kembali ke draft setelah diedit');
+        }
 
         return $updated;
     }
@@ -204,6 +218,14 @@ class FakturService
 
         if (!in_array($status, $allowed, true)) {
             abort(422, 'Transisi status tidak valid');
+        }
+
+        if ($record->status === 'menunggu_approval') {
+            app(\App\Modules\Approval\ApprovalService::class)->batalkanUntukReferensi(
+                ['faktur'],
+                (string) $record->id_faktur,
+                (string) $record->id_perusahaan,
+            );
         }
 
         $updated = $this->repo->update($record, ['status' => $status]);
