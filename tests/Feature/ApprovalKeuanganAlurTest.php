@@ -231,13 +231,25 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->assertSame(0, $this->approvalRows($id)->count());
     }
 
-    public function test_tanpa_approver_dengan_nominal_di_atas_batas_dikembalikan_422_saat_dibuat_dan_pengajuan_tidak_tersimpan(): void
+    public function test_event_type_ada_tapi_tanpa_approver_dikembalikan_422_dan_pengajuan_tidak_tersimpan(): void
     {
         $this->actingAsRole('SUPERADMIN');
+        $this->idEventTypePengajuanPengeluaran();
+
         $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]))
             ->assertStatus(422);
 
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
+    }
+
+    public function test_tanpa_event_type_aktif_sama_sekali_langsung_disetujui(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'disetujui');
+
+        $this->assertSame(0, $this->approvalRows($res->json('data.id_pengajuan'))->count());
     }
 
     public function test_resolusi_approver_jabatan_menghasilkan_baris_approval_untuk_pengguna_berjabatan(): void

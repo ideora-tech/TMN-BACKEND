@@ -72,6 +72,18 @@ class ArusKasPengajuanTest extends TestCase
         return $res->json('data.id_pengajuan');
     }
 
+    public function test_create_tanpa_event_type_apapun_langsung_disetujui_meski_di_atas_batas(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['nominal' => 999999999]));
+
+        $res->assertStatus(201)->assertJsonPath('data.status', 'disetujui');
+        $this->assertDatabaseMissing('approval_pengajuan', [
+            'id_referensi' => $res->json('data.id_pengajuan'),
+        ]);
+    }
+
     public function test_create_pengajuan_berhasil_dengan_nomor_auto(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -389,16 +401,18 @@ class ArusKasPengajuanTest extends TestCase
         ]);
     }
 
-    public function test_create_fallback_nonaktif_dan_kategori_tidak_ada_dikembalikan_422(): void
+    public function test_create_fallback_nonaktif_dan_kategori_tidak_ada_langsung_disetujui(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idFallback = $this->idEventTypePengajuanPengeluaran();
         DB::table('approval_event_type')->where('id_event_type', $idFallback)->update(['aktif' => 0]);
 
-        $this->postJson('/api/arus-kas/pengajuan', $this->payload(['kategori' => 'legalitas', 'nominal' => 500000]))
-            ->assertStatus(422);
+        $res = $this->postJson('/api/arus-kas/pengajuan', $this->payload(['kategori' => 'legalitas', 'nominal' => 500000]));
+        $res->assertStatus(201)->assertJsonPath('data.status', 'disetujui');
 
-        $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
+        $this->assertDatabaseMissing('approval_pengajuan', [
+            'id_referensi' => $res->json('data.id_pengajuan'),
+        ]);
     }
 
     public function test_update_saat_menunggu_approval_nominal_turun_dibawah_batas_membatalkan_approval_dan_auto_disetujui(): void

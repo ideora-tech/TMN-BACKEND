@@ -386,9 +386,23 @@ class ReapprovalNominalRealisasiTest extends TestCase
         $this->assertEquals(200000, (float) $pengajuan->nominal);
     }
 
+    private function buatEventTypeTanpaApprover(): void
+    {
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => (string) Str::uuid(),
+            'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode'          => 'pengajuan_pengeluaran',
+            'nama'          => 'Pengajuan Pengeluaran',
+            'mode_resolusi' => 'pinned',
+            'aktif'         => 1,
+            'dibuat_pada'   => now(),
+        ]);
+    }
+
     public function test_naik_melewati_batas_tanpa_approver_realisasi_rollback(): void
     {
         $this->actingAsRole('SUPERADMIN');
+        $this->buatEventTypeTanpaApprover();
         $this->setBatas(201000);
         [$idPembelian, $items, $idPengajuan] = $this->buatPembelian();
         $this->actingAsRole('KEUANGAN');

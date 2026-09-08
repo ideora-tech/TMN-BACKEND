@@ -260,13 +260,18 @@ class ArusKasService
     {
         return DB::transaction(function () use ($data, $idPerusahaan, $bukti) {
             $data['id_perusahaan']   = $idPerusahaan;
-            $data['status']          = self::STATUS_DIAJUKAN;
             $data['nomor_pengajuan'] = $this->repo->nomorPengajuanBerikutnya($idPerusahaan);
             if ($bukti !== null) {
                 $data['url_bukti'] = PenyimpananBerkas::simpan($bukti, 'bukti-kas');
             }
+
+            $data['status']         = self::STATUS_DISETUJUI;
+            $data['disetujui_oleh'] = auth()->id() ?? null;
+            $data['disetujui_pada'] = now();
+
             $record = $this->repo->createPengajuan($data);
-            return $this->masukTahapApproval($record);
+            $this->jalankanHookSetujui($record);
+            return $record;
         });
     }
 
@@ -354,9 +359,18 @@ class ArusKasService
             return $updated;
         }
 
-        $kode = $this->approvalService->adaEventTypeAktif((string) $record->kategori, (string) $record->id_perusahaan)
-            ? (string) $record->kategori
-            : 'pengajuan_pengeluaran';
+        $kategoriAktif = $this->approvalService->adaEventTypeAktif((string) $record->kategori, (string) $record->id_perusahaan);
+        if (!$kategoriAktif && !$this->approvalService->adaEventTypeAktif('pengajuan_pengeluaran', (string) $record->id_perusahaan)) {
+            $updated = $this->repo->updatePengajuan($record, [
+                'status'          => self::STATUS_DISETUJUI,
+                'disetujui_oleh'  => $aktor,
+                'disetujui_pada'  => now(),
+            ]);
+            $this->jalankanHookSetujui($updated);
+            return $updated;
+        }
+
+        $kode = $kategoriAktif ? (string) $record->kategori : 'pengajuan_pengeluaran';
 
         $this->approvalService->ajukan(
             $kode,
@@ -388,9 +402,18 @@ class ArusKasService
             return $updated;
         }
 
-        $kode = $this->approvalService->adaEventTypeAktif((string) $record->kategori, (string) $record->id_perusahaan)
-            ? (string) $record->kategori
-            : 'pengajuan_pengeluaran';
+        $kategoriAktif = $this->approvalService->adaEventTypeAktif((string) $record->kategori, (string) $record->id_perusahaan);
+        if (!$kategoriAktif && !$this->approvalService->adaEventTypeAktif('pengajuan_pengeluaran', (string) $record->id_perusahaan)) {
+            $updated = $this->repo->updatePengajuan($record, [
+                'status'         => self::STATUS_DISETUJUI,
+                'disetujui_oleh' => auth()->id() ?? $record->dibuat_oleh,
+                'disetujui_pada' => now(),
+            ]);
+            $this->jalankanHookSetujui($updated);
+            return $updated;
+        }
+
+        $kode = $kategoriAktif ? (string) $record->kategori : 'pengajuan_pengeluaran';
 
         $pengajuanBaru = $this->approvalService->ajukan(
             $kode,
