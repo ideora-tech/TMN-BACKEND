@@ -22,6 +22,7 @@ class LaporanPerjalananResource extends JsonResource
             'uang_tol'        => $this->uang_tol,
             'catatan_insiden' => $this->catatan_insiden,
             'no_surat_jalan'  => $this->no_surat_jalan,
+            'status'          => $this->status ?? 'final',
             'dibuat_pada'     => $this->dibuat_pada,
             'diubah_pada'     => $this->diubah_pada,
             'biaya_lain'      => BiayaLainTripResource::collection($this->whenLoaded('biayaLain')),

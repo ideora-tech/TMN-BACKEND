@@ -29,6 +29,7 @@ class LaporanPerjalananServiceProvider extends ServiceProvider
 
                 Route::get('trip/{idTrip}/laporan-saya', [LaporanPerjalananController::class, 'laporanSaya']);
                 Route::post('trip/{idTrip}/laporan-saya', [LaporanPerjalananController::class, 'storeLaporanSaya']);
+                Route::post('trip/{idTrip}/laporan-saya/selesaikan', [LaporanPerjalananController::class, 'selesaikanLaporanSaya']);
                 Route::post('laporan-saya/{idLaporan}/foto', [LaporanPerjalananController::class, 'storeFotoSaya']);
                 Route::delete('laporan-saya/{idLaporan}/foto/{idFoto}', [LaporanPerjalananController::class, 'destroyFotoSaya']);
             });

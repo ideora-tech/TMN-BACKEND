@@ -56,6 +56,13 @@ class LaporanPerjalananController extends Controller
         return ApiResponse::success(new LaporanPerjalananResource($record), 'Laporan perjalanan tersimpan', 201);
     }
 
+    public function selesaikanLaporanSaya(Request $request, string $idTrip): JsonResponse
+    {
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
+        $record = $this->service->selesaikanUntukSupir($idTrip, $idSupir, $tipe);
+        return ApiResponse::success(new LaporanPerjalananResource($record), 'Laporan diselesaikan dan dikunci');
+    }
+
     public function storeFotoSaya(StoreFotoLaporanRequest $request, string $idLaporan): JsonResponse
     {
         [$tipe, $idSupir] = $this->konteksSupirSaya($request);

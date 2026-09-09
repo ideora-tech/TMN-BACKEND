@@ -312,7 +312,38 @@ class LaporanSayaTest extends TestCase
             ->assertStatus(404);
     }
 
-    public function test_foto_terkunci_saat_trip_selesai_dan_laporan_sudah_ada(): void
+    public function test_laporan_draft_masih_bisa_diedit_walau_trip_selesai(): void
+    {
+        Storage::fake('public');
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $trip = $this->makeTripUntukSupir($ctx->id_supir, $proyek->id_proyek, 'selesai');
+
+        $createRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
+            'biaya_bbm'  => 300000,
+            'uang_jalan' => 150000,
+            'foto'       => [UploadedFile::fake()->image('bukti.jpg')],
+        ]);
+        $createRes->assertStatus(201)->assertJsonPath('data.status', 'draft');
+        $idLaporan = $createRes->json('data.id_laporan');
+
+        $this->postJson("/api/laporan-saya/{$idLaporan}/foto", [
+            'foto' => [UploadedFile::fake()->image('tambahan.jpg')],
+        ])->assertStatus(201);
+
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
+            'biaya_bbm'  => 350000,
+            'uang_jalan' => 150000,
+        ])->assertStatus(201);
+
+        $this->assertDatabaseHas('laporan_perjalanan', [
+            'id_laporan' => $idLaporan,
+            'biaya_bbm'  => 350000,
+            'status'     => 'draft',
+        ]);
+    }
+
+    public function test_laporan_terkunci_setelah_diselesaikan(): void
     {
         Storage::fake('public');
         $ctx = $this->actingAsSupir();
@@ -328,6 +359,10 @@ class LaporanSayaTest extends TestCase
         $idLaporan = $createRes->json('data.id_laporan');
         $idFoto = $createRes->json('data.foto.0.id_foto');
 
+        $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya/selesaikan")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'final');
+
         $addRes = $this->postJson("/api/laporan-saya/{$idLaporan}/foto", [
             'foto' => [UploadedFile::fake()->image('tambahan.jpg')],
         ]);
@@ -336,12 +371,6 @@ class LaporanSayaTest extends TestCase
 
         $this->deleteJson("/api/laporan-saya/{$idLaporan}/foto/{$idFoto}")
             ->assertStatus(422);
-
-        $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
-            'biaya_bbm'  => 350000,
-            'uang_jalan' => 150000,
-            'foto'       => [UploadedFile::fake()->image('lagi.jpg')],
-        ])->assertStatus(422);
 
         $fieldsOnlyRes = $this->postJson("/api/trip/{$trip->id_trip}/laporan-saya", [
             'biaya_bbm'  => 400000,
@@ -353,6 +382,7 @@ class LaporanSayaTest extends TestCase
         $this->assertDatabaseHas('laporan_perjalanan', [
             'id_laporan' => $idLaporan,
             'biaya_bbm'  => 300000,
+            'status'     => 'final',
         ]);
     }
 

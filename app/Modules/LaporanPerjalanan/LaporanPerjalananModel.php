@@ -24,6 +24,7 @@ class LaporanPerjalananModel extends BaseModel
         'uang_tol',
         'catatan_insiden',
         'no_surat_jalan',
+        'status',
     ];
 
     protected $casts = [

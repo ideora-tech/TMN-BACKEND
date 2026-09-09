@@ -12,7 +12,7 @@ use Illuminate\Http\UploadedFile;
 
 class LaporanPerjalananService
 {
-    private const PESAN_LAPORAN_TERKUNCI = 'Laporan terkunci setelah trip selesai — hubungi kantor untuk koreksi';
+    private const PESAN_LAPORAN_TERKUNCI = 'Laporan sudah diselesaikan dan terkunci — hubungi kantor untuk koreksi';
 
     public function __construct(
         private readonly LaporanPerjalananRepositoryInterface $repo,
@@ -56,6 +56,7 @@ class LaporanPerjalananService
         $laporan = $this->repo->create(array_merge($data, [
             'id_trip'       => $idTrip,
             'id_perusahaan' => $idPerusahaan,
+            'status'        => 'final',
         ]));
         $this->repo->syncBiayaLain($laporan, $biayaLain);
         if ($hasBiayaTagihan) {
@@ -110,7 +111,7 @@ class LaporanPerjalananService
         }
 
         $existing = $this->repo->findByTrip($idTrip);
-        if ($existing !== null && $trip->status === 'selesai') {
+        if ($existing !== null && ($existing->status ?? 'final') === 'final') {
             abort(422, self::PESAN_LAPORAN_TERKUNCI);
         }
 
@@ -150,7 +151,7 @@ class LaporanPerjalananService
     {
         $laporan = $this->findOrFail($idLaporan);
         $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir, $tipe);
-        $this->pastikanFotoTidakTerkunci((string) $laporan->id_trip);
+        $this->pastikanLaporanTidakTerkunci($laporan);
 
         return $this->simpanFotoFiles($laporan, $files, $keterangan, $fotoKeterangan);
     }
@@ -159,7 +160,7 @@ class LaporanPerjalananService
     {
         $laporan = $this->findOrFail($idLaporan);
         $this->pastikanTripMilikSupir($laporan->id_trip, $idSupir, $tipe);
-        $this->pastikanFotoTidakTerkunci((string) $laporan->id_trip);
+        $this->pastikanLaporanTidakTerkunci($laporan);
 
         $foto = $this->repo->findFotoById($idLaporan, $idFoto);
         if (!$foto) {
@@ -168,10 +169,26 @@ class LaporanPerjalananService
         $this->repo->deleteFoto($foto);
     }
 
-    private function pastikanFotoTidakTerkunci(string $idTrip): void
+    public function selesaikanUntukSupir(string $idTrip, string $idSupir, string $tipe = 'internal'): LaporanPerjalananModel
     {
-        $trip = $this->tripRepo->findById($idTrip);
-        if ($trip !== null && $trip->status === 'selesai') {
+        $this->pastikanTripMilikSupir($idTrip, $idSupir, $tipe);
+
+        $laporan = $this->repo->findByTrip($idTrip);
+        if ($laporan === null) {
+            abort(404, 'Laporan perjalanan belum diisi');
+        }
+        if (($laporan->status ?? 'final') === 'final') {
+            return $this->repo->reload($laporan);
+        }
+
+        $laporan = $this->repo->update($laporan, ['status' => 'final']);
+
+        return $this->repo->reload($laporan);
+    }
+
+    private function pastikanLaporanTidakTerkunci(LaporanPerjalananModel $laporan): void
+    {
+        if (($laporan->status ?? 'final') === 'final') {
             abort(422, self::PESAN_LAPORAN_TERKUNCI);
         }
     }
