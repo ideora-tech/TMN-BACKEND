@@ -26,4 +26,7 @@ interface FakturRepositoryInterface
     public function insertStatusLog(string $idFaktur, string $status, ?string $keterangan = null): void;
     public function listStatusLog(string $idFaktur): array;
     public function tripTerkait(string $idFaktur): array;
+    public function pajakUntukSatu(string $idFaktur): array;
+    public function pajakUntukBanyak(array $idFakturList): array;
+    public function replacePajak(string $idFaktur, array $pajakRows): void;
 }

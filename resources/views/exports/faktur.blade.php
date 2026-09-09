@@ -56,6 +56,10 @@
     @php
         $rp = fn ($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
         $tgl = fn ($v) => $v ? date('d/m/Y', strtotime((string) $v)) : '-';
+        $persenFmt = fn ($v) => rtrim(rtrim(number_format((float) $v, 2, ',', '.'), '0'), ',');
+        $pajakBaris = !empty($f->pajak)
+            ? $f->pajak
+            : (!empty($f->persen_pajak) ? [['nama' => $f->nama_pajak, 'persen' => $f->persen_pajak]] : []);
     @endphp
 
     <div class="kop">
@@ -129,15 +133,17 @@
                             <td class="jumlah">{{ $rp($item->subtotal) }}</td>
                         </tr>
                     @endforeach
-                    @if (!empty($f->persen_pajak))
+                    @if (count($pajakBaris) > 0)
                         <tr>
                             <td colspan="3">Subtotal</td>
                             <td class="jumlah">{{ $rp(collect($items)->sum('subtotal')) }}</td>
                         </tr>
-                        <tr>
-                            <td colspan="3">{{ $f->nama_pajak ?: 'Pajak' }} ({{ rtrim(rtrim(number_format((float) $f->persen_pajak, 2, ',', '.'), '0'), ',') }}%)</td>
-                            <td class="jumlah">{{ $rp($f->total - collect($items)->sum('subtotal')) }}</td>
-                        </tr>
+                        @foreach ($pajakBaris as $pajak)
+                            <tr>
+                                <td colspan="3">{{ $pajak['nama'] ?: 'Pajak' }} ({{ $persenFmt($pajak['persen']) }}%)</td>
+                                <td class="jumlah">{{ $rp(collect($items)->sum('subtotal') * $pajak['persen'] / 100) }}</td>
+                            </tr>
+                        @endforeach
                     @endif
                     <tr class="subtotal">
                         <td colspan="3">TOTAL TAGIHAN</td>

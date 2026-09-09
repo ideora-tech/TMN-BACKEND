@@ -113,6 +113,41 @@ class FakturKlienExportTest extends TestCase
         $view->assertSee('7285139591', false);
     }
 
+    public function test_export_pdf_menampilkan_semua_baris_pajak_multi(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKlien = $this->makeKlien('PT Klien Multi Pajak PDF');
+
+        $resBuat = $this->postJson('/api/faktur', [
+            'id_klien'     => $idKlien,
+            'nomor_faktur' => 'INV-' . Str::random(6),
+            'pajak'        => [
+                ['nama' => 'PPN', 'persen' => 11],
+                ['nama' => 'PPH', 'persen' => 2],
+            ],
+            'items' => [
+                ['deskripsi' => 'Jasa angkut', 'qty' => 1, 'harga_satuan' => 1000000],
+            ],
+        ]);
+        $resBuat->assertStatus(201);
+        $idFaktur = $resBuat->json('data.id_faktur');
+
+        $record = app(\App\Modules\Faktur\FakturService::class)->untukCetak($idFaktur, self::PERUSAHAAN_ID);
+
+        $view = $this->view('exports.faktur', [
+            'f'          => $record,
+            'items'      => $record->items,
+            'logoBase64' => null,
+            'perusahaan' => (object) [],
+        ]);
+
+        $view->assertSee('PPN (11%)', false);
+        $view->assertSee('PPH (2%)', false);
+        $view->assertSee('Rp 110.000');
+        $view->assertSee('Rp 20.000');
+        $view->assertSee('Rp 1.130.000');
+    }
+
     public function test_export_faktur_milik_perusahaan_lain_ditolak_404(): void
     {
         $this->actingAsRole('SUPERADMIN');

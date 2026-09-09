@@ -24,6 +24,7 @@ class FakturResource extends JsonResource
             'total'          => $this->total,
             'nama_pajak'     => $this->nama_pajak,
             'persen_pajak'   => $this->persen_pajak !== null ? (float) $this->persen_pajak : null,
+            'pajak'          => $this->pajak ?? [],
             'status'         => $this->status,
             'tanggal_faktur' => $this->tanggal_faktur?->toDateString(),
             'jatuh_tempo'    => $this->jatuh_tempo?->toDateString(),

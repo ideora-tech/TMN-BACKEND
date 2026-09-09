@@ -56,7 +56,12 @@ class FakturRepository implements FakturRepositoryInterface
 
     public function findById(string $id): ?FakturModel
     {
-        return FakturModel::active()->with('items')->find($id);
+        $record = FakturModel::active()->with('items')->find($id);
+        if ($record !== null) {
+            $record->pajak = $this->pajakUntukSatu($id);
+            $record->syncOriginalAttribute('pajak');
+        }
+        return $record;
     }
 
     public function findForUpdate(string $id): ?FakturModel
@@ -125,7 +130,10 @@ class FakturRepository implements FakturRepositoryInterface
     public function update(FakturModel $model, array $data): FakturModel
     {
         $model->update($data);
-        return $model->fresh(['items']);
+        $fresh = $model->fresh(['items']);
+        $fresh->pajak = $this->pajakUntukSatu((string) $fresh->id_faktur);
+        $fresh->syncOriginalAttribute('pajak');
+        return $fresh;
     }
 
     public function delete(FakturModel $model): void
@@ -194,5 +202,48 @@ class FakturRepository implements FakturRepositoryInterface
             ->get()
             ->map(fn ($r) => (array) $r)
             ->all();
+    }
+
+    public function pajakUntukSatu(string $idFaktur): array
+    {
+        return $this->pajakUntukBanyak([$idFaktur])[$idFaktur] ?? [];
+    }
+
+    public function pajakUntukBanyak(array $idFakturList): array
+    {
+        if ($idFakturList === []) {
+            return [];
+        }
+
+        $rows = DB::table('faktur_pajak')
+            ->whereIn('id_faktur', $idFakturList)
+            ->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['id_faktur', 'nama', 'persen']);
+
+        return $rows
+            ->groupBy('id_faktur')
+            ->map(fn ($grup) => $grup->map(fn ($item) => [
+                'nama'   => $item->nama,
+                'persen' => (float) $item->persen,
+            ])->values()->all())
+            ->all();
+    }
+
+    public function replacePajak(string $idFaktur, array $pajakRows): void
+    {
+        DB::table('faktur_pajak')
+            ->where('id_faktur', $idFaktur)
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampDelete());
+
+        foreach (array_values($pajakRows) as $i => $row) {
+            DB::table('faktur_pajak')->insert(RecordHelper::stampCreate([
+                'id_faktur' => $idFaktur,
+                'nama'      => $row['nama'],
+                'persen'    => $row['persen'],
+                'urutan'    => $i + 1,
+            ], 'id_faktur_pajak'));
+        }
     }
 }

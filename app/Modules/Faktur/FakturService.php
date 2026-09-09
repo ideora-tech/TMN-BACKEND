@@ -26,6 +26,7 @@ class FakturService
     {
         $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
         $this->attachDibuatOlehNama($result->items());
+        $this->attachPajak($result->items());
 
         return [
             'data' => $result->items(),
@@ -42,6 +43,7 @@ class FakturService
     {
         $result = $this->repo->paginateByKlien($idKlien, $idPerusahaan, $page, $limit);
         $this->attachDibuatOlehNama($result->items());
+        $this->attachPajak($result->items());
 
         return [
             'data' => $result->items(),
@@ -65,6 +67,76 @@ class FakturService
         foreach ($items as $item) {
             $item->dibuat_oleh_nama = $item->dibuat_oleh !== null ? ($namaMap[$item->dibuat_oleh] ?? null) : null;
         }
+    }
+
+    /** @param FakturModel[] $items */
+    private function attachPajak(array $items): void
+    {
+        $idFakturList = array_values(array_unique(array_map(fn (FakturModel $item) => (string) $item->id_faktur, $items)));
+        $pajakMap = $this->repo->pajakUntukBanyak($idFakturList);
+
+        foreach ($items as $item) {
+            $item->pajak = $pajakMap[(string) $item->id_faktur] ?? [];
+            $item->syncOriginalAttribute('pajak');
+        }
+    }
+
+    /** @return array{0: array, 1: bool} */
+    private function tentukanPajak(array $data, ?FakturModel $record = null): array
+    {
+        if (array_key_exists('pajak', $data)) {
+            $rows = array_values(array_map(fn ($r) => [
+                'nama'   => (string) $r['nama'],
+                'persen' => (float) $r['persen'],
+            ], $data['pajak']));
+            return [$rows, true];
+        }
+
+        if (array_key_exists('persen_pajak', $data)) {
+            $nama = array_key_exists('nama_pajak', $data)
+                ? $data['nama_pajak']
+                : ($record->nama_pajak ?? null);
+            $persen = $data['persen_pajak'];
+            $rows = $persen !== null ? [['nama' => $nama ?? '', 'persen' => (float) $persen]] : [];
+            return [$rows, true];
+        }
+
+        return [[], false];
+    }
+
+    private function validasiPajakDuplikat(array $pajakRows): void
+    {
+        $dilihat = [];
+        foreach ($pajakRows as $baris) {
+            if (in_array($baris['nama'], $dilihat, true)) {
+                abort(422, 'Nama pajak duplikat');
+            }
+            $dilihat[] = $baris['nama'];
+        }
+    }
+
+    private function totalPajak(float $subtotal, array $pajakRows): float
+    {
+        return array_sum(array_map(fn ($baris) => $subtotal * ((float) $baris['persen']) / 100, $pajakRows));
+    }
+
+    private function tulisKolomLegacy(array &$data, array $pajakRows): void
+    {
+        $pertama = $pajakRows[0] ?? null;
+        $data['nama_pajak']   = $pertama['nama'] ?? null;
+        $data['persen_pajak'] = $pertama['persen'] ?? null;
+    }
+
+    private function pajakEfektif(FakturModel $record): array
+    {
+        $rows = $record->pajak ?? [];
+        if ($rows !== []) {
+            return $rows;
+        }
+        if ($record->persen_pajak !== null) {
+            return [['nama' => $record->nama_pajak, 'persen' => (float) $record->persen_pajak]];
+        }
+        return [];
     }
 
     public function findOrFail(string $id, ?string $idPerusahaan = null): FakturModel
@@ -115,9 +187,17 @@ class FakturService
 
         $items = $data['items'] ?? [];
         $subtotal = collect($items)->sum(fn($i) => $i['qty'] * $i['harga_satuan']);
-        $persenPajak = $data['persen_pajak'] ?? null;
-        $data['total'] = $subtotal + ($persenPajak ? $subtotal * $persenPajak / 100 : 0);
-        unset($data['items']);
+
+        [$pajakRows, $pajakDikirim] = $this->tentukanPajak($data);
+        if ($pajakDikirim) {
+            $this->validasiPajakDuplikat($pajakRows);
+        }
+
+        $data['total'] = $subtotal + $this->totalPajak($subtotal, $pajakRows);
+        if ($pajakDikirim) {
+            $this->tulisKolomLegacy($data, $pajakRows);
+        }
+        unset($data['items'], $data['pajak']);
 
         $faktur = $this->repo->create($data);
 
@@ -125,6 +205,10 @@ class FakturService
             $item['id_faktur'] = $faktur->id_faktur;
             $item['subtotal']  = $item['qty'] * $item['harga_satuan'];
             $this->itemRepo->create($item);
+        }
+
+        if ($pajakRows !== []) {
+            $this->repo->replacePajak((string) $faktur->id_faktur, $pajakRows);
         }
 
         $this->repo->insertStatusLog((string) $faktur->id_faktur, (string) ($data['status'] ?? 'draft'), 'Invoice dibuat');
@@ -157,7 +241,6 @@ class FakturService
             }
         }
 
-        // If items are provided, replace them
         $itemsBerubah = isset($data['items']);
         if ($itemsBerubah) {
             $items = $data['items'];
@@ -172,14 +255,23 @@ class FakturService
             }
         }
 
-        // Total dihitung ulang bila item ATAU persen pajak berubah — subtotal
-        // diambil dari item baru (bila diganti) atau item existing di DB.
-        if ($itemsBerubah || array_key_exists('persen_pajak', $data)) {
+        [$pajakBaru, $pajakBerubah] = $this->tentukanPajak($data, $record);
+        unset($data['pajak']);
+        if ($pajakBerubah) {
+            $this->validasiPajakDuplikat($pajakBaru);
+        }
+
+        if ($itemsBerubah || $pajakBerubah) {
             $subtotal = $itemsBerubah
                 ? collect($items)->sum(fn ($i) => $i['qty'] * $i['harga_satuan'])
                 : (float) $record->items()->sum('subtotal');
-            $persenPajak = array_key_exists('persen_pajak', $data) ? $data['persen_pajak'] : $record->persen_pajak;
-            $data['total'] = $subtotal + ($persenPajak ? $subtotal * $persenPajak / 100 : 0);
+            $pajakUntukHitung = $pajakBerubah ? $pajakBaru : $this->pajakEfektif($record);
+            $data['total'] = $subtotal + $this->totalPajak($subtotal, $pajakUntukHitung);
+        }
+
+        if ($pajakBerubah) {
+            $this->tulisKolomLegacy($data, $pajakBaru);
+            $this->repo->replacePajak((string) $record->id_faktur, $pajakBaru);
         }
 
         $updated = $this->repo->update($record, $data);
@@ -327,6 +419,7 @@ class FakturService
         }
 
         $this->itemRepo->deleteByFaktur($record->id_faktur);
+        $this->repo->replacePajak((string) $record->id_faktur, []);
         $this->repo->delete($record);
     }
 }
