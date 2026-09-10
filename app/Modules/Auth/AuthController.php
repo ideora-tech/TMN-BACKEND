@@ -6,6 +6,7 @@ namespace App\Modules\Auth;
 
 use App\Helpers\ApiResponse;
 use App\Modules\Auth\Requests\LoginRequest;
+use App\Modules\Auth\Requests\UbahPasswordRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
 
@@ -23,6 +24,12 @@ class AuthController extends Controller
     {
         $this->service->logout(auth()->user());
         return ApiResponse::success(null, 'Logout berhasil');
+    }
+
+    public function ubahPassword(UbahPasswordRequest $request): JsonResponse
+    {
+        $this->service->ubahPassword($request->user(), $request->password_lama, $request->password_baru);
+        return ApiResponse::success(null, 'Password berhasil diubah');
     }
 
     public function me(): JsonResponse

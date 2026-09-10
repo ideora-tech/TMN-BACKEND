@@ -6,6 +6,7 @@ namespace App\Modules\Auth;
 
 use App\Models\Pengguna;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthService
 {
@@ -29,5 +30,23 @@ class AuthService
     public function logout(Pengguna $pengguna): void
     {
         $pengguna->currentAccessToken()->delete();
+    }
+
+    public function ubahPassword(Pengguna $pengguna, string $passwordLama, string $passwordBaru): void
+    {
+        if (!Hash::check($passwordLama, $pengguna->kata_sandi)) {
+            abort(422, 'Password lama salah');
+        }
+        if (Hash::check($passwordBaru, $pengguna->kata_sandi)) {
+            abort(422, 'Password baru harus berbeda dari password lama');
+        }
+
+        $pengguna->kata_sandi = Hash::make($passwordBaru);
+        $pengguna->save();
+
+        $tokenSekarang = $pengguna->currentAccessToken();
+        $pengguna->tokens()
+            ->when($tokenSekarang instanceof PersonalAccessToken, fn ($q) => $q->where('id', '!=', $tokenSekarang->id))
+            ->delete();
     }
 }

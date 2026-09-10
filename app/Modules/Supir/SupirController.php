@@ -52,6 +52,16 @@ class SupirController extends Controller
         return ApiResponse::success(new SupirResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
     }
 
+    public function dokumenSaya(Request $request, DokumenSupirSayaService $dokumenSaya): JsonResponse
+    {
+        return ApiResponse::success($dokumenSaya->dokumenSaya((string) $request->user()->id_pengguna));
+    }
+
+    public function unitSaya(Request $request, DokumenSupirSayaService $dokumenSaya): JsonResponse
+    {
+        return ApiResponse::success($dokumenSaya->unitSaya((string) $request->user()->id_pengguna));
+    }
+
     public function me(Request $request): JsonResponse
     {
         $idPengguna = (string) $request->user()->id_pengguna;

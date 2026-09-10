@@ -66,6 +66,19 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
             ->first();
     }
 
+    public function listAktifByArmada(string $idArmada): array
+    {
+        return DB::table('dokumen_armada')
+            ->whereNull('dihapus_pada')
+            ->where('id_armada', $idArmada)
+            ->where('aktif', 1)
+            ->orderBy('jenis_dokumen')
+            ->orderBy('berlaku_sampai')
+            ->select(self::COLUMNS)
+            ->get()
+            ->all();
+    }
+
     public function findPengganti(string $id): ?object
     {
         $idPengganti = DB::table('dokumen_armada')

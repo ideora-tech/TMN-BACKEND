@@ -11,6 +11,7 @@ interface DokumenArmadaRepositoryInterface
     public function paginateByArmada(string $idArmada, int $page, int $limit): LengthAwarePaginator;
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?object;
+    public function listAktifByArmada(string $idArmada): array;
     public function findPengganti(string $id): ?object;
     public function adaAktif(string $idArmada, string $jenisDokumen, ?string $kecualiId = null): bool;
     public function findExpiring(string $idPerusahaan, int $days): array;

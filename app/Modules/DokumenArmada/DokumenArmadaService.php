@@ -59,6 +59,15 @@ class DokumenArmadaService
         return $record;
     }
 
+    public function dokumenAktifDenganRiwayat(string $idArmada): array
+    {
+        $daftar = $this->repo->listAktifByArmada($idArmada);
+        foreach ($daftar as $record) {
+            $record->riwayat = $this->rantaiRiwayat($record);
+        }
+        return $daftar;
+    }
+
     private function rantaiRiwayat(object $record): array
     {
         $riwayat = [];
