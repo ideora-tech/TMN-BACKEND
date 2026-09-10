@@ -162,4 +162,58 @@ class PaketPerawatanSparepartRepository implements PaketPerawatanSparepartReposi
             ])
             ->all();
     }
+
+    public function findAllByKombinasiPairs(string $idPerusahaan, array $pairs): array
+    {
+        if (empty($pairs)) {
+            return [];
+        }
+
+        $unik = [];
+        foreach ($pairs as $pair) {
+            $unik[$pair['id_jenis_perawatan'] . '|' . $pair['id_jenis_kendaraan']] = $pair;
+        }
+
+        return DB::table('paket_perawatan_sparepart')
+            ->join('sparepart', 'sparepart.id_sparepart', '=', 'paket_perawatan_sparepart.id_sparepart')
+            ->whereNull('paket_perawatan_sparepart.dihapus_pada')
+            ->whereNull('sparepart.dihapus_pada')
+            ->where('paket_perawatan_sparepart.id_perusahaan', $idPerusahaan)
+            ->where(function ($q) use ($unik) {
+                foreach ($unik as $pair) {
+                    $q->orWhere(function ($q2) use ($pair) {
+                        $q2->where('paket_perawatan_sparepart.id_jenis_perawatan', $pair['id_jenis_perawatan'])
+                           ->where('paket_perawatan_sparepart.id_jenis_kendaraan', $pair['id_jenis_kendaraan']);
+                    });
+                }
+            })
+            ->orderBy('sparepart.nama')
+            ->get([
+                'paket_perawatan_sparepart.id_jenis_perawatan',
+                'paket_perawatan_sparepart.id_jenis_kendaraan',
+                'sparepart.id_sparepart',
+                'sparepart.nama as nama_sparepart',
+                'sparepart.satuan as satuan_sparepart',
+                'paket_perawatan_sparepart.qty_standar',
+            ])
+            ->map(fn ($row) => [
+                'id_jenis_perawatan' => $row->id_jenis_perawatan,
+                'id_jenis_kendaraan' => $row->id_jenis_kendaraan,
+                'id_sparepart'       => $row->id_sparepart,
+                'nama_sparepart'     => $row->nama_sparepart,
+                'satuan_sparepart'   => $row->satuan_sparepart,
+                'qty_standar'        => (int) $row->qty_standar,
+            ])
+            ->all();
+    }
+
+    public function softDeleteByKombinasi(string $idPerusahaan, string $idJenisPerawatan, string $idJenisKendaraan): void
+    {
+        DB::table('paket_perawatan_sparepart')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('id_jenis_perawatan', $idJenisPerawatan)
+            ->where('id_jenis_kendaraan', $idJenisKendaraan)
+            ->update(RecordHelper::stampDelete());
+    }
 }

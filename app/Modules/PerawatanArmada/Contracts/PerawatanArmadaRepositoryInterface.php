@@ -29,9 +29,23 @@ interface PerawatanArmadaRepositoryInterface
     public function getSparepartForUpdate(string $idSparepart): ?object;
     public function setSparepartStok(string $idSparepart, int $stokBaru): void;
     public function insertSparepartMutasi(array $data): void;
-    public function getJenisPerawatanNama(string $idJenisPerawatan): ?string;
+    /** Nama master sparepart tanpa lock — dipakai sekadar mengisi snapshot nama baris 'bengkel' (referensi katalog, bukan pemotong stok). */
+    public function getSparepartNama(string $idSparepart): ?string;
 
-    /** Riwayat servis "selesai" terakhir per jenis perawatan untuk 1 armada (dipakai fitur prediksi perawatan). */
-    public function getLatestPerJenisByArmada(string $idArmada): array;
+    public function supplierMilik(string $idPerusahaan, string $idSupplier): bool;
+    public function getSupplierNama(string $idSupplier): ?string;
+    /** @return array<string, string> nama supplier keyed by id_supplier */
+    public function supplierUntukBanyak(array $idSupplierList): array;
+
+    /** Interval (paket servis) yang dipakai banyak catatan sekaligus — hindari N+1 di list/index. @return array<string, object> keyed by id_interval_perawatan */
+    public function intervalUntukBanyak(array $idIntervalList): array;
+
+    /** Riwayat servis "selesai" terakhir per paket (id_interval_perawatan) untuk 1 armada (dipakai fitur prediksi perawatan). */
+    public function getLatestPerIntervalByArmada(string $idArmada): array;
     public function kmOdometerTerakhir(string $idArmada): ?int;
+
+    public function getLatestPerIntervalByArmadaIds(array $armadaIds): array;
+    public function kmOdometerTerakhirByArmadaIds(array $armadaIds): array;
+    public function getServisTerakhirSelesaiByArmadaIds(array $armadaIds): array;
+    public function findArmadaPapanUnit(string $idPerusahaan, ?string $search = null): array;
 }

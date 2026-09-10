@@ -139,7 +139,13 @@ class TripController extends Controller
     {
         $validated = $request->validate([
             'tanggal' => ['nullable', 'date_format:Y-m-d'],
-            'status'  => ['nullable', 'in:selesai,dibatalkan,berjalan'],
+            'status'  => ['nullable', 'string', function ($attribute, $value, $fail) {
+                foreach (explode(',', (string) $value) as $status) {
+                    if (!in_array($status, ['selesai', 'dibatalkan', 'berjalan'], true)) {
+                        $fail('Status tidak valid');
+                    }
+                }
+            }],
         ]);
 
         [$tipe, $idSupir] = $this->konteksSupirSaya($request);

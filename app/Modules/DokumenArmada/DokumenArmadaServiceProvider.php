@@ -22,15 +22,15 @@ class DokumenArmadaServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:armada'])
             ->group(function () {
                 Route::get('dokumen-armada', [DokumenArmadaController::class, 'index']);
+                Route::get('dokumen-armada/expiring', [DokumenArmadaController::class, 'expiring']);
+                Route::get('dokumen-armada/{id}', [DokumenArmadaController::class, 'show'])->whereUuid('id');
 
-                // Nested under armada
                 Route::get('armada/{idArmada}/dokumen', [DokumenArmadaController::class, 'indexByArmada']);
                 Route::post('armada/{idArmada}/dokumen', [DokumenArmadaController::class, 'store']);
+                Route::post('armada/{idArmada}/dokumen/batch', [DokumenArmadaController::class, 'storeBatch']);
+                Route::post('armada/{idArmada}/dokumen/{id}/perpanjang', [DokumenArmadaController::class, 'perpanjang']);
                 Route::put('armada/{idArmada}/dokumen/{id}', [DokumenArmadaController::class, 'update']);
                 Route::delete('armada/{idArmada}/dokumen/{id}', [DokumenArmadaController::class, 'destroy']);
-
-                // Standalone expiring query
-                Route::get('dokumen-armada/expiring', [DokumenArmadaController::class, 'expiring']);
             });
     }
 }

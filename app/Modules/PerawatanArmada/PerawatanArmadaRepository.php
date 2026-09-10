@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\PerawatanArmada;
 
+use App\Modules\IntervalPerawatan\IntervalLabelBuilder;
 use App\Modules\PerawatanArmada\Contracts\PerawatanArmadaRepositoryInterface;
 use App\Support\RecordHelper;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -12,9 +13,9 @@ use Illuminate\Support\Facades\DB;
 class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
 {
     private const COLUMNS = [
-        'perawatan_armada.id_perawatan', 'perawatan_armada.id_armada',
-        'perawatan_armada.id_jenis_perawatan', 'perawatan_armada.tanggal',
-        'perawatan_armada.jenis_perawatan', 'perawatan_armada.biaya', 'perawatan_armada.km_odometer',
+        'perawatan_armada.id_perawatan', 'perawatan_armada.id_armada', 'perawatan_armada.id_supplier',
+        'perawatan_armada.id_interval_perawatan', 'perawatan_armada.tanggal',
+        'perawatan_armada.biaya', 'perawatan_armada.km_odometer',
         'perawatan_armada.status', 'perawatan_armada.alasan_batal',
         'perawatan_armada.jadwal_servis_berikutnya', 'perawatan_armada.keterangan',
         'perawatan_armada.dibuat_pada', 'perawatan_armada.dibuat_oleh',
@@ -124,10 +125,12 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->all();
     }
 
+    /** @return object[] baris perawatan (kolom lengkap tabel p) + jenis_perawatan berisi label paket (atau 'Perbaikan' bila insidental) — dipakai export unit. */
     public function listByArmadaRentang(string $idArmada, ?string $dari = null, ?string $sampai = null): array
     {
         return DB::table('perawatan_armada as p')
             ->leftJoinSub($this->subTotalSparepart(), 'sp', 'sp.id_perawatan', '=', 'p.id_perawatan')
+            ->leftJoin('interval_perawatan as ip', 'ip.id_interval_perawatan', '=', 'p.id_interval_perawatan')
             ->whereNull('p.dihapus_pada')
             ->where('p.id_armada', $idArmada)
             ->where('p.status', '!=', 'dibatalkan')
@@ -135,8 +138,15 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->when($sampai, fn ($q, $v) => $q->whereDate('p.tanggal', '<=', $v))
             ->orderByDesc('p.tanggal')
             ->orderByDesc('p.dibuat_pada')
-            ->selectRaw('p.*, COALESCE(sp.total_sparepart, 0) as total_sparepart')
+            ->selectRaw('p.*, COALESCE(sp.total_sparepart, 0) as total_sparepart, ip.interval_km, ip.interval_bulan')
             ->get()
+            ->map(function ($row) {
+                $row->jenis_perawatan = IntervalLabelBuilder::buildOrFallback(
+                    $row->interval_km !== null ? (int) $row->interval_km : null,
+                    $row->interval_bulan !== null ? (int) $row->interval_bulan : null,
+                );
+                return $row;
+            })
             ->all();
     }
 
@@ -163,7 +173,7 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
     }
 
     private const LINE_COLUMNS = [
-        'id_perawatan_sparepart', 'id_perawatan', 'id_sparepart', 'nama_sparepart', 'qty', 'harga',
+        'id_perawatan_sparepart', 'id_perawatan', 'id_sparepart', 'nama_sparepart', 'sumber', 'qty', 'harga',
     ];
 
     public function getActiveLines(string $idPerawatan): array
@@ -244,33 +254,70 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
         DB::table('sparepart_mutasi')->insert(RecordHelper::stampCreate($data, 'id_mutasi'));
     }
 
-    public function getJenisPerawatanNama(string $idJenisPerawatan): ?string
+    public function getSparepartNama(string $idSparepart): ?string
     {
-        $nama = DB::table('jenis_perawatan')
+        $nama = DB::table('sparepart')
             ->whereNull('dihapus_pada')
-            ->where('id_jenis_perawatan', $idJenisPerawatan)
+            ->where('id_sparepart', $idSparepart)
             ->value('nama');
 
         return $nama !== null ? (string) $nama : null;
     }
 
-    public function getLatestPerJenisByArmada(string $idArmada): array
+    public function supplierMilik(string $idPerusahaan, string $idSupplier): bool
     {
-        return DB::table('perawatan_armada')
+        return DB::table('supplier')
             ->whereNull('dihapus_pada')
-            ->where('id_armada', $idArmada)
-            ->where('status', 'selesai')
-            ->whereNotNull('id_jenis_perawatan')
-            ->whereRaw('id_perawatan = (
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('id_supplier', $idSupplier)
+            ->exists();
+    }
+
+    public function getSupplierNama(string $idSupplier): ?string
+    {
+        $nama = DB::table('supplier')
+            ->whereNull('dihapus_pada')
+            ->where('id_supplier', $idSupplier)
+            ->value('nama');
+
+        return $nama !== null ? (string) $nama : null;
+    }
+
+    public function supplierUntukBanyak(array $idSupplierList): array
+    {
+        if ($idSupplierList === []) {
+            return [];
+        }
+
+        return DB::table('supplier')
+            ->whereNull('dihapus_pada')
+            ->whereIn('id_supplier', $idSupplierList)
+            ->pluck('nama', 'id_supplier')
+            ->all();
+    }
+
+    /**
+     * Catatan terbaru (status selesai) per id_interval_perawatan untuk 1 armada.
+     * Catatan tanpa tautan paket (id_interval_perawatan NULL) sengaja dikecualikan
+     * — tidak ikut mereset jadwal paket manapun.
+     */
+    public function getLatestPerIntervalByArmada(string $idArmada): array
+    {
+        return DB::table('perawatan_armada as p')
+            ->whereNull('p.dihapus_pada')
+            ->where('p.id_armada', $idArmada)
+            ->where('p.status', 'selesai')
+            ->whereNotNull('p.id_interval_perawatan')
+            ->whereRaw('p.id_perawatan = (
                 SELECT p2.id_perawatan FROM perawatan_armada p2
-                WHERE p2.id_armada = perawatan_armada.id_armada
-                  AND p2.id_jenis_perawatan = perawatan_armada.id_jenis_perawatan
+                WHERE p2.id_armada = p.id_armada
+                  AND p2.id_interval_perawatan = p.id_interval_perawatan
                   AND p2.status = \'selesai\'
                   AND p2.dihapus_pada IS NULL
                 ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
                 LIMIT 1
             )')
-            ->get(['id_jenis_perawatan', 'tanggal', 'jadwal_servis_berikutnya', 'km_odometer'])
+            ->get(['p.id_interval_perawatan', 'p.tanggal', 'p.jadwal_servis_berikutnya', 'p.km_odometer'])
             ->all();
     }
 
@@ -285,5 +332,116 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->max('km_odometer');
 
         return $km !== null ? (int) $km : null;
+    }
+
+    public function getLatestPerIntervalByArmadaIds(array $armadaIds): array
+    {
+        if (empty($armadaIds)) {
+            return [];
+        }
+
+        return DB::table('perawatan_armada as p')
+            ->whereNull('p.dihapus_pada')
+            ->whereIn('p.id_armada', $armadaIds)
+            ->where('p.status', 'selesai')
+            ->whereNotNull('p.id_interval_perawatan')
+            ->whereRaw('p.id_perawatan = (
+                SELECT p2.id_perawatan FROM perawatan_armada p2
+                WHERE p2.id_armada = p.id_armada
+                  AND p2.id_interval_perawatan = p.id_interval_perawatan
+                  AND p2.status = \'selesai\'
+                  AND p2.dihapus_pada IS NULL
+                ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
+                LIMIT 1
+            )')
+            ->get(['p.id_armada', 'p.id_interval_perawatan', 'p.tanggal', 'p.jadwal_servis_berikutnya', 'p.km_odometer'])
+            ->all();
+    }
+
+    public function kmOdometerTerakhirByArmadaIds(array $armadaIds): array
+    {
+        if (empty($armadaIds)) {
+            return [];
+        }
+
+        return DB::table('perawatan_armada')
+            ->whereNull('dihapus_pada')
+            ->whereIn('id_armada', $armadaIds)
+            ->where('status', '!=', 'dibatalkan')
+            ->whereNotNull('km_odometer')
+            ->groupBy('id_armada')
+            ->selectRaw('id_armada, MAX(km_odometer) as km_terakhir')
+            ->pluck('km_terakhir', 'id_armada')
+            ->all();
+    }
+
+    public function getServisTerakhirSelesaiByArmadaIds(array $armadaIds): array
+    {
+        if (empty($armadaIds)) {
+            return [];
+        }
+
+        return DB::table('perawatan_armada as p')
+            ->leftJoin('interval_perawatan as ip', 'ip.id_interval_perawatan', '=', 'p.id_interval_perawatan')
+            ->whereNull('p.dihapus_pada')
+            ->whereIn('p.id_armada', $armadaIds)
+            ->where('p.status', 'selesai')
+            ->whereRaw('p.id_perawatan = (
+                SELECT p2.id_perawatan FROM perawatan_armada p2
+                WHERE p2.id_armada = p.id_armada
+                  AND p2.status = \'selesai\'
+                  AND p2.dihapus_pada IS NULL
+                ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
+                LIMIT 1
+            )')
+            ->get(['p.id_armada', 'p.tanggal', 'ip.interval_km', 'ip.interval_bulan'])
+            ->map(fn ($r) => (object) [
+                'id_armada' => $r->id_armada,
+                'tanggal'   => $r->tanggal,
+                'label'     => IntervalLabelBuilder::buildOrFallback(
+                    $r->interval_km !== null ? (int) $r->interval_km : null,
+                    $r->interval_bulan !== null ? (int) $r->interval_bulan : null,
+                ),
+            ])
+            ->all();
+    }
+
+    public function findArmadaPapanUnit(string $idPerusahaan, ?string $search = null): array
+    {
+        return DB::table('armada')
+            ->leftJoin('jenis_kendaraan', function ($join) {
+                $join->on('jenis_kendaraan.id_jenis_kendaraan', '=', 'armada.id_jenis_kendaraan')
+                    ->whereNull('jenis_kendaraan.dihapus_pada');
+            })
+            ->where('armada.id_perusahaan', $idPerusahaan)
+            ->whereNull('armada.dihapus_pada')
+            ->where('armada.status', '!=', 'tidak_aktif')
+            ->when($search, fn ($q, $v) => $q->where('armada.nopol', 'like', "%{$v}%"))
+            ->orderBy('armada.nopol')
+            ->select(
+                'armada.id_armada',
+                'armada.nopol',
+                'armada.merk',
+                'armada.status as status_armada',
+                'armada.id_jenis_kendaraan',
+                'armada.tanggal_beli',
+                'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan',
+            )
+            ->get()
+            ->all();
+    }
+
+    public function intervalUntukBanyak(array $idIntervalList): array
+    {
+        $idIntervalList = array_values(array_unique(array_filter($idIntervalList)));
+        if ($idIntervalList === []) {
+            return [];
+        }
+
+        return DB::table('interval_perawatan')
+            ->whereIn('id_interval_perawatan', $idIntervalList)
+            ->get(['id_interval_perawatan', 'interval_km', 'interval_bulan'])
+            ->keyBy('id_interval_perawatan')
+            ->all();
     }
 }

@@ -14,6 +14,7 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
     private const COLUMNS = [
         'dokumen_armada.id_dokumen_armada', 'dokumen_armada.id_armada', 'dokumen_armada.jenis_dokumen',
         'dokumen_armada.nomor', 'dokumen_armada.berlaku_sampai', 'dokumen_armada.url_file',
+        'dokumen_armada.aktif', 'dokumen_armada.id_dokumen_sebelumnya',
         'dokumen_armada.dibuat_pada', 'dokumen_armada.dibuat_oleh',
         'dokumen_armada.diubah_pada', 'dokumen_armada.diubah_oleh',
         'dokumen_armada.dihapus_pada', 'dokumen_armada.dihapus_oleh',
@@ -24,6 +25,7 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
         return DB::table('dokumen_armada')
             ->whereNull('dihapus_pada')
             ->where('id_armada', $idArmada)
+            ->where('aktif', 1)
             ->orderBy('berlaku_sampai')
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }
@@ -35,6 +37,7 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
             ->where('armada.id_perusahaan', $idPerusahaan)
             ->whereNull('dokumen_armada.dihapus_pada')
             ->whereNull('armada.dihapus_pada')
+            ->where('dokumen_armada.aktif', 1)
             ->when($idArmada, fn ($q, $v) => $q->where('dokumen_armada.id_armada', $v))
             ->when($jenisDokumen, fn ($q, $v) => $q->where('dokumen_armada.jenis_dokumen', $v))
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
@@ -42,6 +45,8 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
                    ->orWhere('dokumen_armada.nomor', 'like', "%{$search}%")
                    ->orWhere('armada.nopol', 'like', "%{$search}%");
             }))
+            ->orderBy('armada.nopol')
+            ->orderBy('dokumen_armada.id_armada')
             ->orderBy('dokumen_armada.berlaku_sampai')
             ->select(array_merge(self::COLUMNS, ['armada.nopol as armada_nopol', 'armada.merk as armada_merk']))
             ->paginate($limit, ['*'], 'page', $page);
@@ -50,10 +55,37 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
     public function findById(string $id): ?object
     {
         return DB::table('dokumen_armada')
-            ->select(self::COLUMNS)
-            ->whereNull('dihapus_pada')
-            ->where('id_dokumen_armada', $id)
+            ->leftJoin('armada', 'armada.id_armada', '=', 'dokumen_armada.id_armada')
+            ->whereNull('dokumen_armada.dihapus_pada')
+            ->where('dokumen_armada.id_dokumen_armada', $id)
+            ->select(array_merge(self::COLUMNS, [
+                'armada.nopol as armada_nopol',
+                'armada.merk as armada_merk',
+                'armada.id_perusahaan as armada_id_perusahaan',
+            ]))
             ->first();
+    }
+
+    public function findPengganti(string $id): ?object
+    {
+        $idPengganti = DB::table('dokumen_armada')
+            ->whereNull('dihapus_pada')
+            ->where('id_dokumen_sebelumnya', $id)
+            ->orderByDesc('dibuat_pada')
+            ->value('id_dokumen_armada');
+
+        return $idPengganti !== null ? $this->findById((string) $idPengganti) : null;
+    }
+
+    public function adaAktif(string $idArmada, string $jenisDokumen, ?string $kecualiId = null): bool
+    {
+        return DB::table('dokumen_armada')
+            ->whereNull('dihapus_pada')
+            ->where('id_armada', $idArmada)
+            ->where('jenis_dokumen', $jenisDokumen)
+            ->where('aktif', 1)
+            ->when($kecualiId, fn ($q, $v) => $q->where('id_dokumen_armada', '<>', $v))
+            ->exists();
     }
 
     public function findExpiring(string $idPerusahaan, int $days): array
@@ -62,6 +94,7 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
             ->join('armada', 'armada.id_armada', '=', 'dokumen_armada.id_armada')
             ->where('armada.id_perusahaan', $idPerusahaan)
             ->whereNull('dokumen_armada.dihapus_pada')
+            ->where('dokumen_armada.aktif', 1)
             ->whereNotNull('dokumen_armada.berlaku_sampai')
             ->where('dokumen_armada.berlaku_sampai', '<=', now()->addDays($days))
             ->select(self::COLUMNS)

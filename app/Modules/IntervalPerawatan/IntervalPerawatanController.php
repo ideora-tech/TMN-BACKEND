@@ -24,7 +24,6 @@ class IntervalPerawatanController extends Controller
             $idPerusahaan,
             (int) $request->query('page', 1),
             (int) $request->query('limit', 10),
-            $request->query('id_jenis_perawatan'),
             $request->query('id_jenis_kendaraan'),
             $request->query('search'),
         );
@@ -59,21 +58,5 @@ class IntervalPerawatanController extends Controller
     {
         $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Interval perawatan berhasil dihapus');
-    }
-
-    public function resolusi(Request $request): JsonResponse
-    {
-        $request->validate([
-            'id_jenis_perawatan' => ['required', 'string', 'max:36'],
-            'id_jenis_kendaraan' => ['required', 'string', 'max:36'],
-        ]);
-
-        $intervalHari = $this->service->resolusi(
-            (string) $request->user()->id_perusahaan,
-            (string) $request->query('id_jenis_perawatan'),
-            (string) $request->query('id_jenis_kendaraan'),
-        );
-
-        return ApiResponse::success($intervalHari !== null ? ['interval_hari' => $intervalHari] : null);
     }
 }

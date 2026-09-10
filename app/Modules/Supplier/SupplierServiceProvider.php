@@ -18,10 +18,19 @@ class SupplierServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:supplier|perawatan-armada'])
+            ->group(function () {
+                Route::get('supplier', [SupplierController::class, 'index']);
+                Route::get('supplier/{id}', [SupplierController::class, 'show']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:supplier'])
             ->group(function () {
-                Route::apiResource('supplier', SupplierController::class)
-                    ->parameters(['supplier' => 'id']);
+                Route::post('supplier', [SupplierController::class, 'store']);
+                Route::put('supplier/{id}', [SupplierController::class, 'update']);
+                Route::patch('supplier/{id}', [SupplierController::class, 'update']);
+                Route::delete('supplier/{id}', [SupplierController::class, 'destroy']);
             });
     }
 }

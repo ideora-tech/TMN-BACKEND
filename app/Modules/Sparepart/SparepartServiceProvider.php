@@ -23,8 +23,17 @@ class SparepartServiceProvider extends ServiceProvider
             ->group(function () {
                 Route::post('sparepart/{id}/stok', [SparepartController::class, 'mutasiStok']);
                 Route::get('sparepart/{id}/mutasi', [SparepartController::class, 'listMutasi']);
-                Route::apiResource('sparepart', SparepartController::class)
-                    ->parameters(['sparepart' => 'id']);
+                Route::post('sparepart', [SparepartController::class, 'store']);
+                Route::put('sparepart/{id}', [SparepartController::class, 'update']);
+                Route::patch('sparepart/{id}', [SparepartController::class, 'update']);
+                Route::delete('sparepart/{id}', [SparepartController::class, 'destroy']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:sparepart|perawatan-armada'])
+            ->group(function () {
+                Route::get('sparepart', [SparepartController::class, 'index']);
+                Route::get('sparepart/{id}', [SparepartController::class, 'show']);
             });
     }
 }

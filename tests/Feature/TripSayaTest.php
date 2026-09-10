@@ -295,6 +295,7 @@ class TripSayaTest extends TestCase
         $proyek = $this->makeProyek();
         $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
 
+        $tanggalShift = now()->addDays(3)->toDateString();
         $idShift = (string) Str::uuid();
         DB::table('shift')->insert([
             'id_shift'      => $idShift,
@@ -310,11 +311,11 @@ class TripSayaTest extends TestCase
             'id_proyek'       => $proyek->id_proyek,
             'id_shift'        => $idShift,
             'id_supir'        => $ctx->id_supir,
-            'tanggal'         => '2026-09-10',
+            'tanggal'         => $tanggalShift,
             'dibuat_pada'     => now(),
         ]);
 
-        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}?tanggal=2026-09-10")
+        $this->getJson("/api/trip/penugasan-saya/{$penugasan->id_penugasan}?tanggal={$tanggalShift}")
             ->assertStatus(200)
             ->assertJsonPath('data.shift_hari_ini.nama', 'MALAM')
             ->assertJsonPath('data.jumlah_trip_selesai_hari_ini', 0);

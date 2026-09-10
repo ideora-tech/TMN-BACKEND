@@ -113,7 +113,7 @@ class SparepartRepository implements SparepartRepositoryInterface
      */
     public function dipakaiRelasiLain(string $idSparepart): bool
     {
-        foreach (['pembelian_sparepart_item', 'paket_perawatan_sparepart'] as $tabel) {
+        foreach (['pembelian_sparepart_item', 'paket_perawatan_sparepart', 'interval_perawatan_sparepart'] as $tabel) {
             $ada = DB::table($tabel)
                 ->whereNull('dihapus_pada')
                 ->where('id_sparepart', $idSparepart)

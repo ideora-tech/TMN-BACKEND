@@ -195,8 +195,8 @@ class DashboardStatsTest extends TestCase
         $armada = $this->makeArmada();
         // servis lama dalam window -> harus diabaikan
         $this->makePerawatan($armada->id_armada, '2026-01-01', now()->addDays(5)->toDateString());
-        // servis terbaru dalam window -> ini yang harus muncul
-        $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(15)->toDateString(), 'Servis Besar');
+        // servis terbaru dalam window -> ini yang harus muncul (insidental, tanpa paket -> label fallback)
+        $this->makePerawatan($armada->id_armada, '2026-06-01', now()->addDays(15)->toDateString());
 
         $res = $this->getJson('/api/dashboard/stats');
 
@@ -204,7 +204,7 @@ class DashboardStatsTest extends TestCase
         $items = $res->json('data.alerts.servisJatuhTempo.items');
         $this->assertCount(1, $items);
         $this->assertSame($armada->nopol, $items[0]['nopol']);
-        $this->assertSame('Servis Besar', $items[0]['jenis_perawatan']);
+        $this->assertSame('Perbaikan', $items[0]['jenis_perawatan']);
     }
 
     public function test_alerts_servis_jatuh_tempo_di_luar_30_hari_tidak_ikut(): void

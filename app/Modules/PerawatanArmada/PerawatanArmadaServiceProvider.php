@@ -19,14 +19,16 @@ class PerawatanArmadaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:armada'])
+            ->middleware(['api', 'auth:sanctum', 'izin:perawatan-armada|armada'])
             ->group(function () {
                 Route::get('perawatan-armada', [PerawatanArmadaController::class, 'index']);
+                Route::get('perawatan-armada/papan-unit', [PerawatanArmadaController::class, 'papanUnit']);
                 Route::get('perawatan-armada/rekap-per-unit', [PerawatanArmadaController::class, 'rekapPerUnit']);
                 Route::get('perawatan-armada/rekap-per-unit/export/excel', [PerawatanArmadaController::class, 'exportRekapExcel']);
                 Route::get('perawatan-armada/rekap-per-unit/export/pdf', [PerawatanArmadaController::class, 'exportRekapPdf']);
                 Route::get('armada/{idArmada}/perawatan/export/excel', [PerawatanArmadaController::class, 'exportUnitExcel']);
                 Route::get('armada/{idArmada}/perawatan/export/pdf', [PerawatanArmadaController::class, 'exportUnitPdf']);
+                Route::get('armada/{idArmada}/perawatan/{id}/export/pdf', [PerawatanArmadaController::class, 'exportDetailPdf']);
                 Route::get('armada/{idArmada}/prediksi-perawatan', [PerawatanArmadaController::class, 'prediksiPerawatan']);
                 Route::get('armada/{idArmada}/perawatan', [PerawatanArmadaController::class, 'indexByArmada']);
                 Route::get('armada/{idArmada}/perawatan/{id}/pengajuan', [PerawatanArmadaController::class, 'infoPengajuan']);

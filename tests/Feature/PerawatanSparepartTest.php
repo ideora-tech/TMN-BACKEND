@@ -64,23 +64,20 @@ class PerawatanSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
-        $jenis  = $this->makeJenis('Servis 10.000 km');
         $spA    = $this->makeSparepart('Filter Oli', 10);
         $spB    = $this->makeSparepart('Busi', 20, 25000);
 
         $res = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
             'tanggal'            => '2026-07-17',
-            'id_jenis_perawatan' => $jenis->id_jenis_perawatan,
             'biaya'              => 500000,
             'sparepart'          => [
-                ['id_sparepart' => $spA->id_sparepart, 'qty' => 2, 'harga' => 55000],
-                ['id_sparepart' => $spB->id_sparepart, 'qty' => 4, 'harga' => 25000],
+                ['id_sparepart' => $spA->id_sparepart, 'qty' => 2, 'harga' => 55000, 'sumber' => 'stok_sendiri'],
+                ['id_sparepart' => $spB->id_sparepart, 'qty' => 4, 'harga' => 25000, 'sumber' => 'stok_sendiri'],
             ],
         ]);
 
         $res->assertStatus(201)
-            ->assertJsonPath('data.jenis_perawatan', 'Servis 10.000 km')
-            ->assertJsonPath('data.id_jenis_perawatan', $jenis->id_jenis_perawatan)
+            ->assertJsonPath('data.biaya', 500000)
             ->assertJsonCount(2, 'data.sparepart');
 
         // jangan bergantung urutan array (dibuat_pada bisa tie di detik yang sama)
@@ -106,7 +103,7 @@ class PerawatanSparepartTest extends TestCase
             'tanggal'         => '2026-07-17',
             'jenis_perawatan' => 'Ganti Filter',
             'sparepart'       => [
-                ['id_sparepart' => $sp->id_sparepart, 'qty' => 5, 'harga' => 55000],
+                ['id_sparepart' => $sp->id_sparepart, 'qty' => 5, 'harga' => 55000, 'sumber' => 'stok_sendiri'],
             ],
         ]);
 
@@ -125,13 +122,13 @@ class PerawatanSparepartTest extends TestCase
 
         $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
             'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
-            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 3, 'harga' => 55000]],
+            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 3, 'harga' => 55000, 'sumber' => 'stok_sendiri']],
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
         // stok kini 2; menaikkan qty 3 → 6 butuh tambahan 3 > tersedia 2
 
         $res = $this->putJson("/api/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", [
-            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 6, 'harga' => 55000]],
+            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 6, 'harga' => 55000, 'sumber' => 'stok_sendiri']],
         ]);
 
         $res->assertStatus(422);
@@ -140,7 +137,7 @@ class PerawatanSparepartTest extends TestCase
 
         // menurunkan qty (mengembalikan stok) tetap boleh
         $resTurun = $this->putJson("/api/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", [
-            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 1, 'harga' => 55000]],
+            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 1, 'harga' => 55000, 'sumber' => 'stok_sendiri']],
         ]);
         $resTurun->assertStatus(200);
         $this->assertSame(4, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
@@ -156,8 +153,8 @@ class PerawatanSparepartTest extends TestCase
         $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
             'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
             'sparepart' => [
-                ['id_sparepart' => $spA->id_sparepart, 'qty' => 2, 'harga' => 55000],
-                ['id_sparepart' => $spB->id_sparepart, 'qty' => 4, 'harga' => 25000],
+                ['id_sparepart' => $spA->id_sparepart, 'qty' => 2, 'harga' => 55000, 'sumber' => 'stok_sendiri'],
+                ['id_sparepart' => $spB->id_sparepart, 'qty' => 4, 'harga' => 25000, 'sumber' => 'stok_sendiri'],
             ],
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
@@ -165,7 +162,7 @@ class PerawatanSparepartTest extends TestCase
 
         $res = $this->putJson("/api/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", [
             'sparepart' => [
-                ['id_sparepart' => $spA->id_sparepart, 'qty' => 5, 'harga' => 55000], // +3 → keluar 3
+                ['id_sparepart' => $spA->id_sparepart, 'qty' => 5, 'harga' => 55000, 'sumber' => 'stok_sendiri'], // +3 → keluar 3
                 // B dihapus dari daftar → delta -4 → masuk 4
             ],
         ]);
@@ -188,7 +185,7 @@ class PerawatanSparepartTest extends TestCase
 
         $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
             'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
-            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 3, 'harga' => 50000]],
+            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 3, 'harga' => 50000, 'sumber' => 'stok_sendiri']],
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
         $this->assertSame(7, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
@@ -208,7 +205,7 @@ class PerawatanSparepartTest extends TestCase
 
         $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
             'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'terjadwal',
-            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 4, 'harga' => 60000]],
+            'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 4, 'harga' => 60000, 'sumber' => 'stok_sendiri']],
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
         $this->assertSame(6, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
@@ -228,45 +225,24 @@ class PerawatanSparepartTest extends TestCase
         $this->assertSame(10, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
     }
 
-    public function test_update_id_jenis_perawatan_menyinkronkan_snapshot_teks(): void
-    {
-        $this->actingAsRole('SUPERADMIN');
-        $armada = $this->makeArmada();
-        $jenisBaru = $this->makeJenis('Overhaul Mesin');
-
-        $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Teks Manual Lama', 'status' => 'dalam_proses',
-        ]);
-        $idPerawatan = $create->json('data.id_perawatan');
-
-        $res = $this->putJson("/api/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", [
-            'id_jenis_perawatan' => $jenisBaru->id_jenis_perawatan,
-        ]);
-
-        $res->assertStatus(200)
-            ->assertJsonPath('data.id_jenis_perawatan', $jenisBaru->id_jenis_perawatan)
-            ->assertJsonPath('data.jenis_perawatan', 'Overhaul Mesin');
-    }
-
-    public function test_create_tanpa_sparepart_dan_teks_manual_tetap_jalan_regresi(): void
+    public function test_create_tanpa_sparepart_tetap_jalan_regresi(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
         $res = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
-            'tanggal'         => '2026-07-17',
-            'jenis_perawatan' => 'Cuci Kendaraan',
-            'biaya'           => 100000,
+            'tanggal' => '2026-07-17',
+            'biaya'   => 100000,
         ]);
 
-        $res->assertStatus(201)
-            ->assertJsonPath('data.jenis_perawatan', 'Cuci Kendaraan')
-            ->assertJsonPath('data.id_jenis_perawatan', null);
+        $res->assertStatus(201)->assertJsonPath('data.biaya', 100000);
         $this->assertSame([], $res->json('data.sparepart'));
     }
 
-    public function test_tanpa_jenis_sama_sekali_ditolak_validasi(): void
+    public function test_tanpa_paket_dan_tanpa_apapun_lain_tetap_berhasil(): void
     {
+        // id_jenis_perawatan/jenis[]/jenis_perawatan sudah dihilangkan dari kontrak —
+        // satu-satunya field wajib kini hanya tanggal, id_interval_perawatan opsional.
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
 
@@ -274,7 +250,7 @@ class PerawatanSparepartTest extends TestCase
             'tanggal' => '2026-07-17',
         ]);
 
-        $res->assertStatus(422);
+        $res->assertStatus(201)->assertJsonPath('data.id_interval_perawatan', null);
     }
 
     public function test_hapus_master_sparepart_yang_dipakai_servis_aktif_ditolak_422(): void
@@ -284,7 +260,7 @@ class PerawatanSparepartTest extends TestCase
         $sp = $this->makeSparepart('Filter Oli', 10);
 
         $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
+            'tanggal' => '2026-07-17', 'status' => 'dalam_proses',
             'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 2, 'harga' => 50000]],
         ]);
         $idPerawatan = $create->json('data.id_perawatan');
@@ -301,42 +277,44 @@ class PerawatanSparepartTest extends TestCase
 
     public function test_hapus_master_jenis_perawatan_yang_dipakai_ditolak_422(): void
     {
+        // id_jenis_perawatan sudah tidak diterima lagi lewat endpoint perawatan (kontrak baru) —
+        // baris "masih dipakai" disimulasikan langsung lewat DB agar guard JenisPerawatanService
+        // (di luar cakupan tugas ini, modulnya sengaja tidak dihapus) tetap teruji.
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $jenis = $this->makeJenis('Servis Berkala');
 
-        $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'id_jenis_perawatan' => $jenis->id_jenis_perawatan, 'status' => 'dalam_proses',
+        $idPerawatan = (string) Str::uuid();
+        DB::table('perawatan_armada')->insert([
+            'id_perawatan'       => $idPerawatan,
+            'id_armada'          => $armada->id_armada,
+            'id_jenis_perawatan' => $jenis->id_jenis_perawatan,
+            'tanggal'            => '2026-07-17',
+            'status'             => 'dalam_proses',
+            'biaya'              => 0,
+            'dibuat_pada'        => now(),
         ]);
-        $idPerawatan = $create->json('data.id_perawatan');
 
         $resTolak = $this->deleteJson("/api/jenis-perawatan/{$jenis->id_jenis_perawatan}");
         $resTolak->assertStatus(422);
         $this->assertStringContainsString('masih dipakai', (string) $resTolak->json('message'));
 
-        $this->deleteJson("/api/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", ['alasan' => 'Pembersihan data uji'])->assertStatus(200);
+        DB::table('perawatan_armada')->where('id_perawatan', $idPerawatan)->update(['dihapus_pada' => now()]);
         $this->deleteJson("/api/jenis-perawatan/{$jenis->id_jenis_perawatan}")->assertStatus(200);
     }
 
-    public function test_payload_dengan_master_soft_deleted_ditolak_validasi(): void
+    public function test_payload_sparepart_dengan_master_soft_deleted_ditolak_validasi(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
         $sp = $this->makeSparepart('Part Mati', 10);
-        $jenis = $this->makeJenis('Jenis Mati');
 
         DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->update(['dihapus_pada' => now()]);
-        DB::table('jenis_perawatan')->where('id_jenis_perawatan', $jenis->id_jenis_perawatan)->update(['dihapus_pada' => now()]);
 
         $resPart = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis',
+            'tanggal' => '2026-07-17',
             'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 1, 'harga' => 1000]],
         ]);
         $resPart->assertStatus(422);
-
-        $resJenis = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'id_jenis_perawatan' => $jenis->id_jenis_perawatan,
-        ]);
-        $resJenis->assertStatus(422);
     }
 }

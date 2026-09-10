@@ -16,11 +16,13 @@ class UpdateIntervalPerawatanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_jenis_perawatan' => ['sometimes', 'string', 'max:36'],
-            'id_jenis_kendaraan' => ['sometimes', 'string', 'max:36'],
-            'interval_hari'      => ['sometimes', 'nullable', 'integer', 'min:1'],
-            'interval_km'        => ['sometimes', 'integer', 'min:1'],
-            'aktif'               => ['sometimes', 'boolean'],
+            'id_jenis_kendaraan'        => ['sometimes', 'string', 'max:36'],
+            'interval_km'               => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'interval_bulan'            => ['sometimes', 'nullable', 'integer', 'min:1'],
+            'aktif'                     => ['sometimes', 'boolean'],
+            'sparepart'                 => ['sometimes', 'array', 'max:30'],
+            'sparepart.*.id_sparepart'  => ['required', 'string', 'max:36'],
+            'sparepart.*.qty_standar'   => ['required', 'integer', 'min:1'],
         ];
     }
 }

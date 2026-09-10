@@ -24,12 +24,28 @@ class NotifikasiServisJatuhTempoTest extends TestCase
         return $id;
     }
 
-    private function makePerawatan(string $idArmada, string $tanggal, ?string $jadwal, string $jenis = 'Ganti Oli'): string
+    private function makeInterval(?int $intervalBulan, ?int $intervalKm = null, string $idPerusahaan = self::PERUSAHAAN_ID): string
+    {
+        $idKendaraan = (string) Str::uuid();
+        DB::table('jenis_kendaraan')->insert([
+            'id_jenis_kendaraan' => $idKendaraan, 'id_perusahaan' => $idPerusahaan,
+            'kode_jenis' => 'JK-' . Str::random(6), 'nama_jenis' => 'CDD', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $id = (string) Str::uuid();
+        DB::table('interval_perawatan')->insert([
+            'id_interval_perawatan' => $id, 'id_perusahaan' => $idPerusahaan,
+            'id_jenis_kendaraan' => $idKendaraan, 'interval_bulan' => $intervalBulan,
+            'interval_km' => $intervalKm, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
+    private function makePerawatan(string $idArmada, string $tanggal, ?string $jadwal, ?string $idIntervalPerawatan = null): string
     {
         $id = (string) Str::uuid();
         DB::table('perawatan_armada')->insert([
-            'id_perawatan' => $id, 'id_armada' => $idArmada, 'tanggal' => $tanggal,
-            'jenis_perawatan' => $jenis, 'biaya' => 100000, 'status' => 'selesai',
+            'id_perawatan' => $id, 'id_armada' => $idArmada, 'id_interval_perawatan' => $idIntervalPerawatan,
+            'tanggal' => $tanggal, 'biaya' => 100000, 'status' => 'selesai',
             'jadwal_servis_berikutnya' => $jadwal, 'dibuat_pada' => now(),
         ]);
         return $id;
@@ -100,5 +116,30 @@ class NotifikasiServisJatuhTempoTest extends TestCase
         $this->artisan('notifikasi:servis-jatuh-tempo')->assertExitCode(0);
 
         $this->assertSame(0, NotifikasiModel::where('tipe', 'alert_servis')->count());
+    }
+
+    public function test_judul_memuat_label_paket_saat_tertaut(): void
+    {
+        $armada = $this->makeArmada();
+        $idInterval = $this->makeInterval(6, 10000);
+        $this->makePerawatan($armada, '2026-01-01', now()->addDays(5)->toDateString(), $idInterval);
+
+        $this->artisan('notifikasi:servis-jatuh-tempo')->assertExitCode(0);
+
+        $notif = NotifikasiModel::where('tipe', 'alert_servis')->first();
+        $this->assertNotNull($notif);
+        $this->assertStringContainsString('Tiap 10.000 km / 6 bulan', $notif->judul);
+    }
+
+    public function test_judul_memuat_label_perbaikan_saat_catatan_insidental(): void
+    {
+        $armada = $this->makeArmada();
+        $this->makePerawatan($armada, '2026-01-01', now()->addDays(5)->toDateString());
+
+        $this->artisan('notifikasi:servis-jatuh-tempo')->assertExitCode(0);
+
+        $notif = NotifikasiModel::where('tipe', 'alert_servis')->first();
+        $this->assertNotNull($notif);
+        $this->assertStringContainsString('Perbaikan', $notif->judul);
     }
 }

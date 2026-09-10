@@ -19,13 +19,19 @@ class IntervalPerawatanServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:armada|perawatan-armada'])
+            ->group(function () {
+                Route::get('interval-perawatan', [IntervalPerawatanController::class, 'index']);
+                Route::get('interval-perawatan/{id}', [IntervalPerawatanController::class, 'show']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:armada'])
             ->group(function () {
-                // Route statis SEBELUM apiResource agar tidak tertangkap sebagai {id}.
-                Route::get('interval-perawatan/resolusi', [IntervalPerawatanController::class, 'resolusi']);
-
-                Route::apiResource('interval-perawatan', IntervalPerawatanController::class)
-                    ->parameters(['interval-perawatan' => 'id']);
+                Route::post('interval-perawatan', [IntervalPerawatanController::class, 'store']);
+                Route::put('interval-perawatan/{id}', [IntervalPerawatanController::class, 'update']);
+                Route::patch('interval-perawatan/{id}', [IntervalPerawatanController::class, 'update']);
+                Route::delete('interval-perawatan/{id}', [IntervalPerawatanController::class, 'destroy']);
             });
     }
 }

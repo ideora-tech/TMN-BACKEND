@@ -86,7 +86,7 @@ class DashboardArmadaTest extends TestCase
         $this->assertCount(2, $aktif);
         $this->assertSame('B 1111 AA', $aktif[0]['nopol']);
         $this->assertSame('dalam_proses', $aktif[0]['status']);
-        $this->assertSame('Turun Mesin', $aktif[0]['jenis_perawatan']);
+        $this->assertSame('Perbaikan', $aktif[0]['jenis_perawatan']);
         $this->assertSame('B 2222 BB', $aktif[1]['nopol']);
         $this->assertSame('terjadwal', $aktif[1]['status']);
 
@@ -107,30 +107,26 @@ class DashboardArmadaTest extends TestCase
             'id_jenis_kendaraan' => $idJenisKendaraan, 'id_perusahaan' => self::PERUSAHAAN_ID,
             'kode_jenis' => 'TRK-' . Str::random(5), 'nama_jenis' => 'Tronton', 'dibuat_pada' => now(),
         ]);
-        $idJenisPerawatan = (string) Str::uuid();
-        DB::table('jenis_perawatan')->insert([
-            'id_jenis_perawatan' => $idJenisPerawatan, 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'nama' => 'Ganti Oli Mesin', 'aktif' => 1, 'dibuat_pada' => now(),
-        ]);
-        DB::table('interval_perawatan')->insert([
-            'id_interval_perawatan' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'id_jenis_perawatan' => $idJenisPerawatan, 'id_jenis_kendaraan' => $idJenisKendaraan,
-            'interval_hari' => 180, 'interval_km' => 10000, 'aktif' => 1, 'dibuat_pada' => now(),
-        ]);
         $km = ArmadaModel::create([
             'id_perusahaan' => self::PERUSAHAAN_ID, 'nopol' => 'B 5555 KM',
             'status' => 'tersedia', 'id_jenis_kendaraan' => $idJenisKendaraan,
         ]);
+        $idInterval = (string) Str::uuid();
+        DB::table('interval_perawatan')->insert([
+            'id_interval_perawatan' => $idInterval, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_jenis_kendaraan' => $idJenisKendaraan,
+            'interval_bulan' => 6, 'interval_km' => 10000, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
         DB::table('perawatan_armada')->insert([
             'id_perawatan' => (string) Str::uuid(), 'id_armada' => $km->id_armada,
-            'id_jenis_perawatan' => $idJenisPerawatan, 'tanggal' => '2026-05-01',
-            'jenis_perawatan' => 'Servis', 'biaya' => 100000, 'status' => 'selesai',
+            'id_interval_perawatan' => $idInterval, 'tanggal' => '2026-05-01',
+            'biaya' => 100000, 'status' => 'selesai',
             'km_odometer' => 50000, 'dibuat_pada' => now(),
         ]);
         DB::table('perawatan_armada')->insert([
             'id_perawatan' => (string) Str::uuid(), 'id_armada' => $km->id_armada,
-            'id_jenis_perawatan' => null, 'tanggal' => '2026-08-01',
-            'jenis_perawatan' => 'Servis', 'biaya' => 100000, 'status' => 'selesai',
+            'id_interval_perawatan' => null, 'tanggal' => '2026-08-01',
+            'biaya' => 100000, 'status' => 'selesai',
             'km_odometer' => 59500, 'dibuat_pada' => now(),
         ]);
 

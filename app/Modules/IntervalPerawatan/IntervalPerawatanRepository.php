@@ -13,14 +13,12 @@ class IntervalPerawatanRepository implements IntervalPerawatanRepositoryInterfac
 {
     private const DETAIL_SELECT = [
         'interval_perawatan.*',
-        'jenis_perawatan.nama as nama_jenis_perawatan',
         'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan',
     ];
 
     private function detailQuery()
     {
         return DB::table('interval_perawatan')
-            ->leftJoin('jenis_perawatan', 'jenis_perawatan.id_jenis_perawatan', '=', 'interval_perawatan.id_jenis_perawatan')
             ->leftJoin('jenis_kendaraan', 'jenis_kendaraan.id_jenis_kendaraan', '=', 'interval_perawatan.id_jenis_kendaraan')
             ->whereNull('interval_perawatan.dihapus_pada')
             ->select(self::DETAIL_SELECT);
@@ -30,20 +28,15 @@ class IntervalPerawatanRepository implements IntervalPerawatanRepositoryInterfac
         string $idPerusahaan,
         int $page,
         int $limit,
-        ?string $idJenisPerawatan,
         ?string $idJenisKendaraan,
         ?string $search = null,
     ): LengthAwarePaginator {
         return $this->detailQuery()
             ->where('interval_perawatan.id_perusahaan', $idPerusahaan)
-            ->when($idJenisPerawatan, fn ($q, $v) => $q->where('interval_perawatan.id_jenis_perawatan', $v))
             ->when($idJenisKendaraan, fn ($q, $v) => $q->where('interval_perawatan.id_jenis_kendaraan', $v))
-            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
-                $q2->where('jenis_perawatan.nama', 'like', "%{$search}%")
-                   ->orWhere('jenis_kendaraan.nama_jenis', 'like', "%{$search}%");
-            }))
-            ->orderBy('jenis_perawatan.nama')
+            ->when($search, fn ($q, $v) => $q->where('jenis_kendaraan.nama_jenis', 'like', "%{$v}%"))
             ->orderBy('jenis_kendaraan.nama_jenis')
+            ->orderBy('interval_perawatan.interval_km')
             ->paginate($limit, self::DETAIL_SELECT, 'page', $page);
     }
 
@@ -62,25 +55,18 @@ class IntervalPerawatanRepository implements IntervalPerawatanRepositoryInterfac
 
     public function findByKombinasi(
         string $idPerusahaan,
-        string $idJenisPerawatan,
         string $idJenisKendaraan,
+        ?int $intervalKm,
+        ?int $intervalBulan,
         ?string $excludeId = null,
     ): ?object {
         return DB::table('interval_perawatan')
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
-            ->where('id_jenis_perawatan', $idJenisPerawatan)
             ->where('id_jenis_kendaraan', $idJenisKendaraan)
+            ->where(fn ($q) => $intervalKm === null ? $q->whereNull('interval_km') : $q->where('interval_km', $intervalKm))
+            ->where(fn ($q) => $intervalBulan === null ? $q->whereNull('interval_bulan') : $q->where('interval_bulan', $intervalBulan))
             ->when($excludeId !== null, fn ($q) => $q->where('id_interval_perawatan', '!=', $excludeId))
-            ->first();
-    }
-
-    public function jenisPerawatanMilik(string $id, string $idPerusahaan): ?object
-    {
-        return DB::table('jenis_perawatan')
-            ->whereNull('dihapus_pada')
-            ->where('id_perusahaan', $idPerusahaan)
-            ->where('id_jenis_perawatan', $id)
             ->first();
     }
 
@@ -96,20 +82,30 @@ class IntervalPerawatanRepository implements IntervalPerawatanRepositoryInterfac
     public function findAllByJenisKendaraan(string $idPerusahaan, string $idJenisKendaraan): array
     {
         return DB::table('interval_perawatan')
-            ->join('jenis_perawatan', 'jenis_perawatan.id_jenis_perawatan', '=', 'interval_perawatan.id_jenis_perawatan')
-            ->whereNull('interval_perawatan.dihapus_pada')
-            ->whereNull('jenis_perawatan.dihapus_pada')
-            ->where('interval_perawatan.id_perusahaan', $idPerusahaan)
-            ->where('interval_perawatan.id_jenis_kendaraan', $idJenisKendaraan)
-            ->where('interval_perawatan.aktif', 1)
-            ->where('jenis_perawatan.aktif', 1)
-            ->orderBy('jenis_perawatan.nama')
-            ->get([
-                'interval_perawatan.id_jenis_perawatan',
-                'jenis_perawatan.nama as nama_jenis_perawatan',
-                'interval_perawatan.interval_hari',
-                'interval_perawatan.interval_km',
-            ])
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('id_jenis_kendaraan', $idJenisKendaraan)
+            ->where('aktif', 1)
+            ->orderBy('interval_km')
+            ->orderBy('interval_bulan')
+            ->get(['id_interval_perawatan', 'id_jenis_kendaraan', 'interval_km', 'interval_bulan'])
+            ->all();
+    }
+
+    public function findAllByJenisKendaraanIds(string $idPerusahaan, array $jenisKendaraanIds): array
+    {
+        if (empty($jenisKendaraanIds)) {
+            return [];
+        }
+
+        return DB::table('interval_perawatan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereIn('id_jenis_kendaraan', $jenisKendaraanIds)
+            ->where('aktif', 1)
+            ->orderBy('interval_km')
+            ->orderBy('interval_bulan')
+            ->get(['id_interval_perawatan', 'id_jenis_kendaraan', 'interval_km', 'interval_bulan'])
             ->all();
     }
 
@@ -133,5 +129,56 @@ class IntervalPerawatanRepository implements IntervalPerawatanRepositoryInterfac
         DB::table('interval_perawatan')
             ->where('id_interval_perawatan', $record->id_interval_perawatan)
             ->update(RecordHelper::stampDelete());
+    }
+
+    public function sparepartMilik(string $id, string $idPerusahaan): ?object
+    {
+        return DB::table('sparepart')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('id_sparepart', $id)
+            ->first();
+    }
+
+    public function findSparepartByIntervalIds(array $idIntervalList): array
+    {
+        if (empty($idIntervalList)) {
+            return [];
+        }
+
+        return DB::table('interval_perawatan_sparepart as ips')
+            ->join('sparepart', 'sparepart.id_sparepart', '=', 'ips.id_sparepart')
+            ->whereNull('ips.dihapus_pada')
+            ->whereNull('sparepart.dihapus_pada')
+            ->whereIn('ips.id_interval_perawatan', $idIntervalList)
+            ->orderBy('sparepart.nama')
+            ->get([
+                'ips.id_interval_perawatan',
+                'sparepart.id_sparepart',
+                'sparepart.nama as nama_sparepart',
+                'sparepart.satuan as satuan_sparepart',
+                'ips.qty_standar',
+            ])
+            ->map(fn ($row) => [
+                'id_interval_perawatan' => $row->id_interval_perawatan,
+                'id_sparepart'          => $row->id_sparepart,
+                'nama_sparepart'        => $row->nama_sparepart,
+                'satuan_sparepart'      => $row->satuan_sparepart,
+                'qty_standar'           => (int) $row->qty_standar,
+            ])
+            ->all();
+    }
+
+    public function softDeleteSparepartByInterval(string $idIntervalPerawatan): void
+    {
+        DB::table('interval_perawatan_sparepart')
+            ->whereNull('dihapus_pada')
+            ->where('id_interval_perawatan', $idIntervalPerawatan)
+            ->update(RecordHelper::stampDelete());
+    }
+
+    public function createSparepart(array $data): void
+    {
+        DB::table('interval_perawatan_sparepart')->insert(RecordHelper::stampCreate($data, 'id_interval_sparepart'));
     }
 }

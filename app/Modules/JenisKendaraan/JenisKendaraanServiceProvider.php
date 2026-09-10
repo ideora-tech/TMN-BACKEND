@@ -18,11 +18,22 @@ class JenisKendaraanServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Baca daftar jenis kendaraan dibutuhkan form modul lain (perawatan, armada,
+        // penawaran, vendor) — cukup punya izin salah satu modul itu. Tulis tetap
+        // terkunci ke izin master Jenis Kendaraan.
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:jenis-kendaraan|perawatan-armada|armada|penawaran|vendor'])
+            ->group(function () {
+                Route::get('jenis-kendaraan', [JenisKendaraanController::class, 'index']);
+                Route::get('jenis-kendaraan/{id}', [JenisKendaraanController::class, 'show']);
+            });
+
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:jenis-kendaraan'])
             ->group(function () {
-                Route::apiResource('jenis-kendaraan', JenisKendaraanController::class)
-                    ->parameters(['jenis-kendaraan' => 'id']);
+                Route::post('jenis-kendaraan', [JenisKendaraanController::class, 'store']);
+                Route::put('jenis-kendaraan/{id}', [JenisKendaraanController::class, 'update']);
+                Route::delete('jenis-kendaraan/{id}', [JenisKendaraanController::class, 'destroy']);
             });
     }
 }

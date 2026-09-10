@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\DokumenArmada;
 
 use App\Helpers\ApiResponse;
+use App\Modules\DokumenArmada\Requests\PerpanjangDokumenArmadaRequest;
+use App\Modules\DokumenArmada\Requests\StoreDokumenArmadaBatchRequest;
 use App\Modules\DokumenArmada\Requests\StoreDokumenArmadaRequest;
 use App\Modules\DokumenArmada\Requests\UpdateDokumenArmadaRequest;
 use App\Modules\DokumenArmada\Resources\DokumenArmadaResource;
@@ -20,6 +22,7 @@ class DokumenArmadaController extends Controller
     {
         $result = $this->service->listByArmada(
             $idArmada,
+            (string) $request->user()->id_perusahaan,
             (int) $request->get('page', 1),
             (int) $request->get('limit', 100)
         );
@@ -48,21 +51,66 @@ class DokumenArmadaController extends Controller
         );
     }
 
+    public function show(Request $request, string $id): JsonResponse
+    {
+        $record = $this->service->detail($id, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(new DokumenArmadaResource($record));
+    }
+
     public function store(StoreDokumenArmadaRequest $request, string $idArmada): JsonResponse
     {
-        $record = $this->service->create($idArmada, $request->validated(), $request->file('file'));
+        $record = $this->service->create(
+            $idArmada,
+            $request->validated(),
+            $request->file('file'),
+            (string) $request->user()->id_perusahaan
+        );
         return ApiResponse::success(new DokumenArmadaResource($record), 'Dokumen armada berhasil dibuat', 201);
+    }
+
+    public function storeBatch(StoreDokumenArmadaBatchRequest $request, string $idArmada): JsonResponse
+    {
+        $records = $this->service->createBatch(
+            $idArmada,
+            $request->validated()['dokumen'],
+            (string) $request->user()->id_perusahaan
+        );
+        return ApiResponse::success(
+            DokumenArmadaResource::collection($records),
+            count($records) . ' dokumen armada berhasil disimpan',
+            201
+        );
     }
 
     public function update(UpdateDokumenArmadaRequest $request, string $idArmada, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated(), $request->file('file'));
+        $record = $this->service->update(
+            $idArmada,
+            $id,
+            $request->validated(),
+            $request->file('file'),
+            (string) $request->user()->id_perusahaan
+        );
         return ApiResponse::success(new DokumenArmadaResource($record), 'Dokumen armada berhasil diperbarui');
     }
 
-    public function destroy(string $idArmada, string $id): JsonResponse
+    public function perpanjang(PerpanjangDokumenArmadaRequest $request, string $idArmada, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $data = $request->validated();
+        unset($data['file']);
+        $record = $this->service->perpanjang(
+            $idArmada,
+            $id,
+            $data,
+            $request->file('file'),
+            (string) $request->user()->id_perusahaan
+        );
+        return ApiResponse::success(new DokumenArmadaResource($record), 'Dokumen armada berhasil diperpanjang', 201);
+    }
+
+    public function destroy(Request $request, string $idArmada, string $id): JsonResponse
+    {
+        $this->service->delete($idArmada, $id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Dokumen armada berhasil dihapus');
     }
 

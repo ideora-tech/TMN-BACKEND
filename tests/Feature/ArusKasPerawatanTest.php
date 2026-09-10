@@ -64,7 +64,6 @@ class ArusKasPerawatanTest extends TestCase
 
         $res = $this->postJson("/api/armada/{$armada}/perawatan", [
             'tanggal'         => '2026-08-10',
-            'jenis_perawatan' => 'Ganti Oli',
             'biaya'           => 250000,
             'status'          => 'selesai',
             'sparepart'       => [
@@ -80,7 +79,8 @@ class ArusKasPerawatanTest extends TestCase
         $this->assertEquals(370000, (float) $pengajuan->nominal);
         $this->assertSame('disetujui', $pengajuan->status);
         $this->assertSame('B 9001 AK', $pengajuan->penerima);
-        $this->assertSame('Ganti Oli - B 9001 AK', $pengajuan->keterangan);
+        // Tanpa tautan paket (catatan insidental) -> label fallback "Perbaikan".
+        $this->assertSame('Perbaikan - B 9001 AK', $pengajuan->keterangan);
         $this->assertNotNull($pengajuan->nomor_pengajuan);
 
         $resPengajuan = $this->getJson("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}");

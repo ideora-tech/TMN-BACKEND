@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\ArusKas;
 
 use App\Modules\ArusKas\Contracts\ArusKasRepositoryInterface;
+use App\Modules\IntervalPerawatan\IntervalLabelBuilder;
 use App\Support\RecordHelper;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
@@ -165,17 +166,30 @@ class ArusKasRepository implements ArusKasRepositoryInterface
 
     public function dataPerawatanUntukPengajuan(string $idPerawatan): ?object
     {
-        return DB::table('perawatan_armada as p')
+        $row = DB::table('perawatan_armada as p')
             ->join('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoin('interval_perawatan as ip', 'ip.id_interval_perawatan', '=', 'p.id_interval_perawatan')
             ->where('p.id_perawatan', $idPerawatan)
             ->whereNull('p.dihapus_pada')
             ->whereNull('a.dihapus_pada')
             ->select([
                 'a.id_perusahaan as id_perusahaan',
                 'a.nopol as nopol',
-                'p.jenis_perawatan as jenis_perawatan',
+                'ip.interval_km as interval_km',
+                'ip.interval_bulan as interval_bulan',
             ])
             ->first();
+
+        if ($row === null) {
+            return null;
+        }
+
+        $row->jenis_perawatan = IntervalLabelBuilder::buildOrFallback(
+            $row->interval_km !== null ? (int) $row->interval_km : null,
+            $row->interval_bulan !== null ? (int) $row->interval_bulan : null,
+        );
+
+        return $row;
     }
 
     public function findPengajuanByPembelian(string $idPembelian): ?PengajuanPengeluaranModel

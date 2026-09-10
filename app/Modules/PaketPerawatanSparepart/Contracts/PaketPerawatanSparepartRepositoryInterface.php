@@ -40,4 +40,14 @@ interface PaketPerawatanSparepartRepositoryInterface
 
     /** Baris aktif untuk kombinasi tertentu, join sparepart untuk nama/satuan/harga — dipakai endpoint resolusi. */
     public function resolusiList(string $idPerusahaan, string $idJenisPerawatan, string $idJenisKendaraan): array;
+
+    /**
+     * Daftar sparepart (batch) utk sekumpulan kombinasi id_jenis_perawatan+id_jenis_kendaraan sekaligus,
+     * urut nama_sparepart — dipakai modul IntervalPerawatan utk melampirkan 'sparepart' di list/detail (hindari N+1).
+     * @param array<array{id_jenis_perawatan:string,id_jenis_kendaraan:string}> $pairs
+     */
+    public function findAllByKombinasiPairs(string $idPerusahaan, array $pairs): array;
+
+    /** Soft-delete semua baris aktif utk kombinasi tsb — dipakai modul IntervalPerawatan (replace penuh & cascade delete). */
+    public function softDeleteByKombinasi(string $idPerusahaan, string $idJenisPerawatan, string $idJenisKendaraan): void;
 }

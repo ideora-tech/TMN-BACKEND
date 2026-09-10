@@ -52,7 +52,6 @@ class PerawatanArmadaTest extends TestCase
 
         $res = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
             'tanggal'                  => '2026-02-01',
-            'jenis_perawatan'          => 'Servis Besar',
             'biaya'                    => 1500000,
             'km_odometer'              => 50000,
             'status'                   => 'selesai',
@@ -60,12 +59,12 @@ class PerawatanArmadaTest extends TestCase
         ]);
 
         $res->assertStatus(201)
-            ->assertJsonPath('data.jenis_perawatan', 'Servis Besar')
+            ->assertJsonPath('data.jadwal_servis_berikutnya', '2026-08-01')
             ->assertJsonPath('data.biaya', 1500000);
 
         $this->assertDatabaseHas('perawatan_armada', [
-            'id_armada'       => $armada->id_armada,
-            'jenis_perawatan' => 'Servis Besar',
+            'id_armada' => $armada->id_armada,
+            'biaya'     => 1500000,
         ]);
     }
 

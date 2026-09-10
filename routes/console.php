@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\IntervalPerawatan\IntervalLabelBuilder;
 use App\Modules\Notifikasi\NotifikasiModel;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -18,6 +19,7 @@ Artisan::command('notifikasi:dokumen-kadaluarsa', function () {
     $dokumen = DB::table('dokumen_armada as d')
         ->join('armada as a', 'd.id_armada', '=', 'a.id_armada')
         ->whereNull('d.dihapus_pada')
+        ->where('d.aktif', 1)
         ->whereNull('a.dihapus_pada')
         ->whereBetween('d.berlaku_sampai', [$today, $batas])
         ->select('d.id_dokumen_armada', 'd.jenis_dokumen', 'd.berlaku_sampai', 'a.nopol', 'a.id_perusahaan')
@@ -272,60 +274,61 @@ Artisan::command('notifikasi:trip-belum-selesai', function () {
 })->purpose('Buat notifikasi untuk trip yang berjalan lebih dari 24 jam tanpa checkout')->dailyAt('08:00');
 
 Artisan::command('servis:backfill-jadwal', function () {
-    // Servis TERBARU per armada (correlated subquery: tanggal DESC, dibuat_pada DESC)
-    // yang jadwal_servis_berikutnya masih kosong dan punya id_jenis_perawatan.
+    // Catatan TERBARU per kombinasi (armada, paket/id_interval_perawatan)
+    // (correlated subquery: tanggal DESC, dibuat_pada DESC) yang tertaut paket
+    // tapi jadwal_servis_berikutnya masih kosong.
     $kandidat = DB::table('perawatan_armada as p1')
         ->join('armada as a', 'a.id_armada', '=', 'p1.id_armada')
         ->whereNull('p1.dihapus_pada')
         ->whereNull('a.dihapus_pada')
+        ->whereNotNull('p1.id_interval_perawatan')
         ->whereNull('p1.jadwal_servis_berikutnya')
-        ->whereNotNull('p1.id_jenis_perawatan')
         ->whereRaw('p1.id_perawatan = (
             SELECT p2.id_perawatan FROM perawatan_armada p2
-            WHERE p2.id_armada = p1.id_armada AND p2.dihapus_pada IS NULL
+            WHERE p2.id_armada = p1.id_armada
+              AND p2.id_interval_perawatan = p1.id_interval_perawatan
+              AND p2.dihapus_pada IS NULL
             ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
             LIMIT 1
         )')
-        ->select('p1.id_perawatan', 'p1.tanggal', 'p1.id_jenis_perawatan', 'a.id_jenis_kendaraan', 'a.id_perusahaan')
+        ->select('p1.id_perawatan', 'p1.tanggal', 'p1.id_interval_perawatan')
         ->get();
 
     $terisi = 0;
     foreach ($kandidat as $row) {
-        if ($row->id_jenis_kendaraan === null) {
-            continue;
-        }
-
-        $interval = DB::table('interval_perawatan')
+        $intervalBulan = DB::table('interval_perawatan')
             ->whereNull('dihapus_pada')
-            ->where('id_perusahaan', $row->id_perusahaan)
-            ->where('id_jenis_perawatan', $row->id_jenis_perawatan)
-            ->where('id_jenis_kendaraan', $row->id_jenis_kendaraan)
-            ->value('interval_hari');
+            ->where('id_interval_perawatan', $row->id_interval_perawatan)
+            ->value('interval_bulan');
 
-        if ($interval === null) {
+        if ($intervalBulan === null) {
             continue;
         }
 
-        $jadwal = now()->parse($row->tanggal)->addDays((int) $interval)->toDateString();
+        $jadwal = now()->parse($row->tanggal)->addMonths((int) $intervalBulan)->toDateString();
 
         DB::table('perawatan_armada')
             ->where('id_perawatan', $row->id_perawatan)
+            ->whereNull('jadwal_servis_berikutnya')
             ->update(['jadwal_servis_berikutnya' => $jadwal]);
+
         $terisi++;
     }
 
     $this->info("Backfill jadwal servis: {$terisi} catatan perawatan ter-update.");
     Log::info("servis:backfill-jadwal — {$terisi} catatan ter-update.");
-})->purpose('Isi jadwal_servis_berikutnya yang masih kosong dari interval yang sudah didefinisikan (sekali-jalan, aman diulang)');
+})->purpose('Isi jadwal_servis_berikutnya yang masih kosong dari paket (interval_perawatan) yang sudah tertaut (sekali-jalan, aman diulang)');
 
 Artisan::command('notifikasi:servis-jatuh-tempo', function () {
     $today = now()->toDateString();
     $batas = now()->addDays(30)->toDateString();
 
-    // Servis TERBARU per armada (pola sama dgn servis:backfill-jadwal) yang
-    // jadwal_servis_berikutnya jatuh dalam 30 hari ke depan.
+    // Catatan TERBARU per armada (bukan lagi per jenis — satu catatan hanya
+    // bisa tertaut ke satu paket) yang jadwal_servis_berikutnya jatuh dalam
+    // 30 hari ke depan.
     $servis = DB::table('perawatan_armada as p1')
         ->join('armada as a', 'a.id_armada', '=', 'p1.id_armada')
+        ->leftJoin('interval_perawatan as ip', 'ip.id_interval_perawatan', '=', 'p1.id_interval_perawatan')
         ->whereNull('p1.dihapus_pada')
         ->whereNull('a.dihapus_pada')
         ->whereNotNull('p1.jadwal_servis_berikutnya')
@@ -338,7 +341,13 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
             ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
             LIMIT 1
         )")
-        ->select('p1.id_perawatan', 'p1.jenis_perawatan', 'p1.jadwal_servis_berikutnya', 'a.nopol', 'a.id_perusahaan')
+        ->select(
+            'p1.id_perawatan',
+            'p1.jadwal_servis_berikutnya',
+            'ip.interval_km',
+            'ip.interval_bulan',
+            'a.nopol', 'a.id_perusahaan'
+        )
         ->get();
 
     $created = 0;
@@ -349,6 +358,11 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
             ->exists();
         if ($exists) continue;
 
+        $label = IntervalLabelBuilder::buildOrFallback(
+            $s->interval_km !== null ? (int) $s->interval_km : null,
+            $s->interval_bulan !== null ? (int) $s->interval_bulan : null,
+        );
+
         $jadwal    = now()->parse($s->jadwal_servis_berikutnya);
         $daysLeft  = (int) now()->diffInDays($jadwal, false);
         $prefix    = $daysLeft <= 7 ? '[SEGERA] ' : '';
@@ -357,8 +371,8 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
             'id_notifikasi'  => Str::uuid()->toString(),
             'id_perusahaan'  => $s->id_perusahaan,
             'id_pengguna'    => null,
-            'judul'          => "{$prefix}Servis {$s->jenis_perawatan} {$s->nopol} jatuh tempo dalam {$daysLeft} hari",
-            'isi'            => "Servis {$s->jenis_perawatan} untuk armada {$s->nopol} jatuh tempo pada ".
+            'judul'          => "{$prefix}Servis {$label} {$s->nopol} jatuh tempo dalam {$daysLeft} hari",
+            'isi'            => "Servis {$label} untuk armada {$s->nopol} jatuh tempo pada ".
                                 $jadwal->format('d M Y')." ({$daysLeft} hari lagi). Segera jadwalkan servis.",
             'tipe'           => 'alert_servis',
             'referensi_id'   => $s->id_perawatan,
@@ -370,7 +384,7 @@ Artisan::command('notifikasi:servis-jatuh-tempo', function () {
 
     $this->info("Notifikasi servis jatuh tempo: {$created} notifikasi baru dibuat.");
     Log::info("notifikasi:servis-jatuh-tempo — {$created} notifikasi dibuat.");
-})->purpose('Buat notifikasi untuk servis armada yang jatuh tempo dalam 30 hari (berdasarkan servis terbaru per armada)')->dailyAt('07:15');
+})->purpose('Buat notifikasi untuk servis armada yang jatuh tempo dalam 30 hari (berdasarkan catatan terbaru per armada)')->dailyAt('07:15');
 
 Artisan::command('karyawan:dari-supir', function () {
     // Satu karyawan maksimal tertaut ke satu supir. Bila beberapa supir

@@ -115,6 +115,21 @@ class PerawatanArmadaController extends Controller
         return ApiResponse::success(null, 'Bukti perawatan berhasil dihapus');
     }
 
+    public function papanUnit(Request $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        $result = $this->service->papanUnit(
+            $idPerusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 20),
+            $request->get('search'),
+            $request->boolean('hanya_jatuh_tempo'),
+        );
+
+        return ApiResponse::paginated($result['data'], $result['meta']);
+    }
+
     public function rekapPerUnit(Request $request): JsonResponse
     {
         return ApiResponse::success($this->service->rekapPerUnit(
@@ -152,6 +167,24 @@ class PerawatanArmadaController extends Controller
         ]);
 
         return $pdf->download('perawatan-' . str_replace(' ', '', (string) $data['armada']->nopol) . '-' . date('Ymd') . '.pdf');
+    }
+
+    public function exportDetailPdf(Request $request, string $idArmada, string $id): Response
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $data = $this->service->dataCetakDetail($idArmada, $id, $idPerusahaan);
+
+        $pdf = Pdf::loadView('exports.perawatan-detail', [
+            'perawatan'  => $data['perawatan'],
+            'armada'     => $data['armada'],
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
+        ]);
+
+        $nopol = str_replace(' ', '', (string) $data['armada']->nopol);
+        $tanggal = date('Ymd', strtotime((string) $data['perawatan']->tanggal));
+
+        return $pdf->download("perawatan-{$nopol}-{$tanggal}.pdf");
     }
 
     public function exportRekapExcel(Request $request): BinaryFileResponse

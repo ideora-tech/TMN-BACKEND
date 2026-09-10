@@ -7,6 +7,7 @@ namespace App\Modules\Dashboard;
 use App\Modules\Armada\ArmadaModel;
 use App\Modules\Dashboard\Contracts\DashboardRepositoryInterface;
 use App\Modules\Faktur\FakturModel;
+use App\Modules\IntervalPerawatan\IntervalLabelBuilder;
 use App\Modules\Proyek\ProyekModel;
 use App\Modules\Trip\TripModel;
 use Illuminate\Support\Collection;
@@ -66,6 +67,7 @@ class DashboardRepository implements DashboardRepositoryInterface
             ->join('armada as a', 'd.id_armada', '=', 'a.id_armada')
             ->where('a.id_perusahaan', $idPerusahaan)
             ->whereNull('d.dihapus_pada')
+            ->where('d.aktif', 1)
             ->whereNull('a.dihapus_pada')
             ->whereNotNull('d.berlaku_sampai')
             ->whereBetween('d.berlaku_sampai', [$today, $batas])
@@ -110,6 +112,7 @@ class DashboardRepository implements DashboardRepositoryInterface
 
         return DB::table('perawatan_armada as p1')
             ->join('armada as a', 'a.id_armada', '=', 'p1.id_armada')
+            ->leftJoin('interval_perawatan as ip', 'ip.id_interval_perawatan', '=', 'p1.id_interval_perawatan')
             ->where('a.id_perusahaan', $idPerusahaan)
             ->whereNull('p1.dihapus_pada')
             ->whereNull('a.dihapus_pada')
@@ -123,7 +126,16 @@ class DashboardRepository implements DashboardRepositoryInterface
                 ORDER BY p2.tanggal DESC, p2.dibuat_pada DESC
                 LIMIT 1
             )")
-            ->select('a.id_armada', 'a.nopol', 'p1.jenis_perawatan', 'p1.jadwal_servis_berikutnya')
-            ->get();
+            ->select('a.id_armada', 'a.nopol', 'p1.jadwal_servis_berikutnya', 'ip.interval_km', 'ip.interval_bulan')
+            ->get()
+            ->map(fn ($r) => (object) [
+                'id_armada'                => $r->id_armada,
+                'nopol'                    => $r->nopol,
+                'jenis_perawatan'          => IntervalLabelBuilder::buildOrFallback(
+                    $r->interval_km !== null ? (int) $r->interval_km : null,
+                    $r->interval_bulan !== null ? (int) $r->interval_bulan : null,
+                ),
+                'jadwal_servis_berikutnya' => $r->jadwal_servis_berikutnya,
+            ]);
     }
 }

@@ -7,7 +7,7 @@ namespace App\Modules\PerawatanArmada;
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\ArusKas\ArusKasService;
 use App\Modules\IntervalPerawatan\Contracts\IntervalPerawatanRepositoryInterface;
-use App\Modules\PaketPerawatanSparepart\Contracts\PaketPerawatanSparepartRepositoryInterface;
+use App\Modules\IntervalPerawatan\IntervalLabelBuilder;
 use App\Modules\PerawatanArmada\Contracts\PerawatanArmadaRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Carbon\Carbon;
@@ -21,26 +21,58 @@ class PerawatanArmadaService
         private readonly PerawatanArmadaRepositoryInterface $repo,
         private readonly ArmadaRepositoryInterface $armadaRepo,
         private readonly IntervalPerawatanRepositoryInterface $intervalRepo,
-        private readonly PaketPerawatanSparepartRepositoryInterface $paketRepo,
         private readonly ArusKasService $arusKasService,
     ) {}
 
     public function listByArmada(string $idArmada, int $page = 1, int $limit = 10): array
     {
-        return $this->toPagedArray($this->repo->paginateByArmada($idArmada, $page, $limit));
+        $paged = $this->toPagedArray($this->repo->paginateByArmada($idArmada, $page, $limit));
+        $paged['data'] = $this->lampirkanInterval($this->lampirkanSupplier($paged['data']));
+        return $paged;
     }
 
     public function listByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $status, bool $jatuhTempo = false, ?string $search = null, ?string $tanggalDari = null, ?string $tanggalSampai = null): array
     {
-        return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $status, $jatuhTempo, $search, $tanggalDari, $tanggalSampai));
+        $paged = $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $status, $jatuhTempo, $search, $tanggalDari, $tanggalSampai));
+        $paged['data'] = $this->lampirkanInterval($this->lampirkanSupplier($paged['data']));
+        return $paged;
+    }
+
+    /** @param object[] $records */
+    private function lampirkanInterval(array $records): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(fn ($r) => $r->id_interval_perawatan ?? null, $records))));
+        $intervalMap = $this->repo->intervalUntukBanyak($ids);
+        foreach ($records as $record) {
+            $interval = ($record->id_interval_perawatan ?? null) !== null ? ($intervalMap[$record->id_interval_perawatan] ?? null) : null;
+            $record->interval_label = $interval !== null
+                ? IntervalLabelBuilder::build(
+                    $interval->interval_km !== null ? (int) $interval->interval_km : null,
+                    $interval->interval_bulan !== null ? (int) $interval->interval_bulan : null,
+                )
+                : null;
+        }
+        return $records;
+    }
+
+    /** @param object[] $records */
+    private function lampirkanSupplier(array $records): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(fn ($r) => $r->id_supplier ?? null, $records))));
+        $namaMap = $this->repo->supplierUntukBanyak($ids);
+        foreach ($records as $record) {
+            $record->nama_supplier = ($record->id_supplier ?? null) !== null ? ($namaMap[$record->id_supplier] ?? null) : null;
+        }
+        return $records;
     }
 
     /**
-     * Gabungkan interval_perawatan (aturan) + riwayat servis terakhir + paket sparepart standar
-     * jadi daftar prediksi jenis perawatan apa saja yang akan datang untuk 1 armada.
-     * Dua basis dihitung: HARI (jadwal_servis_berikutnya vs hari ini) dan KM
-     * (km servis terakhir + interval_km vs odometer terakhir armada; ambang
-     * "segera" = sisa ≤ 10% interval_km) — status akhir mengambil yang terburuk.
+     * Gabungkan interval_perawatan (paket servis per jenis kendaraan) + riwayat
+     * servis terakhir jadi daftar prediksi paket apa saja yang akan datang untuk
+     * 1 armada. Dua basis dihitung: BULAN (jadwal_servis_berikutnya vs hari ini)
+     * dan KM (km servis terakhir + interval_km vs odometer terakhir armada;
+     * ambang "segera" = sisa ≤ 10% interval_km) — status akhir mengambil yang
+     * terburuk.
      */
     public function prediksiPerawatan(string $idArmada, string $idPerusahaan, int $days = 30): array
     {
@@ -54,70 +86,22 @@ class PerawatanArmadaService
         }
 
         $rules  = $this->intervalRepo->findAllByJenisKendaraan($idPerusahaan, $armada->id_jenis_kendaraan);
-        $latest = collect($this->repo->getLatestPerJenisByArmada($idArmada))->keyBy('id_jenis_perawatan');
+        $latest = collect($this->repo->getLatestPerIntervalByArmada($idArmada))->keyBy('id_interval_perawatan');
         $kmSekarang = $this->repo->kmOdometerTerakhir($idArmada);
+
+        $sparepartPerInterval = collect($this->intervalRepo->findSparepartByIntervalIds(
+            array_map(fn ($rule) => (string) $rule->id_interval_perawatan, $rules)
+        ))->groupBy('id_interval_perawatan');
 
         $items = [];
         foreach ($rules as $rule) {
-            $riwayat = $latest->get($rule->id_jenis_perawatan);
-            $tanggalTerakhir = $riwayat->tanggal ?? null;
-
-            $jadwalBerikutnya = $riwayat->jadwal_servis_berikutnya ?? null;
-            if ($jadwalBerikutnya === null && $tanggalTerakhir !== null && $rule->interval_hari !== null) {
-                $jadwalBerikutnya = Carbon::parse($tanggalTerakhir)->addDays((int) $rule->interval_hari)->toDateString();
-            }
-
-            $sisaHari = null;
-            $status = 'belum_pernah';
-            if ($jadwalBerikutnya !== null) {
-                $sisaHari = (int) Carbon::today()->diffInDays(Carbon::parse($jadwalBerikutnya)->startOfDay(), false);
-                $status = match (true) {
-                    $sisaHari < 0      => 'lewat_jatuh_tempo',
-                    $sisaHari <= $days => 'segera',
-                    default            => 'aman',
-                };
-            }
-
-            $intervalKm       = isset($rule->interval_km) && $rule->interval_km !== null ? (int) $rule->interval_km : null;
-            $kmServisTerakhir = isset($riwayat->km_odometer) && $riwayat->km_odometer !== null ? (int) $riwayat->km_odometer : null;
-
-            $kmJatuhTempo = null;
-            $sisaKm = null;
-            $statusKm = null;
-            if ($intervalKm !== null && $kmServisTerakhir !== null && $kmSekarang !== null) {
-                $kmJatuhTempo = $kmServisTerakhir + $intervalKm;
-                $sisaKm = $kmJatuhTempo - $kmSekarang;
-                $ambangKm = max(1, (int) round($intervalKm * 0.1));
-                $statusKm = match (true) {
-                    $sisaKm < 0         => 'lewat_jatuh_tempo',
-                    $sisaKm <= $ambangKm => 'segera',
-                    default             => 'aman',
-                };
-            }
-
-            if ($statusKm !== null) {
-                $urutan = ['lewat_jatuh_tempo' => 0, 'segera' => 1, 'aman' => 2, 'belum_pernah' => 3];
-                if ($urutan[$statusKm] < $urutan[$status]) {
-                    $status = $statusKm;
-                }
-            }
-
-            $items[] = [
-                'id_jenis_perawatan'       => $rule->id_jenis_perawatan,
-                'nama_jenis_perawatan'     => $rule->nama_jenis_perawatan,
-                'interval_hari'            => $rule->interval_hari !== null ? (int) $rule->interval_hari : null,
-                'interval_km'              => $intervalKm,
-                'tanggal_servis_terakhir'  => $tanggalTerakhir,
-                'jadwal_servis_berikutnya' => $jadwalBerikutnya,
-                'km_servis_terakhir'       => $kmServisTerakhir,
-                'km_sekarang'              => $kmSekarang,
-                'km_jatuh_tempo'           => $kmJatuhTempo,
-                'sisa_km'                  => $sisaKm,
-                'status_km'                => $statusKm,
-                'status'                   => $status,
-                'sisa_hari'                => $sisaHari,
-                'sparepart_standar'        => $this->paketRepo->resolusiList($idPerusahaan, $rule->id_jenis_perawatan, $armada->id_jenis_kendaraan),
-            ];
+            $riwayat = $latest->get($rule->id_interval_perawatan);
+            $item = $this->hitungItemPrediksi($rule, $riwayat, $kmSekarang, $days, $armada->tanggal_beli ?? null);
+            $item['sparepart_standar'] = $sparepartPerInterval
+                ->get($rule->id_interval_perawatan, collect())
+                ->values()
+                ->all();
+            $items[] = $item;
         }
 
         $rank = ['lewat_jatuh_tempo' => 0, 'belum_pernah' => 1, 'segera' => 2, 'aman' => 3];
@@ -130,6 +114,198 @@ class PerawatanArmadaService
         });
 
         return $items;
+    }
+
+    /**
+     * $tanggalPembelian = armada.tanggal_beli — dipakai sebagai titik mulai jadwal
+     * servis PERTAMA (basis bulan saja) bila unit belum pernah punya riwayat servis
+     * untuk paket ini. Anchor ini diabaikan bila jatuh temponya sudah lewat lebih
+     * dari satu interval: unit lama yang riwayat servisnya tidak tercatat di sistem
+     * dilaporkan 'belum_pernah', bukan 'lewat ribuan hari'.
+     * Basis KM tidak punya anchor serupa (tetap butuh servis pertama).
+     */
+    private function hitungItemPrediksi(object $rule, ?object $riwayat, ?int $kmSekarang, int $days, ?string $tanggalPembelian = null): array
+    {
+        $tanggalTerakhir = $riwayat->tanggal ?? null;
+        $intervalBulan = isset($rule->interval_bulan) && $rule->interval_bulan !== null ? (int) $rule->interval_bulan : null;
+
+        $jadwalBerikutnya = $riwayat->jadwal_servis_berikutnya ?? null;
+        if ($jadwalBerikutnya === null && $tanggalTerakhir !== null && $intervalBulan !== null) {
+            $jadwalBerikutnya = Carbon::parse($tanggalTerakhir)->addMonths($intervalBulan)->toDateString();
+        }
+        if ($jadwalBerikutnya === null && $riwayat === null && $tanggalPembelian !== null && $intervalBulan !== null) {
+            $kandidat = Carbon::parse($tanggalPembelian)->addMonths($intervalBulan);
+            if ($kandidat->greaterThanOrEqualTo(Carbon::today()->subMonths($intervalBulan))) {
+                $jadwalBerikutnya = $kandidat->toDateString();
+            }
+        }
+
+        $sisaHari = null;
+        $statusHari = 'belum_pernah';
+        if ($jadwalBerikutnya !== null) {
+            $sisaHari = (int) Carbon::today()->diffInDays(Carbon::parse($jadwalBerikutnya)->startOfDay(), false);
+            $statusHari = match (true) {
+                $sisaHari < 0      => 'lewat_jatuh_tempo',
+                $sisaHari <= $days => 'segera',
+                default            => 'aman',
+            };
+        }
+
+        $intervalKm       = isset($rule->interval_km) && $rule->interval_km !== null ? (int) $rule->interval_km : null;
+        $kmServisTerakhir = isset($riwayat->km_odometer) && $riwayat->km_odometer !== null ? (int) $riwayat->km_odometer : null;
+
+        $kmJatuhTempo = null;
+        $sisaKm = null;
+        $statusKm = null;
+        if ($intervalKm !== null && $kmServisTerakhir !== null && $kmSekarang !== null) {
+            $kmJatuhTempo = $kmServisTerakhir + $intervalKm;
+            $sisaKm = $kmJatuhTempo - $kmSekarang;
+            $ambangKm = max(1, (int) round($intervalKm * 0.1));
+            $statusKm = match (true) {
+                $sisaKm < 0         => 'lewat_jatuh_tempo',
+                $sisaKm <= $ambangKm => 'segera',
+                default             => 'aman',
+            };
+        }
+
+        $status = $statusHari;
+        if ($statusKm !== null) {
+            $urutan = ['lewat_jatuh_tempo' => 0, 'segera' => 1, 'aman' => 2, 'belum_pernah' => 3];
+            if ($urutan[$statusKm] < $urutan[$status]) {
+                $status = $statusKm;
+            }
+        }
+
+        return [
+            'id_interval_perawatan'    => $rule->id_interval_perawatan,
+            'label'                    => IntervalLabelBuilder::build($intervalKm, $intervalBulan),
+            'interval_bulan'           => $intervalBulan,
+            'interval_km'              => $intervalKm,
+            'tanggal_servis_terakhir'  => $tanggalTerakhir,
+            'jadwal_servis_berikutnya' => $jadwalBerikutnya,
+            'km_servis_terakhir'       => $kmServisTerakhir,
+            'km_sekarang'              => $kmSekarang,
+            'km_jatuh_tempo'           => $kmJatuhTempo,
+            'sisa_km'                  => $sisaKm,
+            'status_km'                => $statusKm,
+            'status'                   => $status,
+            'status_hari'              => $statusHari,
+            'sisa_hari'                => $sisaHari,
+        ];
+    }
+
+    public function papanUnit(string $idPerusahaan, int $page = 1, int $limit = 20, ?string $search = null, bool $hanyaJatuhTempo = false): array
+    {
+        $armadaList = $this->repo->findArmadaPapanUnit($idPerusahaan, $search);
+        if (empty($armadaList)) {
+            return $this->toManualPagedArray([], $page, $limit);
+        }
+
+        $armadaIds = array_map(fn ($a) => $a->id_armada, $armadaList);
+
+        $jenisKendaraanIds = collect($armadaList)->pluck('id_jenis_kendaraan')->filter()->unique()->values()->all();
+
+        $rulesPerJenisKendaraan = collect($this->intervalRepo->findAllByJenisKendaraanIds($idPerusahaan, $jenisKendaraanIds))
+            ->groupBy('id_jenis_kendaraan');
+
+        $latestPerArmada = collect($this->repo->getLatestPerIntervalByArmadaIds($armadaIds))
+            ->groupBy('id_armada')
+            ->map(fn ($rows) => collect($rows)->keyBy('id_interval_perawatan'));
+
+        $kmMap = $this->repo->kmOdometerTerakhirByArmadaIds($armadaIds);
+
+        $servisTerakhirMap = collect($this->repo->getServisTerakhirSelesaiByArmadaIds($armadaIds))
+            ->keyBy('id_armada');
+
+        $rows = [];
+        foreach ($armadaList as $armada) {
+            $rules = $armada->id_jenis_kendaraan !== null
+                ? $rulesPerJenisKendaraan->get($armada->id_jenis_kendaraan, collect())
+                : collect();
+            $latestByInterval = $latestPerArmada->get($armada->id_armada, collect());
+            $kmSekarang = isset($kmMap[$armada->id_armada]) ? (int) $kmMap[$armada->id_armada] : null;
+
+            $jatuhTempo = [];
+            foreach ($rules as $rule) {
+                $riwayat = $latestByInterval->get($rule->id_interval_perawatan);
+                $item = $this->hitungItemPrediksi($rule, $riwayat, $kmSekarang, 30, $armada->tanggal_beli ?? null);
+
+                if (in_array($item['status_hari'], ['segera', 'lewat_jatuh_tempo'], true)) {
+                    $jatuhTempo[] = [
+                        'id_interval_perawatan' => $rule->id_interval_perawatan,
+                        'label'                 => $item['label'],
+                        'basis'                 => 'hari',
+                        'status'                => $item['status_hari'],
+                        'keterangan'            => $this->keteranganHari((int) $item['sisa_hari']),
+                    ];
+                }
+
+                if (in_array($item['status_km'], ['segera', 'lewat_jatuh_tempo'], true)) {
+                    $jatuhTempo[] = [
+                        'id_interval_perawatan' => $rule->id_interval_perawatan,
+                        'label'                 => $item['label'],
+                        'basis'                 => 'km',
+                        'status'                => $item['status_km'],
+                        'keterangan'            => $this->keteranganKm((int) $item['sisa_km']),
+                    ];
+                }
+            }
+
+            usort($jatuhTempo, fn ($a, $b) => ($a['status'] === 'lewat_jatuh_tempo' ? 0 : 1) <=> ($b['status'] === 'lewat_jatuh_tempo' ? 0 : 1));
+
+            $servis = $servisTerakhirMap->get($armada->id_armada);
+
+            $rows[] = [
+                'id_armada'            => $armada->id_armada,
+                'nopol'                => $armada->nopol,
+                'merk'                 => $armada->merk,
+                'id_jenis_kendaraan'   => $armada->id_jenis_kendaraan,
+                'nama_jenis_kendaraan' => $armada->nama_jenis_kendaraan,
+                'status_armada'        => $armada->status_armada,
+                'servis_terakhir'      => $servis !== null ? [
+                    'tanggal' => $servis->tanggal,
+                    'label'   => $servis->label,
+                ] : null,
+                'belum_pernah_servis'  => $servis === null,
+                'jumlah_interval'      => $rules->count(),
+                'jatuh_tempo'          => $jatuhTempo,
+            ];
+        }
+
+        if ($hanyaJatuhTempo) {
+            $rows = array_values(array_filter($rows, fn ($r) => !empty($r['jatuh_tempo'])));
+        }
+
+        return $this->toManualPagedArray($rows, $page, $limit);
+    }
+
+    private function keteranganHari(int $sisaHari): string
+    {
+        return $sisaHari < 0
+            ? 'lewat ' . abs($sisaHari) . ' hari'
+            : $sisaHari . ' hari lagi';
+    }
+
+    private function keteranganKm(int $sisaKm): string
+    {
+        return $sisaKm < 0
+            ? 'lewat ' . number_format(abs($sisaKm), 0, ',', '.') . ' km'
+            : 'sisa ' . number_format($sisaKm, 0, ',', '.') . ' km';
+    }
+
+    private function toManualPagedArray(array $items, int $page, int $limit): array
+    {
+        $total = count($items);
+
+        return [
+            'data' => array_values(array_slice($items, ($page - 1) * $limit, $limit)),
+            'meta' => [
+                'page'       => $page,
+                'limit'      => $limit,
+                'total'      => $total,
+                'totalPages' => $limit > 0 ? (int) ceil($total / $limit) : 0,
+            ],
+        ];
     }
 
     private function toPagedArray(LengthAwarePaginator $paginator): array
@@ -176,6 +352,21 @@ class PerawatanArmadaService
         return $this->repo->getPerusahaan($idPerusahaan);
     }
 
+    public function dataCetakDetail(string $idArmada, string $id, string $idPerusahaan): array
+    {
+        $perawatan = $this->findOrFail($id, $idPerusahaan);
+        if ((string) $perawatan->id_armada !== $idArmada) {
+            abort(404, 'Perawatan armada tidak ditemukan');
+        }
+
+        $armada = $this->armadaRepo->findById($idArmada);
+        if ($armada === null || $armada->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Armada tidak ditemukan');
+        }
+
+        return ['perawatan' => $perawatan, 'armada' => $armada];
+    }
+
     public function infoPengajuan(string $id, ?string $idPerusahaan = null): ?array
     {
         $this->findOrFail($id, $idPerusahaan);
@@ -195,14 +386,23 @@ class PerawatanArmadaService
             'nama_sparepart'         => $line->nama_sparepart,
             'qty'                    => (int) $line->qty,
             'harga'                  => (float) $line->harga,
+            'sumber'                 => $line->sumber,
             'subtotal'               => (int) $line->qty * (float) $line->harga,
         ], $this->repo->getActiveLines($id));
+
+        $record->nama_supplier = $record->id_supplier !== null ? $this->repo->getSupplierNama($record->id_supplier) : null;
+
+        $armada = $this->armadaRepo->findById((string) $record->id_armada);
+        $record->armada_nopol = $armada?->nopol;
+        $record->armada_merk = $armada?->merk;
 
         $record->bukti = array_map(fn ($b) => [
             'id_bukti'  => $b->id_bukti,
             'url_file'  => PenyimpananBerkas::url($b->url_file),
             'nama_asli' => $b->nama_asli,
         ], $this->repo->listBukti($id));
+
+        [$record] = $this->lampirkanInterval([$record]);
 
         return $record;
     }
@@ -237,13 +437,26 @@ class PerawatanArmadaService
 
     public function create(string $idArmada, array $data): object
     {
-        $items = $data['sparepart'] ?? [];
+        $items = $this->normalizeItems($data['sparepart'] ?? []);
         unset($data['sparepart']);
-        $data = $this->applyJenisSnapshot($data);
+
+        $armada = $this->armadaRepo->findById($idArmada);
+        $this->validasiSupplier($armada?->id_perusahaan, $data['id_supplier'] ?? null);
+
+        $idInterval = $data['id_interval_perawatan'] ?? null;
+        if ($idInterval !== null) {
+            $this->validasiInterval($armada, $idInterval);
+        }
+
+        $overrideJadwal = $data['jadwal_servis_berikutnya'] ?? null;
+        if ($overrideJadwal === null) {
+            $tanggalServis = $data['tanggal'] ?? now()->toDateString();
+            $data['jadwal_servis_berikutnya'] = $this->hitungJadwalOtomatis($idInterval, $tanggalServis);
+        }
 
         return DB::transaction(function () use ($idArmada, $data, $items) {
             $record = $this->repo->create(array_merge($data, ['id_armada' => $idArmada]));
-            $this->keluarkanStokUntukItems($record->id_perawatan, $items);
+            $this->simpanItems($record->id_perawatan, $items);
             $hasil = $this->findOrFail($record->id_perawatan);
             $this->sinkronArusKas($hasil);
             return $hasil;
@@ -258,10 +471,27 @@ class PerawatanArmadaService
             abort(422, 'Perawatan yang sudah selesai atau dibatalkan tidak dapat diubah');
         }
 
+        if (array_key_exists('id_supplier', $data)) {
+            $this->validasiSupplier($idPerusahaan, $data['id_supplier']);
+        }
+
         $adaItems = array_key_exists('sparepart', $data);
-        $items = $data['sparepart'] ?? [];
+        $items = $this->normalizeItems($data['sparepart'] ?? []);
         unset($data['sparepart']);
-        $data = $this->applyJenisSnapshot($data);
+
+        $armada = $this->armadaRepo->findById($record->id_armada);
+
+        $idIntervalBaru = array_key_exists('id_interval_perawatan', $data) ? $data['id_interval_perawatan'] : $record->id_interval_perawatan;
+        if (array_key_exists('id_interval_perawatan', $data) && $data['id_interval_perawatan'] !== null) {
+            $this->validasiInterval($armada, $data['id_interval_perawatan']);
+        }
+
+        $perluHitungUlang = array_key_exists('id_interval_perawatan', $data) || array_key_exists('jadwal_servis_berikutnya', $data);
+        $overrideJadwal = $data['jadwal_servis_berikutnya'] ?? null;
+        if ($perluHitungUlang && $overrideJadwal === null) {
+            $tanggalServis = $data['tanggal'] ?? $record->tanggal;
+            $data['jadwal_servis_berikutnya'] = $this->hitungJadwalOtomatis($idIntervalBaru, $tanggalServis);
+        }
 
         return DB::transaction(function () use ($record, $data, $items, $adaItems) {
             $this->repo->update($record, $data);
@@ -272,6 +502,32 @@ class PerawatanArmadaService
             $this->sinkronArusKas($hasil);
             return $hasil;
         });
+    }
+
+    private function validasiInterval(?object $armada, string $idInterval): void
+    {
+        $interval = $this->intervalRepo->findById($idInterval);
+        if ($interval === null || $armada === null || $interval->id_perusahaan !== $armada->id_perusahaan) {
+            abort(404, 'Paket servis tidak ditemukan');
+        }
+        if ($interval->id_jenis_kendaraan !== $armada->id_jenis_kendaraan) {
+            abort(422, 'Paket servis tidak sesuai jenis kendaraan unit ini');
+        }
+    }
+
+    /** null bila tidak tertaut paket atau paket tidak punya interval_bulan (jadwal tetap kosong, bukan diisi paksa). */
+    private function hitungJadwalOtomatis(?string $idInterval, string $tanggalServis): ?string
+    {
+        if ($idInterval === null) {
+            return null;
+        }
+
+        $interval = $this->intervalRepo->findById($idInterval);
+        if ($interval === null || $interval->interval_bulan === null) {
+            return null;
+        }
+
+        return Carbon::parse($tanggalServis)->addMonths((int) $interval->interval_bulan)->toDateString();
     }
 
     private function sinkronArusKas(object $record): void
@@ -313,7 +569,7 @@ class PerawatanArmadaService
         $record = $this->findOrFail($id, $idPerusahaan);
 
         if (!in_array($record->status, ['terjadwal', 'dalam_proses'], true)) {
-            abort(422, 'Hanya perawatan terjadwal atau dalam proses yang dapat dibatalkan');
+            abort(422, 'Hanya perawatan yang masih direncanakan atau dalam proses yang dapat dibatalkan');
         }
 
         return DB::transaction(function () use ($record, $alasan) {
@@ -323,10 +579,13 @@ class PerawatanArmadaService
         });
     }
 
-    /** Stok yang sudah dipotong saat servis dicatat dikembalikan + jejak mutasi masuk. */
+    /** Stok yang sudah dipotong saat servis dicatat dikembalikan + jejak mutasi masuk. Baris 'bengkel' tidak pernah memotong stok, jadi dilewati. */
     private function kembalikanStok(string $idPerawatan): void
     {
         foreach ($this->repo->getActiveLines($idPerawatan) as $line) {
+            if ($line->sumber !== 'stok_sendiri') {
+                continue;
+            }
             $sp = $this->repo->getSparepartForUpdate($line->id_sparepart);
             if ($sp !== null) {
                 $this->repo->setSparepartStok($sp->id_sparepart, (int) $sp->stok + (int) $line->qty);
@@ -343,22 +602,63 @@ class PerawatanArmadaService
     }
 
     /**
-     * id_jenis_perawatan = sumber kebenaran; kolom teks jenis_perawatan di-sync
-     * sebagai snapshot nama master (pola sama dgn jadwal_keberangkatan.rute + id_rute).
-     * Teks manual tetap diizinkan kalau id tidak dikirim (required_without di Request).
+     * sumber default 'bengkel' saat payload lama tidak mengirim field ini (kontrak baru
+     * — pemanggil lama otomatis dianggap TIDAK menyentuh stok, bukan lagi memotong stok).
+     * Baris 'bengkel' dengan id_sparepart terisi tapi nama_sparepart kosong diisi otomatis
+     * dari master (hanya referensi tampilan, tidak mengunci/mengurangi stok).
      */
-    private function applyJenisSnapshot(array $data): array
+    private function normalizeItems(array $items): array
     {
-        if (!empty($data['id_jenis_perawatan'])) {
-            $nama = $this->repo->getJenisPerawatanNama($data['id_jenis_perawatan']);
-            if ($nama !== null) {
-                $data['jenis_perawatan'] = $nama;
+        return array_map(function (array $item) {
+            $item['sumber'] = $item['sumber'] ?? 'bengkel';
+            $item['id_sparepart'] = $item['id_sparepart'] ?? null;
+            $item['nama_sparepart'] = $item['nama_sparepart'] ?? null;
+
+            if ($item['sumber'] === 'bengkel' && $item['id_sparepart'] !== null
+                && ($item['nama_sparepart'] === null || $item['nama_sparepart'] === '')) {
+                $item['nama_sparepart'] = $this->repo->getSparepartNama($item['id_sparepart']);
             }
-        }
-        return $data;
+
+            return $item;
+        }, $items);
     }
 
-    /** Create path: kunci baris sparepart, validasi stok, insert line + mutasi keluar. */
+    private function validasiSupplier(?string $idPerusahaan, ?string $idSupplier): void
+    {
+        if ($idSupplier === null) {
+            return;
+        }
+        if ($idPerusahaan === null || !$this->repo->supplierMilik($idPerusahaan, $idSupplier)) {
+            abort(404, 'Supplier tidak ditemukan');
+        }
+    }
+
+    /** Create path: pisahkan sumber — stok_sendiri lewat jalur potong stok lama, bengkel langsung dicatat sebagai rincian biaya. */
+    private function simpanItems(string $idPerawatan, array $items): void
+    {
+        $stokSendiri = array_values(array_filter($items, fn (array $i) => $i['sumber'] === 'stok_sendiri'));
+        $bengkel = array_values(array_filter($items, fn (array $i) => $i['sumber'] === 'bengkel'));
+
+        $this->keluarkanStokUntukItems($idPerawatan, $stokSendiri);
+        $this->simpanItemBengkel($idPerawatan, $bengkel);
+    }
+
+    /** Baris 'bengkel' TIDAK menyentuh stok & TIDAK mencatat mutasi — murni rincian biaya, disimpan apa adanya tanpa digabung antar baris. */
+    private function simpanItemBengkel(string $idPerawatan, array $items): void
+    {
+        foreach ($items as $item) {
+            $this->repo->insertLine([
+                'id_perawatan'   => $idPerawatan,
+                'id_sparepart'   => $item['id_sparepart'],
+                'nama_sparepart' => $item['nama_sparepart'],
+                'sumber'         => 'bengkel',
+                'qty'            => (int) $item['qty'],
+                'harga'          => (float) $item['harga'],
+            ]);
+        }
+    }
+
+    /** Create path (khusus sumber stok_sendiri): kunci baris sparepart, validasi stok, insert line + mutasi keluar. */
     private function keluarkanStokUntukItems(string $idPerawatan, array $items): void
     {
         foreach ($this->totalPerSparepart($items) as $idSparepart => $agg) {
@@ -377,6 +677,7 @@ class PerawatanArmadaService
                 'id_perawatan'   => $idPerawatan,
                 'id_sparepart'   => $idSparepart,
                 'nama_sparepart' => $sp->nama,
+                'sumber'         => 'stok_sendiri',
                 'qty'            => $agg['qty'],
                 'harga'          => $agg['harga'],
             ]);
@@ -392,15 +693,25 @@ class PerawatanArmadaService
         }
     }
 
-    /** Update path: hitung delta per sparepart vs lines aktif lama, koreksi stok + mutasi, replace lines. */
+    /**
+     * Update path: sparepart[] dikirim = daftar penuh baru (replace), untuk KEDUA sumber.
+     * Delta stok hanya dihitung dari baris stok_sendiri lama vs baru — baris 'bengkel'
+     * (lama maupun baru) sama sekali diabaikan dari perhitungan stok.
+     */
     private function gantiItemsDenganDelta(string $idPerawatan, array $items): void
     {
         $lama = [];
         foreach ($this->repo->getActiveLines($idPerawatan) as $line) {
+            if ($line->sumber !== 'stok_sendiri') {
+                continue;
+            }
             $lama[$line->id_sparepart] = ($lama[$line->id_sparepart] ?? 0) + (int) $line->qty;
         }
 
-        $baru = $this->totalPerSparepart($items);
+        $stokSendiriItems = array_values(array_filter($items, fn (array $i) => $i['sumber'] === 'stok_sendiri'));
+        $bengkelItems = array_values(array_filter($items, fn (array $i) => $i['sumber'] === 'bengkel'));
+
+        $baru = $this->totalPerSparepart($stokSendiriItems);
         $semuaId = array_unique(array_merge(array_keys($lama), array_keys($baru)));
 
         $namaMap = [];
@@ -441,13 +752,15 @@ class PerawatanArmadaService
                 'id_perawatan'   => $idPerawatan,
                 'id_sparepart'   => $idSparepart,
                 'nama_sparepart' => $namaMap[$idSparepart],
+                'sumber'         => 'stok_sendiri',
                 'qty'            => $agg['qty'],
                 'harga'          => $agg['harga'],
             ]);
         }
+        $this->simpanItemBengkel($idPerawatan, $bengkelItems);
     }
 
-    /** Gabungkan item duplikat (id_sparepart sama) — qty dijumlah, harga pakai yang terakhir. */
+    /** Gabungkan item duplikat (id_sparepart sama) — qty dijumlah, harga pakai yang terakhir. Hanya dipakai untuk baris sumber stok_sendiri. */
     private function totalPerSparepart(array $items): array
     {
         $agg = [];
