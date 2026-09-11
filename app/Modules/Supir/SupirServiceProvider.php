@@ -22,6 +22,7 @@ class SupirServiceProvider extends ServiceProvider
                 Route::get('supir/me', [SupirController::class, 'me']);
                 Route::get('supir/me/dokumen', [SupirController::class, 'dokumenSaya']);
                 Route::get('supir/me/unit', [SupirController::class, 'unitSaya']);
+                Route::get('supir/{id}/dokumen', [SupirController::class, 'dokumen']);
                 Route::get('supir/opsi-pengguna', [SupirController::class, 'opsiPengguna']);
                 Route::get('supir/import/template', [SupirController::class, 'downloadTemplate']);
                 Route::post('supir/import', [SupirController::class, 'import']);

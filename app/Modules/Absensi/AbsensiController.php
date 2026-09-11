@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace App\Modules\Absensi;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Absensi\Exports\RekapAbsensiExport;
 use App\Modules\Absensi\Requests\SimpanAbsensiHarianRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AbsensiController extends Controller
 {
+    private const MAKS_BARIS_EXPORT = 10000;
+
     public function __construct(private readonly AbsensiService $service) {}
 
     public function harian(Request $request): JsonResponse
@@ -106,5 +111,26 @@ class AbsensiController extends Controller
         );
 
         return ApiResponse::paginated($result['data'], $result['meta']);
+    }
+
+    public function exportRekapExcel(Request $request): BinaryFileResponse
+    {
+        $validated = $request->validate([
+            'bulan'  => ['nullable', 'date_format:Y-m'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ], [
+            'bulan.date_format' => 'Format bulan harus YYYY-MM',
+        ]);
+
+        $bulan = $validated['bulan'] ?? now()->format('Y-m');
+        $result = $this->service->rekapBulanan(
+            (string) $request->user()->id_perusahaan,
+            $bulan,
+            1,
+            self::MAKS_BARIS_EXPORT,
+            $validated['search'] ?? null,
+        );
+
+        return Excel::download(new RekapAbsensiExport(collect($result['data']), $bulan), "rekap-absensi-{$bulan}.xlsx");
     }
 }

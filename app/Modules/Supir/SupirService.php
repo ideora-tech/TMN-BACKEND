@@ -7,6 +7,7 @@ use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Modules\Supir\Imports\SupirImport;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
@@ -73,7 +74,7 @@ class SupirService
     {
         $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $status, $search);
         return [
-            'data' => $result->items(),
+            'data' => $this->lampirkanArmadaDefault($result->items()),
             'meta' => [
                 'page'       => $result->currentPage(),
                 'limit'      => $result->perPage(),
@@ -90,6 +91,35 @@ class SupirService
             abort(404, 'Supir tidak ditemukan');
         }
         return $record;
+    }
+
+    public function detail(string $id, string $idPerusahaan): object
+    {
+        [$record] = $this->lampirkanArmadaDefault([$this->findOrFail($id, $idPerusahaan)]);
+        return $record;
+    }
+
+    /** @param object[] $records */
+    private function lampirkanArmadaDefault(array $records): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(fn ($r) => $r->id_armada_default ?? null, $records))));
+        $armadaMap = $ids === [] ? collect() : DB::table('armada')
+            ->whereIn('id_armada', $ids)
+            ->whereNull('dihapus_pada')
+            ->get(['id_armada', 'nopol', 'merk', 'model'])
+            ->keyBy('id_armada');
+
+        foreach ($records as $record) {
+            $armada = ($record->id_armada_default ?? null) !== null ? $armadaMap->get($record->id_armada_default) : null;
+            $record->armada_default = $armada !== null ? [
+                'id_armada' => $armada->id_armada,
+                'nopol'     => $armada->nopol,
+                'merk'      => $armada->merk,
+                'model'     => $armada->model,
+            ] : null;
+        }
+
+        return $records;
     }
 
     public function findByPenggunaOrFail(string $idPengguna): object

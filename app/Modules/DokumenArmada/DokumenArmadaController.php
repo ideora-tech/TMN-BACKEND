@@ -22,6 +22,12 @@ class DokumenArmadaController extends Controller
 
     public function indexByArmada(Request $request, string $idArmada): JsonResponse
     {
+        if ($request->boolean('dengan_riwayat')) {
+            return ApiResponse::success(DokumenArmadaResource::collection(
+                $this->service->listDenganRiwayat($idArmada, (string) $request->user()->id_perusahaan)
+            ));
+        }
+
         $result = $this->service->listByArmada(
             $idArmada,
             (string) $request->user()->id_perusahaan,

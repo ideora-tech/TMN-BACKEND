@@ -130,6 +130,12 @@ class DokumenArmadaService
         return $record;
     }
 
+    public function listDenganRiwayat(string $idArmada, string $idPerusahaan): array
+    {
+        $this->pastikanArmada($idArmada, $idPerusahaan);
+        return $this->dokumenAktifDenganRiwayat($idArmada);
+    }
+
     public function dokumenAktifDenganRiwayat(string $idArmada): array
     {
         $daftar = $this->repo->listAktifByArmada($idArmada);

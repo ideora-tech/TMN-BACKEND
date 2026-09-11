@@ -52,7 +52,7 @@ class SupirController extends Controller
 
     public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new SupirResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
+        return ApiResponse::success(new SupirResource($this->service->detail($id, (string) $request->user()->id_perusahaan)));
     }
 
     public function exportRiwayatArmada(Request $request, string $id, RiwayatSupirService $riwayat): BinaryFileResponse
@@ -73,6 +73,12 @@ class SupirController extends Controller
             new RiwayatTripSheet($hasil['data'], null, null, 'Supir: ' . $hasil['supir']->nama),
             'riwayat-trip-' . Str::slug((string) $hasil['supir']->nama) . '-' . date('Ymd') . '.xlsx'
         );
+    }
+
+    public function dokumen(Request $request, string $id, DokumenSupirSayaService $dokumenSaya): JsonResponse
+    {
+        $supir = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success($dokumenSaya->dokumenUntukSupir($supir));
     }
 
     public function dokumenSaya(Request $request, DokumenSupirSayaService $dokumenSaya): JsonResponse

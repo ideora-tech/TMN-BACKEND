@@ -27,6 +27,7 @@ class AbsensiServiceProvider extends ServiceProvider
                 Route::get('absensi/harian', [AbsensiController::class, 'harian']);
                 Route::post('absensi/harian', [AbsensiController::class, 'simpanHarian']);
                 Route::get('absensi/rekap', [AbsensiController::class, 'rekap']);
+                Route::get('absensi/rekap/export/excel', [AbsensiController::class, 'exportRekapExcel']);
                 Route::get('absensi/pengaturan', [AbsensiController::class, 'pengaturan']);
                 Route::put('absensi/pengaturan', [AbsensiController::class, 'simpanPengaturan']);
             });

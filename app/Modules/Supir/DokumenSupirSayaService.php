@@ -28,16 +28,7 @@ class DokumenSupirSayaService
     {
         $supir = $this->supirRepo->findByPengguna($idPengguna);
         if ($supir !== null) {
-            return [
-                'tipe_supir'         => 'internal',
-                'terhubung_karyawan' => $supir->id_karyawan !== null,
-                'sim'                => [
-                    'no_sim'         => $supir->no_sim,
-                    'jenis_sim'      => $supir->jenis_sim,
-                    'berlaku_sampai' => $supir->tgl_kadaluarsa_sim,
-                ],
-                'dokumen'            => $supir->id_karyawan !== null ? $this->dokumenKaryawan((string) $supir->id_karyawan) : [],
-            ];
+            return $this->dokumenUntukSupir($supir);
         }
 
         $supirVendor = $this->supirVendorRepo->findByPengguna($idPengguna);
@@ -55,6 +46,20 @@ class DokumenSupirSayaService
         }
 
         abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
+    }
+
+    public function dokumenUntukSupir(object $supir): array
+    {
+        return [
+            'tipe_supir'         => 'internal',
+            'terhubung_karyawan' => $supir->id_karyawan !== null,
+            'sim'                => [
+                'no_sim'         => $supir->no_sim,
+                'jenis_sim'      => $supir->jenis_sim,
+                'berlaku_sampai' => $supir->tgl_kadaluarsa_sim,
+            ],
+            'dokumen'            => $supir->id_karyawan !== null ? $this->dokumenKaryawan((string) $supir->id_karyawan) : [],
+        ];
     }
 
     public function unitSaya(string $idPengguna): array

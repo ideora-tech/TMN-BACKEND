@@ -28,7 +28,8 @@ class PerawatanArmadaController extends Controller
         $result = $this->service->listByArmada(
             $idArmada,
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            (string) $request->user()->id_perusahaan
         );
 
         return ApiResponse::paginated(

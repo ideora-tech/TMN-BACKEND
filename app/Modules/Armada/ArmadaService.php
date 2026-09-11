@@ -8,6 +8,7 @@ use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Armada\Imports\ArmadaImport;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ArmadaService
@@ -49,6 +50,13 @@ class ArmadaService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
         $record->setAttribute('jumlah_penugasan_aktif', $this->repo->countPenugasanAktif($id));
+        $record->setAttribute('supir_tetap', DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_armada_default', $id)
+            ->orderBy('nama')
+            ->get(['id_supir', 'nama', 'telepon'])
+            ->map(fn ($s) => ['id_supir' => $s->id_supir, 'nama' => $s->nama, 'telepon' => $s->telepon])
+            ->all());
         return $record;
     }
 

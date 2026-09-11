@@ -24,8 +24,15 @@ class PerawatanArmadaService
         private readonly ArusKasService $arusKasService,
     ) {}
 
-    public function listByArmada(string $idArmada, int $page = 1, int $limit = 10): array
+    public function listByArmada(string $idArmada, int $page = 1, int $limit = 10, ?string $idPerusahaan = null): array
     {
+        if ($idPerusahaan !== null) {
+            $armada = $this->armadaRepo->findById($idArmada);
+            if ($armada === null || $armada->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Armada tidak ditemukan');
+            }
+        }
+
         $paged = $this->toPagedArray($this->repo->paginateByArmada($idArmada, $page, $limit));
         $paged['data'] = $this->lampirkanInterval($this->lampirkanSupplier($paged['data']));
         return $paged;

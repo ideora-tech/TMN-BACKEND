@@ -35,6 +35,7 @@ class ArmadaResource extends JsonResource
             'url_foto'            => PenyimpananBerkas::url($this->url_foto),
             'keterangan'          => $this->keterangan,
             'jumlah_penugasan_aktif' => isset($this->jumlah_penugasan_aktif) ? (int) $this->jumlah_penugasan_aktif : null,
+            'supir_tetap'         => $this->when(isset($this->supir_tetap), fn () => $this->supir_tetap),
             'dibuat_pada'         => $this->dibuat_pada,
             'diubah_pada'         => $this->diubah_pada,
         ];
