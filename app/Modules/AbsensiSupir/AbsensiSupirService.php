@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Modules\AbsensiSupir;
 
+use App\Modules\Absensi\AbsensiService;
 use App\Modules\AbsensiSupir\Contracts\AbsensiSupirRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 
 class AbsensiSupirService
 {
     public function __construct(
         private readonly AbsensiSupirRepositoryInterface $repo,
+        private readonly AbsensiService $absensiService,
     ) {}
 
     public function hariIni(string $idSupir): ?object
@@ -19,7 +22,7 @@ class AbsensiSupirService
         return $this->denganUrlFoto($this->repo->findBySupirTanggal($idSupir, now()->toDateString()));
     }
 
-    public function absen(string $idSupir, string $idPerusahaan, string $status, ?string $keterangan, ?UploadedFile $foto = null, ?float $skorWajah = null, ?bool $wajahCocok = null): object
+    public function absen(string $idSupir, string $idPerusahaan, string $status, ?string $keterangan, ?UploadedFile $foto = null, ?float $skorWajah = null, ?bool $wajahCocok = null, ?string $idKaryawan = null): object
     {
         $tanggal = now()->toDateString();
 
@@ -33,17 +36,24 @@ class AbsensiSupirService
             $data['wajah_cocok'] = $wajahCocok === null ? null : (int) $wajahCocok;
         }
 
-        $ada = $this->repo->findBySupirTanggal($idSupir, $tanggal);
-        if ($ada !== null) {
-            $this->repo->update($ada->id_absensi, $data);
-            return $this->denganUrlFoto($this->repo->findBySupirTanggal($idSupir, $tanggal));
-        }
+        return DB::transaction(function () use ($idSupir, $idPerusahaan, $status, $keterangan, $idKaryawan, $tanggal, $data) {
+            $ada = $this->repo->findBySupirTanggal($idSupir, $tanggal);
+            if ($ada !== null) {
+                $this->repo->update($ada->id_absensi, $data);
+            } else {
+                $this->repo->create($data + [
+                    'id_perusahaan' => $idPerusahaan,
+                    'id_supir'      => $idSupir,
+                    'tanggal'       => $tanggal,
+                ]);
+            }
 
-        return $this->denganUrlFoto($this->repo->create($data + [
-            'id_perusahaan' => $idPerusahaan,
-            'id_supir'      => $idSupir,
-            'tanggal'       => $tanggal,
-        ]));
+            if ($idKaryawan !== null) {
+                $this->absensiService->catatDariAbsenSupir($idPerusahaan, $idKaryawan, $status, $keterangan);
+            }
+
+            return $this->denganUrlFoto($this->repo->findBySupirTanggal($idSupir, $tanggal));
+        });
     }
 
     private function denganUrlFoto(?object $row): ?object

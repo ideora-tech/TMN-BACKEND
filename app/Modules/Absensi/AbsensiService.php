@@ -193,6 +193,36 @@ class AbsensiService
         return $this->denganUrlFoto($this->repo->findByKaryawanTanggal($idKaryawan, $tanggal));
     }
 
+    /** Hadir supir tidak dinilai terlambat — jam kerja supir mengikuti shift, bukan jam masuk kantor. */
+    public function catatDariAbsenSupir(string $idPerusahaan, string $idKaryawan, string $statusSupir, ?string $keterangan): void
+    {
+        $tanggal = now()->toDateString();
+
+        $sedangCuti = collect($this->cutiRepo->orangCutiPadaTanggal($idPerusahaan, $tanggal))
+            ->pluck('id_karyawan')
+            ->contains($idKaryawan);
+        if ($sedangCuti) {
+            return;
+        }
+
+        if ($statusSupir === 'hadir') {
+            $ada = $this->repo->findByKaryawanTanggal($idKaryawan, $tanggal);
+            $data = ['status' => 'hadir', 'jam_masuk' => $ada->jam_masuk ?? now()->format('H:i:s')];
+            if ($keterangan !== null) {
+                $data['keterangan'] = $keterangan;
+            }
+        } else {
+            $data = [
+                'status'     => 'izin',
+                'jam_masuk'  => null,
+                'jam_pulang' => null,
+                'keterangan' => $keterangan ?? 'Berhalangan (absen dari aplikasi supir)',
+            ];
+        }
+
+        $this->repo->upsert($idPerusahaan, $idKaryawan, $tanggal, $data);
+    }
+
     private function pastikanKaryawan(?string $idKaryawan): void
     {
         if ($idKaryawan === null || $idKaryawan === '') {

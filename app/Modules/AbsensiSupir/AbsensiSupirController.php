@@ -60,6 +60,7 @@ class AbsensiSupirController extends Controller
             $request->file('foto'),
             isset($validated['skor_wajah']) ? (float) $validated['skor_wajah'] : null,
             isset($validated['wajah_cocok']) ? filter_var($validated['wajah_cocok'], FILTER_VALIDATE_BOOLEAN) : null,
+            $supir->id_karyawan !== null ? (string) $supir->id_karyawan : null,
         );
 
         return ApiResponse::success($absen, 'Absensi tercatat', 201);
