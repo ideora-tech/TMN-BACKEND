@@ -395,8 +395,8 @@ class ArusKasService
             return $updated;
         }
 
-        $kategoriAktif = $this->approvalService->adaEventTypeAktif((string) $record->kategori, (string) $record->id_perusahaan);
-        if (!$kategoriAktif && !$this->approvalService->adaEventTypeAktif('pengajuan_pengeluaran', (string) $record->id_perusahaan)) {
+        $kode = $this->kodeApprovalUntuk($record);
+        if ($kode === null) {
             $updated = $this->repo->updatePengajuan($record, [
                 'status'          => self::STATUS_DISETUJUI,
                 'disetujui_oleh'  => $aktor,
@@ -405,8 +405,6 @@ class ArusKasService
             $this->jalankanHookSetujui($updated);
             return $updated;
         }
-
-        $kode = $kategoriAktif ? (string) $record->kategori : 'pengajuan_pengeluaran';
 
         $this->approvalService->ajukan(
             $kode,
@@ -417,6 +415,23 @@ class ArusKasService
         );
 
         return $this->repo->updatePengajuan($record, ['status' => self::STATUS_MENUNGGU_APPROVAL]);
+    }
+
+    private function kodeApprovalUntuk(PengajuanPengeluaranModel $record): ?string
+    {
+        $kategori     = (string) $record->kategori;
+        $idPerusahaan = (string) $record->id_perusahaan;
+
+        if ($this->approvalService->adaEventTypeAktif($kategori, $idPerusahaan)) {
+            return $kategori;
+        }
+        if ($this->approvalService->eventTypeDinonaktifkan($kategori, $idPerusahaan)) {
+            return null;
+        }
+
+        return $this->approvalService->adaEventTypeAktif('pengajuan_pengeluaran', $idPerusahaan)
+            ? 'pengajuan_pengeluaran'
+            : null;
     }
 
     private function resetSnapshotApproval(PengajuanPengeluaranModel $record, float $nominalLama): PengajuanPengeluaranModel
@@ -438,8 +453,8 @@ class ArusKasService
             return $updated;
         }
 
-        $kategoriAktif = $this->approvalService->adaEventTypeAktif((string) $record->kategori, (string) $record->id_perusahaan);
-        if (!$kategoriAktif && !$this->approvalService->adaEventTypeAktif('pengajuan_pengeluaran', (string) $record->id_perusahaan)) {
+        $kode = $this->kodeApprovalUntuk($record);
+        if ($kode === null) {
             $updated = $this->repo->updatePengajuan($record, [
                 'status'         => self::STATUS_DISETUJUI,
                 'disetujui_oleh' => auth()->id() ?? $record->dibuat_oleh,
@@ -448,8 +463,6 @@ class ArusKasService
             $this->jalankanHookSetujui($updated);
             return $updated;
         }
-
-        $kode = $kategoriAktif ? (string) $record->kategori : 'pengajuan_pengeluaran';
 
         $pengajuanBaru = $this->approvalService->ajukan(
             $kode,

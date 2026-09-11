@@ -386,6 +386,33 @@ class PenugasanHarianTest extends TestCase
         $this->assertSame(3, DB::table('penugasan')->where('id_supir', $supir)->where('id_pengajuan', $idPengajuan)->count());
     }
 
+    public function test_uang_jalan_event_type_nonaktif_pengajuan_langsung_disetujui_tanpa_fallback(): void
+    {
+        DB::table('approval_event_type')->insert([
+            'id_event_type' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode' => 'uang_jalan', 'nama' => 'Uang Jalan', 'mode_resolusi' => 'pinned',
+            'aktif' => 0, 'dibuat_pada' => now(),
+        ]);
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $rute   = $this->makeRute();
+        $this->makeProyekRute($proyek->id_proyek, $rute, 150000.0);
+        $armada = $this->makeArmada();
+        $supir  = $this->makeSupir('Budi Nonaktif');
+
+        $this->postJson('/api/penugasan/harian', [
+            'tanggal' => '2026-09-01', 'tanggal_sampai' => '2026-09-02',
+            'id_armada' => $armada->id_armada, 'id_supir' => $supir,
+            'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
+        ])->assertStatus(200)->assertJsonPath('data.sukses', 2);
+
+        $this->assertDatabaseHas('pengajuan_pengeluaran', [
+            'id_supir' => $supir, 'kategori' => 'uang_jalan', 'nominal' => 300000, 'status' => 'disetujui',
+        ]);
+        $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_supir', $supir)->value('id_pengajuan');
+        $this->assertSame(0, DB::table('approval_pengajuan')->where('id_referensi', $idPengajuan)->count());
+    }
+
     public function test_guard_supir_dobel_tanggal_unit_boleh_dobel(): void
     {
         $this->actingAsRole('SUPERADMIN');

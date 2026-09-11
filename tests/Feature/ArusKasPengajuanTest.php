@@ -515,6 +515,72 @@ class ArusKasPengajuanTest extends TestCase
         ]);
     }
 
+    public function test_create_kategori_event_type_nonaktif_langsung_disetujui_tanpa_fallback(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $approverFallback = $this->buatApprover('approver_fallback');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $this->idEventTypePengajuanPengeluaran(),
+            'tipe' => 'pengguna', 'id_pengguna' => $approverFallback->id_pengguna, 'dibuat_pada' => now(),
+        ]);
+        $approverSparepart = $this->buatApprover('approver_sparepart');
+        $this->buatEventTypeDenganApprover('sparepart', $approverSparepart->id_pengguna, false);
+
+        $id = $this->buatPengajuanViaPembelian(500000);
+
+        $this->assertSame('disetujui', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->value('status'));
+        $this->assertSame(0, DB::table('approval_pengajuan')->where('id_referensi', $id)->count());
+    }
+
+    public function test_kategori_diaktifkan_kembali_masuk_approver_kategori(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $approverFallback = $this->buatApprover('approver_fallback');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $this->idEventTypePengajuanPengeluaran(),
+            'tipe' => 'pengguna', 'id_pengguna' => $approverFallback->id_pengguna, 'dibuat_pada' => now(),
+        ]);
+        $approverSparepart = $this->buatApprover('approver_sparepart');
+        $idEventTypeSparepart = $this->buatEventTypeDenganApprover('sparepart', $approverSparepart->id_pengguna, false);
+
+        $idSaatNonaktif = $this->buatPengajuanViaPembelian(500000);
+        $this->assertSame('disetujui', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idSaatNonaktif)->value('status'));
+
+        DB::table('approval_event_type')->where('id_event_type', $idEventTypeSparepart)->update(['aktif' => 1]);
+
+        $idSetelahAktif = $this->buatPengajuanViaPembelian(500000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idSetelahAktif)->value('status'));
+        $this->assertDatabaseHas('approval_pengajuan', [
+            'id_referensi' => $idSetelahAktif, 'id_event_type' => $idEventTypeSparepart, 'status' => 'menunggu',
+        ]);
+        $idApproval = DB::table('approval_pengajuan')->where('id_referensi', $idSetelahAktif)->value('id_approval');
+        $this->assertDatabaseHas('approval_keputusan', ['id_approval' => $idApproval, 'id_pengguna' => $approverSparepart->id_pengguna]);
+        $this->assertDatabaseMissing('approval_keputusan', ['id_approval' => $idApproval, 'id_pengguna' => $approverFallback->id_pengguna]);
+    }
+
+    public function test_update_nominal_saat_kategori_dinonaktifkan_langsung_disetujui_tanpa_fallback(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        app(ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 1000000);
+        $approverFallback = $this->buatApprover('approver_fallback');
+        DB::table('approval_config_approver')->insert([
+            'id_config' => (string) Str::uuid(), 'id_event_type' => $this->idEventTypePengajuanPengeluaran(),
+            'tipe' => 'pengguna', 'id_pengguna' => $approverFallback->id_pengguna, 'dibuat_pada' => now(),
+        ]);
+        $approverSparepart = $this->buatApprover('approver_sparepart');
+        $idEventTypeSparepart = $this->buatEventTypeDenganApprover('sparepart', $approverSparepart->id_pengguna);
+        $id = $this->buatPengajuanViaPembelian(5000000);
+        $this->assertSame('menunggu_approval', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->value('status'));
+
+        DB::table('approval_event_type')->where('id_event_type', $idEventTypeSparepart)->update(['aktif' => 0]);
+
+        $this->putJson("/api/arus-kas/pengajuan/{$id}", ['nominal' => 8000000])
+            ->assertStatus(200)->assertJsonPath('data.status', 'disetujui');
+
+        $this->assertSame(0, DB::table('approval_pengajuan')->where('id_referensi', $id)->where('status', 'menunggu')->count());
+        $this->assertSame(1, DB::table('approval_pengajuan')->where('id_referensi', $id)->where('status', 'dibatalkan')->count());
+    }
+
     public function test_create_fallback_nonaktif_dan_kategori_tidak_ada_langsung_disetujui(): void
     {
         $this->actingAsRole('SUPERADMIN');

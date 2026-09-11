@@ -308,6 +308,12 @@ class ApprovalService
         return $this->repo->findEventTypeAktifByKode($kode, $idPerusahaan) !== null;
     }
 
+    public function eventTypeDinonaktifkan(string $kode, string $idPerusahaan): bool
+    {
+        return $this->repo->findEventTypeAktifByKode($kode, $idPerusahaan) === null
+            && $this->repo->findEventTypeByKode($kode, $idPerusahaan) !== null;
+    }
+
     public function batalkanUntukReferensi(array $kodeList, string $idReferensi, string $idPerusahaan): void
     {
         foreach ($kodeList as $kode) {
