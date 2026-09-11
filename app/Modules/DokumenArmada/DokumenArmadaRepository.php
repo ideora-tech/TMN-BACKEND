@@ -52,6 +52,64 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    public function listArmadaPerusahaan(string $idPerusahaan, ?string $idArmada = null, ?string $search = null): array
+    {
+        return DB::table('armada')
+            ->leftJoin('jenis_kendaraan', function ($join) {
+                $join->on('jenis_kendaraan.id_jenis_kendaraan', '=', 'armada.id_jenis_kendaraan')
+                    ->whereNull('jenis_kendaraan.dihapus_pada');
+            })
+            ->where('armada.id_perusahaan', $idPerusahaan)
+            ->whereNull('armada.dihapus_pada')
+            ->when(
+                $idArmada,
+                fn ($q, $v) => $q->where('armada.id_armada', $v),
+                fn ($q) => $q->where('armada.status', '!=', 'tidak_aktif'),
+            )
+            ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
+                $q2->where('armada.nopol', 'like', "%{$search}%")
+                   ->orWhere('armada.merk', 'like', "%{$search}%")
+                   ->orWhereExists(function ($sub) use ($search) {
+                       $sub->from('dokumen_armada')
+                           ->whereColumn('dokumen_armada.id_armada', 'armada.id_armada')
+                           ->whereNull('dokumen_armada.dihapus_pada')
+                           ->where('dokumen_armada.aktif', 1)
+                           ->where(fn ($s) => $s->where('dokumen_armada.nomor', 'like', "%{$search}%")
+                               ->orWhere('dokumen_armada.jenis_dokumen', 'like', "%{$search}%"));
+                   });
+            }))
+            ->orderBy('armada.nopol')
+            ->select(
+                'armada.id_armada',
+                'armada.nopol',
+                'armada.merk',
+                'armada.status as status_armada',
+                'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan',
+            )
+            ->get()
+            ->all();
+    }
+
+    public function listAktifByArmadaIds(array $idArmada, ?string $jenisDokumen = null): array
+    {
+        if (empty($idArmada)) {
+            return [];
+        }
+
+        return DB::table('dokumen_armada')
+            ->join('armada', 'armada.id_armada', '=', 'dokumen_armada.id_armada')
+            ->whereIn('dokumen_armada.id_armada', $idArmada)
+            ->whereNull('dokumen_armada.dihapus_pada')
+            ->where('dokumen_armada.aktif', 1)
+            ->when($jenisDokumen, fn ($q, $v) => $q->where('dokumen_armada.jenis_dokumen', $v))
+            ->orderByRaw('dokumen_armada.berlaku_sampai IS NULL')
+            ->orderBy('dokumen_armada.berlaku_sampai')
+            ->orderBy('dokumen_armada.jenis_dokumen')
+            ->select(array_merge(self::COLUMNS, ['armada.nopol as armada_nopol', 'armada.merk as armada_merk']))
+            ->get()
+            ->all();
+    }
+
     public function findById(string $id): ?object
     {
         return DB::table('dokumen_armada')

@@ -80,6 +80,31 @@ class PenugasanRepository implements PenugasanRepositoryInterface
             ->paginate($limit, ['*'], 'page', $page);
     }
 
+    public function riwayatArmadaSupir(string $idSupir): array
+    {
+        return DB::table('penugasan as p')
+            ->leftJoin('proyek as pr', 'pr.id_proyek', '=', 'p.id_proyek')
+            ->leftJoin('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoin('armada_vendor as av', 'av.id_armada_vendor', '=', 'p.id_armada_vendor')
+            ->where('p.id_supir', $idSupir)
+            ->whereNull('p.dihapus_pada')
+            ->orderByDesc('p.tanggal_tugas')
+            ->orderByDesc('p.dibuat_pada')
+            ->select(
+                'p.id_penugasan',
+                'p.tanggal_tugas',
+                'p.status',
+                'p.sumber',
+                'pr.kode_proyek',
+                'pr.nama_proyek',
+                DB::raw('COALESCE(a.nopol, av.nopol) as nopol'),
+                'a.merk',
+                'a.model',
+            )
+            ->get()
+            ->all();
+    }
+
     public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator
     {
         $paginator = PenugasanModel::active()

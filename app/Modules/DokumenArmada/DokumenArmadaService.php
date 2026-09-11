@@ -7,6 +7,7 @@ namespace App\Modules\DokumenArmada;
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\DokumenArmada\Contracts\DokumenArmadaRepositoryInterface;
 use App\Support\PenyimpananBerkas;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,9 @@ use Illuminate\Support\Facades\DB;
 class DokumenArmadaService
 {
     public const JENIS_BOLEH_GANDA = ['Lainnya'];
+    public const KONDISI_UNIT = ['habis', 'segera', 'belum_ada', 'aman'];
     private const MAKS_RIWAYAT = 50;
+    private const HARI_SEGERA_HABIS = 30;
 
     public function __construct(
         private readonly DokumenArmadaRepositoryInterface $repo,
@@ -30,6 +33,74 @@ class DokumenArmadaService
     public function listByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen, ?string $search = null): array
     {
         return $this->toPagedArray($this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $idArmada, $jenisDokumen, $search));
+    }
+
+    public function listPerUnit(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen, ?string $search, ?string $kondisi): array
+    {
+        $page  = max(1, $page);
+        $limit = max(1, min(100, $limit));
+
+        $armadaList = $this->repo->listArmadaPerusahaan($idPerusahaan, $idArmada, $search);
+        $dokumenPerArmada = collect($this->repo->listAktifByArmadaIds(array_column($armadaList, 'id_armada'), $jenisDokumen))
+            ->groupBy('id_armada');
+
+        $hariIni     = now()->startOfDay();
+        $batasSegera = $hariIni->copy()->addDays(self::HARI_SEGERA_HABIS);
+        $urutan      = array_flip(self::KONDISI_UNIT);
+
+        $rows = array_map(function (object $armada) use ($dokumenPerArmada, $hariIni, $batasSegera) {
+            $dokumen  = $dokumenPerArmada->get($armada->id_armada, collect())->values()->all();
+            $terdekat = collect($dokumen)->first(fn ($d) => $d->berlaku_sampai !== null);
+
+            $kondisiUnit = 'aman';
+            if (empty($dokumen)) {
+                $kondisiUnit = 'belum_ada';
+            } elseif ($terdekat !== null) {
+                $tanggal = Carbon::parse($terdekat->berlaku_sampai)->startOfDay();
+                $kondisiUnit = $tanggal->lt($hariIni) ? 'habis' : ($tanggal->lte($batasSegera) ? 'segera' : 'aman');
+            }
+
+            return [
+                'id_armada'            => $armada->id_armada,
+                'nopol'                => $armada->nopol,
+                'merk'                 => $armada->merk,
+                'nama_jenis_kendaraan' => $armada->nama_jenis_kendaraan,
+                'status_armada'        => $armada->status_armada,
+                'kondisi'              => $kondisiUnit,
+                'jumlah_dokumen'       => count($dokumen),
+                'terdekat'             => $terdekat !== null ? [
+                    'jenis_dokumen'  => $terdekat->jenis_dokumen,
+                    'berlaku_sampai' => $terdekat->berlaku_sampai,
+                ] : null,
+                'dokumen'              => $dokumen,
+            ];
+        }, $armadaList);
+
+        usort($rows, fn ($a, $b) =>
+            [$urutan[$a['kondisi']], $a['terdekat']['berlaku_sampai'] ?? '9999-12-31', $a['nopol']]
+            <=> [$urutan[$b['kondisi']], $b['terdekat']['berlaku_sampai'] ?? '9999-12-31', $b['nopol']]);
+
+        $ringkasan = array_merge(['total' => count($rows)], array_fill_keys(self::KONDISI_UNIT, 0));
+        foreach ($rows as $row) {
+            $ringkasan[$row['kondisi']]++;
+        }
+
+        if ($kondisi !== null) {
+            $rows = array_values(array_filter($rows, fn ($r) => $r['kondisi'] === $kondisi));
+        }
+
+        $total = count($rows);
+
+        return [
+            'data' => array_slice($rows, ($page - 1) * $limit, $limit),
+            'meta' => [
+                'page'       => $page,
+                'limit'      => $limit,
+                'total'      => $total,
+                'totalPages' => (int) ceil($total / $limit),
+                'ringkasan'  => $ringkasan,
+            ],
+        ];
     }
 
     private function toPagedArray(LengthAwarePaginator $paginator): array

@@ -15,6 +15,7 @@ interface PenugasanRepositoryInterface
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
     public function paginateByArmada(string $idArmada, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
     public function paginateBySupir(string $idSupir, int $page, int $limit, ?string $sumber = null, ?string $status = null): LengthAwarePaginator;
+    public function riwayatArmadaSupir(string $idSupir): array;
     public function countSelesaiByProyek(string $idProyek): int;
     public function findById(string $id): ?PenugasanModel;
     public function milikPerusahaan(string $idPenugasan, string $idPerusahaan): bool;

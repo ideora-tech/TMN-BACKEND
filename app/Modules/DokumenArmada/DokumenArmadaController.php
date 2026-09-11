@@ -10,9 +10,11 @@ use App\Modules\DokumenArmada\Requests\StoreDokumenArmadaBatchRequest;
 use App\Modules\DokumenArmada\Requests\StoreDokumenArmadaRequest;
 use App\Modules\DokumenArmada\Requests\UpdateDokumenArmadaRequest;
 use App\Modules\DokumenArmada\Resources\DokumenArmadaResource;
+use App\Modules\DokumenArmada\Resources\DokumenPerUnitResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Validation\Rule;
 
 class DokumenArmadaController extends Controller
 {
@@ -47,6 +49,30 @@ class DokumenArmadaController extends Controller
 
         return ApiResponse::paginated(
             DokumenArmadaResource::collection($result['data']),
+            $result['meta']
+        );
+    }
+
+    public function perUnit(Request $request): JsonResponse
+    {
+        $request->validate([
+            'kondisi' => ['nullable', Rule::in(DokumenArmadaService::KONDISI_UNIT)],
+        ], [
+            'kondisi.in' => 'Filter kondisi tidak dikenal',
+        ]);
+
+        $result = $this->service->listPerUnit(
+            (string) $request->user()->id_perusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            $request->get('id_armada'),
+            $request->get('jenis_dokumen'),
+            $request->get('search'),
+            $request->get('kondisi'),
+        );
+
+        return ApiResponse::paginated(
+            DokumenPerUnitResource::collection($result['data']),
             $result['meta']
         );
     }

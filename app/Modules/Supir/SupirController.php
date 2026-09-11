@@ -3,14 +3,17 @@ declare(strict_types=1);
 namespace App\Modules\Supir;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Supir\Exports\RiwayatArmadaSupirExport;
 use App\Modules\Supir\Exports\SupirTemplateExport;
 use App\Modules\Supir\Requests\ImportSupirRequest;
 use App\Modules\Supir\Requests\StoreSupirRequest;
 use App\Modules\Supir\Requests\UpdateSupirRequest;
 use App\Modules\Supir\Resources\SupirResource;
+use App\Modules\Trip\Exports\RiwayatTripSheet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -50,6 +53,26 @@ class SupirController extends Controller
     public function show(Request $request, string $id): JsonResponse
     {
         return ApiResponse::success(new SupirResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
+    }
+
+    public function exportRiwayatArmada(Request $request, string $id, RiwayatSupirService $riwayat): BinaryFileResponse
+    {
+        $hasil = $riwayat->riwayatArmada($id, (string) $request->user()->id_perusahaan);
+
+        return Excel::download(
+            new RiwayatArmadaSupirExport($hasil['data'], (string) $hasil['supir']->nama),
+            'riwayat-armada-' . Str::slug((string) $hasil['supir']->nama) . '-' . date('Ymd') . '.xlsx'
+        );
+    }
+
+    public function exportRiwayatTrip(Request $request, string $id, RiwayatSupirService $riwayat): BinaryFileResponse
+    {
+        $hasil = $riwayat->riwayatTrip($id, (string) $request->user()->id_perusahaan);
+
+        return Excel::download(
+            new RiwayatTripSheet($hasil['data'], null, null, 'Supir: ' . $hasil['supir']->nama),
+            'riwayat-trip-' . Str::slug((string) $hasil['supir']->nama) . '-' . date('Ymd') . '.xlsx'
+        );
     }
 
     public function dokumenSaya(Request $request, DokumenSupirSayaService $dokumenSaya): JsonResponse

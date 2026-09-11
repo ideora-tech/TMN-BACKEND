@@ -23,6 +23,7 @@ class DokumenArmadaServiceProvider extends ServiceProvider
             ->group(function () {
                 Route::get('dokumen-armada', [DokumenArmadaController::class, 'index']);
                 Route::get('dokumen-armada/expiring', [DokumenArmadaController::class, 'expiring']);
+                Route::get('dokumen-armada/per-unit', [DokumenArmadaController::class, 'perUnit']);
                 Route::get('dokumen-armada/{id}', [DokumenArmadaController::class, 'show'])->whereUuid('id');
 
                 Route::get('armada/{idArmada}/dokumen', [DokumenArmadaController::class, 'indexByArmada']);

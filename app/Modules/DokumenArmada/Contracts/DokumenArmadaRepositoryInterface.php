@@ -10,6 +10,8 @@ interface DokumenArmadaRepositoryInterface
 {
     public function paginateByArmada(string $idArmada, int $page, int $limit): LengthAwarePaginator;
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $idArmada, ?string $jenisDokumen, ?string $search = null): LengthAwarePaginator;
+    public function listArmadaPerusahaan(string $idPerusahaan, ?string $idArmada = null, ?string $search = null): array;
+    public function listAktifByArmadaIds(array $idArmada, ?string $jenisDokumen = null): array;
     public function findById(string $id): ?object;
     public function listAktifByArmada(string $idArmada): array;
     public function findPengganti(string $id): ?object;
