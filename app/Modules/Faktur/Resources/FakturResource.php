@@ -29,6 +29,7 @@ class FakturResource extends JsonResource
             'tanggal_faktur' => $this->tanggal_faktur?->toDateString(),
             'jatuh_tempo'    => $this->jatuh_tempo?->toDateString(),
             'alasan_ditolak_internal' => $this->alasan_ditolak_internal,
+            'approval_aktif' => $this->approval_aktif ?? null,
             'dibuat_pada'    => $this->dibuat_pada,
             'diubah_pada'    => $this->diubah_pada,
             'dibuat_oleh_nama' => $this->dibuat_oleh_nama ?? null,

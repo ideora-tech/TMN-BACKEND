@@ -373,6 +373,46 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         $model->softDelete();
     }
 
+    public function adaPenugasanSamaPadaTanggal(string $idProyek, ?string $idRute, string $tanggal, ?string $idArmada, ?string $idArmadaVendor, ?string $idSupir): bool
+    {
+        return PenugasanModel::active()
+            ->where('id_proyek', $idProyek)
+            ->where('tanggal_tugas', $tanggal)
+            ->whereNotIn('status', ['batal', 'selesai'])
+            ->when($idRute !== null, fn ($q) => $q->where('id_rute', $idRute))
+            ->when($idArmada !== null, fn ($q) => $q->where('id_armada', $idArmada), fn ($q) => $q->where('id_armada_vendor', $idArmadaVendor))
+            ->where('id_supir', $idSupir)
+            ->exists();
+    }
+
+    public function listUntukSinkronProyek(string $idProyek): array
+    {
+        return DB::table('penugasan as p')
+            ->leftJoin('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoin('armada_vendor as av', 'av.id_armada_vendor', '=', 'p.id_armada_vendor')
+            ->leftJoin('supir as s', 's.id_supir', '=', 'p.id_supir')
+            ->leftJoin('supir_vendor as sv', 'sv.id_supir_vendor', '=', 'p.id_supir_vendor')
+            ->where('p.id_proyek', $idProyek)
+            ->whereNull('p.dihapus_pada')
+            ->where('p.status', '!=', 'batal')
+            ->orderBy('p.tanggal_tugas')
+            ->select(
+                'p.id_penugasan',
+                'p.tanggal_tugas',
+                'p.status',
+                'p.id_armada',
+                'p.id_armada_vendor',
+                'p.id_supir',
+                'p.id_supir_vendor',
+                'p.id_rute',
+                'p.keterangan',
+                DB::raw('COALESCE(a.nopol, av.nopol) as nopol'),
+                DB::raw('COALESCE(s.nama, sv.nama) as nama_supir'),
+            )
+            ->get()
+            ->all();
+    }
+
     public function syncTitikDrop(string $idPenugasan, array $items): void
     {
         DB::table('titik_drop_penugasan')

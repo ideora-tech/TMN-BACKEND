@@ -319,6 +319,37 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->assertSame($idPengguna, $baris->first()->id_pengguna);
     }
 
+    public function test_log_pengajuan_menyertakan_tanggal_dan_approver_yang_masih_ditunggu(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idApprover1 = $this->buatPengguna('approver_satu');
+        $idApprover2 = $this->buatPengguna('approver_dua');
+        $this->tambahApproverPengguna($idApprover1);
+        $this->tambahApproverPengguna($idApprover2);
+        $id = $this->buatPengajuanEngine();
+
+        $res = $this->getJson("/api/arus-kas/pengajuan/{$id}/riwayat")->assertStatus(200);
+        $this->assertSame(now()->toDateString(), substr((string) $res->json('data.tanggal_pengajuan'), 0, 10));
+        $this->assertSame('sparepart', $res->json('data.kategori'));
+        $this->assertNull($res->json('data.tanggal_transfer'));
+        $this->assertSame('approval', $res->json('data.menunggu.tahap'));
+        $this->assertEqualsCanonicalizing(['approver_satu', 'approver_dua'], $res->json('data.menunggu.nama'));
+
+        $this->actingAsPengguna($idApprover1);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])->assertStatus(200);
+
+        $this->actingAsRole('SUPERADMIN');
+        $this->getJson("/api/arus-kas/pengajuan/{$id}/riwayat")->assertStatus(200)
+            ->assertJsonPath('data.menunggu.nama', ['approver_dua']);
+
+        $this->actingAsPengguna($idApprover2);
+        $this->patchJson("/api/arus-kas/pengajuan/{$id}/approval", ['keputusan' => 'setuju'])->assertStatus(200);
+
+        $this->actingAsRole('SUPERADMIN');
+        $this->getJson("/api/arus-kas/pengajuan/{$id}/riwayat")->assertStatus(200)
+            ->assertJsonPath('data.menunggu', null);
+    }
+
     public function test_approve_sebagian_tetap_menunggu_approve_semua_menjadi_disetujui(): void
     {
         $this->actingAsRole('SUPERADMIN');

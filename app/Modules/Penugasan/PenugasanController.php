@@ -7,6 +7,7 @@ namespace App\Modules\Penugasan;
 use App\Helpers\ApiResponse;
 use App\Modules\Penugasan\Exports\PenugasanUnitTemplateExport;
 use App\Modules\Penugasan\Requests\AssignPenugasanHarianRequest;
+use App\Modules\Penugasan\Requests\SinkronPenugasanProyekRequest;
 use App\Modules\Penugasan\Requests\StorePenugasanRequest;
 use App\Modules\Penugasan\Requests\UpdatePenugasanRequest;
 use App\Modules\Penugasan\Resources\PenugasanResource;
@@ -55,9 +56,25 @@ class PenugasanController extends Controller
         return ApiResponse::success([
             'sukses'     => $hasil['sukses'],
             'gagal'      => $hasil['gagal'],
+            'dilewati'   => $hasil['dilewati'],
             'peringatan' => $hasil['peringatan'],
             'penugasan'  => PenugasanResource::collection($hasil['penugasan']),
         ], 'Penugasan harian diproses');
+    }
+
+    public function pratinjauSinkronProyek(SinkronPenugasanProyekRequest $request, string $idProyek, SinkronPenugasanProyekService $sinkron): JsonResponse
+    {
+        return ApiResponse::success(
+            $sinkron->pratinjau($idProyek, (string) $request->user()->id_perusahaan, $request->validated())
+        );
+    }
+
+    public function sinkronProyek(SinkronPenugasanProyekRequest $request, string $idProyek, SinkronPenugasanProyekService $sinkron): JsonResponse
+    {
+        return ApiResponse::success(
+            $sinkron->jalankan($idProyek, (string) $request->user()->id_perusahaan, $request->validated()),
+            'Penugasan disinkronkan dengan periode proyek'
+        );
     }
 
     public function aktivitasBoard(Request $request): JsonResponse

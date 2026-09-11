@@ -80,6 +80,44 @@ class FakturApprovalWiringTest extends TestCase
         $this->postJson("/api/faktur/{$id}/ajukan-approval")->assertStatus(422);
     }
 
+    public function test_ajukan_approval_event_type_nonaktif_langsung_terkirim(): void
+    {
+        $approver = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'KEUANGAN',
+            'username' => 'km_' . Str::random(6), 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+        $this->makeEventTypeDanApprover($approver->id_pengguna);
+        DB::table('approval_event_type')->where('kode', 'faktur')->update(['aktif' => 0]);
+        $keuangan = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatFakturDraft($keuangan->id_pengguna);
+        DB::table('faktur')->where('id_faktur', $id)->update(['alasan_ditolak_internal' => 'Alasan lama']);
+
+        $this->postJson("/api/faktur/{$id}/ajukan-approval")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'terkirim');
+
+        $this->assertDatabaseHas('faktur', ['id_faktur' => $id, 'status' => 'terkirim', 'alasan_ditolak_internal' => null]);
+        $this->assertDatabaseHas('faktur_status_log', ['id_faktur' => $id, 'status' => 'terkirim']);
+        $this->assertSame(0, DB::table('approval_pengajuan')->where('id_referensi', $id)->count());
+    }
+
+    public function test_detail_menyertakan_status_approval_aktif(): void
+    {
+        $approver = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'KEUANGAN',
+            'username' => 'km_' . Str::random(6), 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+        $this->makeEventTypeDanApprover($approver->id_pengguna);
+        $keuangan = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatFakturDraft($keuangan->id_pengguna);
+
+        $this->getJson("/api/faktur/{$id}")->assertStatus(200)->assertJsonPath('data.approval_aktif', true);
+
+        DB::table('approval_event_type')->where('kode', 'faktur')->update(['aktif' => 0]);
+
+        $this->getJson("/api/faktur/{$id}")->assertStatus(200)->assertJsonPath('data.approval_aktif', false);
+    }
+
     public function test_keputusan_disetujui_mengubah_status_jadi_terkirim(): void
     {
         $approver = Pengguna::create([

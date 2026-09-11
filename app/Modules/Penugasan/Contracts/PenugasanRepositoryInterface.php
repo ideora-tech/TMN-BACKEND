@@ -28,6 +28,9 @@ interface PenugasanRepositoryInterface
     /** Guard penugasan harian: satu supir tidak boleh dobel di tanggal yang sama (lintas unit/proyek). */
     public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, string $idProyek, ?string $idRute, ?string $excludeId = null): bool;
 
+    public function adaPenugasanSamaPadaTanggal(string $idProyek, ?string $idRute, string $tanggal, ?string $idArmada, ?string $idArmadaVendor, ?string $idSupir): bool;
+    public function listUntukSinkronProyek(string $idProyek): array;
+
     public function create(array $data): PenugasanModel;
     public function update(PenugasanModel $model, array $data): PenugasanModel;
     public function delete(PenugasanModel $model): void;

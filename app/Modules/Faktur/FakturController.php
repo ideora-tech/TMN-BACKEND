@@ -45,6 +45,7 @@ class FakturController extends Controller
         $record = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
         $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
+        $record = $this->service->denganStatusApproval($record);
         return ApiResponse::success(new FakturResource($record));
     }
 

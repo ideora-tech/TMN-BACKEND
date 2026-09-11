@@ -87,6 +87,7 @@ class InvoiceVendorService
             'total'              => (float) $record->total,
             'status'             => $record->status,
             'catatan_verifikasi' => $record->catatan_verifikasi,
+            'approval_aktif'     => app(\App\Modules\Approval\ApprovalService::class)->eventTypeAktifAda('invoice_vendor', $idPerusahaan),
             'diverifikasi_oleh'  => $record->diverifikasi_oleh,
             'diverifikasi_pada'  => $record->diverifikasi_pada?->toIso8601String(),
             'status_pembayaran'  => $record->status_pembayaran,
@@ -353,7 +354,16 @@ class InvoiceVendorService
                 abort(422, 'Hanya invoice berstatus draft yang bisa diajukan approval');
             }
 
-            app(\App\Modules\Approval\ApprovalService::class)->ajukan(
+            $approvalService = app(\App\Modules\Approval\ApprovalService::class);
+
+            if (!$approvalService->eventTypeAktifAda('invoice_vendor', $idPerusahaan)) {
+                return $this->repo->update($terkunci, [
+                    ...$this->payloadDiverifikasi($terkunci, $idPengguna),
+                    'catatan_verifikasi' => null,
+                ]);
+            }
+
+            $approvalService->ajukan(
                 'invoice_vendor',
                 $id,
                 $idPengguna,
@@ -387,6 +397,11 @@ class InvoiceVendorService
             return;
         }
 
+        $this->repo->update($record, $this->payloadDiverifikasi($record, $idPengguna));
+    }
+
+    private function payloadDiverifikasi(InvoiceVendorModel $record, string $idPengguna): array
+    {
         $payload = [
             'status'            => 'diverifikasi',
             'diverifikasi_oleh' => $idPengguna,
@@ -395,7 +410,8 @@ class InvoiceVendorService
         if ((float) $record->total <= 0) {
             $payload['status_pembayaran'] = 'lunas';
         }
-        $this->repo->update($record, $payload);
+
+        return $payload;
     }
 
     public function delete(string $id, string $idPerusahaan): void

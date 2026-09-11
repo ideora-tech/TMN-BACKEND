@@ -27,6 +27,8 @@ class PenugasanServiceProvider extends ServiceProvider
                 Route::post('penugasan/harian', [PenugasanController::class, 'assignHarian']);
                 Route::get('penugasan/board', [PenugasanController::class, 'board']);
                 Route::get('penugasan/board/aktivitas', [PenugasanController::class, 'aktivitasBoard']);
+                Route::post('proyek/{idProyek}/sinkron-penugasan/pratinjau', [PenugasanController::class, 'pratinjauSinkronProyek']);
+                Route::post('proyek/{idProyek}/sinkron-penugasan', [PenugasanController::class, 'sinkronProyek']);
                 Route::apiResource('penugasan', PenugasanController::class)
                     ->parameters(['penugasan' => 'id']);
             });

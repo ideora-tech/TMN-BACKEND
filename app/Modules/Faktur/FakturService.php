@@ -153,6 +153,17 @@ class FakturService
         return $this->denganReferensi($this->findOrFail($id, $idPerusahaan));
     }
 
+    public function denganStatusApproval(FakturModel $record): FakturModel
+    {
+        $record->setAttribute(
+            'approval_aktif',
+            app(\App\Modules\Approval\ApprovalService::class)->eventTypeAktifAda('faktur', (string) $record->id_perusahaan),
+        );
+        $record->syncOriginalAttribute('approval_aktif');
+
+        return $record;
+    }
+
     /**
      * Lengkapi faktur dengan nama proyek/klien dan referensi penawaran yang
      * jadi dasar harganya — jejak audit "tarif invoice ini dari kesepakatan
@@ -343,7 +354,19 @@ class FakturService
                 abort(422, 'Hanya invoice berstatus draft yang bisa diajukan approval');
             }
 
-            app(\App\Modules\Approval\ApprovalService::class)->ajukan(
+            $approvalService = app(\App\Modules\Approval\ApprovalService::class);
+
+            if (!$approvalService->eventTypeAktifAda('faktur', $idPerusahaan)) {
+                $updated = $this->repo->update($terkunci, [
+                    'status'                  => 'terkirim',
+                    'alasan_ditolak_internal' => null,
+                ]);
+                $this->repo->insertStatusLog($id, 'terkirim', 'Ditandai terkirim — approval internal nonaktif');
+
+                return $updated;
+            }
+
+            $approvalService->ajukan(
                 'faktur',
                 $id,
                 $idPengguna,

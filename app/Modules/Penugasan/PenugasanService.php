@@ -350,12 +350,25 @@ class PenugasanService
 
             $sukses        = 0;
             $gagal         = [];
+            $dilewati      = [];
             $tanggalSukses = [];
             $rekaman       = [];
 
             foreach ($periode as $tanggal) {
                 if ($idSupirInternal !== null && $this->repo->adaPenugasanSupirPadaTanggal($idSupirInternal, $tanggal, (string) $data['id_proyek'], (string) $data['id_rute'])) {
-                    $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Supir sudah memiliki penugasan pada proyek, rute, dan tanggal ini'];
+                    $unitSama = $this->repo->adaPenugasanSamaPadaTanggal(
+                        (string) $data['id_proyek'],
+                        (string) $data['id_rute'],
+                        $tanggal,
+                        $rowDasar['id_armada'] ?? null,
+                        $rowDasar['id_armada_vendor'] ?? null,
+                        $idSupirInternal,
+                    );
+                    if ($unitSama) {
+                        $dilewati[] = $tanggal;
+                    } else {
+                        $gagal[] = ['tanggal' => $tanggal, 'alasan' => 'Supir sudah memiliki penugasan pada proyek, rute, dan tanggal ini'];
+                    }
                     continue;
                 }
 
@@ -408,6 +421,7 @@ class PenugasanService
             return [
                 'sukses'     => $sukses,
                 'gagal'      => $gagal,
+                'dilewati'   => $dilewati,
                 'peringatan' => $peringatan,
                 'penugasan'  => $rekaman,
             ];

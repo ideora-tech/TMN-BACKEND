@@ -103,7 +103,8 @@ class ArusKasService
             '_urutan'    => 0,
         ]];
 
-        foreach ($this->repo->listApproval((string) $record->id_pengajuan) as $baris) {
+        $semuaApproval = $this->repo->listApproval((string) $record->id_pengajuan);
+        foreach ($semuaApproval as $baris) {
             if ($baris['waktu_aksi'] === null) {
                 continue;
             }
@@ -167,13 +168,33 @@ class ArusKasService
             return $entri;
         }, $riwayat);
 
+        $tahapMenunggu = match ($record->status) {
+            self::STATUS_MENUNGGU_APPROVAL => 'approval',
+            self::STATUS_DICEK             => 'transfer',
+            default                        => null,
+        };
+        $namaMenunggu = [];
+        if ($tahapMenunggu !== null) {
+            foreach ($semuaApproval as $baris) {
+                $dariGerbangTransfer = ($baris['kode_event'] ?? null) === self::KODE_PERSETUJUAN_TRANSFER;
+                if ($baris['waktu_aksi'] === null && $baris['status'] === 'menunggu' && $dariGerbangTransfer === ($tahapMenunggu === 'transfer')) {
+                    $namaMenunggu[] = $baris['nama'];
+                }
+            }
+        }
+        $namaMenunggu = array_values(array_filter($namaMenunggu));
+
         return [
-            'id_pengajuan'    => $record->id_pengajuan,
-            'nomor_pengajuan' => $record->nomor_pengajuan,
-            'status'          => $record->status,
-            'nominal'         => (float) $record->nominal,
-            'url_bukti'       => PenyimpananBerkas::url($record->url_bukti),
-            'riwayat'         => $riwayat,
+            'id_pengajuan'      => $record->id_pengajuan,
+            'nomor_pengajuan'   => $record->nomor_pengajuan,
+            'kategori'          => $record->kategori,
+            'status'            => $record->status,
+            'nominal'           => (float) $record->nominal,
+            'tanggal_pengajuan' => $record->tanggal_pengajuan,
+            'tanggal_transfer'  => $record->tanggal_transfer,
+            'url_bukti'         => PenyimpananBerkas::url($record->url_bukti),
+            'menunggu'          => $namaMenunggu !== [] ? ['tahap' => $tahapMenunggu, 'nama' => $namaMenunggu] : null,
+            'riwayat'           => $riwayat,
             'periode'         => $record->periode_dari !== null ? [
                 'dari'           => $record->periode_dari,
                 'sampai'         => $record->periode_sampai,

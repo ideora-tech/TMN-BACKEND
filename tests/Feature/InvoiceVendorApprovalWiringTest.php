@@ -89,6 +89,89 @@ class InvoiceVendorApprovalWiringTest extends TestCase
         $this->postJson("/api/invoice-vendor/{$id}/ajukan-approval")->assertStatus(422);
     }
 
+    public function test_ajukan_approval_event_type_nonaktif_langsung_diverifikasi(): void
+    {
+        $approver = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'KEUANGAN',
+            'username' => 'ap_' . Str::random(6), 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+        $this->makeEventTypeDanApprover($approver->id_pengguna);
+        DB::table('approval_event_type')->where('kode', 'invoice_vendor')->update(['aktif' => 0]);
+        $keuangan = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatInvoiceDraft($keuangan->id_pengguna);
+
+        $this->postJson("/api/invoice-vendor/{$id}/ajukan-approval")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'diverifikasi');
+
+        $this->assertDatabaseHas('invoice_vendor', [
+            'id_invoice_vendor' => $id, 'status' => 'diverifikasi',
+            'diverifikasi_oleh' => $keuangan->id_pengguna, 'status_pembayaran' => 'belum',
+        ]);
+        $this->assertSame(0, DB::table('approval_pengajuan')->where('id_referensi', $id)->count());
+    }
+
+    public function test_ajukan_approval_event_type_nonaktif_total_nol_langsung_lunas(): void
+    {
+        $keuangan = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatInvoiceDraft($keuangan->id_pengguna, 0);
+
+        $this->postJson("/api/invoice-vendor/{$id}/ajukan-approval")->assertStatus(200);
+
+        $this->assertDatabaseHas('invoice_vendor', [
+            'id_invoice_vendor' => $id, 'status' => 'diverifikasi', 'status_pembayaran' => 'lunas',
+        ]);
+    }
+
+    public function test_detail_menyertakan_status_approval_aktif(): void
+    {
+        $approver = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'KEUANGAN',
+            'username' => 'ap_' . Str::random(6), 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+        $this->makeEventTypeDanApprover($approver->id_pengguna);
+        $keuangan = $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatInvoiceDraft($keuangan->id_pengguna);
+
+        $this->getJson("/api/invoice-vendor/{$id}")->assertStatus(200)->assertJsonPath('data.approval_aktif', true);
+
+        DB::table('approval_event_type')->where('kode', 'invoice_vendor')->update(['aktif' => 0]);
+
+        $this->getJson("/api/invoice-vendor/{$id}")->assertStatus(200)->assertJsonPath('data.approval_aktif', false);
+    }
+
+    public function test_event_type_diaktifkan_kembali_ajukan_approval_masuk_approval_lagi(): void
+    {
+        $approver = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'KEUANGAN',
+            'username' => 'ap_' . Str::random(6), 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+        $this->makeEventTypeDanApprover($approver->id_pengguna);
+        $keuangan = $this->actingAsRole('SUPERADMIN');
+
+        DB::table('approval_event_type')->where('kode', 'invoice_vendor')->update(['aktif' => 0]);
+        $idSaatNonaktif = $this->buatInvoiceDraft($keuangan->id_pengguna);
+        $this->postJson("/api/invoice-vendor/{$idSaatNonaktif}/ajukan-approval")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'diverifikasi');
+
+        DB::table('approval_event_type')->where('kode', 'invoice_vendor')->update(['aktif' => 1]);
+        $idSetelahAktif = $this->buatInvoiceDraft($keuangan->id_pengguna);
+        $this->postJson("/api/invoice-vendor/{$idSetelahAktif}/ajukan-approval")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'menunggu_approval');
+
+        $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $idSetelahAktif, 'status' => 'menunggu']);
+        $this->assertDatabaseHas('invoice_vendor', ['id_invoice_vendor' => $idSaatNonaktif, 'status' => 'diverifikasi']);
+
+        app(\App\Modules\Approval\ApprovalService::class)->putuskanUntukReferensi(
+            'invoice_vendor', $idSetelahAktif, $approver->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID
+        );
+        $this->assertDatabaseHas('invoice_vendor', [
+            'id_invoice_vendor' => $idSetelahAktif, 'status' => 'diverifikasi', 'diverifikasi_oleh' => $approver->id_pengguna,
+        ]);
+    }
+
     public function test_keputusan_disetujui_set_diverifikasi_dengan_approver(): void
     {
         $approver = Pengguna::create([
