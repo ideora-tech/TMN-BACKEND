@@ -17,6 +17,12 @@ class ArusKasPengajuanTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('public');
+    }
+
     private function payload(array $override = []): array
     {
         return array_merge([
@@ -110,6 +116,7 @@ class ArusKasPengajuanTest extends TestCase
             'items'             => [
                 ['id_sparepart' => $this->makeSparepartPembelian('Item Pengajuan Engine'), 'qty' => 1, 'harga_estimasi' => $nominal],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ]);
         $res->assertStatus(201);
         $idPembelian = $res->json('data.id_pembelian');

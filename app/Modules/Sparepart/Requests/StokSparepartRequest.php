@@ -18,7 +18,6 @@ class StokSparepartRequest extends FormRequest
         return [
             'jenis'      => ['required', 'in:penyesuaian'],
             'qty'        => ['required', 'integer', 'not_in:0'],
-            'harga'      => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'keterangan' => ['required', 'string'],
         ];
     }

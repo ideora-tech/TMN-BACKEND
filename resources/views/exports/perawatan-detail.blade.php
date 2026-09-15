@@ -133,7 +133,7 @@
                             @if (($sp['sumber'] ?? 'bengkel') === 'stok_sendiri')
                                 <span class="sumber sumber-stok">Stok Sendiri</span>
                             @else
-                                <span class="sumber sumber-bengkel">Bengkel</span>
+                                <span class="sumber sumber-bengkel">Pembelian Langsung</span>
                             @endif
                         </td>
                         <td>{{ $sp['nama_sparepart'] ?? '-' }}</td>

@@ -13,6 +13,7 @@ class SparepartRepository implements SparepartRepositoryInterface
 {
     private const DETAIL_SELECT = [
         'sparepart.id_sparepart', 'sparepart.id_perusahaan', 'sparepart.kode', 'sparepart.nama',
+        'sparepart.serial_number', 'sparepart.merek', 'sparepart.tahun',
         'sparepart.id_kategori_sparepart', 'sparepart.satuan', 'sparepart.harga_standar', 'sparepart.stok',
         'sparepart.aktif', 'sparepart.dibuat_pada', 'sparepart.dibuat_oleh',
         'sparepart.diubah_pada', 'sparepart.diubah_oleh', 'sparepart.dihapus_pada', 'sparepart.dihapus_oleh',
@@ -26,6 +27,13 @@ class SparepartRepository implements SparepartRepositoryInterface
         'sparepart_mutasi.dibuat_pada', 'sparepart_mutasi.dibuat_oleh',
         'sparepart_mutasi.diubah_pada', 'sparepart_mutasi.diubah_oleh',
         'sparepart_mutasi.dihapus_pada', 'sparepart_mutasi.dihapus_oleh',
+    ];
+
+    private const RIWAYAT_HARGA_COLUMNS = [
+        'sparepart_riwayat_harga.id_riwayat', 'sparepart_riwayat_harga.id_sparepart',
+        'sparepart_riwayat_harga.harga_lama', 'sparepart_riwayat_harga.harga_baru',
+        'sparepart_riwayat_harga.sumber', 'sparepart_riwayat_harga.keterangan',
+        'sparepart_riwayat_harga.dibuat_pada', 'sparepart_riwayat_harga.dibuat_oleh',
     ];
 
     private function detailQuery()
@@ -45,7 +53,9 @@ class SparepartRepository implements SparepartRepositoryInterface
             ->where('sparepart.id_perusahaan', $idPerusahaan)
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
                 $q2->where('sparepart.nama', 'like', "%{$search}%")
-                   ->orWhere('sparepart.kode', 'like', "%{$search}%");
+                   ->orWhere('sparepart.kode', 'like', "%{$search}%")
+                   ->orWhere('sparepart.serial_number', 'like', "%{$search}%")
+                   ->orWhere('sparepart.merek', 'like', "%{$search}%");
             }))
             ->when($idKategoriSparepart, fn ($q, $v) => $q->where('sparepart.id_kategori_sparepart', $v))
             ->orderBy('sparepart.nama')
@@ -146,5 +156,51 @@ class SparepartRepository implements SparepartRepositoryInterface
             ->orderByDesc('sparepart_mutasi.dibuat_pada')
             ->orderByDesc('sparepart_mutasi.id_mutasi')
             ->paginate($limit, array_merge(self::MUTASI_COLUMNS, ['pg.username as dibuat_oleh_nama']), 'page', $page);
+    }
+
+    public function insertRiwayatHarga(array $data): void
+    {
+        DB::table('sparepart_riwayat_harga')->insert(RecordHelper::stampCreate($data, 'id_riwayat'));
+    }
+
+    public function paginateRiwayatHarga(string $idSparepart, int $page, int $limit): LengthAwarePaginator
+    {
+        return DB::table('sparepart_riwayat_harga')
+            ->leftJoin('pengguna as pg', 'pg.id_pengguna', '=', 'sparepart_riwayat_harga.dibuat_oleh')
+            ->whereNull('sparepart_riwayat_harga.dihapus_pada')
+            ->where('sparepart_riwayat_harga.id_sparepart', $idSparepart)
+            ->orderByDesc('sparepart_riwayat_harga.dibuat_pada')
+            ->orderByDesc('sparepart_riwayat_harga.id_riwayat')
+            ->paginate($limit, array_merge(self::RIWAYAT_HARGA_COLUMNS, ['pg.username as dibuat_oleh_nama']), 'page', $page);
+    }
+
+    public function hargaBeliTerakhirByIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::table('sparepart_mutasi as m')
+            ->leftJoin('pembelian_sparepart as p', 'p.id_pembelian', '=', 'm.id_pembelian')
+            ->leftJoin('supplier as s', 's.id_supplier', '=', 'p.id_supplier')
+            ->whereIn('m.id_sparepart', $ids)
+            ->whereNull('m.dihapus_pada')
+            ->where('m.jenis', 'masuk')
+            ->whereNotNull('m.harga')
+            ->where('m.id_mutasi', '=', function ($q) {
+                $q->from('sparepart_mutasi as m2')
+                  ->select('m2.id_mutasi')
+                  ->whereColumn('m2.id_sparepart', 'm.id_sparepart')
+                  ->whereNull('m2.dihapus_pada')
+                  ->where('m2.jenis', 'masuk')
+                  ->whereNotNull('m2.harga')
+                  ->orderByDesc('m2.tanggal')
+                  ->orderByDesc('m2.dibuat_pada')
+                  ->orderByDesc('m2.id_mutasi')
+                  ->limit(1);
+            })
+            ->get(['m.id_sparepart', 'm.harga', 'm.tanggal', 'm.id_pembelian', 'p.nomor_pengajuan', 's.nama as nama_supplier'])
+            ->keyBy('id_sparepart')
+            ->all();
     }
 }

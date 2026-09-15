@@ -7,7 +7,9 @@ namespace Tests\Feature;
 use App\Models\Pengguna;
 use App\Modules\ArusKas\ArusKasService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -15,6 +17,12 @@ use Tests\TestCase;
 class ArusKasApprovalWiringTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('public');
+    }
 
     private function actingAsAdmin(): Pengguna
     {
@@ -96,6 +104,7 @@ class ArusKasApprovalWiringTest extends TestCase
             'items'             => [
                 ['id_sparepart' => $this->makeSparepartPembelian('Item Wiring Engine'), 'qty' => 1, 'harga_estimasi' => $nominal],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ]);
         $res->assertStatus(201);
         $idPembelian = $res->json('data.id_pembelian');

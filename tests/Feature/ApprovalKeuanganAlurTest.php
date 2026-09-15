@@ -20,6 +20,12 @@ class ApprovalKeuanganAlurTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('public');
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();
@@ -197,6 +203,7 @@ class ApprovalKeuanganAlurTest extends TestCase
             'items'             => [
                 ['id_sparepart' => $this->makeSparepartPembelian('Item Approval Engine'), 'qty' => 1, 'harga_estimasi' => $nominal],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ]);
         $res->assertStatus(201);
         $idPembelian = $res->json('data.id_pembelian');
@@ -255,6 +262,7 @@ class ApprovalKeuanganAlurTest extends TestCase
             'items'             => [
                 ['id_sparepart' => $this->makeSparepartPembelian('Item Tanpa Approver'), 'qty' => 1, 'harga_estimasi' => 500000],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ])->assertStatus(422);
 
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
@@ -545,6 +553,7 @@ class ApprovalKeuanganAlurTest extends TestCase
             'items'             => [
                 ['id_sparepart' => $this->makeSparepartPembelian('Oli Mesin'), 'qty' => 2, 'harga_estimasi' => 60000],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ]);
         $res->assertStatus(201);
         $idPembelian = $res->json('data.id_pembelian');
@@ -574,6 +583,7 @@ class ApprovalKeuanganAlurTest extends TestCase
             'items'             => [
                 ['id_sparepart' => $this->makeSparepartPembelian('Oli Mesin'), 'qty' => 2, 'harga_estimasi' => 60000],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ]);
         $res->assertStatus(201);
         $idPembelian = $res->json('data.id_pembelian');

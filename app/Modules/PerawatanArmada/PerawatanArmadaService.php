@@ -335,22 +335,135 @@ class PerawatanArmadaService
             'nopol'            => $row->nopol,
             'merk'             => $row->merk,
             'jumlah_perawatan' => (int) $row->jumlah_perawatan,
+            'qty_sparepart'    => (int) $row->qty_sparepart,
+            'km_terakhir'      => $row->km_terakhir !== null ? (int) $row->km_terakhir : null,
+            'tanggal_terakhir' => $row->tanggal_terakhir,
             'biaya_jasa'       => (float) $row->biaya_jasa,
             'biaya_sparepart'  => (float) $row->biaya_sparepart,
             'total_biaya'      => (float) $row->biaya_jasa + (float) $row->biaya_sparepart,
         ], $this->repo->rekapPerUnit($idPerusahaan, $dari, $sampai));
     }
 
-    public function dataExportUnit(string $idArmada, string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    private function armadaMilikOrFail(string $idArmada, string $idPerusahaan): object
     {
         $armada = $this->armadaRepo->findById($idArmada);
         if ($armada === null || $armada->id_perusahaan !== $idPerusahaan) {
             abort(404, 'Armada tidak ditemukan');
         }
+        return $armada;
+    }
+
+    /** @param object[] $rows */
+    private function petaRiwayatBiaya(array $rows): array
+    {
+        $lines = [];
+        foreach ($this->repo->linesByPerawatanIds(array_map(fn ($r) => $r->id_perawatan, $rows)) as $line) {
+            $lines[$line->id_perawatan][] = [
+                'id_sparepart'   => $line->id_sparepart,
+                'kode_sparepart' => $line->kode_sparepart,
+                'nama_sparepart' => $line->nama_sparepart,
+                'satuan'         => $line->satuan,
+                'sumber'         => $line->sumber,
+                'qty'            => (int) $line->qty,
+                'harga'          => (float) $line->harga,
+                'subtotal'       => (int) $line->qty * (float) $line->harga,
+            ];
+        }
+
+        return array_map(fn ($r) => [
+            'id_perawatan'    => $r->id_perawatan,
+            'id_armada'       => $r->id_armada,
+            'nopol'           => $r->nopol,
+            'merk'            => $r->merk,
+            'tanggal'         => $r->tanggal,
+            'jenis_perawatan' => $r->jenis_perawatan,
+            'status'          => $r->status,
+            'km_odometer'     => $r->km_odometer !== null ? (int) $r->km_odometer : null,
+            'nama_supplier'   => $r->nama_supplier,
+            'keterangan'      => $r->keterangan,
+            'biaya_jasa'      => (float) $r->biaya,
+            'biaya_sparepart' => (float) $r->total_sparepart,
+            'total_biaya'     => (float) $r->biaya + (float) $r->total_sparepart,
+            'sparepart'       => $lines[$r->id_perawatan] ?? [],
+        ], $rows);
+    }
+
+    /** @param object[] $rows */
+    private function petaRekapSparepart(array $rows): array
+    {
+        return array_map(function ($r) {
+            $qtyStok    = (int) $r->qty_stok;
+            $qtyBengkel = (int) $r->qty_bengkel;
+            $totalQty   = (int) $r->total_qty;
+
+            return [
+                'id_armada'        => $r->id_armada,
+                'nopol'            => $r->nopol,
+                'merk'             => $r->merk,
+                'id_sparepart'     => $r->id_sparepart,
+                'kode_sparepart'   => $r->kode_sparepart,
+                'nama_sparepart'   => $r->nama_sparepart,
+                'satuan'           => $r->satuan,
+                'sumber'           => $qtyStok > 0 && $qtyBengkel > 0 ? 'campuran' : ($qtyStok > 0 ? 'stok_sendiri' : 'bengkel'),
+                'total_qty'        => $totalQty,
+                'harga_rata'       => $totalQty > 0 ? round((float) $r->total_biaya / $totalQty, 2) : 0.0,
+                'total_biaya'      => (float) $r->total_biaya,
+                'jumlah_perawatan' => (int) $r->jumlah_perawatan,
+                'terakhir_dipakai' => $r->terakhir_dipakai,
+            ];
+        }, $rows);
+    }
+
+    public function riwayatBiayaUnit(string $idArmada, string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    {
+        $armada  = $this->armadaMilikOrFail($idArmada, $idPerusahaan);
+        $riwayat = $this->petaRiwayatBiaya($this->repo->listByArmadaRentang($idArmada, $dari, $sampai));
+
+        $jasa      = array_sum(array_column($riwayat, 'biaya_jasa'));
+        $sparepart = array_sum(array_column($riwayat, 'biaya_sparepart'));
+        $km        = array_values(array_filter(array_column($riwayat, 'km_odometer'), fn ($v) => $v !== null));
 
         return [
-            'armada' => $armada,
-            'items'  => $this->repo->listByArmadaRentang($idArmada, $dari, $sampai),
+            'armada' => [
+                'id_armada' => $armada->id_armada,
+                'nopol'     => $armada->nopol,
+                'merk'      => $armada->merk,
+            ],
+            'ringkasan' => [
+                'jumlah_perawatan' => count($riwayat),
+                'qty_sparepart'    => array_sum(array_map(fn ($r) => array_sum(array_column($r['sparepart'], 'qty')), $riwayat)),
+                'biaya_jasa'       => (float) $jasa,
+                'biaya_sparepart'  => (float) $sparepart,
+                'total_biaya'      => (float) ($jasa + $sparepart),
+                'km_terakhir'      => $km !== [] ? max($km) : null,
+            ],
+            'riwayat' => $riwayat,
+        ];
+    }
+
+    public function rekapSparepartUnit(string $idArmada, string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    {
+        $this->armadaMilikOrFail($idArmada, $idPerusahaan);
+        return $this->petaRekapSparepart($this->repo->rekapSparepart($idPerusahaan, $idArmada, $dari, $sampai));
+    }
+
+    public function dataExportRekap(string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    {
+        return [
+            'rekap'     => $this->rekapPerUnit($idPerusahaan, $dari, $sampai),
+            'riwayat'   => $this->petaRiwayatBiaya($this->repo->listRentangPerusahaan($idPerusahaan, $dari, $sampai)),
+            'sparepart' => $this->petaRekapSparepart($this->repo->rekapSparepart($idPerusahaan, null, $dari, $sampai)),
+        ];
+    }
+
+    public function dataExportUnit(string $idArmada, string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    {
+        $armada = $this->armadaMilikOrFail($idArmada, $idPerusahaan);
+
+        return [
+            'armada'    => $armada,
+            'items'     => $this->repo->listByArmadaRentang($idArmada, $dari, $sampai),
+            'sparepart' => $this->petaRekapSparepart($this->repo->rekapSparepart($idPerusahaan, $idArmada, $dari, $sampai)),
         ];
     }
 

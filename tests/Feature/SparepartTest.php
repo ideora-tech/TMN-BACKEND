@@ -37,6 +37,7 @@ class SparepartTest extends TestCase
         $res = $this->postJson('/api/sparepart', [
             'kode'          => 'SP-100',
             'nama'          => 'Kampas Rem',
+            'serial_number' => 'KR-100',
             'satuan'        => 'set',
             'harga_standar' => 350000,
         ]);
@@ -52,7 +53,7 @@ class SparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->makeSparepart('SP-001');
 
-        $resDup = $this->postJson('/api/sparepart', ['kode' => 'SP-001', 'nama' => 'Duplikat']);
+        $resDup = $this->postJson('/api/sparepart', ['kode' => 'SP-001', 'nama' => 'Duplikat', 'serial_number' => 'SN-DUP']);
         $resDup->assertStatus(409);
 
         $idLain = (string) Str::uuid();
@@ -80,6 +81,7 @@ class SparepartTest extends TestCase
             'id_sparepart' => $sp->id_sparepart,
             'jenis'        => 'penyesuaian',
             'qty'          => 5,
+            'harga'        => null,
         ]);
     }
 
@@ -164,7 +166,7 @@ class SparepartTest extends TestCase
         ]);
 
         $res = $this->postJson('/api/sparepart', [
-            'kode' => 'SP-200', 'nama' => 'Filter Oli', 'id_kategori_sparepart' => $idKategori,
+            'kode' => 'SP-200', 'nama' => 'Filter Oli', 'serial_number' => 'FO-200', 'id_kategori_sparepart' => $idKategori,
         ]);
         $res->assertStatus(201)
             ->assertJsonPath('data.id_kategori_sparepart', $idKategori)
@@ -211,9 +213,9 @@ class SparepartTest extends TestCase
         $idKategoriTidakAda = (string) Str::uuid();
 
         $res = $this->postJson('/api/sparepart', [
-            'kode' => 'SP-400', 'nama' => 'Spare Part', 'id_kategori_sparepart' => $idKategoriTidakAda,
+            'kode' => 'SP-400', 'nama' => 'Spare Part', 'serial_number' => 'SN-400', 'id_kategori_sparepart' => $idKategoriTidakAda,
         ]);
 
-        $res->assertStatus(422);
+        $res->assertStatus(422)->assertJsonValidationErrors(['id_kategori_sparepart']);
     }
 }

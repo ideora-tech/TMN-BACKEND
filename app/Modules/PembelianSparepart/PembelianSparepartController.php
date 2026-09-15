@@ -42,7 +42,7 @@ class PembelianSparepartController extends Controller
 
     public function store(StorePembelianSparepartRequest $request): JsonResponse
     {
-        $record = $this->service->create($request->validated(), (string) $request->user()->id_perusahaan);
+        $record = $this->service->create($request->validated(), $request->file('bukti', []), (string) $request->user()->id_perusahaan);
         return ApiResponse::success(new PembelianSparepartResource($record), 'Pengajuan pembelian berhasil dibuat', 201);
     }
 

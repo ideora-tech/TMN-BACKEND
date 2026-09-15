@@ -159,6 +159,18 @@ class DokumenArmadaRepository implements DokumenArmadaRepositoryInterface
             ->exists();
     }
 
+    public function hitungSegeraHabis(string $idPerusahaan, string $dari, string $sampai): int
+    {
+        return DB::table('dokumen_armada')
+            ->join('armada', 'armada.id_armada', '=', 'dokumen_armada.id_armada')
+            ->where('armada.id_perusahaan', $idPerusahaan)
+            ->whereNull('armada.dihapus_pada')
+            ->whereNull('dokumen_armada.dihapus_pada')
+            ->where('dokumen_armada.aktif', 1)
+            ->whereBetween('dokumen_armada.berlaku_sampai', [$dari, $sampai])
+            ->count();
+    }
+
     public function findExpiring(string $idPerusahaan, int $days): array
     {
         return DB::table('dokumen_armada')

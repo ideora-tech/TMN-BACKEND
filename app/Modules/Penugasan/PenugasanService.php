@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Penugasan;
 
 use App\Modules\Armada\ArmadaModel;
+use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface;
 use App\Modules\ArusKas\ArusKasService;
 use App\Modules\KontrakVendor\Contracts\KontrakVendorRepositoryInterface;
@@ -33,10 +34,16 @@ class PenugasanService
         private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
         private readonly SupirRepositoryInterface $supirRepo,
         private readonly ArusKasService $arusKasService,
+        private readonly ArmadaRepositoryInterface $armadaRepo,
     ) {}
 
-    public function list(string $idProyek, int $page = 1, int $limit = 10, ?string $sumber = null, ?string $status = null): array
+    public function list(string $idProyek, string $idPerusahaan, int $page = 1, int $limit = 10, ?string $sumber = null, ?string $status = null): array
     {
+        $proyek = $this->proyekRepo->findById($idProyek);
+        if ($proyek === null || (string) $proyek->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Proyek tidak ditemukan');
+        }
+
         $result = $this->repo->paginateByProyek($idProyek, $page, $limit, $sumber, $status);
 
         return [
@@ -65,8 +72,13 @@ class PenugasanService
         ];
     }
 
-    public function listByArmada(string $idArmada, int $page = 1, int $limit = 20, ?string $sumber = null, ?string $status = null): array
+    public function listByArmada(string $idArmada, string $idPerusahaan, int $page = 1, int $limit = 20, ?string $sumber = null, ?string $status = null): array
     {
+        $armada = $this->armadaRepo->findById($idArmada);
+        if ($armada === null || (string) $armada->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Armada tidak ditemukan');
+        }
+
         $result = $this->repo->paginateByArmada($idArmada, $page, $limit, $sumber, $status);
 
         return [
@@ -80,8 +92,13 @@ class PenugasanService
         ];
     }
 
-    public function listBySupir(string $idSupir, int $page = 1, int $limit = 20, ?string $sumber = null, ?string $status = null): array
+    public function listBySupir(string $idSupir, string $idPerusahaan, int $page = 1, int $limit = 20, ?string $sumber = null, ?string $status = null): array
     {
+        $supir = $this->supirRepo->findById($idSupir);
+        if ($supir === null || (string) $supir->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Supir tidak ditemukan');
+        }
+
         $result = $this->repo->paginateBySupir($idSupir, $page, $limit, $sumber, $status);
 
         return [
@@ -153,6 +170,15 @@ class PenugasanService
     {
         $record = $this->repo->findById($id);
         if ($record === null) {
+            abort(404, 'Penugasan tidak ditemukan');
+        }
+        return $record;
+    }
+
+    public function findMilikOrFail(string $id, string $idPerusahaan): PenugasanModel
+    {
+        $record = $this->findOrFail($id);
+        if (!$this->repo->milikPerusahaan($id, $idPerusahaan)) {
             abort(404, 'Penugasan tidak ditemukan');
         }
         return $record;
@@ -430,7 +456,7 @@ class PenugasanService
 
     public function update(string $id, array $data, string $idPerusahaan): PenugasanModel
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findMilikOrFail($id, $idPerusahaan);
         $data   = $this->normalizeSumber($data);
 
         $titikDropDikirim = array_key_exists('titik_drop', $data);

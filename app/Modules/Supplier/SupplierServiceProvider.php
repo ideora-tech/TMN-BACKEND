@@ -18,7 +18,7 @@ class SupplierServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:supplier|perawatan-armada'])
+            ->middleware(['api', 'auth:sanctum', 'izin:supplier|perawatan-armada|pembelian-sparepart'])
             ->group(function () {
                 Route::get('supplier', [SupplierController::class, 'index']);
                 Route::get('supplier/{id}', [SupplierController::class, 'show']);

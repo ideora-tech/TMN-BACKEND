@@ -12,7 +12,7 @@ class UpdatePembelianSparepartRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id_supplier'            => ['required', 'string', 'max:36'],
+            'id_supplier'            => ['nullable', 'string', 'max:36'],
             'id_perawatan'           => ['nullable', 'string', 'max:36'],
             'tanggal_pengajuan'      => ['required', 'date'],
             'keterangan'             => ['nullable', 'string'],

@@ -48,6 +48,7 @@ class IzinPetugasPerawatanTest extends TestCase
             $this->setIzin('/armada', $aksi, 0);
             $this->setIzin('/supplier', $aksi, 0);
             $this->setIzin('/sparepart', $aksi, 0);
+            $this->setIzin('/pembelian-sparepart', $aksi, 0);
         }
 
         $pengguna = Pengguna::create([

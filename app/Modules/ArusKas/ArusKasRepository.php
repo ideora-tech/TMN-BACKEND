@@ -208,7 +208,7 @@ class ArusKasRepository implements ArusKasRepositoryInterface
     public function dataPembelianUntukPengajuan(string $idPembelian): ?object
     {
         return DB::table('pembelian_sparepart as p')
-            ->join('supplier as s', 's.id_supplier', '=', 'p.id_supplier')
+            ->leftJoin('supplier as s', 's.id_supplier', '=', 'p.id_supplier')
             ->where('p.id_pembelian', $idPembelian)
             ->whereNull('p.dihapus_pada')
             ->whereNull('s.dihapus_pada')

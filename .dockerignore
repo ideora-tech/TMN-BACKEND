@@ -1,11 +1,17 @@
 .git
 .env
 node_modules
+vendor
 bootstrap/cache/*.php
 storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
+storage/framework/testing/*
 tests
 docs
 *.md
+.superpowers
+.claude
+.phpunit.result.cache
+upload_documents

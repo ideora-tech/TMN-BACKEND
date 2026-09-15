@@ -23,8 +23,7 @@ class PembelianSparepartServiceProvider extends ServiceProvider
                 Route::get('pembelian-sparepart/laporan', [PembelianSparepartController::class, 'laporan']);
                 Route::get('pembelian-sparepart/laporan/export/excel', [PembelianSparepartController::class, 'exportLaporanExcel']);
                 Route::get('pembelian-sparepart/laporan/export/pdf', [PembelianSparepartController::class, 'exportLaporanPdf']);
-                Route::patch('pembelian-sparepart/{id}/realisasi', [PembelianSparepartController::class, 'realisasi'])
-                    ->middleware('role:SUPERADMIN,ADMIN,DISPATCHER');
+                Route::patch('pembelian-sparepart/{id}/realisasi', [PembelianSparepartController::class, 'realisasi']);
                 Route::post('pembelian-sparepart/{id}/bukti', [PembelianSparepartController::class, 'tambahBukti']);
                 Route::delete('pembelian-sparepart/{id}/bukti/{idBukti}', [PembelianSparepartController::class, 'hapusBukti']);
                 Route::apiResource('pembelian-sparepart', PembelianSparepartController::class)

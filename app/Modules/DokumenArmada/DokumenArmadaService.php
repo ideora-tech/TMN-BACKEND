@@ -16,6 +16,7 @@ class DokumenArmadaService
 {
     public const JENIS_BOLEH_GANDA = ['Lainnya'];
     public const KONDISI_UNIT = ['habis', 'segera', 'belum_ada', 'aman'];
+    public const HARI_PENGINGAT = 7;
     private const MAKS_RIWAYAT = 50;
     private const HARI_SEGERA_HABIS = 30;
 
@@ -162,6 +163,18 @@ class DokumenArmadaService
         }
 
         return $riwayat;
+    }
+
+    public function jumlahSegeraHabis(string $idPerusahaan): array
+    {
+        return [
+            'jumlah' => $this->repo->hitungSegeraHabis(
+                $idPerusahaan,
+                now()->toDateString(),
+                now()->addDays(self::HARI_PENGINGAT)->toDateString(),
+            ),
+            'hari' => self::HARI_PENGINGAT,
+        ];
     }
 
     public function getExpiring(string $idPerusahaan, int $days): array

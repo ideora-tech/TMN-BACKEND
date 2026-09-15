@@ -17,6 +17,7 @@ class PembelianSparepartTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('public');
         $this->ensurePerusahaan();
 
         $idApprover = (string) Str::uuid();
@@ -68,6 +69,7 @@ class PembelianSparepartTest extends TestCase
                 ['id_sparepart' => $this->makeSparepart('Oli Mesin'), 'qty' => 2, 'harga_estimasi' => 60000],
                 ['id_sparepart' => $this->makeSparepart('Filter Udara'), 'qty' => 1, 'harga_estimasi' => 80000],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ], $override);
     }
 
@@ -427,5 +429,80 @@ class PembelianSparepartTest extends TestCase
 
         $detail = $this->getJson("/api/pembelian-sparepart/{$idPembelian}");
         $detail->assertStatus(200)->assertJsonPath('data.pembayaran', null);
+    }
+
+    public function test_create_tanpa_bukti_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $payload = $this->payloadPengajuan();
+        unset($payload['bukti']);
+
+        $this->postJson('/api/pembelian-sparepart', $payload)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['bukti'])
+            ->assertJsonPath('errors.bukti.0', 'Foto atau lampiran pengajuan wajib diunggah minimal satu');
+        $this->assertDatabaseCount('pembelian_sparepart', 0);
+    }
+
+    public function test_create_dengan_bukti_tersimpan_bersama_pengajuan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan());
+
+        $res->assertStatus(201);
+        $this->assertCount(1, $res->json('data.bukti'));
+        $this->assertStringContainsString('/storage/pembelian-sparepart/', (string) $res->json('data.bukti.0.url_file'));
+        $this->assertSame('nota.jpg', $res->json('data.bukti.0.nama_asli'));
+        $this->assertDatabaseCount('pembelian_sparepart_bukti', 1);
+        $this->assertDatabaseHas('pembelian_sparepart_bukti', ['id_pembelian' => $res->json('data.id_pembelian')]);
+    }
+
+    public function test_create_tanpa_supplier_berhasil_dan_penerima_pengajuan_strip(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $payload = $this->payloadPengajuan();
+        unset($payload['id_supplier']);
+
+        $res = $this->postJson('/api/pembelian-sparepart', $payload);
+
+        $res->assertStatus(201)
+            ->assertJsonPath('data.id_supplier', null)
+            ->assertJsonPath('data.nama_supplier', null)
+            ->assertJsonPath('data.status', 'diajukan');
+
+        $pengajuan = $this->pengajuanUntukPembelian($res->json('data.id_pembelian'));
+        $this->assertNotNull($pengajuan);
+        $this->assertSame('-', $pengajuan->penerima);
+        $this->assertSame('sparepart', $pengajuan->kategori);
+        $this->assertEquals(200000, (float) $pengajuan->nominal);
+    }
+
+    public function test_update_mengosongkan_supplier_berhasil(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $create = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan());
+        $create->assertStatus(201);
+        $this->assertNotNull($create->json('data.id_supplier'));
+        $id = $create->json('data.id_pembelian');
+
+        $this->putJson("/api/pembelian-sparepart/{$id}", $this->payloadPengajuan(['id_supplier' => null]))
+            ->assertStatus(200)
+            ->assertJsonPath('data.id_supplier', null)
+            ->assertJsonPath('data.nama_supplier', null);
+
+        $this->assertDatabaseHas('pembelian_sparepart', ['id_pembelian' => $id, 'id_supplier' => null]);
+    }
+
+    public function test_supplier_perusahaan_lain_tetap_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idLain = (string) Str::uuid();
+        DB::table('perusahaan')->insert(['id_perusahaan' => $idLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
+
+        $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan(['id_supplier' => $this->makeSupplier($idLain)]))
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Supplier tidak ditemukan');
+        $this->assertDatabaseCount('pembelian_sparepart', 0);
     }
 }

@@ -101,19 +101,20 @@ class PenugasanController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
         $page   = (int) $request->get('page', 1);
         $limit  = (int) $request->get('limit', 10);
         $sumber = $request->filled('sumber') ? (string) $request->get('sumber') : null;
         $status = $request->filled('status') ? (string) $request->get('status') : null;
 
         if ($request->filled('id_armada')) {
-            $result = $this->service->listByArmada((string) $request->get('id_armada'), $page, $limit, $sumber, $status);
+            $result = $this->service->listByArmada((string) $request->get('id_armada'), $idPerusahaan, $page, $limit, $sumber, $status);
         } elseif ($request->filled('id_supir')) {
-            $result = $this->service->listBySupir((string) $request->get('id_supir'), $page, $limit, $sumber, $status);
+            $result = $this->service->listBySupir((string) $request->get('id_supir'), $idPerusahaan, $page, $limit, $sumber, $status);
         } elseif ($request->filled('id_proyek')) {
-            $result = $this->service->list((string) $request->get('id_proyek'), $page, $limit, $sumber, $status);
+            $result = $this->service->list((string) $request->get('id_proyek'), $idPerusahaan, $page, $limit, $sumber, $status);
         } else {
-            $result = $this->service->listByPerusahaan((string) $request->user()->id_perusahaan, $page, $limit, $sumber, $status);
+            $result = $this->service->listByPerusahaan($idPerusahaan, $page, $limit, $sumber, $status);
         }
 
         $idList = array_map(fn ($r) => (string) $r->id_penugasan, [...$result['data']]);
@@ -130,9 +131,9 @@ class PenugasanController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        $record = $this->service->findOrFail($id);
+        $record = $this->service->findMilikOrFail($id, (string) $request->user()->id_perusahaan);
         $record->titik_drop = $this->service->titikDropUntuk((string) $record->id_penugasan);
         $record->titik_drop_detail = $this->service->titikDropDetailUntuk((string) $record->id_penugasan);
         return ApiResponse::success(new PenugasanResource($record));

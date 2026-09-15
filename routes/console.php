@@ -15,38 +15,51 @@ Artisan::command('inspire', function () {
 Artisan::command('notifikasi:dokumen-kadaluarsa', function () {
     $today  = now()->toDateString();
     $batas  = now()->addDays(30)->toDateString();
+    $hariIni = now()->startOfDay();
+    $hariPengingatArmada = \App\Modules\DokumenArmada\DokumenArmadaService::HARI_PENGINGAT;
 
     $dokumen = DB::table('dokumen_armada as d')
         ->join('armada as a', 'd.id_armada', '=', 'a.id_armada')
         ->whereNull('d.dihapus_pada')
         ->where('d.aktif', 1)
         ->whereNull('a.dihapus_pada')
-        ->whereBetween('d.berlaku_sampai', [$today, $batas])
+        ->whereBetween('d.berlaku_sampai', [$today, $hariIni->copy()->addDays($hariPengingatArmada)->toDateString()])
         ->select('d.id_dokumen_armada', 'd.jenis_dokumen', 'd.berlaku_sampai', 'a.nopol', 'a.id_perusahaan')
         ->get();
 
     $created = 0;
     foreach ($dokumen as $dok) {
-        $exists = NotifikasiModel::where('referensi_id', $dok->id_dokumen_armada)
-            ->where('referensi_tipe', 'dokumen_armada')
-            ->whereDate('dibuat_pada', $today)
-            ->exists();
-        if ($exists) continue;
+        $exp      = \Illuminate\Support\Carbon::parse($dok->berlaku_sampai)->startOfDay();
+        $daysLeft = (int) $hariIni->diffInDays($exp);
+        $notifDokumen = NotifikasiModel::where('referensi_id', $dok->id_dokumen_armada)
+            ->where('referensi_tipe', 'dokumen_armada');
 
-        $exp      = now()->parse($dok->berlaku_sampai);
-        $daysLeft = (int) now()->diffInDays($exp, false);
-        $prefix   = $daysLeft <= 7 ? '[SEGERA] ' : '';
+        $sudahDiingatkan = $daysLeft === 0
+            ? $notifDokumen->whereDate('dibuat_pada', $today)->exists()
+            : $notifDokumen->where('dibuat_pada', '>=', $exp->copy()->subDays($hariPengingatArmada))->exists();
+        if ($sudahDiingatkan) continue;
+
+        $tanggalHabis = $exp->format('d M Y');
+        [$judul, $isi] = $daysLeft === 0
+            ? [
+                "[SEGERA] Dokumen {$dok->jenis_dokumen} {$dok->nopol} habis masa berlaku hari ini",
+                "Dokumen {$dok->jenis_dokumen} untuk armada {$dok->nopol} habis masa berlaku hari ini ({$tanggalHabis}). Segera lakukan perpanjangan di menu Dokumen Armada.",
+            ]
+            : [
+                "[SEGERA] Dokumen {$dok->jenis_dokumen} {$dok->nopol} habis dalam {$daysLeft} hari",
+                "Dokumen {$dok->jenis_dokumen} untuk armada {$dok->nopol} berlaku sampai {$tanggalHabis} ({$daysLeft} hari lagi). Segera lakukan perpanjangan di menu Dokumen Armada.",
+            ];
 
         NotifikasiModel::create([
             'id_notifikasi'  => Str::uuid()->toString(),
             'id_perusahaan'  => $dok->id_perusahaan,
             'id_pengguna'    => null,
-            'judul'          => "{$prefix}Dokumen {$dok->jenis_dokumen} {$dok->nopol} kadaluarsa dalam {$daysLeft} hari",
-            'isi'            => "Dokumen {$dok->jenis_dokumen} untuk armada {$dok->nopol} akan kadaluarsa pada ".
-                                $exp->format('d M Y')." ({$daysLeft} hari lagi). Segera perbarui.",
+            'judul'          => $judul,
+            'isi'            => $isi,
             'tipe'           => 'alert_dokumen',
             'referensi_id'   => $dok->id_dokumen_armada,
             'referensi_tipe' => 'dokumen_armada',
+            'link'           => '/dokumen-armada/' . $dok->id_dokumen_armada,
             'dibaca'         => 0,
         ]);
         $created++;
@@ -122,7 +135,7 @@ Artisan::command('notifikasi:dokumen-kadaluarsa', function () {
 
     $this->info("Notifikasi dokumen kadaluarsa: {$created} notifikasi baru dibuat.");
     Log::info("notifikasi:dokumen-kadaluarsa — {$created} notifikasi dibuat.");
-})->purpose('Buat notifikasi untuk dokumen armada/vendor/karyawan yang akan kadaluarsa dalam 30 hari')->dailyAt('07:00');
+})->purpose('Pengingat dokumen armada 7 hari sebelum habis (sekali di H-7 dan sekali di hari H), dokumen vendor/karyawan dalam 30 hari')->dailyAt('07:00');
 
 Artisan::command('notifikasi:sim-kadaluarsa', function () {
     $today = now()->toDateString();

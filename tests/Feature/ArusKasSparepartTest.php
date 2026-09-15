@@ -19,6 +19,7 @@ class ArusKasSparepartTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('public');
         $this->ensurePerusahaan();
 
         $idApprover = (string) Str::uuid();
@@ -100,6 +101,7 @@ class ArusKasSparepartTest extends TestCase
                 ['id_sparepart' => $this->makeSparepart('Oli Mesin'), 'qty' => 2, 'harga_estimasi' => 60000],
                 ['id_sparepart' => $this->makeSparepart('Filter Udara'), 'qty' => 1, 'harga_estimasi' => 80000],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ], $override);
     }
 

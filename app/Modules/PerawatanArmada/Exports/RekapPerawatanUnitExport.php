@@ -11,8 +11,9 @@ use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithTitle;
 
-class RekapPerawatanUnitExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithEvents
+class RekapPerawatanUnitExport implements FromCollection, WithHeadings, WithMapping, WithTitle, ShouldAutoSize, WithEvents
 {
     use DenganGayaLaporan;
 
@@ -21,6 +22,11 @@ class RekapPerawatanUnitExport implements FromCollection, WithHeadings, WithMapp
         private readonly ?string $dari = null,
         private readonly ?string $sampai = null,
     ) {}
+
+    public function title(): string
+    {
+        return 'Rekap per Unit';
+    }
 
     public function judulLaporan(): string
     {
@@ -42,6 +48,7 @@ class RekapPerawatanUnitExport implements FromCollection, WithHeadings, WithMapp
         $total = [
             'is_total'         => true,
             'jumlah_perawatan' => $rows->sum(fn ($r) => (int) $r['jumlah_perawatan']),
+            'qty_sparepart'    => $rows->sum(fn ($r) => (int) ($r['qty_sparepart'] ?? 0)),
             'biaya_jasa'       => $rows->sum(fn ($r) => (float) $r['biaya_jasa']),
             'biaya_sparepart'  => $rows->sum(fn ($r) => (float) $r['biaya_sparepart']),
             'total_biaya'      => $rows->sum(fn ($r) => (float) $r['total_biaya']),
@@ -52,7 +59,7 @@ class RekapPerawatanUnitExport implements FromCollection, WithHeadings, WithMapp
 
     public function headings(): array
     {
-        return ['Armada', 'Merk', 'Jumlah Perawatan', 'Biaya Jasa', 'Biaya Sparepart', 'Total Biaya'];
+        return ['Armada', 'Merk', 'Jumlah Perawatan', 'Item Sparepart', 'KM Terakhir', 'Biaya Jasa', 'Biaya Sparepart', 'Total Biaya'];
     }
 
     public function map($row): array
@@ -61,6 +68,8 @@ class RekapPerawatanUnitExport implements FromCollection, WithHeadings, WithMapp
             return [
                 'TOTAL', '',
                 (int) $row['jumlah_perawatan'],
+                (int) $row['qty_sparepart'],
+                '',
                 (float) $row['biaya_jasa'],
                 (float) $row['biaya_sparepart'],
                 (float) $row['total_biaya'],
@@ -71,6 +80,8 @@ class RekapPerawatanUnitExport implements FromCollection, WithHeadings, WithMapp
             $row['nopol'],
             $row['merk'] ?? '',
             (int) $row['jumlah_perawatan'],
+            (int) ($row['qty_sparepart'] ?? 0),
+            $row['km_terakhir'] ?? '',
             (float) $row['biaya_jasa'],
             (float) $row['biaya_sparepart'],
             (float) $row['total_biaya'],

@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\PerawatanArmada;
 
 use App\Helpers\ApiResponse;
-use App\Modules\PerawatanArmada\Exports\PerawatanUnitExport;
-use App\Modules\PerawatanArmada\Exports\RekapPerawatanUnitExport;
+use App\Modules\PerawatanArmada\Exports\PerawatanUnitWorkbookExport;
+use App\Modules\PerawatanArmada\Exports\RekapPerawatanWorkbookExport;
 use App\Modules\PerawatanArmada\Requests\StorePerawatanArmadaRequest;
 use App\Modules\PerawatanArmada\Requests\UpdatePerawatanArmadaRequest;
+use App\Modules\PerawatanArmada\Requests\PeriodeLaporanRequest;
 use App\Modules\PerawatanArmada\Requests\UploadBuktiPerawatanRequest;
 use App\Modules\PerawatanArmada\Resources\PerawatanArmadaResource;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -131,31 +132,51 @@ class PerawatanArmadaController extends Controller
         return ApiResponse::paginated($result['data'], $result['meta']);
     }
 
-    public function rekapPerUnit(Request $request): JsonResponse
+    public function rekapPerUnit(PeriodeLaporanRequest $request): JsonResponse
     {
         return ApiResponse::success($this->service->rekapPerUnit(
             (string) $request->user()->id_perusahaan,
-            $request->get('tanggal_dari'),
-            $request->get('tanggal_sampai'),
+            $request->dari(),
+            $request->sampai(),
         ));
     }
 
-    public function exportUnitExcel(Request $request, string $idArmada): BinaryFileResponse
+    public function riwayatBiayaUnit(PeriodeLaporanRequest $request, string $idArmada): JsonResponse
     {
-        $dari = $request->get('tanggal_dari');
-        $sampai = $request->get('tanggal_sampai');
+        return ApiResponse::success($this->service->riwayatBiayaUnit(
+            $idArmada,
+            (string) $request->user()->id_perusahaan,
+            $request->dari(),
+            $request->sampai(),
+        ));
+    }
+
+    public function rekapSparepartUnit(PeriodeLaporanRequest $request, string $idArmada): JsonResponse
+    {
+        return ApiResponse::success($this->service->rekapSparepartUnit(
+            $idArmada,
+            (string) $request->user()->id_perusahaan,
+            $request->dari(),
+            $request->sampai(),
+        ));
+    }
+
+    public function exportUnitExcel(PeriodeLaporanRequest $request, string $idArmada): BinaryFileResponse
+    {
+        $dari = $request->dari();
+        $sampai = $request->sampai();
         $data = $this->service->dataExportUnit($idArmada, (string) $request->user()->id_perusahaan, $dari, $sampai);
 
         return Excel::download(
-            new PerawatanUnitExport(collect($data['items']), $data['armada'], $dari, $sampai),
+            new PerawatanUnitWorkbookExport($data, $dari, $sampai),
             'perawatan-' . str_replace(' ', '', (string) $data['armada']->nopol) . '-' . date('Ymd') . '.xlsx'
         );
     }
 
-    public function exportUnitPdf(Request $request, string $idArmada): Response
+    public function exportUnitPdf(PeriodeLaporanRequest $request, string $idArmada): Response
     {
-        $dari = $request->get('tanggal_dari');
-        $sampai = $request->get('tanggal_sampai');
+        $dari = $request->dari();
+        $sampai = $request->sampai();
         $data = $this->service->dataExportUnit($idArmada, (string) $request->user()->id_perusahaan, $dari, $sampai);
 
         $pdf = Pdf::loadView('exports.perawatan-unit', [
@@ -188,22 +209,22 @@ class PerawatanArmadaController extends Controller
         return $pdf->download("perawatan-{$nopol}-{$tanggal}.pdf");
     }
 
-    public function exportRekapExcel(Request $request): BinaryFileResponse
+    public function exportRekapExcel(PeriodeLaporanRequest $request): BinaryFileResponse
     {
-        $dari = $request->get('tanggal_dari');
-        $sampai = $request->get('tanggal_sampai');
-        $items = $this->service->rekapPerUnit((string) $request->user()->id_perusahaan, $dari, $sampai);
+        $dari = $request->dari();
+        $sampai = $request->sampai();
+        $data = $this->service->dataExportRekap((string) $request->user()->id_perusahaan, $dari, $sampai);
 
         return Excel::download(
-            new RekapPerawatanUnitExport(collect($items), $dari, $sampai),
+            new RekapPerawatanWorkbookExport($data, $dari, $sampai),
             'rekap-perawatan-unit-' . date('Ymd') . '.xlsx'
         );
     }
 
-    public function exportRekapPdf(Request $request): Response
+    public function exportRekapPdf(PeriodeLaporanRequest $request): Response
     {
-        $dari = $request->get('tanggal_dari');
-        $sampai = $request->get('tanggal_sampai');
+        $dari = $request->dari();
+        $sampai = $request->sampai();
         $items = $this->service->rekapPerUnit((string) $request->user()->id_perusahaan, $dari, $sampai);
 
         $pdf = Pdf::loadView('exports.rekap-perawatan-unit', [

@@ -99,7 +99,7 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
     private function subTotalSparepart()
     {
         return DB::table('perawatan_sparepart')
-            ->selectRaw('id_perawatan, SUM(qty * harga) as total_sparepart')
+            ->selectRaw('id_perawatan, SUM(qty * harga) as total_sparepart, SUM(qty) as qty_sparepart')
             ->whereNull('dihapus_pada')
             ->groupBy('id_perawatan');
     }
@@ -120,33 +120,109 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->selectRaw('a.id_armada, a.nopol, a.merk,
                 COUNT(p.id_perawatan) as jumlah_perawatan,
                 COALESCE(SUM(p.biaya), 0) as biaya_jasa,
-                COALESCE(SUM(sp.total_sparepart), 0) as biaya_sparepart')
+                COALESCE(SUM(sp.total_sparepart), 0) as biaya_sparepart,
+                COALESCE(SUM(sp.qty_sparepart), 0) as qty_sparepart,
+                MAX(p.km_odometer) as km_terakhir,
+                MAX(p.tanggal) as tanggal_terakhir')
             ->get()
             ->all();
     }
 
-    /** @return object[] baris perawatan (kolom lengkap tabel p) + jenis_perawatan berisi label paket (atau 'Perbaikan' bila insidental) — dipakai export unit. */
-    public function listByArmadaRentang(string $idArmada, ?string $dari = null, ?string $sampai = null): array
+    private function queryRentang(?string $dari, ?string $sampai)
     {
         return DB::table('perawatan_armada as p')
+            ->join('armada as a', 'a.id_armada', '=', 'p.id_armada')
             ->leftJoinSub($this->subTotalSparepart(), 'sp', 'sp.id_perawatan', '=', 'p.id_perawatan')
             ->leftJoin('interval_perawatan as ip', 'ip.id_interval_perawatan', '=', 'p.id_interval_perawatan')
+            ->leftJoin('supplier as s', 's.id_supplier', '=', 'p.id_supplier')
             ->whereNull('p.dihapus_pada')
-            ->where('p.id_armada', $idArmada)
+            ->whereNull('a.dihapus_pada')
             ->where('p.status', '!=', 'dibatalkan')
             ->when($dari, fn ($q, $v) => $q->whereDate('p.tanggal', '>=', $v))
             ->when($sampai, fn ($q, $v) => $q->whereDate('p.tanggal', '<=', $v))
+            ->selectRaw('p.*, a.nopol, a.merk, s.nama as nama_supplier,
+                COALESCE(sp.total_sparepart, 0) as total_sparepart,
+                COALESCE(sp.qty_sparepart, 0) as qty_sparepart,
+                ip.interval_km, ip.interval_bulan');
+    }
+
+    private function tempelLabelJenis($row): object
+    {
+        $row->jenis_perawatan = IntervalLabelBuilder::buildOrFallback(
+            $row->interval_km !== null ? (int) $row->interval_km : null,
+            $row->interval_bulan !== null ? (int) $row->interval_bulan : null,
+        );
+        return $row;
+    }
+
+    /** @return object[] */
+    public function listByArmadaRentang(string $idArmada, ?string $dari = null, ?string $sampai = null): array
+    {
+        return $this->queryRentang($dari, $sampai)
+            ->where('p.id_armada', $idArmada)
             ->orderByDesc('p.tanggal')
             ->orderByDesc('p.dibuat_pada')
-            ->selectRaw('p.*, COALESCE(sp.total_sparepart, 0) as total_sparepart, ip.interval_km, ip.interval_bulan')
             ->get()
-            ->map(function ($row) {
-                $row->jenis_perawatan = IntervalLabelBuilder::buildOrFallback(
-                    $row->interval_km !== null ? (int) $row->interval_km : null,
-                    $row->interval_bulan !== null ? (int) $row->interval_bulan : null,
-                );
-                return $row;
-            })
+            ->map(fn ($row) => $this->tempelLabelJenis($row))
+            ->all();
+    }
+
+    public function listRentangPerusahaan(string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array
+    {
+        return $this->queryRentang($dari, $sampai)
+            ->where('a.id_perusahaan', $idPerusahaan)
+            ->orderBy('a.nopol')
+            ->orderByDesc('p.tanggal')
+            ->orderByDesc('p.dibuat_pada')
+            ->get()
+            ->map(fn ($row) => $this->tempelLabelJenis($row))
+            ->all();
+    }
+
+    public function linesByPerawatanIds(array $idPerawatanList): array
+    {
+        if ($idPerawatanList === []) {
+            return [];
+        }
+
+        return DB::table('perawatan_sparepart as ps')
+            ->leftJoin('sparepart as s', 's.id_sparepart', '=', 'ps.id_sparepart')
+            ->whereNull('ps.dihapus_pada')
+            ->whereIn('ps.id_perawatan', $idPerawatanList)
+            ->orderBy('ps.dibuat_pada')
+            ->get(['ps.id_perawatan', 'ps.id_sparepart', 'ps.nama_sparepart', 'ps.sumber', 'ps.qty', 'ps.harga', 's.kode as kode_sparepart', 's.satuan'])
+            ->all();
+    }
+
+    public function rekapSparepart(string $idPerusahaan, ?string $idArmada = null, ?string $dari = null, ?string $sampai = null): array
+    {
+        return DB::table('perawatan_sparepart as ps')
+            ->join('perawatan_armada as p', 'p.id_perawatan', '=', 'ps.id_perawatan')
+            ->join('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoin('sparepart as s', 's.id_sparepart', '=', 'ps.id_sparepart')
+            ->where('a.id_perusahaan', $idPerusahaan)
+            ->whereNull('ps.dihapus_pada')
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('a.dihapus_pada')
+            ->where('p.status', '!=', 'dibatalkan')
+            ->when($idArmada, fn ($q, $v) => $q->where('a.id_armada', $v))
+            ->when($dari, fn ($q, $v) => $q->whereDate('p.tanggal', '>=', $v))
+            ->when($sampai, fn ($q, $v) => $q->whereDate('p.tanggal', '<=', $v))
+            ->groupByRaw('a.id_armada, a.nopol, a.merk, COALESCE(ps.id_sparepart, ps.nama_sparepart)')
+            ->orderBy('a.nopol')
+            ->orderByDesc('total_biaya')
+            ->selectRaw('a.id_armada, a.nopol, a.merk,
+                MAX(ps.id_sparepart) as id_sparepart,
+                MAX(ps.nama_sparepart) as nama_sparepart,
+                MAX(s.kode) as kode_sparepart,
+                MAX(s.satuan) as satuan,
+                SUM(ps.qty) as total_qty,
+                SUM(ps.qty * ps.harga) as total_biaya,
+                COUNT(DISTINCT p.id_perawatan) as jumlah_perawatan,
+                MAX(p.tanggal) as terakhir_dipakai,
+                SUM(CASE WHEN ps.sumber = \'stok_sendiri\' THEN ps.qty ELSE 0 END) as qty_stok,
+                SUM(CASE WHEN ps.sumber = \'bengkel\' THEN ps.qty ELSE 0 END) as qty_bengkel')
+            ->get()
             ->all();
     }
 

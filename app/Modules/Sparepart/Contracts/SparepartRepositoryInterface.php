@@ -20,4 +20,9 @@ interface SparepartRepositoryInterface
     public function setStok(string $id, int $stokBaru): void;
     public function insertMutasi(array $data): void;
     public function paginateMutasi(string $idSparepart, int $page, int $limit): LengthAwarePaginator;
+    public function insertRiwayatHarga(array $data): void;
+    public function paginateRiwayatHarga(string $idSparepart, int $page, int $limit): LengthAwarePaginator;
+
+    /** @return array<string, object> */
+    public function hargaBeliTerakhirByIds(array $ids): array;
 }

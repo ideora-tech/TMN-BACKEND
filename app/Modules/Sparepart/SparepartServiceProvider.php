@@ -21,6 +21,8 @@ class SparepartServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:sparepart'])
             ->group(function () {
+                Route::get('sparepart/import/template', [SparepartController::class, 'downloadTemplate']);
+                Route::post('sparepart/import', [SparepartController::class, 'import']);
                 Route::post('sparepart/{id}/stok', [SparepartController::class, 'mutasiStok']);
                 Route::get('sparepart/{id}/mutasi', [SparepartController::class, 'listMutasi']);
                 Route::post('sparepart', [SparepartController::class, 'store']);
@@ -30,9 +32,10 @@ class SparepartServiceProvider extends ServiceProvider
             });
 
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:sparepart|perawatan-armada'])
+            ->middleware(['api', 'auth:sanctum', 'izin:sparepart|perawatan-armada|pembelian-sparepart'])
             ->group(function () {
                 Route::get('sparepart', [SparepartController::class, 'index']);
+                Route::get('sparepart/{id}/riwayat-harga', [SparepartController::class, 'listRiwayatHarga']);
                 Route::get('sparepart/{id}', [SparepartController::class, 'show']);
             });
     }

@@ -6,6 +6,7 @@ namespace App\Modules\PembelianSparepart;
 use App\Modules\ArusKas\ArusKasService;
 use App\Modules\PembelianSparepart\Contracts\PembelianSparepartRepositoryInterface;
 use App\Support\PenyimpananBerkas;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class PembelianSparepartService
@@ -76,10 +77,11 @@ class PembelianSparepartService
         ];
     }
 
-    public function create(array $data, string $idPerusahaan): object
+    /** @param UploadedFile[] $bukti */
+    public function create(array $data, array $bukti, string $idPerusahaan): object
     {
         [$header, $items] = $this->susunHeaderItems($data, $idPerusahaan);
-        return DB::transaction(function () use ($header, $items, $idPerusahaan) {
+        return DB::transaction(function () use ($header, $items, $bukti, $idPerusahaan) {
             $header['id_perusahaan']   = $idPerusahaan;
             $header['status']          = self::STATUS_DIAJUKAN;
             $header['nomor_pengajuan'] = $this->repo->nomorBerikutnya($idPerusahaan);
@@ -87,6 +89,7 @@ class PembelianSparepartService
                 $header = $this->stampDisetujuiOtomatis($header);
             }
             $record = $this->repo->createWithItems($header, $items);
+            $this->simpanBukti($record->id_pembelian, $bukti);
             $hasil = $this->findOrFail($record->id_pembelian, $idPerusahaan);
             if ($hasil->id_perawatan === null) {
                 $this->arusKasService->buatPengajuanPembelianOtomatis($hasil, (float) $hasil->total_estimasi);
@@ -178,7 +181,8 @@ class PembelianSparepartService
 
     private function susunHeaderItems(array $data, string $idPerusahaan): array
     {
-        if (!$this->repo->supplierMilik($idPerusahaan, $data['id_supplier'])) {
+        $idSupplier = !empty($data['id_supplier']) ? (string) $data['id_supplier'] : null;
+        if ($idSupplier !== null && !$this->repo->supplierMilik($idPerusahaan, $idSupplier)) {
             abort(422, 'Supplier tidak ditemukan');
         }
         if (!empty($data['id_perawatan']) && !$this->repo->perawatanMilik($idPerusahaan, $data['id_perawatan'])) {
@@ -205,7 +209,7 @@ class PembelianSparepartService
         }
 
         $header = [
-            'id_supplier'       => $data['id_supplier'],
+            'id_supplier'       => $idSupplier,
             'id_perawatan'      => $data['id_perawatan'] ?? null,
             'tanggal_pengajuan' => $data['tanggal_pengajuan'],
             'keterangan'        => $data['keterangan'] ?? null,
@@ -225,14 +229,20 @@ class PembelianSparepartService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
         $this->pastikanStatus($record, [self::STATUS_DIAJUKAN, self::STATUS_DISETUJUI_MANAGER, self::STATUS_DISETUJUI_FINANCE, self::STATUS_DIBELI, self::STATUS_LUNAS], 'Bukti tidak bisa diunggah pada pengajuan yang ditolak');
+        $this->simpanBukti($id, $files);
+        return $this->findOrFail($id, $idPerusahaan);
+    }
+
+    /** @param UploadedFile[] $files */
+    private function simpanBukti(string $idPembelian, array $files): void
+    {
         foreach ($files as $file) {
             $this->repo->insertBukti([
-                'id_pembelian' => $id,
+                'id_pembelian' => $idPembelian,
                 'url_file'     => PenyimpananBerkas::simpan($file, 'pembelian-sparepart'),
                 'nama_asli'    => $file->getClientOriginalName(),
             ]);
         }
-        return $this->findOrFail($id, $idPerusahaan);
     }
 
     public function hapusBukti(string $id, string $idBukti, string $idPerusahaan): object
@@ -242,6 +252,9 @@ class PembelianSparepartService
         $bukti = $this->repo->findBukti($id, $idBukti);
         if ($bukti === null) {
             abort(404, 'Bukti tidak ditemukan');
+        }
+        if (in_array($record->status, [self::STATUS_DIAJUKAN, self::STATUS_DISETUJUI_MANAGER], true) && count($record->bukti) <= 1) {
+            abort(422, 'Pengajuan yang masih menunggu approval wajib memiliki minimal satu lampiran');
         }
         $this->repo->softDeleteBukti($idBukti);
         return $this->findOrFail($id, $idPerusahaan);

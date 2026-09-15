@@ -37,6 +37,16 @@ class KategoriSparepartRepository implements KategoriSparepartRepositoryInterfac
             ->first();
     }
 
+    public function findByNama(string $idPerusahaan, string $nama): ?object
+    {
+        return DB::table('kategori_sparepart')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereRaw('LOWER(nama) = ?', [mb_strtolower($nama)])
+            ->first();
+    }
+
     public function create(array $data): object
     {
         $data = RecordHelper::stampCreate($data, 'id_kategori_sparepart');

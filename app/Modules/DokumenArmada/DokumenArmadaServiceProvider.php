@@ -19,11 +19,12 @@ class DokumenArmadaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:armada'])
+            ->middleware(['api', 'auth:sanctum', 'izin:dokumen-armada|armada'])
             ->group(function () {
                 Route::get('dokumen-armada', [DokumenArmadaController::class, 'index']);
                 Route::get('dokumen-armada/expiring', [DokumenArmadaController::class, 'expiring']);
                 Route::get('dokumen-armada/per-unit', [DokumenArmadaController::class, 'perUnit']);
+                Route::get('dokumen-armada/jumlah-segera-habis', [DokumenArmadaController::class, 'jumlahSegeraHabis']);
                 Route::get('dokumen-armada/{id}', [DokumenArmadaController::class, 'show'])->whereUuid('id');
 
                 Route::get('armada/{idArmada}/dokumen', [DokumenArmadaController::class, 'indexByArmada']);

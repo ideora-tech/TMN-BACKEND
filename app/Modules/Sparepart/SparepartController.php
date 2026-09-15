@@ -5,18 +5,36 @@ declare(strict_types=1);
 namespace App\Modules\Sparepart;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Sparepart\Exports\SparepartTemplateExport;
+use App\Modules\Sparepart\Requests\ImportSparepartRequest;
 use App\Modules\Sparepart\Requests\StokSparepartRequest;
 use App\Modules\Sparepart\Requests\StoreSparepartRequest;
 use App\Modules\Sparepart\Requests\UpdateSparepartRequest;
 use App\Modules\Sparepart\Resources\SparepartMutasiResource;
 use App\Modules\Sparepart\Resources\SparepartResource;
+use App\Modules\Sparepart\Resources\SparepartRiwayatHargaResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SparepartController extends Controller
 {
     public function __construct(private readonly SparepartService $service) {}
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        return Excel::download(new SparepartTemplateExport(), 'template-import-sparepart.xlsx');
+    }
+
+    public function import(ImportSparepartRequest $request): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $result = $this->service->import($request->file('file'), $idPerusahaan);
+
+        return ApiResponse::success($result, 'Import spare part selesai diproses');
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -81,6 +99,21 @@ class SparepartController extends Controller
 
         return ApiResponse::paginated(
             SparepartMutasiResource::collection($result['data']),
+            $result['meta']
+        );
+    }
+
+    public function listRiwayatHarga(Request $request, string $id): JsonResponse
+    {
+        $result = $this->service->listRiwayatHarga(
+            $id,
+            (string) $request->user()->id_perusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 20)
+        );
+
+        return ApiResponse::paginated(
+            SparepartRiwayatHargaResource::collection($result['data']),
             $result['meta']
         );
     }

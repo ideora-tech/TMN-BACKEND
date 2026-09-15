@@ -17,6 +17,12 @@ class ReapprovalNominalRealisasiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('public');
+    }
+
     private function makeSupplier(): string
     {
         $id = (string) Str::uuid();
@@ -56,6 +62,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
                 ['id_sparepart' => $this->makeSparepart('Oli Mesin'), 'qty' => 2, 'harga_estimasi' => 60000],
                 ['id_sparepart' => $this->makeSparepart('Filter Udara'), 'qty' => 1, 'harga_estimasi' => 80000],
             ],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ], $override);
     }
 

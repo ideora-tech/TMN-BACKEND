@@ -15,14 +15,34 @@ class SparepartResource extends JsonResource
             'id_perusahaan'          => $this->id_perusahaan,
             'kode'                   => $this->kode,
             'nama'                   => $this->nama,
+            'serial_number'          => $this->serial_number,
+            'merek'                  => $this->merek,
+            'tahun'                  => $this->tahun !== null ? (int) $this->tahun : null,
             'id_kategori_sparepart'  => $this->id_kategori_sparepart,
             'nama_kategori_sparepart' => $this->nama_kategori_sparepart ?? null,
             'satuan'                 => $this->satuan,
             'harga_standar'          => (float) $this->harga_standar,
             'stok'                   => (int) $this->stok,
             'aktif'                  => (bool) $this->aktif,
+            'harga_beli_terakhir'    => $this->hargaBeliTerakhir(),
             'dibuat_pada'            => $this->dibuat_pada,
             'diubah_pada'            => $this->diubah_pada,
+        ];
+    }
+
+    private function hargaBeliTerakhir(): ?array
+    {
+        $row = $this->harga_beli_terakhir ?? null;
+        if ($row === null) {
+            return null;
+        }
+
+        return [
+            'harga'           => (float) $row->harga,
+            'tanggal'         => (string) $row->tanggal,
+            'id_pembelian'    => $row->id_pembelian,
+            'nomor_pengajuan' => $row->nomor_pengajuan,
+            'nama_supplier'   => $row->nama_supplier,
         ];
     }
 }

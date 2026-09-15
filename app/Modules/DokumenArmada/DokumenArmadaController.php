@@ -146,6 +146,11 @@ class DokumenArmadaController extends Controller
         return ApiResponse::success(null, 'Dokumen armada berhasil dihapus');
     }
 
+    public function jumlahSegeraHabis(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->jumlahSegeraHabis((string) $request->user()->id_perusahaan));
+    }
+
     public function expiring(Request $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;

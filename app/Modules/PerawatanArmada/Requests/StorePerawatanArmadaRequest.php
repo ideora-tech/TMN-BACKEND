@@ -19,7 +19,7 @@ class StorePerawatanArmadaRequest extends FormRequest
             'tanggal'                  => ['required', 'date'],
             'id_interval_perawatan'    => ['sometimes', 'nullable', 'string', 'max:36'],
             'biaya'                    => ['sometimes', 'numeric', 'min:0'],
-            'km_odometer'              => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'km_odometer'              => ['nullable', 'integer', 'min:0', 'required_with:id_interval_perawatan'],
             'status'                   => ['sometimes', 'in:terjadwal,dalam_proses,selesai'],
             'jadwal_servis_berikutnya' => ['sometimes', 'nullable', 'date'],
             'keterangan'               => ['sometimes', 'nullable', 'string'],
@@ -30,6 +30,13 @@ class StorePerawatanArmadaRequest extends FormRequest
             'sparepart.*.nama_sparepart'   => ['nullable', 'string', 'max:150', 'required_without:sparepart.*.id_sparepart'],
             'sparepart.*.qty'              => ['required', 'integer', 'min:1'],
             'sparepart.*.harga'            => ['required', 'numeric', 'min:0'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'km_odometer.required_with' => 'KM odometer wajib diisi untuk servis berkala',
         ];
     }
 }

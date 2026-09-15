@@ -11,8 +11,9 @@ use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithTitle;
 
-class PerawatanUnitExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithEvents
+class PerawatanUnitExport implements FromCollection, WithHeadings, WithMapping, WithTitle, ShouldAutoSize, WithEvents
 {
     use DenganGayaLaporan;
 
@@ -22,6 +23,11 @@ class PerawatanUnitExport implements FromCollection, WithHeadings, WithMapping, 
         private readonly ?string $dari = null,
         private readonly ?string $sampai = null,
     ) {}
+
+    public function title(): string
+    {
+        return 'Riwayat Perawatan';
+    }
 
     public function judulLaporan(): string
     {
@@ -51,14 +57,14 @@ class PerawatanUnitExport implements FromCollection, WithHeadings, WithMapping, 
 
     public function headings(): array
     {
-        return ['Tanggal', 'Jenis Perawatan', 'Status', 'KM Odometer', 'Biaya Jasa', 'Biaya Sparepart', 'Total'];
+        return ['Tanggal', 'Jenis Perawatan', 'Status', 'KM Odometer', 'Bengkel / Supplier', 'Biaya Jasa', 'Biaya Sparepart', 'Total'];
     }
 
     public function map($row): array
     {
         if (isset($row->is_total)) {
             return [
-                'TOTAL', '', '', '',
+                'TOTAL', '', '', '', '',
                 (float) $row->biaya,
                 (float) $row->total_sparepart,
                 (float) $row->biaya + (float) $row->total_sparepart,
@@ -70,6 +76,7 @@ class PerawatanUnitExport implements FromCollection, WithHeadings, WithMapping, 
             $row->jenis_perawatan ?? '',
             str_replace('_', ' ', (string) ($row->status ?? 'selesai')),
             $row->km_odometer ?? '',
+            $row->nama_supplier ?? '',
             (float) $row->biaya,
             (float) $row->total_sparepart,
             (float) $row->biaya + (float) $row->total_sparepart,

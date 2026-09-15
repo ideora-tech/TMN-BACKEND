@@ -20,6 +20,9 @@ interface PerawatanArmadaRepositoryInterface
     public function getPerusahaan(string $idPerusahaan): ?object;
     public function rekapPerUnit(string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array;
     public function listByArmadaRentang(string $idArmada, ?string $dari = null, ?string $sampai = null): array;
+    public function listRentangPerusahaan(string $idPerusahaan, ?string $dari = null, ?string $sampai = null): array;
+    public function linesByPerawatanIds(array $idPerawatanList): array;
+    public function rekapSparepart(string $idPerusahaan, ?string $idArmada = null, ?string $dari = null, ?string $sampai = null): array;
     public function listBukti(string $idPerawatan): array;
     public function insertBukti(array $data): void;
     public function findBukti(string $idPerawatan, string $idBukti): ?object;
