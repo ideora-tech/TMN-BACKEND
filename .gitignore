@@ -19,3 +19,5 @@ yarn-error.log
 /.idea
 /.vscode
 /.claude/skills/impeccable
+.superpowers/
+docs/superpowers/
