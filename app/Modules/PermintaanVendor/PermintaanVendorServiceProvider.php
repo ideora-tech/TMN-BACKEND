@@ -24,12 +24,17 @@ class PermintaanVendorServiceProvider extends ServiceProvider
         Event::listen(ApprovalDiputuskan::class, [PermintaanVendorApprovalListener::class, 'handle']);
 
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:permintaan-vendor'])
+            ->middleware(['api', 'auth:sanctum', 'izin:permintaan-vendor|kontrak-vendor'])
             ->group(function () {
                 Route::get('permintaan-vendor', [PermintaanVendorController::class, 'index']);
+                Route::get('permintaan-vendor/{id}', [PermintaanVendorController::class, 'show']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:permintaan-vendor'])
+            ->group(function () {
                 Route::post('permintaan-vendor', [PermintaanVendorController::class, 'store']);
                 Route::post('permintaan-vendor/{id}/ajukan-approval', [PermintaanVendorController::class, 'ajukanApproval']);
-                Route::get('permintaan-vendor/{id}', [PermintaanVendorController::class, 'show']);
                 Route::put('permintaan-vendor/{id}', [PermintaanVendorController::class, 'update']);
                 Route::delete('permintaan-vendor/{id}', [PermintaanVendorController::class, 'destroy']);
             });

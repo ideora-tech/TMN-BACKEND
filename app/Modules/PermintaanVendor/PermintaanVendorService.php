@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Modules\PermintaanVendor;
 
+use App\Modules\Notifikasi\NotifikasiService;
 use App\Modules\PermintaanVendor\Contracts\PermintaanVendorRepositoryInterface;
 use App\Support\KodeOtomatis;
 use Illuminate\Support\Facades\DB;
 
 class PermintaanVendorService
 {
+    private const MENU_TIM_VENDOR = ['/kontrak-vendor', '/permintaan-vendor'];
+
     public function __construct(
         private readonly PermintaanVendorRepositoryInterface $repo,
+        private readonly NotifikasiService $notifikasiService,
     ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
@@ -126,10 +130,12 @@ class PermintaanVendorService
             $approvalService = app(\App\Modules\Approval\ApprovalService::class);
 
             if (!$approvalService->eventTypeAktifAda('permintaan_vendor', $idPerusahaan)) {
-                return $this->repo->update($terkunci, [
+                $disetujui = $this->repo->update($terkunci, [
                     'status'         => 'disetujui',
                     'alasan_ditolak' => null,
                 ]);
+                $this->beritahuTimVendor($disetujui, 'disetujui', $idPengguna);
+                return $disetujui;
             }
 
             $approvalService->ajukan(
@@ -140,11 +146,40 @@ class PermintaanVendorService
                 $idPerusahaan,
             );
 
-            return $this->repo->update($terkunci, [
+            $diajukan = $this->repo->update($terkunci, [
                 'status'         => 'menunggu_approval',
                 'alasan_ditolak' => null,
             ]);
+            $this->beritahuTimVendor($diajukan, 'menunggu_approval', $idPengguna);
+            return $diajukan;
         });
+    }
+
+    private function beritahuTimVendor(PermintaanVendorModel $record, string $tahap, ?string $kecualiIdPengguna = null): void
+    {
+        $unit = collect($record->unit_diminta ?? [])
+            ->map(fn ($u) => ((string) ($u['nama_jenis_kendaraan'] ?? 'Unit')) . ' x ' . ((int) ($u['jumlah_unit'] ?? 0)))
+            ->implode(', ');
+        $menunggu = $tahap === 'menunggu_approval';
+        $rincian = array_values(array_filter([
+            $record->nama_proyek !== null ? "Proyek {$record->nama_proyek}" : null,
+            $unit !== '' ? $unit : null,
+            $menunggu ? 'Diajukan oleh tim sales' : 'Sudah disetujui, silakan proses kontrak vendor',
+        ]));
+
+        $this->notifikasiService->kirimKePemilikIzinMenu(
+            self::MENU_TIM_VENDOR,
+            (string) $record->id_perusahaan,
+            $menunggu
+                ? "Permintaan vendor {$record->nomor_permintaan} menunggu approval"
+                : "Permintaan vendor {$record->nomor_permintaan} siap dikontrakkan",
+            implode(' - ', $rincian),
+            'permintaan_vendor',
+            'permintaan_vendor',
+            (string) $record->id_permintaan,
+            '/permintaan-vendor/' . $record->id_permintaan,
+            $kecualiIdPengguna,
+        );
     }
 
     public function terapkanKeputusanApproval(string $idPermintaan, string $idPerusahaan, string $keputusan, ?string $alasanDitolak): void
@@ -166,7 +201,8 @@ class PermintaanVendorService
             return;
         }
 
-        $this->repo->update($record, ['status' => 'disetujui']);
+        $disetujui = $this->repo->update($record, ['status' => 'disetujui']);
+        $this->beritahuTimVendor($disetujui, 'disetujui');
     }
 
     private function validasiReferensi(array $data, string $idPerusahaan): void

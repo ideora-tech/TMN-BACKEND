@@ -121,6 +121,38 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
             ->value('id_pengguna');
     }
 
+    public function idPenggunaDenganIzinMenu(array $paths, string $idPerusahaan, string $aksi = 'lihat'): array
+    {
+        $rows = DB::table('izin_peran as ip')
+            ->join('menu as m', 'm.id_menu', '=', 'ip.id_menu')
+            ->whereNull('m.dihapus_pada')
+            ->whereIn('m.path', $paths)
+            ->where('ip.aksi', $aksi)
+            ->whereNull('ip.dihapus_pada')
+            ->where(function ($q) use ($idPerusahaan) {
+                $q->where('ip.id_perusahaan', $idPerusahaan)->orWhereNull('ip.id_perusahaan');
+            })
+            ->get(['m.path', 'ip.kode_peran', 'ip.diizinkan', 'ip.id_perusahaan']);
+
+        $peran = [];
+        foreach ($rows->groupBy(fn ($r) => $r->kode_peran . '|' . $r->path) as $grup) {
+            $baris = $grup->first(fn ($r) => $r->id_perusahaan !== null) ?? $grup->first();
+            if ($baris !== null && (int) $baris->diizinkan === 1) {
+                $peran[] = (string) $baris->kode_peran;
+            }
+        }
+        $peran = array_values(array_unique([...$peran, 'SUPERADMIN']));
+
+        return DB::table('pengguna')
+            ->whereNull('dihapus_pada')
+            ->where('aktif', 1)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereIn('kode_peran', $peran)
+            ->pluck('id_pengguna')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
     public function markAllRead(string $idPengguna, string $idPerusahaan, bool $termasukBroadcast = true): int
     {
         return NotifikasiModel::active()

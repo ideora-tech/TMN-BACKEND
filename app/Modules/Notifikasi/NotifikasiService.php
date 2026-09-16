@@ -104,6 +104,42 @@ class NotifikasiService
         ]);
     }
 
+    /** @param string[] $menu */
+    public function kirimKePemilikIzinMenu(
+        array $menu,
+        string $idPerusahaan,
+        string $judul,
+        string $isi,
+        string $tipe,
+        string $referensiTipe,
+        string $referensiId,
+        ?string $link = null,
+        ?string $kecualiIdPengguna = null,
+    ): int {
+        $penerima = $this->repo->idPenggunaDenganIzinMenu($menu, $idPerusahaan);
+        $terkirim = 0;
+
+        foreach ($penerima as $idPengguna) {
+            if ($kecualiIdPengguna !== null && $idPengguna === $kecualiIdPengguna) {
+                continue;
+            }
+            $this->buatDanKirim([
+                'id_perusahaan'  => $idPerusahaan,
+                'id_pengguna'    => $idPengguna,
+                'judul'          => $judul,
+                'isi'            => $isi,
+                'tipe'           => $tipe,
+                'referensi_id'   => $referensiId,
+                'referensi_tipe' => $referensiTipe,
+                'link'           => $link,
+                'dibaca'         => 0,
+            ]);
+            $terkirim++;
+        }
+
+        return $terkirim;
+    }
+
     public function markRead(string $id): NotifikasiModel
     {
         return $this->repo->markRead($this->findOrFail($id));
