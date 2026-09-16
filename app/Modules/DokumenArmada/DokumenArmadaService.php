@@ -167,13 +167,15 @@ class DokumenArmadaService
 
     public function jumlahSegeraHabis(string $idPerusahaan): array
     {
+        $hariIni = now()->toDateString();
+        $segera = $this->repo->hitungSegeraHabis($idPerusahaan, $hariIni, now()->addDays(self::HARI_PENGINGAT)->toDateString());
+        $habis = $this->repo->hitungHabis($idPerusahaan, $hariIni);
+
         return [
-            'jumlah' => $this->repo->hitungSegeraHabis(
-                $idPerusahaan,
-                now()->toDateString(),
-                now()->addDays(self::HARI_PENGINGAT)->toDateString(),
-            ),
-            'hari' => self::HARI_PENGINGAT,
+            'jumlah' => $segera + $habis,
+            'segera' => $segera,
+            'habis'  => $habis,
+            'hari'   => self::HARI_PENGINGAT,
         ];
     }
 

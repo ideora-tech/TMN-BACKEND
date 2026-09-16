@@ -125,9 +125,14 @@ class DokumenArmadaPengingatTest extends TestCase
             'jenis_dokumen' => 'KIR', 'berlaku_sampai' => now()->addDays(2)->toDateString(), 'aktif' => 1, 'dibuat_pada' => now(),
         ]);
 
+        $this->makeDokumen(-40, [], 'B 7 A');
+        $this->makeDokumen(-2, ['aktif' => 0], 'B 8 A');
+
         $this->getJson('/api/dokumen-armada/jumlah-segera-habis')
             ->assertStatus(200)
-            ->assertJsonPath('data.jumlah', 2)
+            ->assertJsonPath('data.jumlah', 4)
+            ->assertJsonPath('data.segera', 2)
+            ->assertJsonPath('data.habis', 2)
             ->assertJsonPath('data.hari', 7);
     }
 

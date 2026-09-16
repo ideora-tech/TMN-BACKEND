@@ -17,6 +17,7 @@ interface DokumenArmadaRepositoryInterface
     public function findPengganti(string $id): ?object;
     public function adaAktif(string $idArmada, string $jenisDokumen, ?string $kecualiId = null): bool;
     public function hitungSegeraHabis(string $idPerusahaan, string $dari, string $sampai): int;
+    public function hitungHabis(string $idPerusahaan, string $sebelum): int;
     public function findExpiring(string $idPerusahaan, int $days): array;
     public function create(array $data): object;
     public function update(object $record, array $data): object;
