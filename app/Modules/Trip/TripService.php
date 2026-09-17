@@ -35,6 +35,7 @@ class TripService
         private readonly JadwalShiftRepositoryInterface $jadwalShiftRepo,
         private readonly AbsensiSupirRepositoryInterface $absensiRepo,
         private readonly LaporanOperasionalRepositoryInterface $laporanRepo,
+        private readonly \App\Modules\LaporanPerjalanan\Contracts\LaporanPerjalananRepositoryInterface $laporanPerjalananRepo,
         private readonly ArusKasService $arusKasService
     ) {}
 
@@ -553,6 +554,7 @@ class TripService
             ]);
 
             $this->catatRiwayatStatus($trip->id_trip, 'selesai', 'Check-out — trip selesai');
+            $this->kunciLaporanPerjalanan((string) $trip->id_trip);
 
             $penugasan = $this->repo->findPenugasanDariTrip($trip->id_trip);
             $this->lepasArmadaJikaAman($penugasan, $trip->id_trip);
@@ -717,6 +719,15 @@ class TripService
     public function tripPunyaFakturAktif(string $idTrip): bool
     {
         return $this->repo->tripPunyaFakturAktif($idTrip);
+    }
+
+    private function kunciLaporanPerjalanan(string $idTrip): void
+    {
+        $laporan = $this->laporanPerjalananRepo->findByTrip($idTrip);
+        if ($laporan === null || ($laporan->status ?? 'final') === 'final') {
+            return;
+        }
+        $this->laporanPerjalananRepo->update($laporan, ['status' => 'final']);
     }
 
     public function tripPunyaLaporan(string $idTrip): bool
