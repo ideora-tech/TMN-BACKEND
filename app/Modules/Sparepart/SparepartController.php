@@ -10,6 +10,7 @@ use App\Modules\Sparepart\Requests\ImportSparepartRequest;
 use App\Modules\Sparepart\Requests\StokSparepartRequest;
 use App\Modules\Sparepart\Requests\StoreSparepartRequest;
 use App\Modules\Sparepart\Requests\UpdateSparepartRequest;
+use App\Modules\Sparepart\Requests\UploadFotoSparepartRequest;
 use App\Modules\Sparepart\Resources\SparepartMutasiResource;
 use App\Modules\Sparepart\Resources\SparepartResource;
 use App\Modules\Sparepart\Resources\SparepartRiwayatHargaResource;
@@ -87,6 +88,18 @@ class SparepartController extends Controller
     {
         $record = $this->service->mutasiStok($id, $request->validated());
         return ApiResponse::success(new SparepartResource($record), 'Stok berhasil diperbarui');
+    }
+
+    public function storeFoto(UploadFotoSparepartRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->tambahFoto($id, $request->file('foto', []), (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(new SparepartResource($record), 'Foto berhasil diunggah');
+    }
+
+    public function destroyFoto(Request $request, string $id, string $idFoto): JsonResponse
+    {
+        $this->service->hapusFoto($id, $idFoto, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(null, 'Foto berhasil dihapus');
     }
 
     public function listMutasi(Request $request, string $id): JsonResponse

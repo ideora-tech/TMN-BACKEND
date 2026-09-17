@@ -55,12 +55,13 @@ class JenisKendaraanTest extends TestCase
             ->assertJsonPath('data.aktif', true);
 
         $this->assertDatabaseHas('jenis_kendaraan', [
-            'kode_jenis'    => 'TRK-02',
+            'nama_jenis'    => 'Truk Tronton',
             'id_perusahaan' => self::PERUSAHAAN_ID,
         ]);
+        $this->assertMatchesRegularExpression('/^JNS-\d{4}$/', (string) $res->json('data.kode_jenis'));
     }
 
-    public function test_menolak_kode_jenis_duplikat(): void
+    public function test_kode_kiriman_user_diabaikan_dan_dibuat_otomatis(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $this->makeJenisKendaraan(self::PERUSAHAAN_ID, 'TRK-01');
@@ -70,7 +71,9 @@ class JenisKendaraanTest extends TestCase
             'nama_jenis' => 'Truk Duplikat',
         ]);
 
-        $res->assertStatus(409);
+        $res->assertStatus(201);
+        $this->assertNotSame('TRK-01', $res->json('data.kode_jenis'));
+        $this->assertMatchesRegularExpression('/^JNS-\d{4}$/', (string) $res->json('data.kode_jenis'));
     }
 
     public function test_list_jenis_kendaraan_hanya_menampilkan_milik_perusahaan_sendiri(): void

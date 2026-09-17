@@ -63,12 +63,11 @@ class TipePembayaranTest extends TestCase
         ]);
 
         $res->assertStatus(201)
-            ->assertJsonPath('data.kode_tipe', 'termin_3x')
             ->assertJsonPath('data.nama_tipe', 'Termin 3x')
             ->assertJsonPath('data.aktif', true);
     }
 
-    public function test_store_kode_duplikat_ditolak_409(): void
+    public function test_store_kode_kiriman_user_diabaikan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $this->makeTipePembayaran(self::PERUSAHAAN_ID, 'dp', 'DP');
@@ -78,7 +77,9 @@ class TipePembayaranTest extends TestCase
             'nama_tipe' => 'Down Payment',
         ]);
 
-        $res->assertStatus(409);
+        $res->assertStatus(201);
+        $this->assertNotSame('dp', $res->json('data.kode_tipe'));
+        $this->assertMatchesRegularExpression('/^TPB-\d{4}$/', (string) $res->json('data.kode_tipe'));
     }
 
     public function test_update_tipe_pembayaran_berhasil(): void

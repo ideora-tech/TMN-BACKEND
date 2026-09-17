@@ -25,4 +25,12 @@ interface SparepartRepositoryInterface
 
     /** @return array<string, object> */
     public function hargaBeliTerakhirByIds(array $ids): array;
+
+    /** @return array<string, object[]> */
+    public function fotoByIds(array $ids): array;
+    public function hitungFoto(string $idSparepart): int;
+    public function urutanFotoTerakhir(string $idSparepart): int;
+    public function insertFoto(array $data): void;
+    public function findFoto(string $idSparepart, string $idFoto): ?object;
+    public function softDeleteFoto(string $idFoto): void;
 }

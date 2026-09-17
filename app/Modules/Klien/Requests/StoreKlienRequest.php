@@ -16,7 +16,7 @@ class StoreKlienRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_klien'  => ['required', 'string', 'max:50'],
+            'kode_klien'  => ['sometimes', 'nullable', 'string', 'max:50'],
             'nama_klien'  => ['required', 'string', 'max:200'],
             'email'       => ['sometimes', 'nullable', 'email', 'max:150'],
             'telepon'     => ['sometimes', 'nullable', 'string', 'max:30'],

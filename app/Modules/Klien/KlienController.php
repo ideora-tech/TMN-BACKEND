@@ -28,7 +28,9 @@ class KlienController extends Controller
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
             $search,
-            $aktif
+            $aktif,
+            $request->get('urut') !== null && $request->get('urut') !== '' ? (string) $request->get('urut') : null,
+            $request->get('arah') !== null && $request->get('arah') !== '' ? (string) $request->get('arah') : null,
         );
 
         return ApiResponse::paginated(

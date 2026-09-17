@@ -16,7 +16,7 @@ class StoreTipePembayaranRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_tipe' => ['required', 'string', 'max:50'],
+            'kode_tipe' => ['sometimes', 'nullable', 'string', 'max:50'],
             'nama_tipe' => ['required', 'string', 'max:150'],
             'aktif'     => ['sometimes', 'boolean'],
         ];

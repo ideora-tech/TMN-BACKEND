@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LokasiKantor;
 
 use App\Modules\LokasiKantor\Contracts\LokasiKantorRepositoryInterface;
+use App\Support\KodeOtomatis;
 
 class LokasiKantorService
 {
@@ -36,6 +37,8 @@ class LokasiKantorService
 
     public function create(array $data): object
     {
+        $data['kode_lokasi'] = KodeOtomatis::berikutnya((string) $data['id_perusahaan'], 'lokasi_kantor');
+
         return $this->repo->create($data);
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Sparepart\Resources;
 
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class SparepartResource extends JsonResource
@@ -25,6 +26,11 @@ class SparepartResource extends JsonResource
             'stok'                   => (int) $this->stok,
             'aktif'                  => (bool) $this->aktif,
             'harga_beli_terakhir'    => $this->hargaBeliTerakhir(),
+            'foto'                   => array_map(fn ($f) => [
+                'id_foto'   => $f->id_foto,
+                'url_file'  => PenyimpananBerkas::url($f->url_file),
+                'nama_asli' => $f->nama_asli,
+            ], $this->foto ?? []),
             'dibuat_pada'            => $this->dibuat_pada,
             'diubah_pada'            => $this->diubah_pada,
         ];

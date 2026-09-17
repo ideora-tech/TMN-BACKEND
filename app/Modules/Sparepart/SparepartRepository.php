@@ -203,4 +203,59 @@ class SparepartRepository implements SparepartRepositoryInterface
             ->keyBy('id_sparepart')
             ->all();
     }
+
+    public function fotoByIds(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::table('sparepart_foto')
+            ->whereNull('dihapus_pada')
+            ->whereIn('id_sparepart', $ids)
+            ->orderBy('urutan')
+            ->orderBy('dibuat_pada')
+            ->orderBy('id_foto')
+            ->get(['id_foto', 'id_sparepart', 'url_file', 'nama_asli'])
+            ->groupBy('id_sparepart')
+            ->map(fn ($rows) => $rows->all())
+            ->all();
+    }
+
+    public function hitungFoto(string $idSparepart): int
+    {
+        return DB::table('sparepart_foto')
+            ->whereNull('dihapus_pada')
+            ->where('id_sparepart', $idSparepart)
+            ->count();
+    }
+
+    public function urutanFotoTerakhir(string $idSparepart): int
+    {
+        return (int) DB::table('sparepart_foto')
+            ->whereNull('dihapus_pada')
+            ->where('id_sparepart', $idSparepart)
+            ->max('urutan');
+    }
+
+    public function insertFoto(array $data): void
+    {
+        DB::table('sparepart_foto')->insert(RecordHelper::stampCreate($data, 'id_foto'));
+    }
+
+    public function findFoto(string $idSparepart, string $idFoto): ?object
+    {
+        return DB::table('sparepart_foto')
+            ->whereNull('dihapus_pada')
+            ->where('id_sparepart', $idSparepart)
+            ->where('id_foto', $idFoto)
+            ->first();
+    }
+
+    public function softDeleteFoto(string $idFoto): void
+    {
+        DB::table('sparepart_foto')
+            ->where('id_foto', $idFoto)
+            ->update(RecordHelper::stampDelete());
+    }
 }

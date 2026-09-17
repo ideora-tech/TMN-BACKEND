@@ -8,6 +8,7 @@ use App\Modules\Vendor\Contracts\VendorRepositoryInterface;
 use App\Modules\Vendor\Imports\VendorImport;
 use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Support\KodeOtomatis;
 
 class VendorService
 {
@@ -40,6 +41,7 @@ class VendorService
     public function create(array $data): VendorModel
     {
         $idPerusahaan = $data['id_perusahaan'];
+        $data['kode_vendor'] = KodeOtomatis::berikutnya($idPerusahaan, 'vendor');
 
         if ($this->repo->findByKode($idPerusahaan, $data['kode_vendor'])) {
             abort(409, 'Kode vendor sudah digunakan');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\JenisKendaraan;
 
 use App\Modules\JenisKendaraan\Contracts\JenisKendaraanRepositoryInterface;
+use App\Support\KodeOtomatis;
 
 class JenisKendaraanService
 {
@@ -37,6 +38,7 @@ class JenisKendaraanService
     public function create(array $data): object
     {
         $idPerusahaan = $data['id_perusahaan'];
+        $data['kode_jenis'] = KodeOtomatis::berikutnya($idPerusahaan, 'jenis_kendaraan');
 
         if ($this->repo->findByKode($idPerusahaan, $data['kode_jenis'])) {
             abort(409, 'Kode jenis kendaraan sudah digunakan');

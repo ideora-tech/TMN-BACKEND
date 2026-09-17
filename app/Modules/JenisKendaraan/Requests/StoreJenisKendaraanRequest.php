@@ -16,7 +16,7 @@ class StoreJenisKendaraanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_jenis'       => ['required', 'string', 'max:50'],
+            'kode_jenis'       => ['sometimes', 'nullable', 'string', 'max:50'],
             'nama_jenis'       => ['required', 'string', 'max:150'],
             'kapasitas_muatan' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'aktif'            => ['sometimes', 'boolean'],

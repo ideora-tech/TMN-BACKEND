@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\TipePembayaran;
 
 use App\Modules\TipePembayaran\Contracts\TipePembayaranRepositoryInterface;
+use App\Support\KodeOtomatis;
 
 class TipePembayaranService
 {
@@ -48,6 +49,7 @@ class TipePembayaranService
     public function create(array $data): object
     {
         $idPerusahaan = $data['id_perusahaan'];
+        $data['kode_tipe'] = KodeOtomatis::berikutnya($idPerusahaan, 'tipe_pembayaran');
 
         if ($this->repo->findByKode($idPerusahaan, $data['kode_tipe'])) {
             abort(409, 'Kode tipe pembayaran sudah digunakan');

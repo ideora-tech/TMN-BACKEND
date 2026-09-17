@@ -7,15 +7,18 @@ namespace App\Modules\Sparepart;
 use App\Modules\KategoriSparepart\Contracts\KategoriSparepartRepositoryInterface;
 use App\Modules\Sparepart\Contracts\SparepartRepositoryInterface;
 use App\Modules\Sparepart\Imports\SparepartImport;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Support\KodeOtomatis;
 
 class SparepartService
 {
     public const SATUAN_VALID = ['pcs', 'set', 'liter'];
     private const SATUAN_DEFAULT = 'pcs';
+    public const MAKS_FOTO = 10;
     private const TAHUN_MIN = 1900;
     private const PANJANG_MAKS = [
         'kode'          => 50,
@@ -56,9 +59,47 @@ class SparepartService
         }
         $ids = array_map(fn (object $r) => (string) $r->id_sparepart, $records);
         $map = $this->repo->hargaBeliTerakhirByIds($ids);
+        $foto = $this->repo->fotoByIds($ids);
         foreach ($records as $record) {
             $record->harga_beli_terakhir = $map[$record->id_sparepart] ?? null;
+            $record->foto = $foto[$record->id_sparepart] ?? [];
         }
+    }
+
+    /** @param UploadedFile[] $files */
+    public function tambahFoto(string $id, array $files, string $idPerusahaan): object
+    {
+        $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->hitungFoto($id) + count($files) > self::MAKS_FOTO) {
+            abort(422, 'Maksimal ' . self::MAKS_FOTO . ' foto per spare part');
+        }
+
+        DB::transaction(function () use ($id, $files) {
+            $urutan = $this->repo->urutanFotoTerakhir($id);
+
+            foreach ($files as $file) {
+                $this->repo->insertFoto([
+                    'id_sparepart' => $id,
+                    'url_file'     => PenyimpananBerkas::simpan($file, 'sparepart'),
+                    'nama_asli'    => $file->getClientOriginalName(),
+                    'urutan'       => ++$urutan,
+                ]);
+            }
+        });
+
+        return $this->findOrFail($id, $idPerusahaan);
+    }
+
+    public function hapusFoto(string $id, string $idFoto, string $idPerusahaan): void
+    {
+        $this->findOrFail($id, $idPerusahaan);
+
+        if ($this->repo->findFoto($id, $idFoto) === null) {
+            abort(404, 'Foto spare part tidak ditemukan');
+        }
+
+        $this->repo->softDeleteFoto($idFoto);
     }
 
     private function toPagedArray(LengthAwarePaginator $paginator): array
@@ -86,6 +127,8 @@ class SparepartService
 
     public function create(array $data): object
     {
+        $data['kode'] = KodeOtomatis::berikutnya((string) $data['id_perusahaan'], 'sparepart');
+
         if ($this->repo->findByKode($data['id_perusahaan'], $data['kode'])) {
             abort(409, 'Kode spare part sudah digunakan');
         }

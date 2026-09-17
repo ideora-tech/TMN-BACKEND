@@ -5,14 +5,15 @@ declare(strict_types=1);
 namespace App\Modules\Klien;
 
 use App\Modules\Klien\Contracts\KlienRepositoryInterface;
+use App\Support\KodeOtomatis;
 
 class KlienService
 {
     public function __construct(private readonly KlienRepositoryInterface $repo) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $aktif = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $aktif = null, ?string $urut = null, ?string $arah = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $aktif);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $aktif, $urut, $arah);
 
         return [
             'data' => $result->items(),
@@ -37,6 +38,7 @@ class KlienService
     public function create(array $data): object
     {
         $idPerusahaan = $data['id_perusahaan'];
+        $data['kode_klien'] = KodeOtomatis::berikutnya($idPerusahaan, 'klien');
 
         if ($this->repo->findByKode($idPerusahaan, $data['kode_klien'])) {
             abort(409, 'Kode klien sudah digunakan');

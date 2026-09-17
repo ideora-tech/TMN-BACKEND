@@ -43,18 +43,18 @@ class SparepartTest extends TestCase
         ]);
 
         $res->assertStatus(201)
-            ->assertJsonPath('data.kode', 'SP-100')
             ->assertJsonPath('data.stok', 0)
             ->assertJsonPath('data.aktif', true);
     }
 
-    public function test_kode_duplikat_per_perusahaan_ditolak_409_tapi_beda_perusahaan_boleh(): void
+    public function test_kode_kiriman_user_diabaikan_dan_beda_perusahaan_boleh_sama(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $this->makeSparepart('SP-001');
 
         $resDup = $this->postJson('/api/sparepart', ['kode' => 'SP-001', 'nama' => 'Duplikat', 'serial_number' => 'SN-DUP']);
-        $resDup->assertStatus(409);
+        $resDup->assertStatus(201);
+        $this->assertNotSame('SP-001', $resDup->json('data.kode'));
 
         $idLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
@@ -166,7 +166,7 @@ class SparepartTest extends TestCase
         ]);
 
         $res = $this->postJson('/api/sparepart', [
-            'kode' => 'SP-200', 'nama' => 'Filter Oli', 'serial_number' => 'FO-200', 'id_kategori_sparepart' => $idKategori,
+            'nama' => 'Filter Oli', 'serial_number' => 'FO-200', 'id_kategori_sparepart' => $idKategori,
         ]);
         $res->assertStatus(201)
             ->assertJsonPath('data.id_kategori_sparepart', $idKategori)
@@ -177,7 +177,7 @@ class SparepartTest extends TestCase
         $resFilter = $this->getJson("/api/sparepart?id_kategori_sparepart={$idKategori}");
         $resFilter->assertStatus(200);
         $this->assertCount(1, $resFilter->json('data'));
-        $this->assertSame('SP-200', $resFilter->json('data.0.kode'));
+        $this->assertSame($res->json('data.kode'), $resFilter->json('data.0.kode'));
     }
 
     public function test_soft_deleted_kategori_tidak_muncul_tapi_sparepart_tetap_ada(): void

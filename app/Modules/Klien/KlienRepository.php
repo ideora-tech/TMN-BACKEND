@@ -18,8 +18,14 @@ class KlienRepository implements KlienRepositoryInterface
         'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh', 'dihapus_pada', 'dihapus_oleh',
     ];
 
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $aktif = null): LengthAwarePaginator
+    public const KOLOM_URUT = ['kode_klien', 'nama_klien', 'email', 'telepon', 'kontak_pic', 'aktif', 'dibuat_pada'];
+
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $aktif = null, ?string $urut = null, ?string $arah = null): LengthAwarePaginator
     {
+        $kolomUrut = in_array($urut, self::KOLOM_URUT, true) ? $urut : null;
+        $arahUrut  = $kolomUrut === null ? 'desc' : (strtolower((string) $arah) === 'desc' ? 'desc' : 'asc');
+        $kolomUrut ??= 'dibuat_pada';
+
         return DB::table('klien')
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
@@ -28,6 +34,7 @@ class KlienRepository implements KlienRepositoryInterface
                    ->orWhere('kode_klien', 'like', "%{$search}%");
             }))
             ->when($aktif !== null && $aktif !== '', fn ($q) => $q->where('aktif', (int) $aktif))
+            ->orderBy($kolomUrut, $arahUrut)
             ->orderBy('nama_klien')
             ->paginate($limit, self::COLUMNS, 'page', $page);
     }

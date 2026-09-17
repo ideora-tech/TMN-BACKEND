@@ -24,6 +24,8 @@ class SparepartServiceProvider extends ServiceProvider
                 Route::get('sparepart/import/template', [SparepartController::class, 'downloadTemplate']);
                 Route::post('sparepart/import', [SparepartController::class, 'import']);
                 Route::post('sparepart/{id}/stok', [SparepartController::class, 'mutasiStok']);
+                Route::post('sparepart/{id}/foto', [SparepartController::class, 'storeFoto']);
+                Route::delete('sparepart/{id}/foto/{idFoto}', [SparepartController::class, 'destroyFoto']);
                 Route::get('sparepart/{id}/mutasi', [SparepartController::class, 'listMutasi']);
                 Route::post('sparepart', [SparepartController::class, 'store']);
                 Route::put('sparepart/{id}', [SparepartController::class, 'update']);

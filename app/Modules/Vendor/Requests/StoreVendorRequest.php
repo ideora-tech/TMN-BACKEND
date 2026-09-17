@@ -17,7 +17,7 @@ class StoreVendorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_vendor'       => ['required', 'string', 'max:50', Rule::unique('vendor', 'kode_vendor')],
+            'kode_vendor'       => ['sometimes', 'nullable', 'string', 'max:50'],
             'nama_vendor'       => ['required', 'string', 'max:200'],
             'jenis_vendor'      => ['sometimes', 'nullable', 'string', 'max:50'],
             'pic_nama'          => ['sometimes', 'nullable', 'string', 'max:150'],

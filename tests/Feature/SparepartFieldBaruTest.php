@@ -66,7 +66,6 @@ class SparepartFieldBaruTest extends TestCase
             ->assertJsonPath('data.satuan', 'set');
 
         $this->assertDatabaseHas('sparepart', [
-            'kode'          => 'SP-100',
             'serial_number' => 'KR-9001',
             'merek'         => 'Bendix',
             'tahun'         => 2024,

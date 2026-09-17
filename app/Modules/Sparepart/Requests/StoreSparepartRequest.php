@@ -18,7 +18,7 @@ class StoreSparepartRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode'                   => ['required', 'string', 'max:50'],
+            'kode'                   => ['sometimes', 'nullable', 'string', 'max:50'],
             'nama'                   => ['required', 'string', 'max:150'],
             'serial_number'          => ['required', 'string', 'max:100'],
             'merek'                  => ['sometimes', 'nullable', 'string', 'max:100'],

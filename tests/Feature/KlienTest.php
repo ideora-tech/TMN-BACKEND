@@ -48,10 +48,11 @@ class KlienTest extends TestCase
             ->assertJsonPath('data.nama_klien', 'PT Contoh Jaya')
             ->assertJsonPath('data.aktif', true);
 
-        $this->assertDatabaseHas('klien', ['kode_klien' => 'KLN-BARU', 'id_perusahaan' => self::PERUSAHAAN_ID]);
+        $this->assertDatabaseHas('klien', ['nama_klien' => 'PT Contoh Jaya', 'id_perusahaan' => self::PERUSAHAAN_ID]);
+        $this->assertMatchesRegularExpression('/^KLN-\d{4}$/', (string) $res->json('data.kode_klien'));
     }
 
-    public function test_menolak_kode_klien_duplikat(): void
+    public function test_kode_kiriman_user_diabaikan_dan_dibuat_otomatis(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-DUP');
@@ -61,7 +62,50 @@ class KlienTest extends TestCase
             'nama_klien' => 'Duplikat',
         ]);
 
-        $res->assertStatus(409);
+        $res->assertStatus(201);
+        $this->assertNotSame('KLN-DUP', $res->json('data.kode_klien'));
+    }
+
+    public function test_list_klien_default_urut_terbaru_di_atas(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-A', 'Alfa Logistik');
+        DB::table('klien')->where('kode_klien', 'KLN-A')->update(['dibuat_pada' => now()->subDays(3)]);
+        $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-Z', 'Zeta Kargo');
+
+        $data = $this->getJson('/api/klien')->assertStatus(200)->json('data');
+
+        $this->assertSame('Zeta Kargo', $data[0]['nama_klien']);
+        $this->assertSame('Alfa Logistik', $data[1]['nama_klien']);
+    }
+
+    public function test_list_klien_bisa_diurutkan_per_kolom(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-A', 'Alfa Logistik');
+        DB::table('klien')->where('kode_klien', 'KLN-A')->update(['dibuat_pada' => now()->subDays(3)]);
+        $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-Z', 'Zeta Kargo');
+
+        $naik = $this->getJson('/api/klien?urut=nama_klien&arah=asc')->assertStatus(200)->json('data');
+        $this->assertSame('Alfa Logistik', $naik[0]['nama_klien']);
+
+        $turun = $this->getJson('/api/klien?urut=nama_klien&arah=desc')->assertStatus(200)->json('data');
+        $this->assertSame('Zeta Kargo', $turun[0]['nama_klien']);
+
+        $kode = $this->getJson('/api/klien?urut=kode_klien&arah=asc')->assertStatus(200)->json('data');
+        $this->assertSame('KLN-A', $kode[0]['kode_klien']);
+    }
+
+    public function test_kolom_urut_tidak_dikenal_diabaikan_dan_kembali_ke_default(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-A', 'Alfa Logistik');
+        DB::table('klien')->where('kode_klien', 'KLN-A')->update(['dibuat_pada' => now()->subDays(3)]);
+        $this->makeKlien(self::PERUSAHAAN_ID, 'KLN-Z', 'Zeta Kargo');
+
+        $data = $this->getJson('/api/klien?urut=id_klien);DROP&arah=asc')->assertStatus(200)->json('data');
+
+        $this->assertSame('Zeta Kargo', $data[0]['nama_klien']);
     }
 
     public function test_list_klien_hanya_menampilkan_milik_perusahaan_sendiri(): void

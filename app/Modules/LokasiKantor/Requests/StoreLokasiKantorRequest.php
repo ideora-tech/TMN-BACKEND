@@ -16,7 +16,7 @@ class StoreLokasiKantorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_lokasi' => ['required', 'string', 'max:50'],
+            'kode_lokasi' => ['sometimes', 'nullable', 'string', 'max:50'],
             'nama_lokasi' => ['required', 'string', 'max:150'],
             'alamat'      => ['sometimes', 'nullable', 'string'],
             'kota'        => ['sometimes', 'nullable', 'string', 'max:100'],

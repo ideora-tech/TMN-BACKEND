@@ -57,9 +57,10 @@ class LokasiKantorTest extends TestCase
             ->assertJsonPath('data.aktif', true);
 
         $this->assertDatabaseHas('lokasi_kantor', [
-            'kode_lokasi'   => 'LOK-01',
+            'nama_lokasi'   => 'Gudang Bekasi',
             'id_perusahaan' => self::PERUSAHAAN_ID,
         ]);
+        $this->assertMatchesRegularExpression('/^LOK-\d{4}$/', (string) $res->json('data.kode_lokasi'));
     }
 
     public function test_list_lokasi_kantor_hanya_menampilkan_milik_perusahaan_sendiri(): void

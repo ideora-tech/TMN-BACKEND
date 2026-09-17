@@ -16,6 +16,12 @@ class KodeOtomatis
         'permintaan_vendor' => ['prefix' => 'PMV', 'panjang_digit' => 4, 'reset' => 'bulanan'],
         'jabatan'   => ['prefix' => 'JBT', 'panjang_digit' => 4, 'reset' => 'tidak'],
         'departemen' => ['prefix' => 'DEP', 'panjang_digit' => 4, 'reset' => 'tidak'],
+        'jenis_kendaraan'  => ['prefix' => 'JNS', 'panjang_digit' => 4, 'reset' => 'tidak'],
+        'klien'            => ['prefix' => 'KLN', 'panjang_digit' => 4, 'reset' => 'tidak'],
+        'lokasi_kantor'    => ['prefix' => 'LOK', 'panjang_digit' => 4, 'reset' => 'tidak'],
+        'tipe_pembayaran'  => ['prefix' => 'TPB', 'panjang_digit' => 4, 'reset' => 'tidak'],
+        'vendor'           => ['prefix' => 'VDR', 'panjang_digit' => 4, 'reset' => 'tidak'],
+        'sparepart'        => ['prefix' => 'SPR', 'panjang_digit' => 4, 'reset' => 'tidak'],
     ];
 
     public static function berikutnya(string $idPerusahaan, string $entitas): string
