@@ -61,6 +61,34 @@ class PerawatanPartBengkelTest extends TestCase
         return DB::table('supplier')->where('id_supplier', $id)->first();
     }
 
+    public function test_update_dengan_sparepart_kosong_menghapus_semua_item_dan_mengembalikan_stok(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->makeArmada();
+        $sp = $this->makeSparepart('Kampas Rem', 10);
+
+        $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
+            'tanggal' => '2026-09-10', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
+            'sparepart' => [
+                ['sumber' => 'bengkel', 'nama_sparepart' => 'Ongkos Pasang', 'qty' => 1, 'harga' => 50000],
+                ['sumber' => 'stok_sendiri', 'id_sparepart' => $sp->id_sparepart, 'qty' => 2, 'harga' => 40000],
+            ],
+        ]);
+        $idPerawatan = $create->json('data.id_perawatan');
+        $this->assertSame(8, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
+
+        $update = $this->putJson("/api/armada/{$armada->id_armada}/perawatan/{$idPerawatan}", [
+            'tanggal'   => '2026-09-10',
+            'biaya'     => 100000,
+            'sparepart' => [],
+        ]);
+
+        $update->assertStatus(200)->assertJsonCount(0, 'data.sparepart');
+        $this->assertSame(10, (int) DB::table('sparepart')->where('id_sparepart', $sp->id_sparepart)->value('stok'));
+        $this->assertSame(0, DB::table('perawatan_sparepart')
+            ->where('id_perawatan', $idPerawatan)->whereNull('dihapus_pada')->count());
+    }
+
     public function test_part_bengkel_nama_bebas_tanpa_id_sparepart_tersimpan_tanpa_sentuh_stok(): void
     {
         $this->actingAsRole('SUPERADMIN');
