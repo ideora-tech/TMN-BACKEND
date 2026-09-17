@@ -138,8 +138,9 @@ class TripController extends Controller
     public function riwayatSaya(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'tanggal' => ['nullable', 'date_format:Y-m-d'],
-            'status'  => ['nullable', 'string', function ($attribute, $value, $fail) {
+            'tanggal'      => ['nullable', 'date_format:Y-m-d'],
+            'id_penugasan' => ['nullable', 'string', 'max:36'],
+            'status'       => ['nullable', 'string', function ($attribute, $value, $fail) {
                 foreach (explode(',', (string) $value) as $status) {
                     if (!in_array($status, ['selesai', 'dibatalkan', 'berjalan'], true)) {
                         $fail('Status tidak valid');
@@ -157,7 +158,7 @@ class TripController extends Controller
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
             null,
-            null,
+            $validated['id_penugasan'] ?? null,
             $tipe === 'internal' ? $idSupir : null,
             null,
             $validated['status'] ?? 'selesai,dibatalkan',

@@ -336,6 +336,34 @@ class TripSayaTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_riwayat_saya_bisa_disaring_per_penugasan(): void
+    {
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasanA = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $penugasanB = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
+
+        $idTripA = $this->postJson('/api/trip/mulai-saya', [
+            'id_penugasan' => $penugasanA->id_penugasan,
+        ])->assertStatus(201)->json('data.id_trip');
+        $this->buatLaporanKosong($idTripA);
+        $this->postJson("/api/trip/{$idTripA}/checkout-saya")->assertStatus(200);
+
+        $idTripB = $this->postJson('/api/trip/mulai-saya', [
+            'id_penugasan' => $penugasanB->id_penugasan,
+        ])->assertStatus(201)->json('data.id_trip');
+
+        $semua = $this->getJson('/api/trip/riwayat-saya?status=berjalan,selesai')
+            ->assertStatus(200)->json('data');
+        $this->assertCount(2, $semua);
+
+        $hanyaB = $this->getJson("/api/trip/riwayat-saya?status=berjalan,selesai&id_penugasan={$penugasanB->id_penugasan}")
+            ->assertStatus(200)->json('data');
+        $this->assertCount(1, $hanyaB);
+        $this->assertSame($idTripB, $hanyaB[0]['id_trip']);
+    }
+
     public function test_checkout_mengunci_laporan_draft_menjadi_final(): void
     {
         $ctx = $this->actingAsSupir();
