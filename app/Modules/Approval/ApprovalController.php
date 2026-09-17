@@ -116,20 +116,28 @@ class ApprovalController extends Controller
 
     public function menungguSaya(Request $request): JsonResponse
     {
-        $data = $this->service->menungguApprovalSaya(
+        $hasil = $this->service->menungguApprovalSayaHalaman(
             (string) $request->user()->id_pengguna,
             (string) $request->user()->id_perusahaan,
+            $request->get('search'),
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
         );
-        return ApiResponse::success(ApprovalPengajuanResource::collection($data));
+
+        return ApiResponse::paginated(ApprovalPengajuanResource::collection($hasil['data']), $hasil['meta']);
     }
 
     public function riwayatSaya(Request $request): JsonResponse
     {
-        $data = $this->service->riwayatApprovalSaya(
+        $hasil = $this->service->riwayatApprovalSayaHalaman(
             (string) $request->user()->id_pengguna,
             (string) $request->user()->id_perusahaan,
+            $request->get('search'),
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
         );
-        return ApiResponse::success(ApprovalRiwayatSayaResource::collection($data));
+
+        return ApiResponse::paginated(ApprovalRiwayatSayaResource::collection($hasil['data']), $hasil['meta']);
     }
 
     public function exportSaya(Request $request): BinaryFileResponse

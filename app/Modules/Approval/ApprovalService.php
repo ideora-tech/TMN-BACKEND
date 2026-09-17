@@ -183,6 +183,49 @@ class ApprovalService
         return $this->repo->listRiwayatApprovalSaya($idPengguna, $idPerusahaan);
     }
 
+    public function menungguApprovalSayaHalaman(string $idPengguna, string $idPerusahaan, ?string $search, int $page, int $limit): array
+    {
+        return $this->halaman($this->menungguApprovalSaya($idPengguna, $idPerusahaan), $search, $page, $limit);
+    }
+
+    public function riwayatApprovalSayaHalaman(string $idPengguna, string $idPerusahaan, ?string $search, int $page, int $limit): array
+    {
+        return $this->halaman($this->riwayatApprovalSaya($idPengguna, $idPerusahaan), $search, $page, $limit);
+    }
+
+    private const KOLOM_CARI = ['nomor_referensi', 'keterangan_referensi', 'pihak_referensi', 'nama_pengaju', 'nama_event_type'];
+
+    private function halaman(Collection $baris, ?string $search, int $page, int $limit): array
+    {
+        $kata = mb_strtolower(trim((string) $search));
+        if ($kata !== '') {
+            $baris = $baris->filter(function ($item) use ($kata) {
+                foreach (self::KOLOM_CARI as $kolom) {
+                    $nilai = $item->getAttribute($kolom);
+                    if ($nilai !== null && str_contains(mb_strtolower((string) $nilai), $kata)) {
+                        return true;
+                    }
+                }
+                return false;
+            })->values();
+        }
+
+        $limit = $limit > 0 ? $limit : 10;
+        $page  = max(1, $page);
+        $total = $baris->count();
+
+        return [
+            'data' => $baris->slice(($page - 1) * $limit, $limit)->values(),
+            'meta' => [
+                'page'         => $page,
+                'limit'        => $limit,
+                'total'        => $total,
+                'totalPages'   => $total > 0 ? (int) ceil($total / $limit) : 1,
+                'totalNominal' => (float) $baris->sum(fn ($item) => (float) ($item->nominal ?? 0)),
+            ],
+        ];
+    }
+
     public function putuskan(string $idApproval, string $idPengguna, string $keputusan, ?string $catatan, string $idPerusahaan): ApprovalPengajuanModel
     {
         return DB::transaction(function () use ($idApproval, $idPengguna, $keputusan, $catatan, $idPerusahaan) {
@@ -357,11 +400,14 @@ class ApprovalService
             'id_pengguna'    => $pengajuan->id_pengguna_pengaju,
             'judul'          => "Approval {$eventType->nama} Anda: " . ($keputusan === 'disetujui' ? 'Disetujui' : 'Ditolak'),
             'isi'            => $alasanDitolak ?? 'Pengajuan Anda telah diputuskan',
-            'tipe'           => 'approval_generik',
+            'tipe'           => 'approval_keputusan',
             'referensi_id'   => $pengajuan->id_approval,
-            'referensi_tipe' => 'approval_pengajuan',
+            'referensi_tipe' => 'approval_keputusan',
             'link'           => $this->linkReferensi($eventType->kode, (string) $pengajuan->id_referensi),
             'dibaca'         => 0,
+        ], [
+            'kode_event' => $eventType->kode,
+            'keputusan'  => $keputusan,
         ]);
 
         event(new \App\Events\ApprovalDiputuskan(

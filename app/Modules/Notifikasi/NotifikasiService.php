@@ -46,7 +46,7 @@ class NotifikasiService
         return $this->repo->create($data);
     }
 
-    public function buatDanKirim(array $data): NotifikasiModel
+    public function buatDanKirim(array $data, array $dataPush = []): NotifikasiModel
     {
         $record = $this->create($data);
 
@@ -55,10 +55,11 @@ class NotifikasiService
                 (string) $data['id_pengguna'],
                 (string) $data['judul'],
                 (string) $data['isi'],
-                [
+                array_merge([
                     'referensi_tipe' => (string) ($data['referensi_tipe'] ?? ''),
                     'referensi_id'   => (string) ($data['referensi_id'] ?? ''),
-                ],
+                    'tipe'           => (string) ($data['tipe'] ?? ''),
+                ], array_map(static fn ($v) => (string) $v, $dataPush)),
             );
         }
 

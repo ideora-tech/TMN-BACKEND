@@ -57,6 +57,116 @@ class ApprovalEngineTest extends TestCase
         ]);
     }
 
+    public function test_notifikasi_keputusan_ke_pengaju_ditandai_approval_keputusan(): void
+    {
+        $idEventType = $this->makeEventType('pinned');
+        $idJabatan   = $this->makeJabatan('Direktur Keuangan');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Direktur A');
+        DB::table('approval_config_approver')->insert([
+            'id_config'     => (string) Str::uuid(),
+            'id_event_type' => $idEventType,
+            'tipe'          => 'jabatan',
+            'id_jabatan'    => $idJabatan,
+            'dibuat_pada'   => now(),
+        ]);
+        $pengaju = $this->actingAsRole('SALES');
+
+        $service   = app(\App\Modules\Approval\ApprovalService::class);
+        $pengajuan = $service->ajukan('test_dummy', (string) Str::uuid(), $pengaju->id_pengguna, 500000.0, self::PERUSAHAAN_ID);
+
+        $service->putuskan($pengajuan->id_approval, $approver->id_pengguna, 'setuju', null, self::PERUSAHAAN_ID);
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id_pengguna'    => $pengaju->id_pengguna,
+            'referensi_id'   => $pengajuan->id_approval,
+            'tipe'           => 'approval_keputusan',
+            'referensi_tipe' => 'approval_keputusan',
+        ]);
+
+        $this->assertDatabaseMissing('notifikasi', [
+            'id_pengguna'    => $pengaju->id_pengguna,
+            'referensi_id'   => $pengajuan->id_approval,
+            'referensi_tipe' => 'approval_pengajuan',
+        ]);
+    }
+
+    private function siapkanAntreanApprover(): array
+    {
+        $idEventType = $this->makeEventType('pinned');
+        $idJabatan   = $this->makeJabatan('Direktur Keuangan');
+        $approver    = $this->makePenggunaDenganJabatan($idJabatan, 'Direktur A');
+        DB::table('approval_config_approver')->insert([
+            'id_config'     => (string) Str::uuid(),
+            'id_event_type' => $idEventType,
+            'tipe'          => 'jabatan',
+            'id_jabatan'    => $idJabatan,
+            'dibuat_pada'   => now(),
+        ]);
+
+        $pengajuSatu = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'SALES',
+            'username' => 'budi_sales', 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+        $pengajuDua = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'SALES',
+            'username' => 'siti_marketing', 'email' => Str::random(6) . '@test.id', 'kata_sandi' => bcrypt('x'), 'aktif' => 1,
+        ]);
+
+        $service = app(\App\Modules\Approval\ApprovalService::class);
+        $service->ajukan('test_dummy', (string) Str::uuid(), $pengajuSatu->id_pengguna, 100000.0, self::PERUSAHAAN_ID);
+        $service->ajukan('test_dummy', (string) Str::uuid(), $pengajuDua->id_pengguna, 250000.0, self::PERUSAHAAN_ID);
+
+        return [$approver, $pengajuSatu, $pengajuDua];
+    }
+
+    public function test_antrean_approval_saya_mengembalikan_meta_total_dan_nominal(): void
+    {
+        [$approver] = $this->siapkanAntreanApprover();
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+        $res = $this->getJson('/api/approval-pengajuan/menunggu-saya');
+
+        $res->assertStatus(200)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.page', 1);
+        $this->assertCount(2, $res->json('data'));
+        $this->assertEquals(350000, $res->json('meta.totalNominal'));
+    }
+
+    public function test_antrean_approval_saya_bisa_dicari_di_server(): void
+    {
+        [$approver] = $this->siapkanAntreanApprover();
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+        $res = $this->getJson('/api/approval-pengajuan/menunggu-saya?search=siti');
+
+        $res->assertStatus(200)->assertJsonPath('meta.total', 1);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame('siti_marketing', $res->json('data.0.nama_pengaju'));
+        $this->assertEquals(250000, $res->json('meta.totalNominal'));
+    }
+
+    public function test_antrean_approval_saya_terbagi_per_halaman(): void
+    {
+        [$approver] = $this->siapkanAntreanApprover();
+
+        \Laravel\Sanctum\Sanctum::actingAs($approver, ['*']);
+
+        $halamanSatu = $this->getJson('/api/approval-pengajuan/menunggu-saya?limit=1&page=1');
+        $halamanSatu->assertStatus(200)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.totalPages', 2);
+        $this->assertCount(1, $halamanSatu->json('data'));
+
+        $halamanDua = $this->getJson('/api/approval-pengajuan/menunggu-saya?limit=1&page=2');
+        $halamanDua->assertStatus(200)->assertJsonPath('meta.page', 2);
+        $this->assertCount(1, $halamanDua->json('data'));
+        $this->assertNotSame(
+            $halamanSatu->json('data.0.id_approval'),
+            $halamanDua->json('data.0.id_approval'),
+        );
+    }
+
     private function makeEventType(string $modeResolusi, string $kode = 'test_dummy'): string
     {
         $id = (string) Str::uuid();
@@ -532,7 +642,7 @@ class ApprovalEngineTest extends TestCase
         $this->assertDatabaseHas('notifikasi', [
             'id_pengguna'    => $pengaju->id_pengguna,
             'referensi_id'   => $pengajuan->id_approval,
-            'referensi_tipe' => 'approval_pengajuan',
+            'referensi_tipe' => 'approval_keputusan',
         ]);
     }
 
@@ -565,7 +675,7 @@ class ApprovalEngineTest extends TestCase
         $this->assertDatabaseHas('notifikasi', [
             'id_pengguna'    => $pengaju->id_pengguna,
             'referensi_id'   => $pengajuan->id_approval,
-            'referensi_tipe' => 'approval_pengajuan',
+            'referensi_tipe' => 'approval_keputusan',
             'isi'            => 'Tidak sesuai budget',
         ]);
     }
