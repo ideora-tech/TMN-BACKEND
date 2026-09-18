@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 interface ArusKasRepositoryInterface
 {
-    public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null): Collection;
+    public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null): Collection;
     public function findPengajuanById(string $id): ?PengajuanPengeluaranModel;
     public function listMenungguApprovalSaya(string $idPerusahaan, string $idPengguna): Collection;
     public function createPengajuan(array $data): PengajuanPengeluaranModel;

@@ -272,9 +272,9 @@ class ArusKasService
             && collect($approval)->contains(fn (array $baris) => $baris['id_pengguna'] === $idPenggunaLogin && $baris['status'] === 'menunggu');
     }
 
-    public function listPengajuan(string $idPerusahaan, ?string $status = null): array
+    public function listPengajuan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null): array
     {
-        return $this->repo->listPengajuanByPerusahaan($idPerusahaan, $status)->all();
+        return $this->repo->listPengajuanByPerusahaan($idPerusahaan, $status, $search, $kategori)->all();
     }
 
     public function findPengajuanOrFail(string $id, string $idPerusahaan): PengajuanPengeluaranModel

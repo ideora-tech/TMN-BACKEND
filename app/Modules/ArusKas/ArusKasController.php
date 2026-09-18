@@ -62,7 +62,9 @@ class ArusKasController extends Controller
     {
         $data = $this->service->listPengajuan(
             (string) $request->user()->id_perusahaan,
-            $request->get('status')
+            $request->get('status'),
+            $request->get('search'),
+            $request->get('kategori')
         );
         $this->service->lampirkanApprovalBanyak($data, (string) $request->user()->id_pengguna);
         return ApiResponse::success(PengajuanPengeluaranResource::collection($data));

@@ -158,6 +158,46 @@ class ArusKasPengajuanTest extends TestCase
         return $id;
     }
 
+    public function test_list_pengajuan_bisa_dicari_lewat_penerima_di_server(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->buatPengajuan(['penerima' => 'Budi Supir']);
+        $this->buatPengajuan(['penerima' => 'Siti Marketing']);
+
+        $res = $this->getJson('/api/arus-kas/pengajuan?search=siti');
+
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame('Siti Marketing', $res->json('data.0.penerima'));
+    }
+
+    public function test_list_pengajuan_bisa_dicari_lewat_nomor_pengajuan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $id = $this->buatPengajuan(['penerima' => 'Budi Supir']);
+        $this->buatPengajuan(['penerima' => 'Siti Marketing']);
+        $nomor = DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $id)->value('nomor_pengajuan');
+
+        $res = $this->getJson('/api/arus-kas/pengajuan?search=' . $nomor);
+
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame($nomor, $res->json('data.0.nomor_pengajuan'));
+    }
+
+    public function test_list_pengajuan_bisa_disaring_per_kategori(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->buatPengajuan(['kategori' => 'uang_jalan']);
+        $this->buatPengajuan(['kategori' => 'legalitas']);
+
+        $res = $this->getJson('/api/arus-kas/pengajuan?kategori=legalitas');
+
+        $res->assertStatus(200);
+        $this->assertCount(1, $res->json('data'));
+        $this->assertSame('legalitas', $res->json('data.0.kategori'));
+    }
+
     public function test_toggle_wajib_approval_manual_menghidupkan_gate_pengajuan_manual(): void
     {
         $superadmin = $this->actingAsRole('SUPERADMIN');

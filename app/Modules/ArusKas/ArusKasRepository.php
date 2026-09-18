@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class ArusKasRepository implements ArusKasRepositoryInterface
 {
-    public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null): Collection
+    public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null): Collection
     {
         return PengajuanPengeluaranModel::active()
             ->select('pengajuan_pengeluaran.*')
@@ -23,6 +23,11 @@ class ArusKasRepository implements ArusKasRepositoryInterface
                 ->limit(1)])
             ->where('id_perusahaan', $idPerusahaan)
             ->when($status, fn ($q, $v) => $q->where('status', $v))
+            ->when($kategori, fn ($q, $v) => $q->where('kategori', $v))
+            ->when($search, fn ($q, $v) => $q->where(function ($sub) use ($v) {
+                $sub->where('nomor_pengajuan', 'like', '%' . $v . '%')
+                    ->orWhere('penerima', 'like', '%' . $v . '%');
+            }))
             ->orderByDesc('tanggal_pengajuan')
             ->orderByDesc('nomor_pengajuan')
             ->get();
