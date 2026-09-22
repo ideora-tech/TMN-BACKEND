@@ -26,6 +26,10 @@ class PembelianSparepartService
     public function list(string $idPerusahaan, int $page, int $limit, array $filter = []): array
     {
         $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $filter);
+        $batas = $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
+        foreach ($result->items() as $item) {
+            $item->wajib_pengadaan = self::melebihiBatas((float) $item->total_estimasi, $batas);
+        }
         return [
             'data' => $result->items(),
             'meta' => [
@@ -50,7 +54,18 @@ class PembelianSparepartService
             'nama_asli' => $b->nama_asli,
         ], $this->repo->listBukti($id));
         $record->pembayaran = $this->susunDataPembayaran($id, $record);
+        $record->wajib_pengadaan = $this->wajibPengadaan((float) $record->total_estimasi, $idPerusahaan);
         return $record;
+    }
+
+    private function wajibPengadaan(float $totalEstimasi, string $idPerusahaan): bool
+    {
+        return self::melebihiBatas($totalEstimasi, $this->arusKasService->batasRealisasiMandiri($idPerusahaan));
+    }
+
+    private static function melebihiBatas(float $totalEstimasi, float $batas): bool
+    {
+        return $totalEstimasi > $batas;
     }
 
     public function infoPengajuanKeuangan(string $idPembelian): ?array
@@ -260,12 +275,16 @@ class PembelianSparepartService
         return $this->findOrFail($id, $idPerusahaan);
     }
 
-    public function realisasi(string $id, array $data, string $idPerusahaan): object
+    public function realisasi(string $id, array $data, string $idPerusahaan, string $kodePeran): object
     {
         $record = $this->findOrFail($id, $idPerusahaan);
         $this->pastikanStatus($record, [self::STATUS_DISETUJUI_FINANCE], 'Realisasi hanya bisa dilakukan setelah disetujui finance');
         if (count($record->bukti) === 0) {
             abort(422, 'Unggah minimal 1 bukti nota sebelum realisasi');
+        }
+        if ($record->wajib_pengadaan && !in_array(strtoupper($kodePeran), ['PENGADAAN', 'SUPERADMIN'], true)) {
+            $batas = $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
+            abort(422, 'Pembelian senilai Rp ' . number_format($batas, 0, ',', '.') . ' ke atas wajib diproses oleh tim Pengadaan');
         }
 
         $hargaPerItem = [];

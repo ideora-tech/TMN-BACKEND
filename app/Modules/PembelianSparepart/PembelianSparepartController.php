@@ -72,7 +72,7 @@ class PembelianSparepartController extends Controller
 
     public function realisasi(RealisasiPembelianRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->realisasi($id, $request->validated(), (string) $request->user()->id_perusahaan);
+        $record = $this->service->realisasi($id, $request->validated(), (string) $request->user()->id_perusahaan, (string) $request->user()->kode_peran);
         return ApiResponse::success(new PembelianSparepartResource($record), 'Realisasi pembelian tersimpan, stok diperbarui');
     }
 

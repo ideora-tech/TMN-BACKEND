@@ -201,21 +201,26 @@ class ArusKasController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         return ApiResponse::success([
-            'batas'                  => $this->service->batasApproval($idPerusahaan),
-            'wajib_approval_manual'  => $this->service->wajibApprovalManual($idPerusahaan),
+            'batas'                    => $this->service->batasApproval($idPerusahaan),
+            'wajib_approval_manual'    => $this->service->wajibApprovalManual($idPerusahaan),
+            'batas_realisasi_mandiri'  => $this->service->batasRealisasiMandiri($idPerusahaan),
         ]);
     }
 
     public function updatePengaturanApproval(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'batas'                 => ['required', 'numeric', 'min:0'],
-            'wajib_approval_manual' => ['sometimes', 'boolean'],
+            'batas'                   => ['required', 'numeric', 'min:0'],
+            'wajib_approval_manual'   => ['sometimes', 'boolean'],
+            'batas_realisasi_mandiri' => ['sometimes', 'numeric', 'min:0'],
         ]);
 
         $this->service->setBatasApproval((string) $request->user()->id_perusahaan, (float) $validated['batas']);
         if (array_key_exists('wajib_approval_manual', $validated)) {
             $this->service->setWajibApprovalManual((string) $request->user()->id_perusahaan, (bool) $validated['wajib_approval_manual']);
+        }
+        if (array_key_exists('batas_realisasi_mandiri', $validated)) {
+            $this->service->setBatasRealisasiMandiri((string) $request->user()->id_perusahaan, (float) $validated['batas_realisasi_mandiri']);
         }
         return ApiResponse::success(['batas' => (float) $validated['batas']], 'Batas approval berhasil diperbarui');
     }

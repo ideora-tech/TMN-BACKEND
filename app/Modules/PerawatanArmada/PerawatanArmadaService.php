@@ -269,6 +269,7 @@ class PerawatanArmadaService
                 'id_jenis_kendaraan'   => $armada->id_jenis_kendaraan,
                 'nama_jenis_kendaraan' => $armada->nama_jenis_kendaraan,
                 'status_armada'        => $armada->status_armada,
+                'km_odometer_terakhir' => $kmSekarang,
                 'servis_terakhir'      => $servis !== null ? [
                     'tanggal' => $servis->tanggal,
                     'label'   => $servis->label,

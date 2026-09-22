@@ -26,6 +26,10 @@ class ArusKasService
 
     public const KUNCI_WAJIB_APPROVAL_MANUAL = 'wajib_approval_pengajuan_manual';
 
+    public const KUNCI_BATAS_REALISASI_MANDIRI = 'batas_realisasi_mandiri_sparepart';
+
+    public const DEFAULT_BATAS_REALISASI_MANDIRI = 500_000.0;
+
     public const KODE_PERSETUJUAN_TRANSFER = 'persetujuan_transfer';
 
     public const KODE_EVENT_PENGELUARAN = [
@@ -1315,6 +1319,17 @@ class ArusKasService
     public function setWajibApprovalManual(string $idPerusahaan, bool $wajib): void
     {
         $this->repo->setPengaturan($idPerusahaan, self::KUNCI_WAJIB_APPROVAL_MANUAL, $wajib ? '1' : '0');
+    }
+
+    public function batasRealisasiMandiri(string $idPerusahaan): float
+    {
+        $nilai = $this->repo->getPengaturan($idPerusahaan, self::KUNCI_BATAS_REALISASI_MANDIRI);
+        return $nilai !== null ? (float) $nilai : self::DEFAULT_BATAS_REALISASI_MANDIRI;
+    }
+
+    public function setBatasRealisasiMandiri(string $idPerusahaan, float $batas): void
+    {
+        $this->repo->setPengaturan($idPerusahaan, self::KUNCI_BATAS_REALISASI_MANDIRI, (string) $batas);
     }
 
     public function migrasiApprovalPending(): array

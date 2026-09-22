@@ -33,6 +33,7 @@ class PembelianSparepartResource extends JsonResource
             'total_estimasi'         => (float) $this->total_estimasi,
             'total_aktual'           => $this->total_aktual !== null ? (float) $this->total_aktual : null,
             'selisih'                => $this->total_aktual !== null ? (float) $this->total_aktual - (float) $this->total_estimasi : null,
+            'wajib_pengadaan'        => (bool) ($this->wajib_pengadaan ?? false),
             'tanggal_pengajuan'      => $this->tanggal_pengajuan,
             'tanggal_pembelian'      => $this->tanggal_pembelian,
             'tanggal_pembayaran'     => $this->tanggal_pembayaran,
