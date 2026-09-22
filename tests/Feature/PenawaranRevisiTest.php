@@ -987,4 +987,17 @@ class PenawaranRevisiTest extends TestCase
             ]);
         }
     }
+
+    public function test_catatan_penawaran_revisi_html_disaring(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien  = $this->makeKlien();
+        $proyek = $this->makeProyek($klien, 'borongan');
+        $this->makePenawaranDisetujui($klien, $proyek->id_proyek, 'borongan', 40000000);
+
+        $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+            'nilai_penawaran' => 45000000,
+            'catatan'         => '<p>Revisi <em>harga</em></p><script>alert(1)</script>',
+        ])->assertStatus(201)->assertJsonPath('data.catatan', '<p>Revisi <em>harga</em></p>');
+    }
 }

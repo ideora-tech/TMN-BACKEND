@@ -22,6 +22,7 @@ class ProyekRepository implements ProyekRepositoryInterface
             ->when($status, fn ($q, $v) => $q->where('proyek.status', $v))
             ->orderBy('proyek.dibuat_pada', 'desc')
             ->select('proyek.*', 'k.nama_klien')
+            ->addSelect($this->penawaranAsal())
             ->paginate($limit, ['*'], 'page', $page);
     }
 
@@ -36,7 +37,26 @@ class ProyekRepository implements ProyekRepositoryInterface
             }))
             ->when($status, fn ($q, $v) => $q->where('status', $v))
             ->orderBy('dibuat_pada', 'desc')
+            ->addSelect($this->penawaranAsal())
             ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    private function penawaranAsal(): array
+    {
+        $kolom = [
+            'id_penawaran'    => 'penawaran.id_penawaran',
+            'nomor_penawaran' => 'penawaran.nomor_penawaran',
+            'judul_penawaran' => 'penawaran.judul',
+        ];
+
+        return array_map(fn (string $sumber) => DB::table('penawaran')
+            ->select($sumber)
+            ->whereColumn('penawaran.id_proyek', 'proyek.id_proyek')
+            ->whereColumn('penawaran.id_perusahaan', 'proyek.id_perusahaan')
+            ->whereNull('penawaran.dihapus_pada')
+            ->orderBy('penawaran.dibuat_pada')
+            ->orderBy('penawaran.id_penawaran')
+            ->limit(1), $kolom);
     }
 
     public function findById(string $id): ?ProyekModel

@@ -40,6 +40,18 @@
         .ket { color: #9ca3af; font-size: 9.5px; }
 
         .catatan { margin-top: 12px; color: #6b7280; font-size: 10px; }
+        .isi-catatan { margin-top: 3px; color: #374151; font-size: 10.5px; }
+        .isi-catatan p { margin: 0 0 4px; }
+        .isi-catatan h1, .isi-catatan h2, .isi-catatan h3, .isi-catatan h4, .isi-catatan h5, .isi-catatan h6 { margin: 6px 0 3px; color: #1f2937; }
+        .isi-catatan h1 { font-size: 14px; }
+        .isi-catatan h2 { font-size: 13px; }
+        .isi-catatan h3 { font-size: 12px; }
+        .isi-catatan h4, .isi-catatan h5, .isi-catatan h6 { font-size: 11px; }
+        .isi-catatan ul, .isi-catatan ol { margin: 3px 0 5px; padding-left: 18px; }
+        .isi-catatan blockquote { margin: 4px 0; padding-left: 8px; border-left: 2px solid #9ca3af; }
+        .isi-catatan pre, .isi-catatan code { font-family: monospace; background: #f3f4f6; }
+        .isi-catatan pre { padding: 4px 6px; }
+        .isi-catatan hr { border: 0; border-top: 1px solid #d1d5db; margin: 6px 0; }
         .cetak { margin-top: 14px; color: #9ca3af; font-size: 9px; }
 
         .footer { position: fixed; bottom: 0; left: 0; right: 0; height: 68px; }
@@ -52,6 +64,7 @@
     @php
         $rp = fn ($v) => 'Rp ' . number_format((float) $v, 0, ',', '.');
         $tgl = fn ($v) => $v ? date('d/m/Y', strtotime($v)) : '-';
+        $catatanHtml = \App\Support\HtmlAman::untukTampilan($p->catatan);
     @endphp
 
     <div class="kop">
@@ -158,8 +171,11 @@
             </table>
         @endif
 
-        @if ($p->catatan)
-            <p class="catatan"><strong>Catatan:</strong> {{ $p->catatan }}</p>
+        @if ($catatanHtml !== '')
+            <div class="catatan">
+                <strong>Catatan:</strong>
+                <div class="isi-catatan">{!! $catatanHtml !!}</div>
+            </div>
         @endif
 
         <p class="cetak">Dicetak {{ now()->format('d/m/Y H:i') }} — dokumen ini dihasilkan otomatis oleh sistem.</p>

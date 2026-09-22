@@ -1056,4 +1056,63 @@ class ProyekTest extends TestCase
 
         $res->assertStatus(422)->assertJsonValidationErrors(['tipe_harga']);
     }
+
+    public function test_daftar_proyek_menyertakan_penawaran_asal_bukan_revisinya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-DARI-PENAWARAN');
+        $idAwal = $this->makePenawaranDenganStatus($klien->id_klien, 'disetujui', $proyek->id_proyek);
+        DB::table('penawaran')->where('id_penawaran', $idAwal)->update(['dibuat_pada' => now()->subDays(5), 'judul' => 'Penawaran Awal']);
+        $nomorAwal = DB::table('penawaran')->where('id_penawaran', $idAwal)->value('nomor_penawaran');
+        $this->makePenawaranDenganStatus($klien->id_klien, 'draft', $proyek->id_proyek);
+
+        $this->makeProyek($klien->id_klien, 'PRJ-MANUAL');
+
+        $res = $this->getJson('/api/proyek?limit=50');
+
+        $res->assertStatus(200);
+        $data = collect($res->json('data'));
+        $dariPenawaran = $data->firstWhere('kode_proyek', 'PRJ-DARI-PENAWARAN');
+        $this->assertSame($idAwal, $dariPenawaran['id_penawaran']);
+        $this->assertSame($nomorAwal, $dariPenawaran['nomor_penawaran']);
+        $this->assertSame('Penawaran Awal', $dariPenawaran['judul_penawaran']);
+
+        $manual = $data->firstWhere('kode_proyek', 'PRJ-MANUAL');
+        foreach (['id_penawaran', 'nomor_penawaran', 'judul_penawaran'] as $kunci) {
+            $this->assertArrayHasKey($kunci, $manual);
+            $this->assertNull($manual[$kunci], $kunci);
+        }
+    }
+
+    public function test_daftar_proyek_per_klien_juga_menyertakan_penawaran_asal(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien  = $this->makeKlien();
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-PER-KLIEN');
+        $idPenawaran = $this->makePenawaranDenganStatus($klien->id_klien, 'disetujui', $proyek->id_proyek);
+
+        $res = $this->getJson('/api/proyek?limit=50&id_klien=' . $klien->id_klien);
+
+        $res->assertStatus(200);
+        $baris = collect($res->json('data'))->firstWhere('kode_proyek', 'PRJ-PER-KLIEN');
+        $this->assertSame($idPenawaran, $baris['id_penawaran']);
+    }
+
+    public function test_penawaran_yang_sudah_dihapus_tidak_muncul_di_daftar_proyek(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien  = $this->makeKlien();
+        $proyek = $this->makeProyek($klien->id_klien, 'PRJ-PENAWARAN-DIHAPUS');
+        $idPenawaran = $this->makePenawaranDenganStatus($klien->id_klien, 'disetujui', $proyek->id_proyek);
+        DB::table('penawaran')->where('id_penawaran', $idPenawaran)->update(['dihapus_pada' => now()]);
+
+        $res = $this->getJson('/api/proyek?limit=50');
+
+        $res->assertStatus(200);
+        $baris = collect($res->json('data'))->firstWhere('kode_proyek', 'PRJ-PENAWARAN-DIHAPUS');
+        $this->assertNull($baris['id_penawaran']);
+        $this->assertNull($baris['nomor_penawaran']);
+    }
 }

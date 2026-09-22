@@ -522,4 +522,37 @@ class PenawaranItemTest extends TestCase
             $this->assertDatabaseMissing('penawaran', ['id_penawaran' => $id, 'judul' => 'Coba Ubah']);
         }
     }
+
+    public function test_catatan_html_disaring_saat_store_dan_update(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/penawaran', array_merge(
+            $this->payloadPenawaran([]),
+            ['catatan' => '<p>Bayar <strong>dimuka</strong></p><script>alert(1)</script>']
+        ));
+
+        $res->assertStatus(201)->assertJsonPath('data.catatan', '<p>Bayar <strong>dimuka</strong></p>');
+        $id = $res->json('data.id_penawaran');
+        $this->assertDatabaseHas('penawaran', ['id_penawaran' => $id, 'catatan' => '<p>Bayar <strong>dimuka</strong></p>']);
+
+        $this->putJson("/api/penawaran/{$id}", ['catatan' => '<h2 onclick="x()">Syarat</h2><iframe src="x"></iframe>'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.catatan', '<h2>Syarat</h2>');
+    }
+
+    public function test_catatan_teks_biasa_dipertahankan_dan_kosong_menjadi_null(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $id = $this->postJson('/api/penawaran', array_merge(
+            $this->payloadPenawaran([]),
+            ['catatan' => "Baris satu\nBaris dua"]
+        ))->assertStatus(201)->assertJsonPath('data.catatan', "Baris satu\nBaris dua")->json('data.id_penawaran');
+
+        $this->putJson("/api/penawaran/{$id}", ['catatan' => '<p></p>'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.catatan', null);
+        $this->assertDatabaseHas('penawaran', ['id_penawaran' => $id, 'catatan' => null]);
+    }
 }

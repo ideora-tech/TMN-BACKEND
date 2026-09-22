@@ -13,6 +13,7 @@ use App\Modules\Penawaran\PenawaranModel;
 use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Modules\ProyekRute\ProyekRuteService;
+use App\Support\HtmlAman;
 use App\Support\KodeOtomatis;
 use App\Support\TipeHarga;
 use Illuminate\Support\Facades\DB;
@@ -188,7 +189,7 @@ class ProyekService
                 'nilai_penawaran'    => $nilaiPenawaran,
                 'status'             => 'draft',
                 'tipe_harga'         => $tipeHarga,
-                'catatan'            => $data['catatan'] ?? null,
+                'catatan'            => HtmlAman::bersihkan($data['catatan'] ?? null),
                 'id_proyek'          => $idProyek,
                 'id_penawaran_induk' => $induk->id_penawaran,
             ]);

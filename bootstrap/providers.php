@@ -25,6 +25,7 @@ return [
     App\Modules\Karyawan\KaryawanServiceProvider::class,
     App\Modules\KaryawanExit\KaryawanExitServiceProvider::class,
     App\Modules\KategoriSparepart\KategoriSparepartServiceProvider::class,
+    App\Modules\KetersediaanVendor\KetersediaanVendorServiceProvider::class,
     App\Modules\Klien\KlienServiceProvider::class,
     App\Modules\KontrakKaryawan\KontrakKaryawanServiceProvider::class,
     App\Modules\Penawaran\PenawaranServiceProvider::class,

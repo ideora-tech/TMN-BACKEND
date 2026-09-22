@@ -8,6 +8,7 @@ use App\Modules\Penawaran\Contracts\PenawaranItemRepositoryInterface;
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Support\HtmlAman;
 use App\Support\KodeOtomatis;
 use App\Support\TipeHarga;
 use Illuminate\Support\Facades\DB;
@@ -92,6 +93,10 @@ class PenawaranService
 
         $data['nomor_penawaran'] = KodeOtomatis::berikutnya($idPerusahaan, 'penawaran');
 
+        if (array_key_exists('catatan', $data)) {
+            $data['catatan'] = HtmlAman::bersihkan($data['catatan']);
+        }
+
         if ($this->repo->findByNomor($idPerusahaan, $data['nomor_penawaran'])) {
             abort(409, 'Nomor penawaran sudah digunakan');
         }
@@ -125,6 +130,10 @@ class PenawaranService
 
         if (!in_array($record->status, ['draft', 'negosiasi'], true)) {
             abort(422, 'Hanya penawaran berstatus draft atau negosiasi yang dapat diubah');
+        }
+
+        if (array_key_exists('catatan', $data)) {
+            $data['catatan'] = HtmlAman::bersihkan($data['catatan']);
         }
 
         if (isset($data['nomor_penawaran']) && $data['nomor_penawaran'] !== $record->nomor_penawaran) {

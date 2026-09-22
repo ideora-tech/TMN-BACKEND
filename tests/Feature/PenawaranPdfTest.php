@@ -119,4 +119,51 @@ class PenawaranPdfTest extends TestCase
         $this->assertStringNotContainsString('Berlaku hingga', $html);
         $this->assertStringNotContainsString('RITASE', $html);
     }
+
+    private function renderTampilanPdf(PenawaranModel $penawaran): string
+    {
+        return view('exports.penawaran', [
+            'p'          => $penawaran->fresh(),
+            'klien'      => (object) ['nama_klien' => 'PT Klien Test'],
+            'items'      => collect(),
+            'logoBase64' => null,
+            'perusahaan' => (object) [],
+        ])->render();
+    }
+
+    public function test_tampilan_pdf_catatan_memakai_format_dan_aman(): void
+    {
+        $penawaran = $this->makePenawaran();
+        $penawaran->update(['catatan' => '<p>Bayar <strong>dimuka</strong></p><script>alert(1)</script>']);
+
+        $html = $this->renderTampilanPdf($penawaran);
+
+        $this->assertStringContainsString('<strong>dimuka</strong>', $html);
+        $this->assertStringNotContainsString('<script>', $html);
+    }
+
+    public function test_tampilan_pdf_catatan_teks_biasa_memakai_baris_baru(): void
+    {
+        $penawaran = $this->makePenawaran();
+        $penawaran->update(['catatan' => "Baris satu\nBaris dua & tiga"]);
+
+        $html = $this->renderTampilanPdf($penawaran);
+
+        $this->assertStringContainsString('Baris satu<br />', $html);
+        $this->assertStringContainsString('Baris dua &amp; tiga', $html);
+    }
+
+    public function test_export_pdf_penawaran_dengan_catatan_berformat_tetap_menghasilkan_pdf(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien     = $this->makeKlien();
+        $penawaran = $this->makePenawaran($klien->id_klien);
+        $penawaran->update(['catatan' => '<h2>Syarat</h2><p>Bayar <strong>dimuka</strong> dan <em>tepat waktu</em></p><ul><li><p>Satu</p></li><li><p>Dua</p></li></ul><ol><li><p>Pertama</p></li></ol><blockquote><p>Kutipan</p></blockquote><pre><code>kode</code></pre><hr>']);
+
+        $res = $this->get("/api/penawaran/{$penawaran->id_penawaran}/pdf");
+
+        $res->assertStatus(200);
+        $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));
+        $this->assertStringStartsWith('%PDF', $res->getContent());
+    }
 }
