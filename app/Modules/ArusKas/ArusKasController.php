@@ -17,6 +17,12 @@ use App\Modules\ArusKas\Resources\PemasukanGabunganResource;
 use App\Modules\ArusKas\Resources\PemasukanResource;
 use App\Modules\ArusKas\Resources\PengajuanPengeluaranResource;
 use App\Modules\ArusKas\Resources\TransaksiArusKasResource;
+use App\Modules\InvoiceVendor\InvoiceVendorService;
+use App\Modules\Payroll\PayrollService;
+use App\Modules\PembelianSparepart\PembelianSparepartService;
+use App\Modules\PembelianSparepart\Resources\PembelianSparepartResource;
+use App\Modules\PerawatanArmada\PerawatanArmadaService;
+use App\Modules\PerawatanArmada\Resources\PerawatanArmadaResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -87,6 +93,79 @@ class ArusKasController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         return ApiResponse::success($this->service->infoPengajuanById($id, $idPerusahaan));
+    }
+
+    /**
+     * Rincian transaksi asal sebuah pengajuan (perawatan armada / pembelian sparepart) —
+     * supaya tim keuangan tidak perlu pindah halaman hanya untuk cek rinciannya.
+     */
+    public function rincianSumberPengajuan(
+        Request $request,
+        PerawatanArmadaService $perawatanService,
+        PembelianSparepartService $pembelianService,
+        PayrollService $payrollService,
+        InvoiceVendorService $invoiceVendorService,
+        string $id
+    ): JsonResponse {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $pengajuan = $this->service->findPengajuanOrFail($id, $idPerusahaan);
+
+        // Urutan cek mengikuti urutan badge sumber di UI.
+        if ($pengajuan->id_invoice_vendor !== null) {
+            return ApiResponse::success([
+                'tipe' => 'invoice_vendor',
+                'data' => $invoiceVendorService->detail((string) $pengajuan->id_invoice_vendor, $idPerusahaan),
+            ]);
+        }
+
+        if ($pengajuan->id_perawatan !== null) {
+            return ApiResponse::success([
+                'tipe' => 'perawatan',
+                'data' => new PerawatanArmadaResource(
+                    $perawatanService->findOrFail((string) $pengajuan->id_perawatan, $idPerusahaan)
+                ),
+            ]);
+        }
+
+        if ($pengajuan->id_pembelian !== null) {
+            return ApiResponse::success([
+                'tipe' => 'pembelian',
+                'data' => new PembelianSparepartResource(
+                    $pembelianService->findOrFail((string) $pengajuan->id_pembelian, $idPerusahaan)
+                ),
+            ]);
+        }
+
+        if ($pengajuan->id_periode !== null) {
+            return ApiResponse::success([
+                'tipe' => 'payroll',
+                'data' => self::ringkasPayroll(
+                    $payrollService->detailPeriode((string) $pengajuan->id_periode, $idPerusahaan)
+                ),
+            ]);
+        }
+
+        if ($pengajuan->periode_dari !== null || $pengajuan->id_supir !== null) {
+            return ApiResponse::success([
+                'tipe' => 'uang_jalan',
+                'data' => $this->service->rincianUangJalan($pengajuan),
+            ]);
+        }
+
+        abort(404, 'Pengajuan ini tidak punya rincian transaksi asal');
+    }
+
+    /**
+     * Payroll sengaja hanya dikirim agregatnya. Endpoint ini dijaga izin `arus-kas`,
+     * sedangkan slip gaji per karyawan ada di balik izin `karyawan` — cukup total
+     * periode untuk mencocokkan nominal pengajuan tanpa membocorkan gaji per orang.
+     */
+    private static function ringkasPayroll(array $detail): array
+    {
+        return [
+            'periode'   => $detail['periode'],
+            'ringkasan' => $detail['ringkasan'],
+        ];
     }
 
     public function showPengajuan(Request $request, string $id): JsonResponse

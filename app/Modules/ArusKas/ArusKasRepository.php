@@ -605,6 +605,35 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         ];
     }
 
+    /**
+     * Penugasan harian yang dibiayai satu pengajuan uang jalan — dipakai drawer
+     * detail pengajuan supaya keuangan bisa cek tanggal mana saja yang ditagihkan.
+     */
+    public function penugasanUntukPengajuan(string $idPengajuan): array
+    {
+        return DB::table('penugasan as p')
+            ->leftJoin('proyek as pr', 'pr.id_proyek', '=', 'p.id_proyek')
+            ->leftJoin('rute as r', 'r.id_rute', '=', 'p.id_rute')
+            ->leftJoin('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoin('armada_vendor as av', 'av.id_armada_vendor', '=', 'p.id_armada_vendor')
+            ->where('p.id_pengajuan', $idPengajuan)
+            ->whereNull('p.dihapus_pada')
+            ->orderBy('p.tanggal_tugas')
+            ->select(
+                'p.id_penugasan',
+                'p.tanggal_tugas',
+                'p.status',
+                'p.sumber',
+                'p.keterangan',
+                'pr.kode_proyek',
+                'pr.nama_proyek',
+                'r.nama_rute',
+                DB::raw('COALESCE(a.nopol, av.nopol) as nopol'),
+            )
+            ->get()
+            ->all();
+    }
+
     public function hitungPenugasanTerkaitPengajuan(string $idPengajuan): object
     {
         return DB::table('penugasan')

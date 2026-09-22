@@ -54,5 +54,8 @@ interface ArusKasRepositoryInterface
     public function dataUntukPengajuanPenugasan(string $idSupir, string $idProyek): object;
 
     /** Sisa baris `penugasan` aktif (non-dihapus) yang masih ber-`id_pengajuan` ini, untuk sinkron nominal/periode. */
+    /** @return list<object> */
+    public function penugasanUntukPengajuan(string $idPengajuan): array;
+
     public function hitungPenugasanTerkaitPengajuan(string $idPengajuan): object;
 }

@@ -32,6 +32,7 @@ class ArusKasServiceProvider extends ServiceProvider
                 Route::get('arus-kas/pengajuan', [ArusKasController::class, 'indexPengajuan']);
                 Route::get('arus-kas/pengajuan/menunggu-approval-saya', [ArusKasController::class, 'menungguApprovalSaya']);
                 Route::get('arus-kas/pengajuan/{id}/riwayat', [ArusKasController::class, 'riwayatPengajuan']);
+                Route::get('arus-kas/pengajuan/{id}/rincian-sumber', [ArusKasController::class, 'rincianSumberPengajuan']);
                 Route::get('arus-kas/pengajuan/{id}', [ArusKasController::class, 'showPengajuan']);
                 Route::post('arus-kas/pengajuan', [ArusKasController::class, 'storePengajuan']);
                 Route::put('arus-kas/pengajuan/{id}', [ArusKasController::class, 'updatePengajuan']);

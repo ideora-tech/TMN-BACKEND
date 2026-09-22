@@ -214,6 +214,46 @@ class ArusKasService
         return $this->susunInfoPengajuan($record);
     }
 
+    /**
+     * Rincian uang jalan: daftar penugasan harian yang dibiayai pengajuan ini.
+     * `jumlah_hari_ditagih` dihitung dari nominal saat pengajuan dibuat, sedangkan
+     * `penugasan` dibaca ulang sekarang — kalau ada yang dibatalkan setelah
+     * pengajuan dibuat, selisihnya memang harus terlihat oleh keuangan.
+     */
+    public function rincianUangJalan(PengajuanPengeluaranModel $record): array
+    {
+        $penugasan = $this->repo->penugasanUntukPengajuan((string) $record->id_pengajuan);
+        $tarif = $record->tarif_per_hari !== null ? (float) $record->tarif_per_hari : null;
+
+        $info = $record->id_supir !== null && $record->id_proyek !== null
+            ? $this->repo->dataUntukPengajuanPenugasan((string) $record->id_supir, (string) $record->id_proyek)
+            : null;
+
+        return [
+            'nama_supir'          => $info?->nama_supir,
+            'nama_proyek'         => $info?->nama_proyek,
+            'periode_dari'        => $record->periode_dari,
+            'periode_sampai'      => $record->periode_sampai,
+            'tarif_per_hari'      => $tarif,
+            'jumlah_hari_ditagih' => $tarif !== null && $tarif > 0
+                ? (int) round((float) $record->nominal / $tarif)
+                : null,
+            'jumlah_penugasan'    => count($penugasan),
+            'jumlah_dibatalkan'   => count(array_filter($penugasan, static fn ($p) => $p->status === 'batal')),
+            'penugasan'           => array_map(static fn ($p) => [
+                'id_penugasan'  => $p->id_penugasan,
+                'tanggal_tugas' => $p->tanggal_tugas,
+                'status'        => $p->status,
+                'sumber'        => $p->sumber,
+                'keterangan'    => $p->keterangan,
+                'kode_proyek'   => $p->kode_proyek,
+                'nama_proyek'   => $p->nama_proyek,
+                'nama_rute'     => $p->nama_rute,
+                'nopol'         => $p->nopol,
+            ], $penugasan),
+        ];
+    }
+
     public function menungguApprovalSaya(string $idPerusahaan, string $idPengguna): array
     {
         $records = $this->repo->listMenungguApprovalSaya($idPerusahaan, $idPengguna);
