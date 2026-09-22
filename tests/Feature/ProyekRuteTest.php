@@ -622,4 +622,22 @@ class ProyekRuteTest extends TestCase
 
         $res->assertStatus(200)->assertJsonPath('data.harga_penawaran', 900000);
     }
+
+    public function test_store_rute_proyek_tipe_harga_baru_dengan_penawaran_disetujui_tetap_boleh_201(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        foreach (['unit_only', 'unit_driver', 'all_in'] as $tipe) {
+            $idProyek = $this->makeProyek($tipe);
+            $this->makePenawaranDisetujui($idProyek);
+
+            $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
+                'id_rute'            => $this->makeRute(),
+                'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+                'harga_penawaran'    => 500000,
+            ]);
+
+            $res->assertStatus(201);
+        }
+    }
 }

@@ -298,4 +298,24 @@ class PenawaranApprovalWiringTest extends TestCase
         $repo = app(\App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface::class);
         $this->assertTrue($repo->adaRevisiBerjalan($idProyek));
     }
+
+    public function test_ajukan_tipe_harga_baru_tanpa_item_rute_diizinkan(): void
+    {
+        $sales = $this->actingAsRole('SUPERADMIN');
+
+        foreach (['unit_only', 'unit_driver', 'all_in'] as $tipe) {
+            $id = (string) Str::uuid();
+            DB::table('penawaran')->insert([
+                'id_penawaran' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+                'id_klien' => $this->makeKlien(),
+                'nomor_penawaran' => 'PNW-TIPE-' . Str::random(4), 'judul' => 'Penawaran ' . $tipe,
+                'nilai_penawaran' => 5000000, 'tipe_harga' => $tipe, 'status' => 'draft', 'aktif' => 1,
+                'dibuat_pada' => now(), 'dibuat_oleh' => $sales->id_pengguna,
+            ]);
+
+            $this->postJson("/api/penawaran/{$id}/ajukan-approval")
+                ->assertStatus(200)
+                ->assertJsonPath('data.status', 'terkirim');
+        }
+    }
 }

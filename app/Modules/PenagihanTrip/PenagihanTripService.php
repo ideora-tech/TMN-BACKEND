@@ -10,6 +10,7 @@ use App\Modules\Faktur\FakturService;
 use App\Modules\PenagihanTrip\Contracts\PenagihanTripRepositoryInterface;
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Support\TipeHarga;
 use Illuminate\Support\Facades\DB;
 
 class PenagihanTripService
@@ -39,7 +40,7 @@ class PenagihanTripService
     private function mapBaris(object $row, array $biayaTagihan = []): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
-        $borongan = ($row->tipe_harga ?? 'per_rit') === 'borongan';
+        $borongan = TipeHarga::nilaiTetap($row->tipe_harga ?? null);
 
         $tarif = null;
         if (!$borongan && $row->id_rute !== null) {
@@ -89,7 +90,7 @@ class PenagihanTripService
                 }
                 $baris = $this->mapBaris($row);
                 if ($baris['borongan']) {
-                    abort(422, 'Trip proyek borongan difakturkan dari halaman proyek');
+                    abort(422, 'Trip proyek selain On Call difakturkan dari halaman proyek');
                 }
                 if ($baris['tarif'] === null) {
                     abort(422, 'Tarif belum diatur di rute proyek');

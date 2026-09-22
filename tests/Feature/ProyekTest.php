@@ -1024,4 +1024,36 @@ class ProyekTest extends TestCase
             'id_jenis_kendaraan' => null,
         ]);
     }
+
+    public function test_store_proyek_dengan_tipe_harga_baru(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+
+        foreach (['unit_only', 'unit_driver', 'all_in'] as $tipe) {
+            $res = $this->postJson('/api/proyek', [
+                'id_klien'    => $klien->id_klien,
+                'kode_proyek' => 'PRJ-' . strtoupper($tipe),
+                'nama_proyek' => 'Proyek ' . $tipe,
+                'tipe_harga'  => $tipe,
+            ]);
+
+            $res->assertStatus(201)->assertJsonPath('data.tipe_harga', $tipe);
+        }
+    }
+
+    public function test_store_proyek_tipe_harga_tidak_dikenal_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+
+        $res = $this->postJson('/api/proyek', [
+            'id_klien'    => $klien->id_klien,
+            'kode_proyek' => 'PRJ-TIPE-SALAH',
+            'nama_proyek' => 'Proyek Tipe Salah',
+            'tipe_harga'  => 'sewa_bulanan',
+        ]);
+
+        $res->assertStatus(422)->assertJsonValidationErrors(['tipe_harga']);
+    }
 }

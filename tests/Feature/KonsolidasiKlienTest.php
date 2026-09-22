@@ -437,4 +437,28 @@ class KonsolidasiKlienTest extends TestCase
         $this->assertSame(75000.0, (float) $data[$tripBorongan->id_trip]['biaya_tambahan']);
         $this->assertFalse($data[$tripPerRit->id_trip]['borongan']);
     }
+
+    public function test_proyek_tipe_harga_baru_ditag_nilai_tetap_dan_tidak_dihitung_tanpa_tarif(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $trips = [];
+        foreach (['unit_only', 'unit_driver', 'all_in'] as $tipe) {
+            $proyek = $this->buatProyek($tipe);
+            $trips[$tipe] = $this->buatTrip($proyek->id_proyek, true, 200);
+        }
+
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res->assertStatus(200)
+            ->assertJsonPath('data.ringkasan.total_rit', 3)
+            ->assertJsonPath('data.ringkasan.tanpa_tarif', 0);
+
+        $data = collect($res->json('data.trips'))->keyBy('id_trip');
+        foreach ($trips as $tipe => $trip) {
+            $this->assertTrue($data[$trip->id_trip]['borongan'], $tipe);
+            $this->assertNull($data[$trip->id_trip]['tarif'], $tipe);
+            $this->assertSame($tipe, $data[$trip->id_trip]['tipe_harga']);
+        }
+    }
 }

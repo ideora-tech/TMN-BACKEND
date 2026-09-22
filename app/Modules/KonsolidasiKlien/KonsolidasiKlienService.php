@@ -6,6 +6,7 @@ namespace App\Modules\KonsolidasiKlien;
 
 use App\Modules\KonsolidasiKlien\Contracts\KonsolidasiKlienRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Support\TipeHarga;
 
 class KonsolidasiKlienService
 {
@@ -56,7 +57,7 @@ class KonsolidasiKlienService
     private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap, array $uangJalanTambahanMap, array $uangJalanTambahanDetailMap): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
-        $borongan = ($row->tipe_harga ?? 'per_rit') === 'borongan';
+        $borongan = TipeHarga::nilaiTetap($row->tipe_harga ?? null);
 
         $tarif = null;
         if (!$borongan && $row->id_rute !== null) {
@@ -86,6 +87,7 @@ class KonsolidasiKlienService
             'jarak_tempuh_km'   => $row->jarak_tempuh_km !== null ? (float) $row->jarak_tempuh_km : null,
             'tarif'             => $tarif,
             'borongan'          => $borongan,
+            'tipe_harga'        => $row->tipe_harga ?? 'per_rit',
             'sudah_difakturkan' => (int) $row->sudah_difakturkan === 1,
             'titik_drop'        => $dropMap[$row->id_trip] ?? [],
             'biaya_tambahan'    => ($biayaMap[$row->id_trip] ?? 0.0) + ($uangJalanTambahanMap[$row->id_trip] ?? 0.0),

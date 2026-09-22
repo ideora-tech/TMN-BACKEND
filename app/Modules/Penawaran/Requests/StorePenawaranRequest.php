@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Penawaran\Requests;
 
+use App\Support\TipeHarga;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePenawaranRequest extends FormRequest
@@ -20,16 +21,18 @@ class StorePenawaranRequest extends FormRequest
             'judul'            => ['required', 'string', 'max:200'],
             'id_klien'         => ['required', 'string', 'max:36'],
             'nilai_penawaran'  => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'tipe_harga'       => ['sometimes', 'string', 'in:per_rit,borongan'],
+            'tipe_harga'       => ['sometimes', 'string', 'in:' . implode(',', TipeHarga::SEMUA)],
             'tanggal_penawaran'=> ['sometimes', 'nullable', 'date'],
             'tanggal_berlaku'  => ['sometimes', 'nullable', 'date'],
+            'jumlah_hari'      => ['sometimes', 'nullable', 'integer', 'min:1'],
             'catatan'          => ['sometimes', 'nullable', 'string'],
 
             'items'                      => ['sometimes', 'array'],
             'items.*.id_rute'            => ['required_with:items', 'string', 'max:36'],
             'items.*.id_jenis_kendaraan' => ['required_with:items', 'string', 'max:36'],
-            'items.*.harga_satuan'       => ['required_unless:tipe_harga,borongan', 'nullable', 'numeric', 'min:0'],
+            'items.*.harga_satuan'       => ['required_unless:tipe_harga,' . implode(',', TipeHarga::NILAI_TETAP), 'nullable', 'numeric', 'min:0'],
             'items.*.estimasi_ritase'    => ['sometimes', 'integer', 'min:1'],
+            'items.*.jumlah_hari'        => ['sometimes', 'nullable', 'integer', 'min:1'],
             'items.*.keterangan'         => ['sometimes', 'nullable', 'string'],
         ];
     }

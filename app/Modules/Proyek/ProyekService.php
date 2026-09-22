@@ -14,6 +14,7 @@ use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Modules\ProyekRute\ProyekRuteService;
 use App\Support\KodeOtomatis;
+use App\Support\TipeHarga;
 use Illuminate\Support\Facades\DB;
 
 class ProyekService
@@ -159,18 +160,18 @@ class ProyekService
 
         $tipeHarga = $proyek->tipe_harga ?? 'per_rit';
 
-        if ($tipeHarga === 'borongan') {
+        if (TipeHarga::nilaiTetap($tipeHarga)) {
             if (!isset($data['nilai_penawaran'])) {
-                abort(422, 'Nilai penawaran wajib diisi untuk revisi borongan');
+                abort(422, 'Nilai penawaran wajib diisi untuk revisi selain On Call');
             }
             $nilaiPenawaran = (float) $data['nilai_penawaran'];
         } else {
             if (count($items) < 1) {
-                abort(422, 'Item rute minimal 1 baris untuk revisi per rit');
+                abort(422, 'Item rute minimal 1 baris untuk revisi On Call');
             }
             foreach ($items as $item) {
                 if (($item['harga_satuan'] ?? null) === null) {
-                    abort(422, 'Harga satuan wajib diisi untuk penawaran per rit');
+                    abort(422, 'Harga satuan wajib diisi untuk penawaran On Call');
                 }
             }
             $nilaiPenawaran = $this->totalItemsRevisi($items);
@@ -269,8 +270,8 @@ class ProyekService
                 abort(404, 'Proyek tidak ditemukan');
             }
 
-            if (($proyek->tipe_harga ?? 'per_rit') !== 'borongan') {
-                abort(422, 'Faktur termin hanya untuk proyek borongan');
+            if (TipeHarga::perRit($proyek->tipe_harga)) {
+                abort(422, 'Faktur termin hanya untuk proyek selain On Call');
             }
 
             $nominal      = (float) $data['nominal'];
@@ -310,7 +311,7 @@ class ProyekService
         $totalRit       = count($trips);
         $nilaiPenawaran = $proyek->harga_penawaran !== null ? (float) $proyek->harga_penawaran : null;
 
-        if ($tipeHarga === 'borongan') {
+        if (TipeHarga::nilaiTetap($tipeHarga)) {
             $totalFaktur = $this->repo->totalFakturProyek($idProyek);
 
             return [

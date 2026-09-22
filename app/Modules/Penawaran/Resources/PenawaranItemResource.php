@@ -22,6 +22,7 @@ class PenawaranItemResource extends JsonResource
             'nama_jenis'         => $this->nama_jenis ?? null,
             'harga_satuan'       => $this->harga_satuan !== null ? (float) $this->harga_satuan : null,
             'estimasi_ritase'    => (int) $this->estimasi_ritase,
+            'jumlah_hari'        => $this->jumlah_hari !== null ? (int) $this->jumlah_hari : null,
             'subtotal'           => (float) $this->subtotal,
             'keterangan'         => $this->keterangan,
         ];

@@ -391,7 +391,7 @@ class PenawaranRevisiTest extends TestCase
         ]);
 
         $res->assertStatus(422)
-            ->assertJsonPath('message', 'Harga satuan wajib diisi untuk penawaran per rit');
+            ->assertJsonPath('message', 'Harga satuan wajib diisi untuk penawaran On Call');
         $this->assertSame(0, DB::table('penawaran')->where('id_proyek', $proyek->id_proyek)->whereNotNull('id_penawaran_induk')->count());
     }
 
@@ -942,5 +942,49 @@ class PenawaranRevisiTest extends TestCase
             'id_penawaran' => $idRevisi,
             'status'       => 'ditolak',
         ]);
+    }
+
+    public function test_revisi_tipe_harga_baru_butuh_nilai_penawaran_dan_berhasil_tanpa_items(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        foreach (['unit_only', 'unit_driver', 'all_in'] as $tipe) {
+            $klien  = $this->makeKlien();
+            $proyek = $this->makeProyek($klien, $tipe);
+            $this->makePenawaranDisetujui($klien, $proyek->id_proyek, $tipe, 40000000);
+
+            $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", ['items' => []])
+                ->assertStatus(422);
+
+            $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", ['nilai_penawaran' => 45000000])
+                ->assertStatus(201)
+                ->assertJsonPath('data.tipe_harga', $tipe)
+                ->assertJsonPath('data.nilai_penawaran', 45000000);
+        }
+    }
+
+    public function test_revisi_tipe_harga_baru_disetujui_hanya_update_harga_proyek(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        foreach (['unit_only', 'unit_driver', 'all_in'] as $tipe) {
+            $klien  = $this->makeKlien();
+            $proyek = $this->makeProyek($klien, $tipe);
+            $this->makePenawaranDisetujui($klien, $proyek->id_proyek, $tipe, 40000000);
+            $idBaris = $this->makeProyekRute($proyek->id_proyek, $this->makeRute(), $this->makeJenisKendaraan(), 0, 1);
+
+            $idRevisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+                'nilai_penawaran' => 55000000,
+            ])->assertStatus(201)->json('data.id_penawaran');
+
+            $this->kirimkan($idRevisi);
+            $this->putJson("/api/penawaran/{$idRevisi}/status", ['status' => 'disetujui'])->assertStatus(200);
+
+            $this->assertEquals(55000000, (float) DB::table('proyek')->where('id_proyek', $proyek->id_proyek)->value('harga_penawaran'), $tipe);
+            $this->assertDatabaseHas('proyek_rute', [
+                'id_proyek_rute'  => $idBaris,
+                'harga_penawaran' => 0,
+            ]);
+        }
     }
 }

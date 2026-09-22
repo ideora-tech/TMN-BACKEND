@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\ProyekRute;
 
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Support\TipeHarga;
 use Illuminate\Support\Collection;
 
 class ProyekRuteService
@@ -88,7 +89,7 @@ class ProyekRuteService
     private function hargaTerkunci(string $idProyek): bool
     {
         $tipeHarga = $this->repo->tipeHargaProyek($idProyek) ?? 'per_rit';
-        return $tipeHarga === 'per_rit' && $this->repo->adaPenawaranDisetujui($idProyek);
+        return TipeHarga::perRit($tipeHarga) && $this->repo->adaPenawaranDisetujui($idProyek);
     }
 
     private function adaPerubahanHarga(ProyekRuteModel $record, array $data): bool

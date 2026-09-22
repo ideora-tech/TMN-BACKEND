@@ -19,6 +19,7 @@ class PenawaranItemModel extends BaseModel
         'id_jenis_kendaraan',
         'harga_satuan',
         'estimasi_ritase',
+        'jumlah_hari',
         'subtotal',
         'keterangan',
     ];
@@ -26,6 +27,7 @@ class PenawaranItemModel extends BaseModel
     protected $casts = [
         'harga_satuan'    => 'float',
         'estimasi_ritase' => 'integer',
+        'jumlah_hari'     => 'integer',
         'subtotal'        => 'float',
     ];
 }

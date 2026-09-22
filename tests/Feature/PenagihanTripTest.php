@@ -540,7 +540,7 @@ class PenagihanTripTest extends TestCase
             'id_proyek'      => $proyekBorongan->id_proyek,
             'trip_ids'       => [$trip->id_trip],
             'tanggal_faktur' => now()->toDateString(),
-        ])->assertStatus(422)->assertJsonPath('message', 'Trip proyek borongan difakturkan dari halaman proyek');
+        ])->assertStatus(422)->assertJsonPath('message', 'Trip proyek selain On Call difakturkan dari halaman proyek');
     }
 
     public function test_faktur_batal_membuka_trip_lagi(): void
@@ -601,5 +601,30 @@ class PenagihanTripTest extends TestCase
         $item = DB::table('faktur_item')->where('id_faktur', $idFaktur)->first();
         $this->assertSame(1050000.0, (float) $item->harga_satuan);
         $this->assertSame('Jasa Angkutan Unit Dedicated Project Astro Cibitung Periode Juli 2026', $item->deskripsi);
+    }
+
+    public function test_proyek_tipe_harga_baru_trip_tidak_bisa_ditagih_dan_ditolak_saat_generate_faktur(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $this->buatProyekRute($this->proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1500000);
+
+        foreach (['unit_only', 'unit_driver', 'all_in'] as $tipe) {
+            $this->proyek->update(['tipe_harga' => $tipe]);
+            $trip = $this->buatTrip();
+
+            $res = $this->getJson("/api/penagihan-trip?id_proyek={$this->proyek->id_proyek}");
+            $res->assertStatus(200);
+            $baris = collect($res->json('data'))->firstWhere('id_trip', $trip->id_trip);
+            $this->assertTrue($baris['borongan'], $tipe);
+            $this->assertNull($baris['tarif'], $tipe);
+            $this->assertFalse($baris['bisa_ditagih'], $tipe);
+
+            $this->postJson('/api/penagihan-trip/faktur', [
+                'id_proyek'      => $this->proyek->id_proyek,
+                'trip_ids'       => [$trip->id_trip],
+                'tanggal_faktur' => now()->toDateString(),
+            ])->assertStatus(422)->assertJsonPath('message', 'Trip proyek selain On Call difakturkan dari halaman proyek');
+        }
     }
 }

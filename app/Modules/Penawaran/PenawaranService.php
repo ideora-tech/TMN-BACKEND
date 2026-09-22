@@ -9,6 +9,7 @@ use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Support\KodeOtomatis;
+use App\Support\TipeHarga;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -78,6 +79,8 @@ class PenawaranService
             $record->syncOriginalAttribute('proyek_status');
             $record->setAttribute('kode_proyek', $proyek->kode_proyek ?? null);
             $record->syncOriginalAttribute('kode_proyek');
+            $record->setAttribute('nama_proyek', $proyek->nama_proyek ?? null);
+            $record->syncOriginalAttribute('nama_proyek');
         }
 
         return $record;
@@ -98,7 +101,7 @@ class PenawaranService
         unset($data['items']);
         $tipeHarga = $data['tipe_harga'] ?? 'per_rit';
         $data['tipe_harga'] = $tipeHarga;
-        if (count($items) > 0 && $tipeHarga !== 'borongan') {
+        if (count($items) > 0 && TipeHarga::perRit($tipeHarga)) {
             $data['nilai_penawaran'] = $this->totalItems($items);
         }
 
@@ -120,8 +123,8 @@ class PenawaranService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
 
-        if ($record->status !== 'draft') {
-            abort(422, 'Penawaran yang sudah dikirim tidak dapat diubah');
+        if (!in_array($record->status, ['draft', 'negosiasi'], true)) {
+            abort(422, 'Hanya penawaran berstatus draft atau negosiasi yang dapat diubah');
         }
 
         if (isset($data['nomor_penawaran']) && $data['nomor_penawaran'] !== $record->nomor_penawaran) {
@@ -141,7 +144,7 @@ class PenawaranService
                     $this->simpanItem($record, $item);
                 }
                 $tipeHarga = $data['tipe_harga'] ?? $record->tipe_harga ?? 'per_rit';
-                if (count($items) > 0 && $tipeHarga !== 'borongan') {
+                if (count($items) > 0 && TipeHarga::perRit($tipeHarga)) {
                     $data['nilai_penawaran'] = $this->totalItems($items);
                 }
             }
@@ -196,7 +199,7 @@ class PenawaranService
             abort(422, 'Lengkapi klien terlebih dahulu sebelum mengajukan approval');
         }
 
-        if ($record->tipe_harga !== 'borongan' && $this->itemRepo->listByPenawaran($id)->isEmpty()) {
+        if (TipeHarga::perRit($record->tipe_harga) && $this->itemRepo->listByPenawaran($id)->isEmpty()) {
             abort(422, 'Penawaran belum punya item rute — tambahkan minimal 1 rute sebelum diajukan approval');
         }
 
@@ -211,7 +214,7 @@ class PenawaranService
             if ($terkunci->id_klien === null) {
                 abort(422, 'Lengkapi klien terlebih dahulu sebelum mengajukan approval');
             }
-            if ($terkunci->tipe_harga !== 'borongan' && $this->itemRepo->listByPenawaran($id)->isEmpty()) {
+            if (TipeHarga::perRit($terkunci->tipe_harga) && $this->itemRepo->listByPenawaran($id)->isEmpty()) {
                 abort(422, 'Penawaran belum punya item rute — tambahkan minimal 1 rute sebelum diajukan approval');
             }
 
@@ -267,7 +270,7 @@ class PenawaranService
             return;
         }
 
-        if ($penawaran->tipe_harga !== 'borongan') {
+        if (TipeHarga::perRit($penawaran->tipe_harga)) {
             $kunciDipertahankan = [];
 
             foreach ($this->itemRepo->listByPenawaran($penawaran->id_penawaran) as $item) {
@@ -363,6 +366,7 @@ class PenawaranService
             'id_jenis_kendaraan' => $item['id_jenis_kendaraan'],
             'harga_satuan'       => $hargaSatuan,
             'estimasi_ritase'    => $ritase,
+            'jumlah_hari'        => $item['jumlah_hari'] ?? null,
             'subtotal'           => $hargaSatuan !== null ? (float) $hargaSatuan * $ritase : 0,
             'keterangan'         => $item['keterangan'] ?? null,
         ]);

@@ -237,7 +237,7 @@ class FakturBoronganTest extends TestCase
         ]);
 
         $res->assertStatus(422)
-            ->assertJsonPath('message', 'Faktur termin hanya untuk proyek borongan');
+            ->assertJsonPath('message', 'Faktur termin hanya untuk proyek selain On Call');
     }
 
     public function test_guard_sisa_membaca_state_faktur_terbaru_saat_dikunci(): void
@@ -328,5 +328,33 @@ class FakturBoronganTest extends TestCase
             ->assertJsonPath('data.realisasi.nilai_realisasi', 20000000)
             ->assertJsonPath('data.realisasi.nilai_penawaran', 50000000)
             ->assertJsonPath('data.realisasi.sisa_belum_difakturkan', 30000000);
+    }
+
+    public function test_faktur_termin_dan_realisasi_berlaku_untuk_proyek_tipe_harga_baru(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        foreach (['unit_only', 'unit_driver', 'all_in'] as $tipe) {
+            $klien  = $this->makeKlien();
+            $proyek = ProyekModel::create([
+                'id_perusahaan'   => self::PERUSAHAAN_ID,
+                'id_klien'        => $klien->id_klien,
+                'kode_proyek'     => 'PRJ-' . Str::random(8),
+                'nama_proyek'     => 'Proyek ' . $tipe,
+                'tipe_harga'      => $tipe,
+                'harga_penawaran' => 50000000,
+            ]);
+
+            $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
+                'nominal'        => 20000000,
+                'uraian'         => 'Termin 1',
+                'tanggal_faktur' => now()->toDateString(),
+            ])->assertStatus(201);
+
+            $this->getJson("/api/proyek/{$proyek->id_proyek}")
+                ->assertStatus(200)
+                ->assertJsonPath('data.realisasi.nilai_realisasi', 20000000)
+                ->assertJsonPath('data.realisasi.sisa_belum_difakturkan', 30000000);
+        }
     }
 }

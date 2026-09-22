@@ -89,8 +89,8 @@
             <tr>
                 <td class="label">Kepada</td><td class="titik">:</td>
                 <td>{{ $klien->nama_klien ?? '-' }}</td>
-                <td class="label">Berlaku hingga</td><td class="titik">:</td>
-                <td>{{ $tgl($p->tanggal_berlaku) }}</td>
+                <td class="label">Jumlah hari</td><td class="titik">:</td>
+                <td>{{ $p->jumlah_hari ? $p->jumlah_hari . ' hari' : '-' }}</td>
             </tr>
             <tr>
                 <td class="label">Status</td><td class="titik">:</td>
@@ -107,7 +107,8 @@
                         <th>RUTE</th>
                         <th>JENIS KENDARAAN</th>
                         <th class="jumlah">HARGA SATUAN</th>
-                        <th class="jumlah">RITASE</th>
+                        <th class="jumlah">HARI</th>
+                        <th class="jumlah">TRIP</th>
                         <th class="jumlah">SUBTOTAL</th>
                     </tr>
                 </thead>
@@ -125,12 +126,13 @@
                             </td>
                             <td>{{ $item->nama_jenis ?? '-' }}</td>
                             <td class="jumlah">{{ $rp($item->harga_satuan) }}</td>
+                            <td class="jumlah">{{ $item->jumlah_hari ? number_format((int) $item->jumlah_hari, 0, ',', '.') : '-' }}</td>
                             <td class="jumlah">{{ number_format((int) $item->estimasi_ritase, 0, ',', '.') }}</td>
                             <td class="jumlah">{{ $rp($item->subtotal) }}</td>
                         </tr>
                     @endforeach
                     <tr class="subtotal">
-                        <td colspan="4">TOTAL PENAWARAN</td>
+                        <td colspan="5">TOTAL PENAWARAN</td>
                         <td class="jumlah">{{ $rp($p->nilai_penawaran) }}</td>
                     </tr>
                 </tbody>

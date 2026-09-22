@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Proyek\Requests;
 
+use App\Support\TipeHarga;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProyekRequest extends FormRequest
@@ -24,7 +25,7 @@ class StoreProyekRequest extends FormRequest
             'harga_penawaran' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'harga_proyek'    => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'status'          => ['sometimes', 'string', 'in:draft,aktif,selesai,batal'],
-            'tipe_harga'      => ['sometimes', 'string', 'in:per_rit,borongan'],
+            'tipe_harga'      => ['sometimes', 'string', 'in:' . implode(',', TipeHarga::SEMUA)],
             'keterangan'      => ['sometimes', 'nullable', 'string'],
             'id_penawaran'    => ['sometimes', 'nullable', 'string', 'exists:penawaran,id_penawaran,dihapus_pada,NULL'],
             'rute'                       => ['sometimes', 'array'],

@@ -25,13 +25,17 @@ class PenawaranRepository implements PenawaranRepositoryInterface
                 $join->on('klien.id_klien', '=', 'penawaran.id_klien')
                     ->whereNull('klien.dihapus_pada');
             })
-            ->select('penawaran.*', 'klien.nama_klien')
+            ->leftJoin('proyek', function ($join) {
+                $join->on('proyek.id_proyek', '=', 'penawaran.id_proyek')
+                    ->whereNull('proyek.dihapus_pada');
+            })
+            ->select('penawaran.*', 'klien.nama_klien', 'proyek.kode_proyek', 'proyek.nama_proyek', 'proyek.status as proyek_status')
             ->where('penawaran.id_perusahaan', $idPerusahaan);
 
         if ($search !== null && $search !== '') {
             $query->where(function ($q) use ($search) {
-                $q->where('nomor_penawaran', 'like', "%{$search}%")
-                  ->orWhere('judul', 'like', "%{$search}%");
+                $q->where('penawaran.nomor_penawaran', 'like', "%{$search}%")
+                  ->orWhere('penawaran.judul', 'like', "%{$search}%");
             });
         }
 

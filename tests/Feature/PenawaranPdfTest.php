@@ -88,4 +88,35 @@ class PenawaranPdfTest extends TestCase
 
         $res->assertStatus(404);
     }
+
+    public function test_tampilan_pdf_memuat_jumlah_hari_kolom_hari_dan_trip_tanpa_berlaku_hingga(): void
+    {
+        $penawaran = $this->makePenawaran();
+        $penawaran->update(['jumlah_hari' => 26]);
+
+        $html = view('exports.penawaran', [
+            'p'          => $penawaran->fresh(),
+            'klien'      => (object) ['nama_klien' => 'PT Klien Test'],
+            'items'      => collect([(object) [
+                'nama_rute'       => 'Jakarta - Bandung',
+                'asal'            => 'Jakarta',
+                'tujuan'          => 'Bandung',
+                'keterangan'      => null,
+                'nama_jenis'      => 'CDD',
+                'harga_satuan'    => 1000000,
+                'jumlah_hari'     => 26,
+                'estimasi_ritase' => 3,
+                'subtotal'        => 3000000,
+            ]]),
+            'logoBase64' => null,
+            'perusahaan' => (object) [],
+        ])->render();
+
+        $this->assertStringContainsString('Jumlah hari', $html);
+        $this->assertStringContainsString('26 hari', $html);
+        $this->assertStringContainsString('>HARI<', $html);
+        $this->assertStringContainsString('>TRIP<', $html);
+        $this->assertStringNotContainsString('Berlaku hingga', $html);
+        $this->assertStringNotContainsString('RITASE', $html);
+    }
 }

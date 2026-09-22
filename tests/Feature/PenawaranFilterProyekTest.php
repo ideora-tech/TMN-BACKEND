@@ -102,4 +102,52 @@ class PenawaranFilterProyekTest extends TestCase
         $res->assertStatus(200);
         $this->assertCount(2, $res->json('data'));
     }
+
+    public function test_daftar_penawaran_menyertakan_kode_nama_dan_status_proyek_tanpa_menimpa_status_penawaran(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $idProyek = $this->makeProyek();
+        DB::table('proyek')->where('id_proyek', $idProyek)->update(['status' => 'aktif']);
+        $kode        = DB::table('proyek')->where('id_proyek', $idProyek)->value('kode_proyek');
+        $idPenawaran = $this->makePenawaran($idProyek, 'disetujui');
+
+        $res = $this->getJson('/api/penawaran');
+
+        $res->assertStatus(200);
+        $baris = collect($res->json('data'))->firstWhere('id_penawaran', $idPenawaran);
+        $this->assertSame($idProyek, $baris['id_proyek']);
+        $this->assertSame($kode, $baris['kode_proyek']);
+        $this->assertSame('Proyek Filter Test', $baris['nama_proyek']);
+        $this->assertSame('aktif', $baris['proyek_status']);
+        $this->assertSame('disetujui', $baris['status']);
+    }
+
+    public function test_daftar_penawaran_tanpa_proyek_mengembalikan_data_proyek_null(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $idPenawaran = $this->makePenawaran(null, 'draft');
+
+        $res = $this->getJson('/api/penawaran');
+
+        $res->assertStatus(200);
+        $baris = collect($res->json('data'))->firstWhere('id_penawaran', $idPenawaran);
+        foreach (['id_proyek', 'kode_proyek', 'nama_proyek', 'proyek_status'] as $kunci) {
+            $this->assertArrayHasKey($kunci, $baris);
+            $this->assertNull($baris[$kunci], $kunci);
+        }
+    }
+
+    public function test_detail_penawaran_menyertakan_nama_proyek(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $idProyek    = $this->makeProyek();
+        $idPenawaran = $this->makePenawaran($idProyek, 'disetujui');
+
+        $res = $this->getJson("/api/penawaran/{$idPenawaran}");
+
+        $res->assertStatus(200)->assertJsonPath('data.nama_proyek', 'Proyek Filter Test');
+    }
 }
