@@ -166,7 +166,10 @@ class ArusKasRepository implements ArusKasRepositoryInterface
 
     public function findPengajuanByPerawatan(string $idPerawatan): ?PengajuanPengeluaranModel
     {
-        return PengajuanPengeluaranModel::active()->where('id_perawatan', $idPerawatan)->first();
+        return PengajuanPengeluaranModel::active()
+            ->where('id_perawatan', $idPerawatan)
+            ->whereNull('id_pembelian')
+            ->first();
     }
 
     public function dataPerawatanUntukPengajuan(string $idPerawatan): ?object

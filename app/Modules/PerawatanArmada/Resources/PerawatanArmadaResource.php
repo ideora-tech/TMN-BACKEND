@@ -28,6 +28,7 @@ class PerawatanArmadaResource extends JsonResource
             'keterangan'               => $this->keterangan,
             'sparepart'                => $this->sparepart ?? [],
             'bukti'                    => $this->bukti ?? [],
+            'pembelian'                => $this->pembelian ?? [],
             'dibuat_pada'              => $this->dibuat_pada,
             'diubah_pada'              => $this->diubah_pada,
         ];

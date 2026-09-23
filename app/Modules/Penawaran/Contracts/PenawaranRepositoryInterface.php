@@ -39,4 +39,8 @@ interface PenawaranRepositoryInterface
     public function delete(PenawaranModel $model): void;
 
     public function getPerusahaan(string $idPerusahaan): ?object;
+
+    public function findByEmailMessageId(string $messageId): ?PenawaranModel;
+
+    public function findKirimanEmailTerakhirKe(string $email, string $sebelum): ?PenawaranModel;
 }

@@ -39,6 +39,16 @@ services:
       DB_DATABASE: tmn_transport
       DB_USERNAME: hruser
       DB_PASSWORD: hrpassword123
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_HOST: ${MAIL_HOST:-127.0.0.1}
+      MAIL_PORT: ${MAIL_PORT:-2525}
+      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-TMN-Transport}
+      MAIL_IMAP_HOST: ${MAIL_IMAP_HOST:-${MAIL_HOST:-127.0.0.1}}
+      MAIL_IMAP_PORT: ${MAIL_IMAP_PORT:-993}
     volumes:
       - backend_storage:/var/www/html/storage/app/public
       - backend_logs:/var/www/html/storage/logs

@@ -482,6 +482,21 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->all();
     }
 
+    public function pembelianUntukPerawatan(string $idPerawatan): array
+    {
+        return DB::table('pembelian_sparepart as p')
+            ->leftJoin('supplier as s', 's.id_supplier', '=', 'p.id_supplier')
+            ->where('p.id_perawatan', $idPerawatan)
+            ->whereNull('p.dihapus_pada')
+            ->orderBy('p.tanggal_pengajuan', 'desc')
+            ->orderBy('p.dibuat_pada', 'desc')
+            ->get([
+                'p.id_pembelian', 'p.nomor_pengajuan', 'p.status', 'p.total_estimasi', 'p.total_aktual',
+                'p.tanggal_pengajuan', 'p.tanggal_pembelian', 's.nama as nama_supplier',
+            ])
+            ->all();
+    }
+
     public function findArmadaPapanUnit(string $idPerusahaan, ?string $search = null): array
     {
         return DB::table('armada')

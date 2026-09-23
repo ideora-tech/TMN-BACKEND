@@ -204,7 +204,7 @@ class PerawatanSparepartTest extends TestCase
         $sp = $this->makeSparepart('Filter Udara', 10);
 
         $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'terjadwal',
+            'tanggal' => '2026-07-17', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
             'sparepart' => [['id_sparepart' => $sp->id_sparepart, 'qty' => 4, 'harga' => 60000, 'sumber' => 'stok_sendiri']],
         ]);
         $idPerawatan = $create->json('data.id_perawatan');

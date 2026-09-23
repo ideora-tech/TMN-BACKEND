@@ -23,6 +23,11 @@ class VendorResource extends JsonResource
             'npwp'              => $this->npwp,
             'tanggal_bergabung' => $this->tanggal_bergabung?->toDateString(),
             'aktif'             => (bool) $this->aktif,
+            'jumlah_unit'               => (int) ($this->jumlah_unit ?? 0),
+            'jumlah_driver'             => (int) ($this->jumlah_driver ?? 0),
+            'jumlah_kontrak_aktif'      => (int) ($this->jumlah_kontrak_aktif ?? 0),
+            'nilai_kontrak_aktif'       => (float) ($this->nilai_kontrak_aktif ?? 0),
+            'kontrak_berakhir_terdekat' => $this->kontrak_berakhir_terdekat ?? null,
             'dibuat_pada'       => $this->dibuat_pada,
             'diubah_pada'       => $this->diubah_pada,
         ];

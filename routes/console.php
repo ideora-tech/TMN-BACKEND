@@ -12,6 +12,18 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote')->hourly();
 
+Artisan::command('email:cek-bounce', function () {
+    $hasil = app(\App\Modules\Penawaran\PenawaranEmailBounceService::class)->periksa();
+
+    if (isset($hasil['dilewati'])) {
+        $this->info("Cek bounce email dilewati: {$hasil['dilewati']}");
+        return;
+    }
+
+    $this->info("Cek bounce email: {$hasil['diperiksa']} pesan diperiksa, {$hasil['bounce']} bounce, {$hasil['cocok']} cocok ke penawaran.");
+    Log::info("email:cek-bounce — {$hasil['diperiksa']} diperiksa, {$hasil['bounce']} bounce, {$hasil['cocok']} cocok.");
+})->purpose('Baca inbox email pengirim via IMAP, tandai penawaran yang email-nya bounce/gagal terkirim')->everyTenMinutes();
+
 Artisan::command('notifikasi:dokumen-kadaluarsa', function () {
     $today  = now()->toDateString();
     $batas  = now()->addDays(30)->toDateString();

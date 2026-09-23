@@ -100,4 +100,14 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    'imap' => [
+        'host'       => env('MAIL_IMAP_HOST', env('MAIL_HOST')),
+        'port'       => (int) env('MAIL_IMAP_PORT', 993),
+        'encryption' => env('MAIL_IMAP_ENCRYPTION', 'ssl'),
+        'username'   => env('MAIL_IMAP_USERNAME', env('MAIL_USERNAME')),
+        'password'   => env('MAIL_IMAP_PASSWORD', env('MAIL_PASSWORD')),
+        'folder'     => env('MAIL_IMAP_FOLDER', 'INBOX'),
+        'hari_mundur' => (int) env('MAIL_IMAP_HARI_MUNDUR', 7),
+    ],
+
 ];

@@ -120,7 +120,7 @@ class PembelianSparepartTest extends TestCase
         ]))->assertStatus(422);
     }
 
-    public function test_kaitan_perawatan_opsional_tidak_membuat_pengajuan_arus_kas(): void
+    public function test_kaitan_perawatan_tetap_lewat_approval_normal(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idArmada = (string) Str::uuid();
@@ -138,12 +138,14 @@ class PembelianSparepartTest extends TestCase
         $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan(['id_perawatan' => $idPerawatan]));
         $res->assertStatus(201)
             ->assertJsonPath('data.id_perawatan', $idPerawatan)
-            ->assertJsonPath('data.status', 'disetujui_finance');
+            ->assertJsonPath('data.status', 'diajukan');
         $this->assertNotNull($res->json('data.nopol_armada'));
-        $this->assertNotNull($res->json('data.disetujui_manager_pada'));
-        $this->assertNotNull($res->json('data.disetujui_finance_pada'));
+        $this->assertNull($res->json('data.disetujui_finance_pada'));
 
-        $this->assertNull($this->pengajuanUntukPembelian($res->json('data.id_pembelian')));
+        $pengajuan = $this->pengajuanUntukPembelian($res->json('data.id_pembelian'));
+        $this->assertNotNull($pengajuan);
+        $this->assertSame('sparepart', $pengajuan->kategori);
+        $this->assertSame($idPerawatan, $pengajuan->id_perawatan);
     }
 
     public function test_list_filter_status_dan_search_nomor(): void
@@ -193,18 +195,19 @@ class PembelianSparepartTest extends TestCase
 
         $payload = $this->payloadPengajuan(array_merge(['id_perawatan' => $idPerawatan], $overrideItems));
         $create = $this->postJson('/api/pembelian-sparepart', $payload);
-        $create->assertStatus(201)->assertJsonPath('data.status', 'disetujui_finance');
+        $create->assertStatus(201)->assertJsonPath('data.status', 'diajukan');
 
         return ['id_pembelian' => $create->json('data.id_pembelian'), 'id_perawatan' => $idPerawatan];
     }
 
-    public function test_delete_ber_perawatan_saat_disetujui_finance_berhasil(): void
+    public function test_delete_ber_perawatan_saat_disetujui_finance_ditolak_seperti_pembelian_biasa(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $data = $this->buatPembelianBerPerawatan();
+        DB::table('pembelian_sparepart')->where('id_pembelian', $data['id_pembelian'])->update(['status' => 'disetujui_finance']);
 
-        $this->deleteJson("/api/pembelian-sparepart/{$data['id_pembelian']}")->assertStatus(200);
-        $this->assertSoftDeleted('pembelian_sparepart', ['id_pembelian' => $data['id_pembelian']]);
+        $this->deleteJson("/api/pembelian-sparepart/{$data['id_pembelian']}")->assertStatus(422);
+        $this->assertDatabaseHas('pembelian_sparepart', ['id_pembelian' => $data['id_pembelian'], 'dihapus_pada' => null]);
     }
 
     public function test_delete_non_perawatan_saat_disetujui_finance_tetap_ditolak(): void
@@ -217,7 +220,7 @@ class PembelianSparepartTest extends TestCase
         $this->assertDatabaseHas('pembelian_sparepart', ['id_pembelian' => $id, 'dihapus_pada' => null]);
     }
 
-    public function test_edit_ber_perawatan_saat_disetujui_finance_berhasil_tanpa_diblokir(): void
+    public function test_edit_ber_perawatan_saat_diajukan_mensinkronkan_nominal_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $data = $this->buatPembelianBerPerawatan();
@@ -229,9 +232,53 @@ class PembelianSparepartTest extends TestCase
         ]));
 
         $res->assertStatus(200)
-            ->assertJsonPath('data.status', 'disetujui_finance')
+            ->assertJsonPath('data.status', 'diajukan')
             ->assertJsonPath('data.id_perawatan', $data['id_perawatan'])
             ->assertJsonPath('data.total_estimasi', 60000);
+        $this->assertSame(60000.0, (float) $this->pengajuanUntukPembelian($data['id_pembelian'])->nominal);
+    }
+
+    public function test_edit_ber_perawatan_saat_disetujui_finance_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $data = $this->buatPembelianBerPerawatan();
+        DB::table('pembelian_sparepart')->where('id_pembelian', $data['id_pembelian'])->update(['status' => 'disetujui_finance']);
+
+        $this->putJson("/api/pembelian-sparepart/{$data['id_pembelian']}", $this->payloadPengajuan([
+            'id_perawatan' => $data['id_perawatan'],
+        ]))->assertStatus(422);
+    }
+
+    public function test_detail_perawatan_menampilkan_pembelian_yang_menempel(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $data = $this->buatPembelianBerPerawatan();
+        $idArmada = DB::table('perawatan_armada')->where('id_perawatan', $data['id_perawatan'])->value('id_armada');
+
+        $res = $this->getJson("/api/armada/{$idArmada}/perawatan/{$data['id_perawatan']}");
+
+        $res->assertStatus(200);
+        $daftar = $res->json('data.pembelian');
+        $this->assertCount(1, $daftar);
+        $this->assertSame($data['id_pembelian'], $daftar[0]['id_pembelian']);
+        $this->assertSame('diajukan', $daftar[0]['status']);
+        $this->assertSame(200000.0, (float) $daftar[0]['total_estimasi']);
+        $this->assertArrayHasKey('nomor_pengajuan', $daftar[0]);
+        $this->assertArrayHasKey('nama_supplier', $daftar[0]);
+    }
+
+    public function test_detail_perawatan_tanpa_pembelian_mengembalikan_array_kosong(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idArmada = (string) Str::uuid();
+        DB::table('armada')->insert(['id_armada' => $idArmada, 'id_perusahaan' => self::PERUSAHAAN_ID, 'nopol' => 'B 1 KS', 'dibuat_pada' => now()]);
+        $idPerawatan = (string) Str::uuid();
+        DB::table('perawatan_armada')->insert(['id_perawatan' => $idPerawatan, 'id_armada' => $idArmada, 'tanggal' => now()->toDateString(), 'jenis_perawatan' => 'Servis', 'biaya' => 0, 'dibuat_pada' => now()]);
+
+        $res = $this->getJson("/api/armada/{$idArmada}/perawatan/{$idPerawatan}");
+
+        $res->assertStatus(200);
+        $this->assertSame([], $res->json('data.pembelian'));
     }
 
     public function test_isolasi_tenant(): void
@@ -299,7 +346,7 @@ class PembelianSparepartTest extends TestCase
         $this->assertEquals(now()->toDateString(), $rowFinal->tanggal_pembayaran);
     }
 
-    public function test_alur_ber_perawatan_langsung_disetujui_finance_lalu_realisasi_menambah_stok(): void
+    public function test_alur_ber_perawatan_lewat_approval_lalu_realisasi_menambah_stok(): void
     {
         Storage::fake('public');
         $this->actingAsRole('SUPERADMIN');
@@ -323,10 +370,11 @@ class PembelianSparepartTest extends TestCase
         ]));
         $create->assertStatus(201)
             ->assertJsonPath('data.id_perawatan', $idPerawatan)
-            ->assertJsonPath('data.status', 'disetujui_finance');
+            ->assertJsonPath('data.status', 'diajukan');
         $idPembelian = $create->json('data.id_pembelian');
         $idItem = $create->json('data.items.0.id_item');
-        $this->assertNull($this->pengajuanUntukPembelian($idPembelian));
+        $this->assertNotNull($this->pengajuanUntukPembelian($idPembelian));
+        DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->update(['status' => 'disetujui_finance']);
 
         $this->postJson("/api/pembelian-sparepart/{$idPembelian}/bukti", [
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],

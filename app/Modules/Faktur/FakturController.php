@@ -64,14 +64,18 @@ class FakturController extends Controller
     {
         $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
-        return ApiResponse::success(new FakturResource($this->service->denganReferensi($this->service->denganAudit($record))), 'Invoice berhasil diperbarui');
+        $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
+        $record = $this->service->denganStatusApproval($record);
+        return ApiResponse::success(new FakturResource($record), 'Invoice berhasil diperbarui');
     }
 
     public function updateStatus(UpdateStatusFakturRequest $request, string $id): JsonResponse
     {
         $record = $this->service->updateStatus($id, $request->validated()['status'], (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
-        return ApiResponse::success(new FakturResource($this->service->denganReferensi($this->service->denganAudit($record))), 'Status invoice berhasil diperbarui');
+        $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
+        $record = $this->service->denganStatusApproval($record);
+        return ApiResponse::success(new FakturResource($record), 'Status invoice berhasil diperbarui');
     }
 
     public function ajukanApproval(Request $request, string $id): JsonResponse
@@ -80,6 +84,7 @@ class FakturController extends Controller
         $record = $this->service->ajukanApproval($id, (string) $request->user()->id_pengguna, $idPerusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
         $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
+        $record = $this->service->denganStatusApproval($record);
         return ApiResponse::success(new FakturResource($record), 'Invoice diajukan untuk approval');
     }
 

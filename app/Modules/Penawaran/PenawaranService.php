@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Modules\Penawaran;
 
+use App\Modules\Klien\Contracts\KlienRepositoryInterface;
 use App\Modules\Penawaran\Contracts\PenawaranItemRepositoryInterface;
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
+use App\Modules\Penawaran\Mail\PenawaranDikirimMail;
 use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Support\HtmlAman;
 use App\Support\KodeOtomatis;
 use App\Support\TipeHarga;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class PenawaranService
@@ -24,11 +27,14 @@ class PenawaranService
         'ditolak'   => [],
     ];
 
+    private const STATUS_BELUM_BISA_KIRIM_EMAIL = ['draft', 'menunggu_approval'];
+
     public function __construct(
         private readonly PenawaranRepositoryInterface $repo,
         private readonly PenawaranItemRepositoryInterface $itemRepo,
         private readonly ProyekRepositoryInterface $proyekRepo,
         private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
+        private readonly KlienRepositoryInterface $klienRepo,
     ) {}
 
     public function list(
@@ -71,6 +77,14 @@ class PenawaranService
             app(\App\Modules\Approval\ApprovalService::class)->eventTypeAktifAda('penawaran', $idPerusahaan),
         );
         $record->syncOriginalAttribute('approval_aktif');
+
+        if ($record->id_klien !== null) {
+            $klien = $this->klienRepo->findById((string) $record->id_klien);
+            $record->setAttribute('nama_klien', $klien->nama_klien ?? null);
+            $record->syncOriginalAttribute('nama_klien');
+            $record->setAttribute('email_klien', $klien->email ?? null);
+            $record->syncOriginalAttribute('email_klien');
+        }
 
         if ($record->id_proyek !== null) {
             $proyek = $this->proyekRepo->findById((string) $record->id_proyek);
@@ -271,6 +285,35 @@ class PenawaranService
         }
 
         $this->repo->update($record, ['status' => 'terkirim']);
+    }
+
+    public function kirimEmail(string $id, string $idPerusahaan, string $pdfBinary, string $emailTujuan, string $subjek, string $pesan, array $lampiranTambahan = []): PenawaranModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if (in_array($record->status, self::STATUS_BELUM_BISA_KIRIM_EMAIL, true)) {
+            abort(422, 'Penawaran berstatus draft atau menunggu approval belum bisa dikirim ke klien');
+        }
+
+        $terkirim = Mail::to($emailTujuan)->send(new PenawaranDikirimMail(
+            $record,
+            $subjek,
+            HtmlAman::untukTampilan($pesan),
+            $pdfBinary,
+            'penawaran-' . $record->nomor_penawaran . '.pdf',
+            $lampiranTambahan,
+        ));
+
+        $updated = $this->repo->update($record, [
+            'email_terkirim_ke'   => $emailTujuan,
+            'email_terkirim_pada' => now(),
+            'email_message_id'    => $terkirim?->getMessageId(),
+            'email_gagal_pada'    => null,
+            'email_gagal_alasan'  => null,
+        ]);
+        $updated->setRelation('items', $this->itemRepo->listByPenawaran($updated->id_penawaran));
+
+        return $updated;
     }
 
     private function tulisBalikRateCard(PenawaranModel $penawaran): void

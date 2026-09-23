@@ -543,6 +543,41 @@ class PenagihanTripTest extends TestCase
         ])->assertStatus(422)->assertJsonPath('message', 'Trip proyek selain On Call difakturkan dari halaman proyek');
     }
 
+    public function test_respons_update_dan_ubah_status_faktur_tetap_menyertakan_trip_terkait(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $this->buatProyekRute($this->proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1500000);
+
+        $trip1 = $this->buatTrip();
+        $trip2 = $this->buatTrip();
+
+        $idFaktur = $this->postJson('/api/penagihan-trip/faktur', [
+            'id_proyek'      => $this->proyek->id_proyek,
+            'trip_ids'       => [$trip1->id_trip, $trip2->id_trip],
+            'tanggal_faktur' => now()->toDateString(),
+        ])->json('data.id_faktur');
+
+        $update = $this->putJson("/api/faktur/{$idFaktur}", [
+            'items' => [['deskripsi' => 'Jasa angkutan — 2 rit', 'qty' => 1, 'harga_satuan' => 2800000]],
+        ]);
+        $update->assertStatus(200)
+            ->assertJsonPath('data.total', 2800000)
+            ->assertJsonCount(2, 'data.trip_terkait');
+        $this->assertEqualsCanonicalizing(
+            [$trip1->id_trip, $trip2->id_trip],
+            collect($update->json('data.trip_terkait'))->pluck('id_trip')->all(),
+        );
+        $this->assertIsBool($update->json('data.approval_aktif'));
+
+        DB::table('faktur')->where('id_faktur', $idFaktur)->update(['status' => 'terkirim']);
+        $ubahStatus = $this->patchJson("/api/faktur/{$idFaktur}/status", ['status' => 'lunas']);
+        $ubahStatus->assertStatus(200)
+            ->assertJsonPath('data.status', 'lunas')
+            ->assertJsonCount(2, 'data.trip_terkait');
+        $this->assertIsBool($ubahStatus->json('data.approval_aktif'));
+    }
+
     public function test_faktur_batal_membuka_trip_lagi(): void
     {
         $this->actingAsRole('SUPERADMIN');

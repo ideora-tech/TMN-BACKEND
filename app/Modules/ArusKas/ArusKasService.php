@@ -543,13 +543,42 @@ class ArusKasService
         if ($record->id_pembelian !== null) {
             $this->repo->sinkronPembelianSetujui($record->id_pembelian);
         }
+        $this->beritahuTimPelaksana($record, 'pengadaan_disetujui',
+            'disetujui — siap direalisasi',
+            'sudah disetujui. Silakan lanjutkan realisasi/pembelian.');
     }
-
     private function jalankanHookTolak(PengajuanPengeluaranModel $record, string $alasan): void
     {
         if ($record->id_pembelian !== null) {
             $this->repo->sinkronPembelianTolak($record->id_pembelian, $alasan);
         }
+        $this->beritahuTimPelaksana($record, 'pengadaan_ditolak',
+            'ditolak',
+            'ditolak' . ($alasan !== '' ? ": {$alasan}" : '') . '. Periksa lalu ajukan ulang bila perlu.');
+    }
+
+    private function beritahuTimPelaksana(PengajuanPengeluaranModel $record, string $tipe, string $judulAkhir, string $isiAkhir): void
+    {
+        [$menu, $referensiTipe, $referensiId, $link] = match (true) {
+            $record->id_pembelian !== null => [['/pembelian-sparepart'], 'pembelian_sparepart', (string) $record->id_pembelian, '/pembelian-sparepart/' . $record->id_pembelian],
+            $record->id_perawatan !== null => [['/perawatan-armada'], 'perawatan_armada', (string) $record->id_perawatan, '/perawatan-armada?detail=' . $record->id_perawatan],
+            default => [null, null, null, null],
+        };
+        if ($menu === null) {
+            return;
+        }
+
+        $nominal = number_format((float) $record->nominal, 0, ',', '.');
+        $this->notifikasiService->kirimKePemilikIzinMenu(
+            $menu,
+            (string) $record->id_perusahaan,
+            "Pengajuan {$record->nomor_pengajuan} {$judulAkhir}",
+            "Pengajuan {$record->nomor_pengajuan} (Rp {$nominal}) {$isiAkhir}",
+            $tipe,
+            $referensiTipe,
+            $referensiId,
+            $link,
+        );
     }
 
     public function terapkanKeputusanApproval(string $idPengajuan, string $idPerusahaan, string $idPengguna, string $keputusan, ?string $alasanDitolak): void
@@ -685,6 +714,9 @@ class ArusKasService
             if ($terkunci->id_invoice_vendor !== null) {
                 $this->catatPembayaranInvoiceVendor($updated, $tanggalTransfer);
             }
+            $this->beritahuTimPelaksana($updated, 'pengadaan_ditransfer',
+                'sudah ditransfer',
+                "sudah ditransfer oleh Keuangan pada {$tanggalTransfer}.");
             return $updated;
         });
     }
@@ -910,6 +942,13 @@ class ArusKasService
         });
     }
 
+    public function pengajuanPerawatanSudahDitransfer(string $idPerawatan): bool
+    {
+        $record = $this->repo->findPengajuanByPerawatan($idPerawatan);
+
+        return $record !== null && $record->status === self::STATUS_DITRANSFER;
+    }
+
     public function hapusPengajuanPerawatan(string $idPerawatan): void
     {
         $record = $this->repo->findPengajuanByPerawatan($idPerawatan);
@@ -930,7 +969,7 @@ class ArusKasService
         }
 
         $data = $this->repo->dataPembelianUntukPengajuan($pembelian->id_pembelian);
-        if ($data === null || $data->id_perawatan !== null) {
+        if ($data === null) {
             return;
         }
 
@@ -941,6 +980,7 @@ class ArusKasService
             $record = $this->repo->createPengajuan([
                 'id_perusahaan'     => $idPerusahaan,
                 'id_pembelian'      => $pembelian->id_pembelian,
+                'id_perawatan'      => $data->id_perawatan,
                 'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
                 'kategori'          => 'sparepart',
                 'nominal'           => $totalEstimasi,
@@ -951,6 +991,15 @@ class ArusKasService
             ]);
             $this->masukTahapApproval($record);
         });
+    }
+
+    public function sinkronPerawatanPengajuanPembelian(string $idPembelian, ?string $idPerawatan): void
+    {
+        $pengajuan = $this->repo->findPengajuanByPembelian($idPembelian);
+        if ($pengajuan === null || $pengajuan->id_perawatan === $idPerawatan) {
+            return;
+        }
+        $this->repo->updatePengajuan($pengajuan, ['id_perawatan' => $idPerawatan]);
     }
 
     public function sinkronNominalPengajuanPembelian(string $idPembelian, float|null $nominal): void

@@ -118,20 +118,20 @@ class ArusKasController extends Controller
             ]);
         }
 
-        if ($pengajuan->id_perawatan !== null) {
-            return ApiResponse::success([
-                'tipe' => 'perawatan',
-                'data' => new PerawatanArmadaResource(
-                    $perawatanService->findOrFail((string) $pengajuan->id_perawatan, $idPerusahaan)
-                ),
-            ]);
-        }
-
         if ($pengajuan->id_pembelian !== null) {
             return ApiResponse::success([
                 'tipe' => 'pembelian',
                 'data' => new PembelianSparepartResource(
                     $pembelianService->findOrFail((string) $pengajuan->id_pembelian, $idPerusahaan)
+                ),
+            ]);
+        }
+
+        if ($pengajuan->id_perawatan !== null) {
+            return ApiResponse::success([
+                'tipe' => 'perawatan',
+                'data' => new PerawatanArmadaResource(
+                    $perawatanService->findOrFail((string) $pengajuan->id_perawatan, $idPerusahaan)
                 ),
             ]);
         }

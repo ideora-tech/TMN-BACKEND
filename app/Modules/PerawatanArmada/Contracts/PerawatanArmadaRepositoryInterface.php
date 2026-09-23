@@ -51,4 +51,5 @@ interface PerawatanArmadaRepositoryInterface
     public function kmOdometerTerakhirByArmadaIds(array $armadaIds): array;
     public function getServisTerakhirSelesaiByArmadaIds(array $armadaIds): array;
     public function findArmadaPapanUnit(string $idPerusahaan, ?string $search = null): array;
+    public function pembelianUntukPerawatan(string $idPerawatan): array;
 }

@@ -134,4 +134,23 @@ class PenawaranRepository implements PenawaranRepositoryInterface
     {
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
     }
+
+    public function findByEmailMessageId(string $messageId): ?PenawaranModel
+    {
+        return PenawaranModel::active()
+            ->whereRaw('LOWER(email_message_id) = ?', [strtolower(trim($messageId, '<> '))])
+            ->whereNull('email_gagal_pada')
+            ->first();
+    }
+
+    public function findKirimanEmailTerakhirKe(string $email, string $sebelum): ?PenawaranModel
+    {
+        return PenawaranModel::active()
+            ->whereRaw('LOWER(email_terkirim_ke) = ?', [strtolower(trim($email))])
+            ->whereNotNull('email_terkirim_pada')
+            ->where('email_terkirim_pada', '<=', $sebelum)
+            ->whereNull('email_gagal_pada')
+            ->orderBy('email_terkirim_pada', 'desc')
+            ->first();
+    }
 }

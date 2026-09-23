@@ -100,15 +100,10 @@ class PembelianSparepartService
             $header['id_perusahaan']   = $idPerusahaan;
             $header['status']          = self::STATUS_DIAJUKAN;
             $header['nomor_pengajuan'] = $this->repo->nomorBerikutnya($idPerusahaan);
-            if ($header['id_perawatan'] !== null) {
-                $header = $this->stampDisetujuiOtomatis($header);
-            }
             $record = $this->repo->createWithItems($header, $items);
             $this->simpanBukti($record->id_pembelian, $bukti);
             $hasil = $this->findOrFail($record->id_pembelian, $idPerusahaan);
-            if ($hasil->id_perawatan === null) {
-                $this->arusKasService->buatPengajuanPembelianOtomatis($hasil, (float) $hasil->total_estimasi);
-            }
+            $this->arusKasService->buatPengajuanPembelianOtomatis($hasil, (float) $hasil->total_estimasi);
             return $hasil;
         });
     }
@@ -118,11 +113,6 @@ class PembelianSparepartService
         $record = $this->findOrFail($id, $idPerusahaan);
         $this->pastikanBolehDiubah($record);
         [$header, $items] = $this->susunHeaderItems($data, $idPerusahaan);
-        if ($record->id_perawatan === null && $header['id_perawatan'] !== null) {
-            $header = $this->stampDisetujuiOtomatis($header);
-        } elseif ($record->id_perawatan !== null && $header['id_perawatan'] === null) {
-            $header = $this->stampKembaliDiajukan($header);
-        }
         return DB::transaction(function () use ($record, $header, $items, $idPerusahaan) {
             $this->repo->updateWithItems($record, $header, $items);
             $hasil = $this->findOrFail($record->id_pembelian, $idPerusahaan);
@@ -131,30 +121,9 @@ class PembelianSparepartService
         });
     }
 
-    private function stampDisetujuiOtomatis(array $header): array
-    {
-        $header['status']                 = self::STATUS_DISETUJUI_FINANCE;
-        $header['disetujui_manager_oleh'] = auth()->id();
-        $header['disetujui_manager_pada'] = now();
-        $header['disetujui_finance_oleh'] = auth()->id();
-        $header['disetujui_finance_pada'] = now();
-        return $header;
-    }
-
-    private function stampKembaliDiajukan(array $header): array
-    {
-        $header['status']                 = self::STATUS_DIAJUKAN;
-        $header['disetujui_manager_oleh'] = null;
-        $header['disetujui_manager_pada'] = null;
-        $header['disetujui_finance_oleh'] = null;
-        $header['disetujui_finance_pada'] = null;
-        return $header;
-    }
-
     private function bolehDiubahAtauDihapus(object $record): bool
     {
-        return $record->status === self::STATUS_DIAJUKAN
-            || ($record->status === self::STATUS_DISETUJUI_FINANCE && $record->id_perawatan !== null);
+        return $record->status === self::STATUS_DIAJUKAN;
     }
 
     private function pastikanBolehDiubah(object $record): void
@@ -173,15 +142,9 @@ class PembelianSparepartService
 
     private function sinkronArusKasSetelahUpdate(object $sebelum, object $sesudah): void
     {
-        if ($sebelum->id_perawatan === null && $sesudah->id_perawatan !== null) {
-            $this->arusKasService->hapusPengajuanPembelian($sesudah->id_pembelian);
-            return;
-        }
-
-        if ($sesudah->id_perawatan === null) {
-            $this->arusKasService->buatPengajuanPembelianOtomatis($sesudah, (float) $sesudah->total_estimasi);
-            $this->arusKasService->sinkronNominalPengajuanPembelian($sesudah->id_pembelian, (float) $sesudah->total_estimasi);
-        }
+        $this->arusKasService->buatPengajuanPembelianOtomatis($sesudah, (float) $sesudah->total_estimasi);
+        $this->arusKasService->sinkronNominalPengajuanPembelian($sesudah->id_pembelian, (float) $sesudah->total_estimasi);
+        $this->arusKasService->sinkronPerawatanPengajuanPembelian($sesudah->id_pembelian, $sesudah->id_perawatan);
     }
 
     public function delete(string $id, string $idPerusahaan): void
@@ -284,7 +247,7 @@ class PembelianSparepartService
         }
         if ($record->wajib_pengadaan && !in_array(strtoupper($kodePeran), ['PENGADAAN', 'SUPERADMIN'], true)) {
             $batas = $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
-            abort(422, 'Pembelian senilai Rp ' . number_format($batas, 0, ',', '.') . ' ke atas wajib diproses oleh tim Pengadaan');
+            abort(422, 'Pembelian senilai Rp ' . number_format($batas, 0, ',', '.') . ' — pembelian di atas nilai ini wajib diproses oleh tim Pengadaan');
         }
 
         $hargaPerItem = [];

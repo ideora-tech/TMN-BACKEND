@@ -116,7 +116,7 @@ class PembelianBatasPengadaanTest extends TestCase
             [$id, $items] = $this->ajukanDisetujuiFinance(500_001);
             $this->realisasi($id, $items, $kodePeran)
                 ->assertStatus(422)
-                ->assertJsonPath('message', 'Pembelian senilai Rp 500.000 ke atas wajib diproses oleh tim Pengadaan');
+                ->assertJsonPath('message', 'Pembelian senilai Rp 500.000 — pembelian di atas nilai ini wajib diproses oleh tim Pengadaan');
         }
     }
 
@@ -154,7 +154,7 @@ class PembelianBatasPengadaanTest extends TestCase
         $this->berikanIzinUbahPembelianSparepart('STAF_BARU');
         $this->realisasi($id, $items, 'STAF_BARU')
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Pembelian senilai Rp 500.000 ke atas wajib diproses oleh tim Pengadaan');
+            ->assertJsonPath('message', 'Pembelian senilai Rp 500.000 — pembelian di atas nilai ini wajib diproses oleh tim Pengadaan');
     }
 
     public function test_wajib_pengadaan_ikut_menyesuaikan_saat_batas_perusahaan_diubah(): void
@@ -175,7 +175,7 @@ class PembelianBatasPengadaanTest extends TestCase
         [$id, $items] = $this->ajukanDisetujuiFinance(300_000);
         $this->realisasi($id, $items, 'DISPATCHER')
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Pembelian senilai Rp 100.000 ke atas wajib diproses oleh tim Pengadaan');
+            ->assertJsonPath('message', 'Pembelian senilai Rp 100.000 — pembelian di atas nilai ini wajib diproses oleh tim Pengadaan');
     }
 
     public function test_wajib_pengadaan_ikut_terisi_di_daftar(): void

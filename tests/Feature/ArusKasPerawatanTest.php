@@ -239,6 +239,49 @@ class ArusKasPerawatanTest extends TestCase
         $this->assertNotNull($pengajuan->dihapus_pada);
     }
 
+    public function test_batal_perawatan_menghapus_pengajuan_yang_belum_ditransfer(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->buatArmada();
+
+        $create = $this->postJson("/api/armada/{$armada}/perawatan", [
+            'tanggal'         => '2026-08-10',
+            'jenis_perawatan' => 'Servis Besar',
+            'biaya'           => 300000,
+            'status'          => 'dalam_proses',
+        ]);
+        $idPerawatan = $create->json('data.id_perawatan');
+        $this->assertNotNull($this->pengajuanPerawatan($idPerawatan));
+
+        $this->postJson("/api/armada/{$armada}/perawatan/{$idPerawatan}/batal", ['alasan' => 'Unit tidak jadi diservis'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'dibatalkan');
+
+        $this->assertNull(DB::table('pengajuan_pengeluaran')->where('id_perawatan', $idPerawatan)->whereNull('dihapus_pada')->first());
+    }
+
+    public function test_batal_perawatan_ditolak_jika_pengajuan_sudah_ditransfer(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = $this->buatArmada();
+
+        $create = $this->postJson("/api/armada/{$armada}/perawatan", [
+            'tanggal'         => '2026-08-10',
+            'jenis_perawatan' => 'Servis Besar',
+            'biaya'           => 300000,
+            'status'          => 'dalam_proses',
+        ]);
+        $idPerawatan = $create->json('data.id_perawatan');
+        DB::table('pengajuan_pengeluaran')->where('id_perawatan', $idPerawatan)->update([
+            'status' => 'ditransfer', 'tanggal_transfer' => '2026-08-12',
+        ]);
+
+        $this->postJson("/api/armada/{$armada}/perawatan/{$idPerawatan}/batal", ['alasan' => 'Coba batal'])
+            ->assertStatus(422);
+
+        $this->assertSame('dalam_proses', DB::table('perawatan_armada')->where('id_perawatan', $idPerawatan)->value('status'));
+    }
+
     public function test_delete_perawatan_dalam_proses_pengajuan_sudah_ditransfer_tetap_dipertahankan(): void
     {
         $this->actingAsRole('SUPERADMIN');

@@ -213,7 +213,7 @@ class PerawatanPartBengkelTest extends TestCase
         $sp = $this->makeSparepart('Busi', 10);
 
         $create = $this->postJson("/api/armada/{$armada->id_armada}/perawatan", [
-            'tanggal' => '2026-09-10', 'jenis_perawatan' => 'Servis', 'status' => 'terjadwal',
+            'tanggal' => '2026-09-10', 'jenis_perawatan' => 'Servis', 'status' => 'dalam_proses',
             'sparepart' => [
                 ['sumber' => 'bengkel', 'nama_sparepart' => 'Jasa Servis', 'qty' => 1, 'harga' => 100000],
                 ['sumber' => 'stok_sendiri', 'id_sparepart' => $sp->id_sparepart, 'qty' => 4, 'harga' => 20000],

@@ -6,6 +6,7 @@ namespace App\Modules\Penawaran;
 
 use App\Helpers\ApiResponse;
 use App\Modules\Klien\Contracts\KlienRepositoryInterface;
+use App\Modules\Penawaran\Requests\KirimEmailPenawaranRequest;
 use App\Modules\Penawaran\Requests\StorePenawaranRequest;
 use App\Modules\Penawaran\Requests\UpdatePenawaranRequest;
 use App\Modules\Penawaran\Requests\UpdateStatusPenawaranRequest;
@@ -106,6 +107,33 @@ class PenawaranController extends Controller
         ]);
 
         return $pdf->download('penawaran-' . $penawaran->nomor_penawaran . '.pdf');
+    }
+
+    public function kirimEmail(KirimEmailPenawaranRequest $request, string $id): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $penawaran    = $this->service->findOrFail($id, $idPerusahaan);
+        $data         = $request->validated();
+
+        $klien = $penawaran->id_klien ? $this->klienRepo->findById($penawaran->id_klien) : null;
+
+        $pdfBinary = Pdf::loadView('exports.penawaran', [
+            'p'          => $penawaran,
+            'klien'      => $klien,
+            'items'      => $penawaran->items,
+            'logoBase64' => $this->logoBase64(),
+            'perusahaan' => $this->service->dataPerusahaan($idPerusahaan),
+        ])->output();
+
+        $lampiran = array_map(fn ($file) => [
+            'nama' => $file->getClientOriginalName(),
+            'isi'  => $file->get(),
+            'mime' => $file->getMimeType() ?: 'application/octet-stream',
+        ], $request->file('lampiran', []));
+
+        $record = $this->service->kirimEmail($id, $idPerusahaan, $pdfBinary, $data['email_tujuan'], $data['subjek'], $data['pesan'], $lampiran);
+
+        return ApiResponse::success(new PenawaranResource($record), 'Penawaran berhasil dikirim ke ' . $record->email_terkirim_ke);
     }
 
     private function logoBase64(): ?string

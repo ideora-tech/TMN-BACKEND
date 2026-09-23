@@ -523,6 +523,17 @@ class PerawatanArmadaService
             'nama_asli' => $b->nama_asli,
         ], $this->repo->listBukti($id));
 
+        $record->pembelian = array_map(fn ($p) => [
+            'id_pembelian'      => $p->id_pembelian,
+            'nomor_pengajuan'   => $p->nomor_pengajuan,
+            'status'            => $p->status,
+            'total_estimasi'    => (float) $p->total_estimasi,
+            'total_aktual'      => $p->total_aktual !== null ? (float) $p->total_aktual : null,
+            'tanggal_pengajuan' => $p->tanggal_pengajuan,
+            'tanggal_pembelian' => $p->tanggal_pembelian,
+            'nama_supplier'     => $p->nama_supplier,
+        ], $this->repo->pembelianUntukPerawatan($id));
+
         [$record] = $this->lampirkanInterval([$record]);
 
         return $record;
@@ -577,7 +588,7 @@ class PerawatanArmadaService
 
         return DB::transaction(function () use ($idArmada, $data, $items) {
             $record = $this->repo->create(array_merge($data, ['id_armada' => $idArmada]));
-            $this->simpanItems($record->id_perawatan, $items);
+            $this->simpanItems($record->id_perawatan, $items, self::stokDipotong($record->status));
             $hasil = $this->findOrFail($record->id_perawatan);
             $this->sinkronArusKas($hasil);
             return $hasil;
@@ -615,9 +626,15 @@ class PerawatanArmadaService
         }
 
         return DB::transaction(function () use ($record, $data, $items, $adaItems) {
+            $dipotongSebelum = self::stokDipotong($record->status);
+            $dipotongSesudah = self::stokDipotong($data['status'] ?? $record->status);
+
             $this->repo->update($record, $data);
             if ($adaItems) {
-                $this->gantiItemsDenganDelta($record->id_perawatan, $items);
+                $this->gantiItemsDenganDelta($record->id_perawatan, $items, $dipotongSebelum);
+            }
+            if (!$dipotongSebelum && $dipotongSesudah) {
+                $this->potongStokBarisTersimpan($record->id_perawatan);
             }
             $hasil = $this->findOrFail($record->id_perawatan);
             $this->sinkronArusKas($hasil);
@@ -676,7 +693,7 @@ class PerawatanArmadaService
 
         DB::transaction(function () use ($record, $alasan) {
             $this->repo->update($record, ['alasan_hapus' => $alasan]);
-            if ($record->status !== 'dibatalkan') {
+            if (self::stokDipotong($record->status)) {
                 $this->kembalikanStok($record->id_perawatan);
             }
             $this->repo->softDeleteLines($record->id_perawatan);
@@ -693,9 +710,16 @@ class PerawatanArmadaService
             abort(422, 'Hanya perawatan yang masih direncanakan atau dalam proses yang dapat dibatalkan');
         }
 
+        if ($this->arusKasService->pengajuanPerawatanSudahDitransfer($record->id_perawatan)) {
+            abort(422, 'Perawatan tidak bisa dibatalkan karena biayanya sudah ditransfer oleh Keuangan');
+        }
+
         return DB::transaction(function () use ($record, $alasan) {
-            $this->kembalikanStok($record->id_perawatan);
+            if (self::stokDipotong($record->status)) {
+                $this->kembalikanStok($record->id_perawatan);
+            }
             $this->repo->update($record, ['status' => 'dibatalkan', 'alasan_batal' => $alasan]);
+            $this->arusKasService->hapusPengajuanPerawatan($record->id_perawatan);
             return $this->findOrFail($record->id_perawatan);
         });
     }
@@ -755,13 +779,67 @@ class PerawatanArmadaService
     }
 
     /** Create path: pisahkan sumber — stok_sendiri lewat jalur potong stok lama, bengkel langsung dicatat sebagai rincian biaya. */
-    private function simpanItems(string $idPerawatan, array $items): void
+    private static function stokDipotong(?string $status): bool
+    {
+        return in_array($status, ['dalam_proses', 'selesai'], true);
+    }
+
+    private function simpanItems(string $idPerawatan, array $items, bool $potongStok): void
     {
         $stokSendiri = array_values(array_filter($items, fn (array $i) => $i['sumber'] === 'stok_sendiri'));
         $bengkel = array_values(array_filter($items, fn (array $i) => $i['sumber'] === 'bengkel'));
 
-        $this->keluarkanStokUntukItems($idPerawatan, $stokSendiri);
+        if ($potongStok) {
+            $this->keluarkanStokUntukItems($idPerawatan, $stokSendiri);
+        } else {
+            $this->catatItemStokTanpaPotong($idPerawatan, $stokSendiri);
+        }
         $this->simpanItemBengkel($idPerawatan, $bengkel);
+    }
+
+    private function catatItemStokTanpaPotong(string $idPerawatan, array $items): void
+    {
+        foreach ($this->totalPerSparepart($items) as $idSparepart => $agg) {
+            $sp = $this->repo->getSparepartForUpdate($idSparepart);
+            if ($sp === null) {
+                abort(422, 'Spare part tidak ditemukan');
+            }
+            $this->repo->insertLine([
+                'id_perawatan'   => $idPerawatan,
+                'id_sparepart'   => $idSparepart,
+                'nama_sparepart' => $sp->nama,
+                'sumber'         => 'stok_sendiri',
+                'qty'            => $agg['qty'],
+                'harga'          => $agg['harga'],
+            ]);
+        }
+    }
+
+    private function potongStokBarisTersimpan(string $idPerawatan): void
+    {
+        foreach ($this->repo->getActiveLines($idPerawatan) as $line) {
+            if ($line->sumber !== 'stok_sendiri') {
+                continue;
+            }
+            $sp = $this->repo->getSparepartForUpdate($line->id_sparepart);
+            if ($sp === null) {
+                abort(422, 'Spare part tidak ditemukan');
+            }
+            $stokBaru = (int) $sp->stok - (int) $line->qty;
+            if ($stokBaru < 0) {
+                abort(422, "Stok {$sp->nama} tidak cukup (tersedia {$sp->stok}, dibutuhkan {$line->qty})");
+            }
+            $this->repo->setSparepartStok($line->id_sparepart, $stokBaru);
+            $this->repo->insertSparepartMutasi([
+                'id_sparepart' => $line->id_sparepart,
+                'jenis'        => 'keluar',
+                'qty'          => (int) $line->qty,
+                'harga'        => (float) $line->harga,
+                'id_perawatan' => $idPerawatan,
+                'keterangan'   => 'Pemakaian servis',
+                'tanggal'      => now()->toDateString(),
+            ]);
+        }
     }
 
     /** Baris 'bengkel' TIDAK menyentuh stok & TIDAK mencatat mutasi — murni rincian biaya, disimpan apa adanya tanpa digabung antar baris. */
@@ -819,8 +897,14 @@ class PerawatanArmadaService
      * Delta stok hanya dihitung dari baris stok_sendiri lama vs baru — baris 'bengkel'
      * (lama maupun baru) sama sekali diabaikan dari perhitungan stok.
      */
-    private function gantiItemsDenganDelta(string $idPerawatan, array $items): void
+    private function gantiItemsDenganDelta(string $idPerawatan, array $items, bool $stokSudahDipotong = true): void
     {
+        if (!$stokSudahDipotong) {
+            $this->repo->softDeleteLines($idPerawatan);
+            $this->simpanItems($idPerawatan, $items, false);
+            return;
+        }
+
         $lama = [];
         foreach ($this->repo->getActiveLines($idPerawatan) as $line) {
             if ($line->sumber !== 'stok_sendiri') {

@@ -33,6 +33,7 @@ class PenawaranServiceProvider extends ServiceProvider
                     ->parameters(['penawaran' => 'id']);
                 Route::put('penawaran/{id}/status', [PenawaranController::class, 'updateStatus']);
                 Route::post('penawaran/{id}/ajukan-approval', [PenawaranController::class, 'ajukanApproval']);
+                Route::post('penawaran/{id}/kirim-email', [PenawaranController::class, 'kirimEmail']);
             });
     }
 }

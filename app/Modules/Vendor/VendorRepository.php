@@ -19,7 +19,34 @@ class VendorRepository implements VendorRepositoryInterface
                    ->orWhere('telepon', 'like', "%{$search}%");
             }))
             ->orderBy('nama_vendor')
+            ->select('vendor.*')
+            ->addSelect($this->ringkasanRelasi())
             ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    private function ringkasanRelasi(): array
+    {
+        $kontrakAktif = fn () => DB::table('kontrak_vendor')
+            ->whereColumn('kontrak_vendor.id_vendor', 'vendor.id_vendor')
+            ->whereNull('kontrak_vendor.dihapus_pada')
+            ->where('kontrak_vendor.status', 'aktif');
+
+        return [
+            'jumlah_unit' => DB::table('armada_vendor')
+                ->selectRaw('COUNT(*)')
+                ->whereColumn('armada_vendor.id_vendor', 'vendor.id_vendor')
+                ->whereNull('armada_vendor.dihapus_pada'),
+            'jumlah_driver' => DB::table('supir_vendor')
+                ->selectRaw('COUNT(*)')
+                ->whereColumn('supir_vendor.id_vendor', 'vendor.id_vendor')
+                ->whereNull('supir_vendor.dihapus_pada'),
+            'jumlah_kontrak_aktif' => $kontrakAktif()->selectRaw('COUNT(*)'),
+            'nilai_kontrak_aktif' => $kontrakAktif()->selectRaw('COALESCE(SUM(nilai_kontrak), 0)'),
+            'kontrak_berakhir_terdekat' => $kontrakAktif()
+                ->selectRaw('MIN(tanggal_selesai)')
+                ->whereNotNull('tanggal_selesai')
+                ->whereDate('tanggal_selesai', '>=', now()->toDateString()),
+        ];
     }
 
     public function findById(string $id): ?VendorModel

@@ -131,23 +131,25 @@ class ArusKasSparepartTest extends TestCase
         $resPengajuan->assertStatus(200)->assertJsonPath('data.id_pembelian', $idPembelian);
     }
 
-    public function test_store_dengan_id_perawatan_tidak_membuat_pengajuan(): void
+    public function test_store_dengan_id_perawatan_tetap_membuat_pengajuan_dan_menyimpan_tautan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
 
         $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian(['id_perawatan' => $idPerawatan]));
-        $res->assertStatus(201)->assertJsonPath('data.status', 'disetujui_finance');
+        $res->assertStatus(201)->assertJsonPath('data.status', 'diajukan');
         $idPembelian = $res->json('data.id_pembelian');
 
         $row = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
-        $this->assertSame('disetujui_finance', $row->status);
-        $this->assertNotNull($row->disetujui_manager_oleh);
-        $this->assertNotNull($row->disetujui_manager_pada);
-        $this->assertNotNull($row->disetujui_finance_oleh);
-        $this->assertNotNull($row->disetujui_finance_pada);
+        $this->assertSame('diajukan', $row->status);
+        $this->assertNull($row->disetujui_finance_oleh);
 
-        $this->assertNull($this->pengajuanUntukPembelian($idPembelian));
+        $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
+        $this->assertNotNull($pengajuan);
+        $this->assertSame('sparepart', $pengajuan->kategori);
+        $this->assertSame('menunggu_approval', $pengajuan->status);
+        $this->assertSame($idPerawatan, $pengajuan->id_perawatan);
+        $this->assertSame($idPembelian, $pengajuan->id_pembelian);
     }
 
     public function test_dedup_pengajuan_pembelian_per_id_pembelian(): void
@@ -176,36 +178,26 @@ class ArusKasSparepartTest extends TestCase
         $this->assertEquals(120000, (float) $pengajuan->nominal);
     }
 
-    public function test_update_lepas_id_perawatan_membuat_pengajuan_otomatis(): void
+    public function test_update_lepas_id_perawatan_melepas_tautan_di_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
         $create = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian(['id_perawatan' => $idPerawatan]));
-        $create->assertJsonPath('data.status', 'disetujui_finance');
         $idPembelian = $create->json('data.id_pembelian');
-        $this->assertNull($this->pengajuanUntukPembelian($idPembelian));
+        $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian(['id_perawatan' => null]))
             ->assertStatus(200)
             ->assertJsonPath('data.id_perawatan', null)
             ->assertJsonPath('data.status', 'diajukan');
 
-        $row = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
-        $this->assertSame('diajukan', $row->status);
-        $this->assertNull($row->disetujui_manager_oleh);
-        $this->assertNull($row->disetujui_manager_pada);
-        $this->assertNull($row->disetujui_finance_oleh);
-        $this->assertNull($row->disetujui_finance_pada);
-
         $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
-        $this->assertNotNull($pengajuan);
+        $this->assertSame($idPengajuan, $pengajuan->id_pengajuan);
+        $this->assertNull($pengajuan->id_perawatan);
         $this->assertSame('sparepart', $pengajuan->kategori);
-        $this->assertSame('menunggu_approval', $pengajuan->status);
-        $this->assertEquals(200000, (float) $pengajuan->nominal);
-        $this->assertSame($idPembelian, $pengajuan->id_pembelian);
     }
 
-    public function test_update_tambah_id_perawatan_menghapus_pengajuan_otomatis_lama(): void
+    public function test_update_tambah_id_perawatan_mempertahankan_pengajuan_dan_mengisi_tautan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
@@ -215,16 +207,12 @@ class ArusKasSparepartTest extends TestCase
         $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian(['id_perawatan' => $idPerawatan]))
             ->assertStatus(200)
             ->assertJsonPath('data.id_perawatan', $idPerawatan)
-            ->assertJsonPath('data.status', 'disetujui_finance');
+            ->assertJsonPath('data.status', 'diajukan');
 
-        $this->assertSoftDeleted('pengajuan_pengeluaran', ['id_pengajuan' => $idPengajuan]);
-
-        $row = DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->first();
-        $this->assertSame('disetujui_finance', $row->status);
-        $this->assertNotNull($row->disetujui_manager_oleh);
-        $this->assertNotNull($row->disetujui_manager_pada);
-        $this->assertNotNull($row->disetujui_finance_oleh);
-        $this->assertNotNull($row->disetujui_finance_pada);
+        $pengajuan = $this->pengajuanUntukPembelian($idPembelian);
+        $this->assertSame($idPengajuan, $pengajuan->id_pengajuan);
+        $this->assertNull($pengajuan->dihapus_pada);
+        $this->assertSame($idPerawatan, $pengajuan->id_perawatan);
     }
 
     private function ajukanSampaiDicek(): array
