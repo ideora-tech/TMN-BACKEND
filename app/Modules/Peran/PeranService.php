@@ -42,6 +42,11 @@ class PeranService
     public function update(string $id, array $data): PeranModel
     {
         $record = $this->findOrFail($id);
+        if (array_key_exists('kode_peran', $data)
+            && strtoupper(trim((string) $data['kode_peran'])) !== strtoupper((string) $record->kode_peran)) {
+            abort(422, 'Kode peran tidak bisa diubah karena dipakai akun pengguna dan izin akses');
+        }
+        unset($data['kode_peran']);
         return $this->repo->update($record, $data);
     }
 
