@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Approval;
 
 use App\Modules\Approval\Contracts\ApprovalRepositoryInterface;
+use App\Modules\Approval\Contracts\RincianReferensiRepositoryInterface;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
@@ -13,6 +14,7 @@ class ApprovalServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(ApprovalRepositoryInterface::class, ApprovalRepository::class);
+        $this->app->bind(RincianReferensiRepositoryInterface::class, RincianReferensiRepository::class);
         $this->app->bind(ApprovalService::class);
         $this->app->bind(ApprovalResolverService::class);
     }
@@ -33,6 +35,7 @@ class ApprovalServiceProvider extends ServiceProvider
                 });
 
                 Route::get('approval-pengajuan/menunggu-saya', [ApprovalController::class, 'menungguSaya']);
+                Route::get('approval-pengajuan/{id}/rincian', [ApprovalController::class, 'rincianPengajuan']);
                 Route::get('approval-pengajuan/riwayat-saya', [ApprovalController::class, 'riwayatSaya']);
                 Route::get('approval-pengajuan/status-referensi', [ApprovalController::class, 'statusReferensi']);
                 Route::post('approval-pengajuan/lampiran', [ApprovalController::class, 'uploadLampiran']);

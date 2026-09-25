@@ -21,9 +21,18 @@ class DepartemenServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:departemen'])
             ->group(function () {
+                Route::apiResource('departemen', DepartemenController::class)
+                    ->parameters(['departemen' => 'id'])
+                    ->only(['store', 'update', 'destroy']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:departemen|permintaan-pembelian'])
+            ->group(function () {
                 Route::get('departemen/tree', [DepartemenController::class, 'tree']);
                 Route::apiResource('departemen', DepartemenController::class)
-                    ->parameters(['departemen' => 'id']);
+                    ->parameters(['departemen' => 'id'])
+                    ->only(['index', 'show']);
             });
     }
 }

@@ -16,6 +16,11 @@ class KonsolidasiKlienController extends Controller
 {
     public function __construct(private readonly KonsolidasiKlienService $service) {}
 
+    public function siapTagih(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->siapTagih((string) $request->user()->id_perusahaan));
+    }
+
     public function index(Request $request): JsonResponse
     {
         $validated = $this->validasi($request);

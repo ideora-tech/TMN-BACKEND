@@ -6,6 +6,7 @@ namespace App\Modules\Notifikasi;
 
 use App\Modules\Notifikasi\Contracts\NotifikasiRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use App\Support\LinkReferensiApproval;
 use Illuminate\Support\Facades\DB;
 
 class NotifikasiRepository implements NotifikasiRepositoryInterface
@@ -48,6 +49,11 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
         }
 
         return match ($n->referensi_tipe) {
+            'approval_pengajuan'    => LinkReferensiApproval::menungguSaya((string) $n->referensi_id),
+            'approval_keputusan'    => $this->linkKeputusanApproval((string) $n->referensi_id),
+            'permintaan_vendor'     => "/permintaan-vendor/{$n->referensi_id}",
+            'penawaran'             => "/penawaran/{$n->referensi_id}",
+            'pembelian_sparepart'   => "/pembelian-sparepart/{$n->referensi_id}",
             'trip'                  => "/trip/{$n->referensi_id}",
             'supir'                 => "/supir/{$n->referensi_id}",
             'penugasan'             => "/penugasan/{$n->referensi_id}",
@@ -68,9 +74,20 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
         return $targetId ? "{$routePrefix}/{$targetId}" : null;
     }
 
+    private function linkKeputusanApproval(string $idApproval): ?string
+    {
+        $baris = DB::table('approval_pengajuan as p')
+            ->join('approval_event_type as e', 'e.id_event_type', '=', 'p.id_event_type')
+            ->where('p.id_approval', $idApproval)
+            ->first(['e.kode', 'p.id_referensi']);
+
+        return $baris ? LinkReferensiApproval::untuk((string) $baris->kode, (string) $baris->id_referensi) : null;
+    }
+
     private function attachLink(NotifikasiModel $n): NotifikasiModel
     {
-        $n->link = $this->resolveLink($n);
+        $tersimpan = trim((string) $n->link);
+        $n->link = $tersimpan !== '' ? $tersimpan : $this->resolveLink($n);
         return $n;
     }
 
@@ -119,6 +136,18 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
             ->whereNull('dihapus_pada')
             ->where('id_supir_vendor', $idSupirVendor)
             ->value('id_pengguna');
+    }
+
+    public function idPenggunaDenganPeran(array $kodePeran, string $idPerusahaan): array
+    {
+        return DB::table('pengguna')
+            ->whereNull('dihapus_pada')
+            ->where('aktif', 1)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereIn('kode_peran', array_map('strtoupper', $kodePeran))
+            ->pluck('id_pengguna')
+            ->map(fn ($id) => (string) $id)
+            ->all();
     }
 
     public function idPenggunaDenganIzinMenu(array $paths, string $idPerusahaan, string $aksi = 'lihat'): array

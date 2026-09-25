@@ -18,6 +18,49 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->first(['id_klien', 'nama_klien']);
     }
 
+    public function siapTagih(string $idPerusahaan): array
+    {
+        $rows = DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
+            ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
+            ->join('klien as k', 'pr.id_klien', '=', 'k.id_klien')
+            ->join('laporan_perjalanan as lp', 'lp.id_trip', '=', 't.id_trip')
+            ->where('pr.id_perusahaan', $idPerusahaan)
+            ->where('t.status', 'selesai')
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->whereNull('p.dihapus_pada')
+            ->whereNull('pr.dihapus_pada')
+            ->whereNull('k.dihapus_pada')
+            ->whereNull('lp.dihapus_pada')
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('faktur_trip as ft')
+                    ->join('faktur as f', 'f.id_faktur', '=', 'ft.id_faktur')
+                    ->whereColumn('ft.id_trip', 't.id_trip')
+                    ->whereNull('ft.dihapus_pada')
+                    ->whereNull('f.dihapus_pada')
+                    ->where('f.status', '!=', 'batal');
+            })
+            ->groupBy('k.id_klien', 'k.nama_klien', 'pr.id_proyek', 'pr.kode_proyek', 'pr.nama_proyek', 'pr.tipe_harga')
+            ->orderByRaw('MIN(DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)))')
+            ->select([
+                'k.id_klien',
+                'k.nama_klien',
+                'pr.id_proyek',
+                'pr.kode_proyek',
+                'pr.nama_proyek',
+                'pr.tipe_harga',
+                DB::raw('COUNT(DISTINCT t.id_trip) as jumlah_trip'),
+                DB::raw('MIN(DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada))) as tanggal_pertama'),
+                DB::raw('MAX(DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada))) as tanggal_terakhir'),
+            ])
+            ->get();
+
+        return $rows->all();
+    }
+
     public function tripKlien(string $idPerusahaan, string $idKlien, ?string $dari, ?string $sampai, ?string $sumber = null, ?string $idProyek = null): array
     {
         $rows = DB::table('trip as t')

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class ApprovalRepository implements ApprovalRepositoryInterface
 {
-    private const KODE_REFERENSI_PENGELUARAN = [
+    public const KODE_REFERENSI_PENGELUARAN = [
         'pengajuan_pengeluaran',
         'uang_jalan',
         'legalitas',
@@ -22,6 +22,7 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         'pembelian_aset',
         'pembayaran_pinjaman',
         'pembayaran_vendor',
+        'pengadaan',
         'lainnya',
         'persetujuan_transfer',
     ];
@@ -363,6 +364,34 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         ];
     }
 
+    public function penggunaTerlibat(string $idApproval, string $idPengguna): bool
+    {
+        $pengaju = DB::table('approval_pengajuan')
+            ->where('id_approval', $idApproval)
+            ->where('id_pengguna_pengaju', $idPengguna)
+            ->whereNull('dihapus_pada')
+            ->exists();
+        if ($pengaju) {
+            return true;
+        }
+
+        return DB::table('approval_keputusan')
+            ->where('id_approval', $idApproval)
+            ->where('id_pengguna', $idPengguna)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
+    public function findPengajuanUntukRincian(string $idApproval, string $idPerusahaan): ?object
+    {
+        return DB::table('approval_pengajuan as ap')
+            ->join('approval_event_type as et', 'et.id_event_type', '=', 'ap.id_event_type')
+            ->where('ap.id_approval', $idApproval)
+            ->where('ap.id_perusahaan', $idPerusahaan)
+            ->whereNull('ap.dihapus_pada')
+            ->first(['ap.id_approval', 'ap.id_referensi', 'et.kode as kode_event_type']);
+    }
+
     public function findPengajuanMenungguUntukReferensi(string $kode, string $idReferensi, string $idPerusahaan): ?ApprovalPengajuanModel
     {
         $eventType = $this->findEventTypeByKode($kode, $idPerusahaan);
@@ -576,6 +605,22 @@ class ApprovalRepository implements ApprovalRepositoryInterface
                     'nomor'      => $row->nomor_permintaan,
                     'keterangan' => "{$keterangan} · {$labelMekanisme}",
                     'pihak'      => $row->nama_proyek,
+                ];
+
+            case 'permintaan_pembelian':
+            case 'permintaan_pembelian_aset':
+                $row = DB::table('permintaan_pembelian as pp')
+                    ->leftJoin('departemen as d', 'd.id_departemen', '=', 'pp.id_departemen')
+                    ->leftJoin('pengguna as pg', 'pg.id_pengguna', '=', 'pp.id_pengaju')
+                    ->where('pp.id_permintaan', $idReferensi)
+                    ->first(['pp.nomor_permintaan', 'pp.judul', 'd.nama_departemen', 'pg.username']);
+                if ($row === null) {
+                    return $kosong;
+                }
+                return [
+                    'nomor'      => $row->nomor_permintaan,
+                    'keterangan' => $row->judul,
+                    'pihak'      => $row->nama_departemen ?? $row->username,
                 ];
         }
 

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Approval;
 
+use App\Support\LinkReferensiApproval;
 use App\Modules\Approval\Contracts\ApprovalRepositoryInterface;
+use App\Modules\Approval\Contracts\RincianReferensiRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +17,7 @@ class ApprovalService
         private readonly ApprovalRepositoryInterface $repo,
         private readonly ApprovalResolverService $resolver,
         private readonly \App\Modules\Notifikasi\NotifikasiService $notifikasiService,
+        private readonly RincianReferensiRepositoryInterface $rincianRepo,
     ) {}
 
     public function listEventType(string $idPerusahaan): Collection
@@ -145,7 +148,7 @@ class ApprovalService
                     'tipe'           => 'approval_generik',
                     'referensi_id'   => $pengajuan->id_approval,
                     'referensi_tipe' => 'approval_pengajuan',
-                    'link'           => '/persetujuan-saya',
+                    'link'           => LinkReferensiApproval::menungguSaya((string) $pengajuan->id_approval),
                     'dibaca'         => 0,
                 ]);
             }
@@ -183,15 +186,22 @@ class ApprovalService
         return $this->repo->listRiwayatApprovalSaya($idPengguna, $idPerusahaan);
     }
 
-    public function menungguApprovalSayaHalaman(string $idPengguna, string $idPerusahaan, ?string $search, int $page, int $limit): array
+    public function menungguApprovalSayaHalaman(string $idPengguna, string $idPerusahaan, ?string $search, int $page, int $limit, ?string $idApproval = null): array
     {
-        return $this->halaman($this->menungguApprovalSaya($idPengguna, $idPerusahaan), $search, $page, $limit);
+        $baris = $this->menungguApprovalSaya($idPengguna, $idPerusahaan);
+        if ($idApproval !== null && $idApproval !== '') {
+            $baris = $baris->filter(fn ($item) => (string) $item->id_approval === $idApproval)->values();
+        }
+
+        return $this->halaman($baris, $search, $page, $limit);
     }
 
     public function riwayatApprovalSayaHalaman(string $idPengguna, string $idPerusahaan, ?string $search, int $page, int $limit): array
     {
         return $this->halaman($this->riwayatApprovalSaya($idPengguna, $idPerusahaan), $search, $page, $limit);
     }
+
+    private const PERAN_LIHAT_RINCIAN_SEMUA = ['SUPERADMIN', 'ADMIN', 'MANAGER'];
 
     private const KOLOM_CARI = ['nomor_referensi', 'keterangan_referensi', 'pihak_referensi', 'nama_pengaju', 'nama_event_type'];
 
@@ -297,6 +307,25 @@ class ApprovalService
         return $this->repo->statusUntukReferensi($kode, $idReferensi, $idPerusahaan);
     }
 
+    public function rincianPengajuan(string $idApproval, string $idPerusahaan, string $idPengguna, string $kodePeran): array
+    {
+        $pengajuan = $this->repo->findPengajuanUntukRincian($idApproval, $idPerusahaan);
+        if ($pengajuan === null) {
+            abort(404, 'Pengajuan approval tidak ditemukan');
+        }
+        if (!in_array(strtoupper($kodePeran), self::PERAN_LIHAT_RINCIAN_SEMUA, true)
+            && !$this->repo->penggunaTerlibat($idApproval, $idPengguna)) {
+            abort(403, 'Anda tidak terlibat dalam pengajuan approval ini');
+        }
+
+        $kode = (string) $pengajuan->kode_event_type;
+
+        return [
+            'kode'    => $kode,
+            'rincian' => $this->rincianRepo->rincian($kode, (string) $pengajuan->id_referensi, $idPerusahaan),
+        ];
+    }
+
     public function eventTypeAktifAda(string $kode, string $idPerusahaan): bool
     {
         return $this->repo->findEventTypeAktifByKode($kode, $idPerusahaan) !== null;
@@ -310,17 +339,7 @@ class ApprovalService
      */
     private function linkReferensi(string $kode, string $idReferensi): string
     {
-        return match ($kode) {
-            'penawaran'      => "/penawaran/{$idReferensi}",
-            'proyek'         => "/project/{$idReferensi}",
-            'faktur'         => "/faktur/{$idReferensi}",
-            'invoice_vendor' => "/invoice-vendor/{$idReferensi}",
-            'kontrak_vendor' => "/kontrak-vendor/{$idReferensi}",
-            'pengajuan_pengeluaran', 'uang_jalan', 'legalitas', 'perawatan', 'sparepart',
-            'penggajian', 'pembelian_aset', 'pembayaran_pinjaman', 'lainnya',
-            'persetujuan_transfer', 'pembayaran_vendor' => '/proses-pembayaran',
-            default          => '/persetujuan-saya',
-        };
+        return LinkReferensiApproval::untuk($kode, $idReferensi);
     }
 
     /**

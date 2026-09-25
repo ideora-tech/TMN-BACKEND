@@ -59,16 +59,24 @@ class LaporanPembelianExport implements WithMultipleSheets
             $kategoriRows->push(['TOTAL', $perKategori->sum(fn ($k) => (float) $k->total_aktual)]);
         }
 
+        $tanpaArmada = $this->laporan['tanpa_armada'] ?? ['total_aktual' => 0, 'jumlah' => 0];
         $armadaRows = $perArmada->map(fn ($a) => [
             $a->nopol,
             (float) $a->total_aktual,
             (int) $a->jumlah,
         ]);
-        if ($perArmada->isNotEmpty()) {
+        if ((int) $tanpaArmada['jumlah'] > 0) {
+            $armadaRows->push([
+                'Pembelian stok (tanpa armada)',
+                (float) $tanpaArmada['total_aktual'],
+                (int) $tanpaArmada['jumlah'],
+            ]);
+        }
+        if ($armadaRows->isNotEmpty()) {
             $armadaRows->push([
                 'TOTAL',
-                $perArmada->sum(fn ($a) => (float) $a->total_aktual),
-                $perArmada->sum(fn ($a) => (int) $a->jumlah),
+                $perArmada->sum(fn ($a) => (float) $a->total_aktual) + (float) $tanpaArmada['total_aktual'],
+                $perArmada->sum(fn ($a) => (int) $a->jumlah) + (int) $tanpaArmada['jumlah'],
             ]);
         }
 
@@ -78,7 +86,7 @@ class LaporanPembelianExport implements WithMultipleSheets
             new SheetLaporanPembelian('Ringkasan', 'LAPORAN PEMBELIAN SPAREPART', $periode, ['Keterangan', 'Nilai'], $ringkasanRows),
             new SheetLaporanPembelian('Per Bulan', 'PEMBELIAN PER BULAN', $periode, ['Bulan', 'Total Estimasi', 'Total Aktual', 'Jumlah'], $bulanRows),
             new SheetLaporanPembelian('Per Kategori', 'PEMBELIAN PER KATEGORI SPAREPART', $periode, ['Kategori', 'Total Aktual'], $kategoriRows),
-            new SheetLaporanPembelian('Per Armada', 'PEMBELIAN PER ARMADA', $periode, ['Nopol', 'Total Aktual', 'Jumlah Pembelian'], $armadaRows),
+            new SheetLaporanPembelian('Per Armada', 'PEMBELIAN PER ARMADA (TERTAUT PERAWATAN)', $periode, ['Nopol', 'Total Aktual', 'Jumlah Pembelian'], $armadaRows),
         ];
     }
 }

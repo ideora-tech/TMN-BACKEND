@@ -534,6 +534,16 @@ class PerawatanArmadaService
             'nama_supplier'     => $p->nama_supplier,
         ], $this->repo->pembelianUntukPerawatan($id));
 
+        $record->permintaan_pembelian = array_map(fn ($pr) => [
+            'id_permintaan'      => $pr->id_permintaan,
+            'nomor_permintaan'   => $pr->nomor_permintaan,
+            'status'             => $pr->status,
+            'tipe'               => $pr->tipe,
+            'total_estimasi'     => (float) $pr->total_estimasi,
+            'total_aktual'       => $pr->total_aktual !== null ? (float) $pr->total_aktual : null,
+            'tanggal_permintaan' => $pr->tanggal_permintaan,
+        ], $this->repo->permintaanPembelianUntukPerawatan($id));
+
         [$record] = $this->lampirkanInterval([$record]);
 
         return $record;

@@ -57,6 +57,15 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
         return $record;
     }
 
+    public function findForUpdate(string $id, string $idPerusahaan): ?KontrakVendorModel
+    {
+        return KontrakVendorModel::active()
+            ->where('id_kontrak_vendor', $id)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->lockForUpdate()
+            ->first();
+    }
+
     public function findAktifMilikPerusahaan(string $id, string $idPerusahaan): ?KontrakVendorModel
     {
         $record = KontrakVendorModel::active()
@@ -281,6 +290,29 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
             ->join('trip as t', 't.id_jadwal', '=', 'jk.id_jadwal')
             ->where('p.id_kontrak_vendor', $idKontrakVendor)
             ->whereNotNull('p.dihapus_pada')
+            ->exists();
+    }
+
+    public function adaPenugasanAktifUntukKontrak(string $idKontrakVendor): bool
+    {
+        return DB::table('penugasan')
+            ->whereNull('dihapus_pada')
+            ->whereNotIn('status', ['selesai', 'batal'])
+            ->where(function ($q) use ($idKontrakVendor) {
+                $q->where('id_kontrak_vendor', $idKontrakVendor)
+                  ->orWhereIn('id_armada_vendor', function ($sub) use ($idKontrakVendor) {
+                      $sub->select('id_armada_vendor')
+                          ->from('armada_vendor')
+                          ->whereNull('dihapus_pada')
+                          ->where('id_kontrak_vendor', $idKontrakVendor);
+                  })
+                  ->orWhereIn('id_supir_vendor', function ($sub) use ($idKontrakVendor) {
+                      $sub->select('id_supir_vendor')
+                          ->from('supir_vendor')
+                          ->whereNull('dihapus_pada')
+                          ->where('id_kontrak_vendor', $idKontrakVendor);
+                  });
+            })
             ->exists();
     }
 

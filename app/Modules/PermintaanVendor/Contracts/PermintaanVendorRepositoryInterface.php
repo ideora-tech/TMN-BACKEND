@@ -19,4 +19,7 @@ interface PermintaanVendorRepositoryInterface
     public function jenisKendaraanMilikPerusahaan(string $idJenisKendaraan, string $idPerusahaan): bool;
     public function unitUntukBanyak(array $idPermintaanList): array;
     public function replaceUnit(string $idPermintaan, array $unitRows): void;
+    public function ringkasanStatus(string $idPerusahaan): array;
+    public function listMenungguDiproses(string $idPerusahaan, int $limit): array;
+    public function selesaikanOlehKontrak(string $idKontrakVendor): array;
 }

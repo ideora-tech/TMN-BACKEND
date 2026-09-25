@@ -28,6 +28,11 @@ class PermintaanVendorResource extends JsonResource
             'alasan_ditolak'       => $this->alasan_ditolak,
             'id_kontrak_vendor'    => $this->id_kontrak_vendor,
             'nomor_kontrak'        => $this->nomor_kontrak ?? null,
+            'diproses_oleh'        => $this->diproses_oleh,
+            'nama_diproses_oleh'   => $this->nama_diproses_oleh ?? null,
+            'diproses_pada'        => $this->diproses_pada,
+            'alasan_batal'         => $this->alasan_batal,
+            'dibuat_oleh'          => $this->dibuat_oleh,
             'dibuat_pada'          => $this->dibuat_pada,
             'diubah_pada'          => $this->diubah_pada,
         ];

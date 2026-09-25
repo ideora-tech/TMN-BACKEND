@@ -116,8 +116,40 @@ class NotifikasiService
         string $referensiId,
         ?string $link = null,
         ?string $kecualiIdPengguna = null,
+        string $aksi = 'lihat',
     ): int {
-        $penerima = $this->repo->idPenggunaDenganIzinMenu($menu, $idPerusahaan);
+        $penerima = $this->repo->idPenggunaDenganIzinMenu($menu, $idPerusahaan, $aksi);
+        return $this->kirimKeDaftarPengguna($penerima, $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna);
+    }
+
+    /** @param string[] $kodePeran */
+    public function kirimKePeran(
+        array $kodePeran,
+        string $idPerusahaan,
+        string $judul,
+        string $isi,
+        string $tipe,
+        string $referensiTipe,
+        string $referensiId,
+        ?string $link = null,
+        ?string $kecualiIdPengguna = null,
+    ): int {
+        $penerima = $this->repo->idPenggunaDenganPeran($kodePeran, $idPerusahaan);
+        return $this->kirimKeDaftarPengguna($penerima, $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna);
+    }
+
+    /** @param string[] $penerima */
+    private function kirimKeDaftarPengguna(
+        array $penerima,
+        string $idPerusahaan,
+        string $judul,
+        string $isi,
+        string $tipe,
+        string $referensiTipe,
+        string $referensiId,
+        ?string $link,
+        ?string $kecualiIdPengguna,
+    ): int {
         $terkirim = 0;
 
         foreach ($penerima as $idPengguna) {

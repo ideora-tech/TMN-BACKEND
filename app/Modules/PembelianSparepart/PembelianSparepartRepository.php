@@ -16,8 +16,11 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
             ->leftJoin('supplier as s', 's.id_supplier', '=', 'p.id_supplier')
             ->leftJoin('perawatan_armada as pa', 'pa.id_perawatan', '=', 'p.id_perawatan')
             ->leftJoin('armada as a', 'a.id_armada', '=', 'pa.id_armada')
+            ->leftJoin('permintaan_pembelian as pr', function ($j) {
+                $j->on('pr.id_permintaan', '=', 'p.id_permintaan_pembelian')->whereNull('pr.dihapus_pada');
+            })
             ->whereNull('p.dihapus_pada')
-            ->select('p.*', 's.nama as nama_supplier', 'a.nopol as nopol_armada');
+            ->select('p.*', 's.nama as nama_supplier', 'a.nopol as nopol_armada', 'pr.nomor_permintaan');
     }
 
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, array $filter = []): LengthAwarePaginator
@@ -29,6 +32,13 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
             ->when($filter['dari'] ?? null, fn ($q, $v) => $q->where('p.tanggal_pengajuan', '>=', $v))
             ->when($filter['sampai'] ?? null, fn ($q, $v) => $q->where('p.tanggal_pengajuan', '<=', $v))
             ->when($filter['search'] ?? null, fn ($q, $v) => $q->where('p.nomor_pengajuan', 'like', "%{$v}%"))
+            ->when($filter['sumber'] ?? null, function ($q, $v) {
+                if ($v === 'langsung') {
+                    $q->whereNull('p.id_permintaan_pembelian');
+                } elseif ($v === 'pr') {
+                    $q->whereNotNull('p.id_permintaan_pembelian');
+                }
+            })
             ->orderByDesc('p.tanggal_pengajuan')->orderByDesc('p.nomor_pengajuan')
             ->paginate($limit, ['*'], 'page', $page);
     }
@@ -36,6 +46,11 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
     public function findById(string $id): ?object
     {
         return $this->base()->where('p.id_pembelian', $id)->first();
+    }
+
+    public function findByIdForUpdate(string $id): ?object
+    {
+        return DB::table('pembelian_sparepart')->whereNull('dihapus_pada')->where('id_pembelian', $id)->lockForUpdate()->first();
     }
 
     public function listItems(string $idPembelian): array
@@ -217,6 +232,11 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
             ->selectRaw('a.nopol, SUM(p.total_aktual) as total_aktual, COUNT(*) as jumlah')
             ->groupBy('a.nopol')->orderByDesc('total_aktual')->get()->all();
 
+        $tanpaArmada = $base()
+            ->whereNull('p.id_perawatan')
+            ->selectRaw('COALESCE(SUM(p.total_aktual),0) as total_aktual, COUNT(*) as jumlah')
+            ->first();
+
         $ringkasan = $base()
             ->selectRaw('COALESCE(SUM(p.total_estimasi),0) as total_estimasi, COALESCE(SUM(p.total_aktual),0) as total_aktual, COUNT(*) as jumlah')
             ->first();
@@ -231,12 +251,54 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
             'per_bulan'   => $perBulan,
             'per_kategori' => $perKategori,
             'per_armada'  => $perArmada,
+            'tanpa_armada' => [
+                'total_aktual' => (float) $tanpaArmada->total_aktual,
+                'jumlah'       => (int) $tanpaArmada->jumlah,
+            ],
         ];
     }
 
     public function getPerusahaan(string $idPerusahaan): ?object
     {
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
+    }
+
+    public function langsungUntukLaporan(string $idPerusahaan, ?string $dari, ?string $sampai): array
+    {
+        return DB::table('pembelian_sparepart as p')
+            ->leftJoin('supplier as s', function ($j) {
+                $j->on('s.id_supplier', '=', 'p.id_supplier')->whereNull('s.dihapus_pada');
+            })
+            ->leftJoin('perawatan_armada as pa', 'pa.id_perawatan', '=', 'p.id_perawatan')
+            ->leftJoin('armada as a', 'a.id_armada', '=', 'pa.id_armada')
+            ->whereNull('p.dihapus_pada')
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->whereNull('p.id_permintaan_pembelian')
+            ->whereIn('p.status', ['dibeli', 'lunas'])
+            ->when($dari, fn ($q, $v) => $q->where('p.tanggal_pembelian', '>=', $v))
+            ->when($sampai, fn ($q, $v) => $q->where('p.tanggal_pembelian', '<=', $v))
+            ->select([
+                'p.id_pembelian', 'p.nomor_pengajuan', 'p.id_perawatan',
+                'p.total_estimasi', 'p.total_aktual', 'p.tanggal_pembelian',
+                's.nama as nama_supplier', 'a.nopol as nopol_armada',
+            ])
+            ->get()->all();
+    }
+
+    public function itemsLangsungUntukLaporan(array $idPembelianList): array
+    {
+        if ($idPembelianList === []) {
+            return [];
+        }
+        return DB::table('pembelian_sparepart_item as i')
+            ->join('sparepart as sp', function ($j) {
+                $j->on('sp.id_sparepart', '=', 'i.id_sparepart')->whereNull('sp.dihapus_pada');
+            })
+            ->leftJoin('kategori_sparepart as ks', 'ks.id_kategori_sparepart', '=', 'sp.id_kategori_sparepart')
+            ->whereNull('i.dihapus_pada')
+            ->whereIn('i.id_pembelian', $idPembelianList)
+            ->select(['i.qty', 'i.harga_aktual', 'ks.nama as kategori_sparepart'])
+            ->get()->all();
     }
 
     public function dataPembayaranPengajuan(string $idPembelian): ?object

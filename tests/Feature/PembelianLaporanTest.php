@@ -135,4 +135,44 @@ class PembelianLaporanTest extends TestCase
         $res->assertStatus(200);
         $this->assertStringContainsString('application/pdf', $res->headers->get('content-type'));
     }
+
+    public function test_laporan_memisahkan_pembelian_tertaut_perawatan_dan_pembelian_stok(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $armada = \App\Modules\Armada\ArmadaModel::create([
+            'id_perusahaan' => self::PERUSAHAAN_ID, 'nopol' => 'B 1111 LP', 'merk' => 'Hino',
+        ]);
+        $idPerawatan = (string) Str::uuid();
+        DB::table('perawatan_armada')->insert([
+            'id_perawatan' => $idPerawatan, 'id_armada' => $armada->id_armada, 'tanggal' => '2026-03-15',
+            'jenis_perawatan' => 'Ganti Oli', 'biaya' => 0, 'status' => 'selesai', 'dibuat_pada' => now(),
+        ]);
+
+        $tertaut = $this->pembelianDibeli(100000);
+        DB::table('pembelian_sparepart')->where('id_pembelian', $tertaut)->update(['id_perawatan' => $idPerawatan]);
+        $this->pembelianDibeli(30000);
+        $this->pembelianDibeli(20000);
+
+        $res = $this->getJson('/api/pembelian-sparepart/laporan')->assertStatus(200);
+
+        $this->assertEquals(150000.0, $res->json('data.ringkasan.total_aktual'));
+        $this->assertSame(3, $res->json('data.ringkasan.jumlah'));
+        $this->assertCount(1, $res->json('data.per_armada'));
+        $this->assertSame('B 1111 LP', $res->json('data.per_armada.0.nopol'));
+        $this->assertEquals(100000.0, $res->json('data.per_armada.0.total_aktual'));
+        $this->assertEquals(50000.0, $res->json('data.tanpa_armada.total_aktual'));
+        $this->assertSame(2, $res->json('data.tanpa_armada.jumlah'));
+
+        $totalGabungan = $res->json('data.per_armada.0.total_aktual') + $res->json('data.tanpa_armada.total_aktual');
+        $this->assertEquals($res->json('data.ringkasan.total_aktual'), $totalGabungan);
+    }
+
+    public function test_laporan_tanpa_pembelian_mengembalikan_tanpa_armada_nol(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $res = $this->getJson('/api/pembelian-sparepart/laporan')->assertStatus(200);
+        $this->assertSame(0, $res->json('data.tanpa_armada.jumlah'));
+        $this->assertEquals(0.0, $res->json('data.tanpa_armada.total_aktual'));
+        $this->assertSame([], $res->json('data.per_armada'));
+    }
 }

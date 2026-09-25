@@ -57,7 +57,15 @@ class SupplierRepository implements SupplierRepositoryInterface
 
     public function dipakaiPembelian(string $idSupplier): bool
     {
-        return DB::table('pembelian_sparepart')
+        $dipakaiLangsung = DB::table('pembelian_sparepart')
+            ->whereNull('dihapus_pada')
+            ->where('id_supplier', $idSupplier)
+            ->exists();
+        if ($dipakaiLangsung) {
+            return true;
+        }
+
+        return DB::table('permintaan_pembelian')
             ->whereNull('dihapus_pada')
             ->where('id_supplier', $idSupplier)
             ->exists();

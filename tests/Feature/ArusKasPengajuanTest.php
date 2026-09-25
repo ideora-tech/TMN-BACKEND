@@ -21,6 +21,8 @@ class ArusKasPengajuanTest extends TestCase
     {
         parent::setUp();
         Storage::fake('public');
+        $this->ensurePerusahaan();
+        app(\App\Modules\ArusKas\ArusKasService::class)->setBatasRealisasiMandiri(self::PERUSAHAAN_ID, 999999999);
     }
 
     private function payload(array $override = []): array

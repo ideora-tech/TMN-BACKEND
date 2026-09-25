@@ -35,8 +35,15 @@ class PermintaanVendorServiceProvider extends ServiceProvider
             ->group(function () {
                 Route::post('permintaan-vendor', [PermintaanVendorController::class, 'store']);
                 Route::post('permintaan-vendor/{id}/ajukan-approval', [PermintaanVendorController::class, 'ajukanApproval']);
+                Route::patch('permintaan-vendor/{id}/batal', [PermintaanVendorController::class, 'batal']);
                 Route::put('permintaan-vendor/{id}', [PermintaanVendorController::class, 'update']);
                 Route::delete('permintaan-vendor/{id}', [PermintaanVendorController::class, 'destroy']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:kontrak-vendor'])
+            ->group(function () {
+                Route::patch('permintaan-vendor/{id}/proses', [PermintaanVendorController::class, 'proses']);
             });
     }
 }

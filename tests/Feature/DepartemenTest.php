@@ -28,6 +28,22 @@ class DepartemenTest extends TestCase
         return DB::table('departemen')->where('id_departemen', $id)->first();
     }
 
+    private function makePrDenganDepartemen(string $idDepartemen): void
+    {
+        DB::table('permintaan_pembelian')->insert([
+            'id_permintaan'      => (string) Str::uuid(),
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'nomor_permintaan'   => 'PR-TEST-' . Str::random(6),
+            'id_pengaju'         => (string) Str::uuid(),
+            'id_departemen'      => $idDepartemen,
+            'tanggal_permintaan' => now()->toDateString(),
+            'judul'              => 'PR Uji Departemen',
+            'alasan'             => 'Uji departemen dipakai',
+            'status'             => 'diajukan',
+            'dibuat_pada'        => now(),
+        ]);
+    }
+
     public function test_membuat_departemen_berhasil(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -105,6 +121,17 @@ class DepartemenTest extends TestCase
 
         $row = DB::table('departemen')->where('id_departemen', $item->id_departemen)->first();
         $this->assertNotNull($row->dihapus_pada);
+    }
+
+    public function test_hapus_departemen_yang_dipakai_pr_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $item = $this->makeDepartemen(self::PERUSAHAAN_ID, 'Dipakai PR');
+        $this->makePrDenganDepartemen($item->id_departemen);
+
+        $this->deleteJson("/api/departemen/{$item->id_departemen}")->assertStatus(422);
+        $row = DB::table('departemen')->where('id_departemen', $item->id_departemen)->first();
+        $this->assertNull($row->dihapus_pada);
     }
 
     public function test_tree_departemen_menyusun_struktur_induk_anak(): void

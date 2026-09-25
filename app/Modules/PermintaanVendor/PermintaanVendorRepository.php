@@ -16,7 +16,7 @@ class PermintaanVendorRepository implements PermintaanVendorRepositoryInterface
     {
         $paginator = PermintaanVendorModel::active()
             ->where('id_perusahaan', $idPerusahaan)
-            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($this->daftarStatus($status), fn ($q, array $daftar) => $q->whereIn('status', $daftar))
             ->when($search, fn ($q) => $q->where(function ($q2) use ($search) {
                 $q2->where('nomor_permintaan', 'like', "%{$search}%")
                    ->orWhereIn('id_proyek', function ($sub) use ($search) {
@@ -32,6 +32,58 @@ class PermintaanVendorRepository implements PermintaanVendorRepositoryInterface
         $this->attachReferensi($paginator->getCollection());
 
         return $paginator;
+    }
+
+    private function daftarStatus(?string $status): array
+    {
+        if ($status === null || trim($status) === '') {
+            return [];
+        }
+        return array_values(array_filter(array_map('trim', explode(',', $status)), static fn ($s) => $s !== ''));
+    }
+
+    public function ringkasanStatus(string $idPerusahaan): array
+    {
+        return PermintaanVendorModel::active()
+            ->where('id_perusahaan', $idPerusahaan)
+            ->select('status', DB::raw('COUNT(*) as jumlah'))
+            ->groupBy('status')
+            ->pluck('jumlah', 'status')
+            ->map(fn ($v) => (int) $v)
+            ->all();
+    }
+
+    public function listMenungguDiproses(string $idPerusahaan, int $limit): array
+    {
+        return DB::table('permintaan_vendor as pv')
+            ->leftJoin('proyek as pr', function ($j) {
+                $j->on('pr.id_proyek', '=', 'pv.id_proyek')->whereNull('pr.dihapus_pada');
+            })
+            ->whereNull('pv.dihapus_pada')
+            ->where('pv.id_perusahaan', $idPerusahaan)
+            ->whereIn('pv.status', ['disetujui', 'diproses'])
+            ->orderBy('pv.dibuat_pada')
+            ->limit($limit)
+            ->get([
+                'pv.id_permintaan', 'pv.nomor_permintaan', 'pr.nama_proyek', 'pv.status', 'pv.mekanisme',
+                'pv.jumlah_unit', 'pv.periode_dari', 'pv.periode_sampai', 'pv.dibuat_pada',
+            ])
+            ->all();
+    }
+
+    public function selesaikanOlehKontrak(string $idKontrakVendor): array
+    {
+        $records = PermintaanVendorModel::active()
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->where('status', 'dikontrakkan')
+            ->lockForUpdate()
+            ->get();
+
+        $hasil = [];
+        foreach ($records as $record) {
+            $hasil[] = $this->update($record, ['status' => 'selesai']);
+        }
+        return $hasil;
     }
 
     public function findAktifMilikPerusahaan(string $id, string $idPerusahaan): ?PermintaanVendorModel
@@ -70,6 +122,9 @@ class PermintaanVendorRepository implements PermintaanVendorRepositoryInterface
         $nomorKontrak = DB::table('kontrak_vendor')
             ->whereIn('id_kontrak_vendor', $records->pluck('id_kontrak_vendor')->filter()->unique()->values()->all())
             ->pluck('nomor_kontrak', 'id_kontrak_vendor');
+        $namaPemroses = DB::table('pengguna')
+            ->whereIn('id_pengguna', $records->pluck('diproses_oleh')->filter()->unique()->values()->all())
+            ->pluck('username', 'id_pengguna');
         $unitPerPermintaan = $this->unitUntukBanyak($records->pluck('id_permintaan')->unique()->values()->all());
 
         foreach ($records as $record) {
@@ -81,6 +136,8 @@ class PermintaanVendorRepository implements PermintaanVendorRepositoryInterface
             $record->syncOriginalAttribute('nomor_kontrak');
             $record->unit_diminta = $unitPerPermintaan[$record->id_permintaan] ?? [];
             $record->syncOriginalAttribute('unit_diminta');
+            $record->nama_diproses_oleh = $record->diproses_oleh !== null ? ($namaPemroses[$record->diproses_oleh] ?? null) : null;
+            $record->syncOriginalAttribute('nama_diproses_oleh');
         }
     }
 

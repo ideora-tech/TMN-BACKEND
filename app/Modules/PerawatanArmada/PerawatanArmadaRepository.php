@@ -497,6 +497,21 @@ class PerawatanArmadaRepository implements PerawatanArmadaRepositoryInterface
             ->all();
     }
 
+    public function permintaanPembelianUntukPerawatan(string $idPerawatan): array
+    {
+        return DB::table('permintaan_pembelian')
+            ->where('id_perawatan', $idPerawatan)
+            ->whereNull('dihapus_pada')
+            ->where('status', '!=', 'dibatalkan')
+            ->orderBy('tanggal_permintaan', 'desc')
+            ->orderBy('dibuat_pada', 'desc')
+            ->get([
+                'id_permintaan', 'nomor_permintaan', 'status', 'tipe',
+                'total_estimasi', 'total_aktual', 'tanggal_permintaan',
+            ])
+            ->all();
+    }
+
     public function findArmadaPapanUnit(string $idPerusahaan, ?string $search = null): array
     {
         return DB::table('armada')

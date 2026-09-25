@@ -16,6 +16,7 @@ class RealisasiPembelianRequest extends FormRequest
     {
         return [
             'tanggal_pembelian'    => ['required', 'date'],
+            'id_supplier'          => ['nullable', 'string', 'max:36'],
             'items'                => ['required', 'array', 'min:1'],
             'items.*.id_item'      => ['required', 'string', 'max:36', 'distinct'],
             'items.*.harga_aktual' => ['required', 'numeric', 'min:0'],

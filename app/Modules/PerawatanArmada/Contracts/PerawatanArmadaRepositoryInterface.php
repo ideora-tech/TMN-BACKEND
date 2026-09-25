@@ -52,4 +52,5 @@ interface PerawatanArmadaRepositoryInterface
     public function getServisTerakhirSelesaiByArmadaIds(array $armadaIds): array;
     public function findArmadaPapanUnit(string $idPerusahaan, ?string $search = null): array;
     public function pembelianUntukPerawatan(string $idPerawatan): array;
+    public function permintaanPembelianUntukPerawatan(string $idPerawatan): array;
 }

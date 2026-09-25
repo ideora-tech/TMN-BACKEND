@@ -41,6 +41,8 @@ class KontrakVendorResource extends JsonResource
             'satuan'            => $this->satuan,
             'pajak_persen'      => $this->pajak_persen,
             'termin_pembayaran_hari' => $this->termin_pembayaran_hari,
+            'jumlah_trip'       => $this->jumlah_trip !== null ? (int) $this->jumlah_trip : null,
+            'jumlah_hari'       => $this->jumlah_hari !== null ? (int) $this->jumlah_hari : null,
             'tanggal_mulai'     => $this->tanggal_mulai,
             'tanggal_selesai'   => $this->tanggal_selesai,
             'status'            => $this->status,

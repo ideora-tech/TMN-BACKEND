@@ -47,6 +47,10 @@ class PembelianBatasPengadaanTest extends TestCase
     private function ajukanDisetujuiFinance(float $hargaEstimasi): array
     {
         $this->actingAsRole('SUPERADMIN');
+        $batas = app(\App\Modules\ArusKas\ArusKasService::class)->batasRealisasiMandiri(self::PERUSAHAAN_ID);
+        if ($hargaEstimasi > $batas) {
+            return $this->buatDisetujuiFinanceLewatDb($hargaEstimasi);
+        }
         $res = $this->postJson('/api/pembelian-sparepart', [
             'id_supplier'       => $this->makeSupplier(),
             'tanggal_pengajuan' => now()->toDateString(),
@@ -55,9 +59,43 @@ class PembelianBatasPengadaanTest extends TestCase
             ],
             'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
         ]);
+        $res->assertStatus(201);
         $id = $res->json('data.id_pembelian');
         DB::table('pembelian_sparepart')->where('id_pembelian', $id)->update(['status' => 'disetujui_finance']);
         return [$id, $res->json('data.items')];
+    }
+
+    private function buatDisetujuiFinanceLewatDb(float $hargaEstimasi): array
+    {
+        $idPembelian = (string) Str::uuid();
+        $idItem = (string) Str::uuid();
+        DB::table('pembelian_sparepart')->insert([
+            'id_pembelian'      => $idPembelian,
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'nomor_pengajuan'   => 'PS-' . now()->format('Ym') . '-' . str_pad((string) rand(1, 9999), 4, '0', STR_PAD_LEFT),
+            'id_supplier'       => $this->makeSupplier(),
+            'status'            => 'disetujui_finance',
+            'total_estimasi'    => $hargaEstimasi,
+            'tanggal_pengajuan' => now()->toDateString(),
+            'dibuat_pada'       => now(),
+        ]);
+        DB::table('pembelian_sparepart_item')->insert([
+            'id_item'        => $idItem,
+            'id_pembelian'   => $idPembelian,
+            'id_sparepart'   => $this->makeSparepart($hargaEstimasi),
+            'nama_sparepart' => 'Sparepart Uji',
+            'qty'            => 1,
+            'harga_estimasi' => $hargaEstimasi,
+            'dibuat_pada'    => now(),
+        ]);
+        DB::table('pembelian_sparepart_bukti')->insert([
+            'id_bukti'     => (string) Str::uuid(),
+            'id_pembelian' => $idPembelian,
+            'url_file'     => 'pembelian-sparepart/nota-uji.jpg',
+            'nama_asli'    => 'nota.jpg',
+            'dibuat_pada'  => now(),
+        ]);
+        return [$idPembelian, [['id_item' => $idItem, 'harga_estimasi' => $hargaEstimasi]]];
     }
 
     private function berikanIzinUbahPembelianSparepart(string $kodePeran): void

@@ -205,6 +205,70 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         return PengajuanPengeluaranModel::active()->where('id_pembelian', $idPembelian)->first();
     }
 
+    public function findPengajuanByPermintaanPembelian(string $idPermintaan): ?PengajuanPengeluaranModel
+    {
+        return PengajuanPengeluaranModel::active()->where('id_permintaan_pembelian', $idPermintaan)->first();
+    }
+
+    public function statusPermintaanPembelian(string $idPermintaan): ?string
+    {
+        $status = DB::table('permintaan_pembelian')
+            ->whereNull('dihapus_pada')
+            ->where('id_permintaan', $idPermintaan)
+            ->value('status');
+        return $status !== null ? (string) $status : null;
+    }
+
+    public function sinkronPermintaanPembelianSelesai(string $idPermintaan, string $tanggalPembayaran): void
+    {
+        DB::table('permintaan_pembelian')
+            ->whereNull('dihapus_pada')
+            ->where('id_permintaan', $idPermintaan)
+            ->update(RecordHelper::stampUpdate([
+                'status'             => 'selesai',
+                'tanggal_pembayaran' => $tanggalPembayaran,
+            ]));
+    }
+
+    public function listPengajuanByPermintaanPembelian(string $idPermintaan): array
+    {
+        return PengajuanPengeluaranModel::active()
+            ->where('id_permintaan_pembelian', $idPermintaan)
+            ->orderBy('dibuat_pada')
+            ->get()
+            ->all();
+    }
+
+    public function tandaiTerminDitransfer(string $idTermin, string $tanggalTransfer): void
+    {
+        DB::table('permintaan_pembelian_termin')
+            ->whereNull('dihapus_pada')
+            ->where('id_termin', $idTermin)
+            ->update(RecordHelper::stampUpdate([
+                'status'           => 'ditransfer',
+                'tanggal_transfer' => $tanggalTransfer,
+            ]));
+    }
+
+    public function sinkronPermintaanPembelianSelesaiJikaLunas(string $idPermintaan, string $tanggalPembayaran): void
+    {
+        DB::table('permintaan_pembelian')
+            ->whereNull('dihapus_pada')
+            ->where('id_permintaan', $idPermintaan)
+            ->where('status', 'diterima')
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('permintaan_pembelian_termin as t')
+                    ->whereColumn('t.id_permintaan', 'permintaan_pembelian.id_permintaan')
+                    ->whereNull('t.dihapus_pada')
+                    ->where('t.status', 'menunggu');
+            })
+            ->update(RecordHelper::stampUpdate([
+                'status'             => 'selesai',
+                'tanggal_pembayaran' => $tanggalPembayaran,
+            ]));
+    }
+
     public function totalPengajuanBerjalanUntukInvoiceVendor(string $idInvoiceVendor): float
     {
         return (float) PengajuanPengeluaranModel::active()

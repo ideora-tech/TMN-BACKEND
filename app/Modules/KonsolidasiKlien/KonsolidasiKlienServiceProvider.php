@@ -21,6 +21,7 @@ class KonsolidasiKlienServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:faktur'])
             ->group(function () {
+                Route::get('konsolidasi-klien/siap-tagih', [KonsolidasiKlienController::class, 'siapTagih']);
                 Route::get('konsolidasi-klien', [KonsolidasiKlienController::class, 'index']);
                 Route::get('konsolidasi-klien/export/excel', [KonsolidasiKlienController::class, 'exportExcel']);
             });

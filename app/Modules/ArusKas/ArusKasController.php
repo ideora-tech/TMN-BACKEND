@@ -23,6 +23,8 @@ use App\Modules\PembelianSparepart\PembelianSparepartService;
 use App\Modules\PembelianSparepart\Resources\PembelianSparepartResource;
 use App\Modules\PerawatanArmada\PerawatanArmadaService;
 use App\Modules\PerawatanArmada\Resources\PerawatanArmadaResource;
+use App\Modules\PermintaanPembelian\PermintaanPembelianService;
+use App\Modules\PermintaanPembelian\Resources\PermintaanPembelianResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -105,16 +107,25 @@ class ArusKasController extends Controller
         PembelianSparepartService $pembelianService,
         PayrollService $payrollService,
         InvoiceVendorService $invoiceVendorService,
+        PermintaanPembelianService $permintaanService,
         string $id
     ): JsonResponse {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $pengajuan = $this->service->findPengajuanOrFail($id, $idPerusahaan);
 
-        // Urutan cek mengikuti urutan badge sumber di UI.
         if ($pengajuan->id_invoice_vendor !== null) {
             return ApiResponse::success([
                 'tipe' => 'invoice_vendor',
                 'data' => $invoiceVendorService->detail((string) $pengajuan->id_invoice_vendor, $idPerusahaan),
+            ]);
+        }
+
+        if ($pengajuan->id_permintaan_pembelian !== null) {
+            return ApiResponse::success([
+                'tipe' => 'permintaan_pembelian',
+                'data' => new PermintaanPembelianResource(
+                    $permintaanService->findOrFail((string) $pengajuan->id_permintaan_pembelian, $idPerusahaan)
+                ),
             ]);
         }
 

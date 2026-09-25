@@ -89,6 +89,13 @@ class KontrakVendorController extends Controller
         return ApiResponse::success(new KontrakVendorResource($record), 'Kontrak diajukan untuk approval');
     }
 
+    public function selesaikan(Request $request, string $id): JsonResponse
+    {
+        $record = $this->service->selesaikan($id, (string) $request->user()->id_perusahaan);
+
+        return ApiResponse::success(new KontrakVendorResource($record), 'Kontrak ditandai selesai');
+    }
+
     public function timpaPasangan(ParseExcelKontrakVendorRequest $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;

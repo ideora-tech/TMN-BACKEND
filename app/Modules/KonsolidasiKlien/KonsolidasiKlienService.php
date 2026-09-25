@@ -15,6 +15,21 @@ class KonsolidasiKlienService
         private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
     ) {}
 
+    public function siapTagih(string $idPerusahaan): array
+    {
+        return array_map(fn ($r) => [
+            'id_klien'         => $r->id_klien,
+            'nama_klien'       => $r->nama_klien,
+            'id_proyek'        => $r->id_proyek,
+            'kode_proyek'      => $r->kode_proyek,
+            'nama_proyek'      => $r->nama_proyek,
+            'borongan'         => TipeHarga::nilaiTetap($r->tipe_harga ?? null),
+            'jumlah_trip'      => (int) $r->jumlah_trip,
+            'tanggal_pertama'  => $r->tanggal_pertama,
+            'tanggal_terakhir' => $r->tanggal_terakhir,
+        ], $this->repo->siapTagih($idPerusahaan));
+    }
+
     public function rekap(string $idKlien, string $idPerusahaan, ?string $dari, ?string $sampai, ?string $sumber = null, ?string $idProyek = null): array
     {
         $klien = $this->repo->klienInfo($idKlien, $idPerusahaan);

@@ -34,7 +34,7 @@ class SparepartServiceProvider extends ServiceProvider
             });
 
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:sparepart|perawatan-armada|pembelian-sparepart'])
+            ->middleware(['api', 'auth:sanctum', 'izin:sparepart|perawatan-armada|pembelian-sparepart|permintaan-pembelian'])
             ->group(function () {
                 Route::get('sparepart', [SparepartController::class, 'index']);
                 Route::get('sparepart/{id}/riwayat-harga', [SparepartController::class, 'listRiwayatHarga']);

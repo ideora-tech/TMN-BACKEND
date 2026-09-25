@@ -9,6 +9,7 @@ interface PembelianSparepartRepositoryInterface
 {
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, array $filter = []): LengthAwarePaginator;
     public function findById(string $id): ?object;
+    public function findByIdForUpdate(string $id): ?object;
     public function listItems(string $idPembelian): array;
     public function listBukti(string $idPembelian): array;
     public function nomorBerikutnya(string $idPerusahaan): string;
@@ -27,4 +28,8 @@ interface PembelianSparepartRepositoryInterface
     public function laporan(string $idPerusahaan, ?string $dari, ?string $sampai): array;
     public function getPerusahaan(string $idPerusahaan): ?object;
     public function dataPembayaranPengajuan(string $idPembelian): ?object;
+    /** @return object[] */
+    public function langsungUntukLaporan(string $idPerusahaan, ?string $dari, ?string $sampai): array;
+    /** @return object[] */
+    public function itemsLangsungUntukLaporan(array $idPembelianList): array;
 }

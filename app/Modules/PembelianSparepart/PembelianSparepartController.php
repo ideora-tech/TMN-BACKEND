@@ -28,7 +28,7 @@ class PembelianSparepartController extends Controller
             (string) $request->user()->id_perusahaan,
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
-            $request->only(['status', 'id_supplier', 'dari', 'sampai', 'search'])
+            $request->only(['status', 'id_supplier', 'dari', 'sampai', 'search', 'sumber'])
         );
         return ApiResponse::paginated(PembelianSparepartResource::collection($result['data']), $result['meta']);
     }
@@ -72,8 +72,19 @@ class PembelianSparepartController extends Controller
 
     public function realisasi(RealisasiPembelianRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->realisasi($id, $request->validated(), (string) $request->user()->id_perusahaan, (string) $request->user()->kode_peran);
+        $record = $this->service->realisasi(
+            $id,
+            $request->validated(),
+            (string) $request->user()->id_perusahaan,
+            (string) $request->user()->kode_peran,
+            (string) $request->user()->id_pengguna
+        );
         return ApiResponse::success(new PembelianSparepartResource($record), 'Realisasi pembelian tersimpan, stok diperbarui');
+    }
+
+    public function batasMandiri(Request $request): JsonResponse
+    {
+        return ApiResponse::success(['batas' => $this->service->batasMandiri((string) $request->user()->id_perusahaan)]);
     }
 
     public function laporan(Request $request): JsonResponse

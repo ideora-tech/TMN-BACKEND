@@ -164,7 +164,12 @@
             </tbody>
         </table>
 
-        <div class="section">PER ARMADA</div>
+        @php
+            $tanpaArmada  = $laporan['tanpa_armada'] ?? ['total_aktual' => 0, 'jumlah' => 0];
+            $totalArmada  = $perArmada->sum(fn ($a) => (float) $a->total_aktual) + (float) $tanpaArmada['total_aktual'];
+            $jumlahArmada = $perArmada->sum(fn ($a) => (int) $a->jumlah) + (int) $tanpaArmada['jumlah'];
+        @endphp
+        <div class="section">PER ARMADA (PEMBELIAN TERTAUT PERAWATAN)</div>
         <table class="rincian">
             <thead>
                 <tr>
@@ -174,20 +179,27 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($perArmada as $a)
+                @foreach($perArmada as $a)
                 <tr>
                     <td><strong>{{ $a->nopol }}</strong></td>
                     <td class="jumlah">{{ $rp($a->total_aktual) }}</td>
                     <td class="jumlah">{{ $a->jumlah }}</td>
                 </tr>
-                @empty
-                <tr><td colspan="3" class="ket" style="text-align:center">Tidak ada pembelian terkait armada pada periode ini</td></tr>
-                @endforelse
-                @if($perArmada->isNotEmpty())
+                @endforeach
+                @if((int) $tanpaArmada['jumlah'] > 0)
+                <tr>
+                    <td class="ket">Pembelian stok, tanpa armada</td>
+                    <td class="jumlah">{{ $rp($tanpaArmada['total_aktual']) }}</td>
+                    <td class="jumlah">{{ $tanpaArmada['jumlah'] }}</td>
+                </tr>
+                @endif
+                @if($jumlahArmada === 0)
+                <tr><td colspan="3" class="ket" style="text-align:center">Tidak ada pembelian pada periode ini</td></tr>
+                @else
                 <tr class="subtotal">
                     <td>TOTAL</td>
-                    <td class="jumlah">{{ $rp($perArmada->sum(fn ($a) => (float) $a->total_aktual)) }}</td>
-                    <td class="jumlah">{{ $perArmada->sum(fn ($a) => (int) $a->jumlah) }}</td>
+                    <td class="jumlah">{{ $rp($totalArmada) }}</td>
+                    <td class="jumlah">{{ $jumlahArmada }}</td>
                 </tr>
                 @endif
             </tbody>

@@ -35,6 +35,7 @@ class StoreArmadaRequest extends FormRequest
             'kondisi_beli'        => ['sometimes', 'nullable', 'in:baru,bekas'],
             'foto'                => ['sometimes', 'nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'keterangan'          => ['sometimes', 'nullable', 'string'],
+            'id_permintaan_pembelian_item' => ['sometimes', 'nullable', 'string', 'max:36'],
         ];
     }
 

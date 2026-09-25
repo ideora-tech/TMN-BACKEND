@@ -64,7 +64,7 @@ class ArmadaController extends Controller
             ['id_perusahaan' => (string) $request->user()->id_perusahaan]
         );
 
-        $record = $this->service->create($data, $request->file('foto'));
+        $record = $this->service->create($data, $request->file('foto'), (string) $request->user()->id_pengguna);
         return ApiResponse::success(new ArmadaResource($record), 'Armada berhasil dibuat', 201);
     }
 

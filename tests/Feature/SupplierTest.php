@@ -33,6 +33,22 @@ class SupplierTest extends TestCase
         return $id;
     }
 
+    private function makePrDenganSupplier(string $idSupplier): void
+    {
+        DB::table('permintaan_pembelian')->insert([
+            'id_permintaan'      => (string) Str::uuid(),
+            'id_perusahaan'      => self::PERUSAHAAN_ID,
+            'nomor_permintaan'   => 'PR-TEST-' . Str::random(6),
+            'id_pengaju'         => (string) Str::uuid(),
+            'id_supplier'        => $idSupplier,
+            'tanggal_permintaan' => now()->toDateString(),
+            'judul'              => 'PR Uji Supplier',
+            'alasan'             => 'Uji supplier dipakai',
+            'status'             => 'diajukan',
+            'dibuat_pada'        => now(),
+        ]);
+    }
+
     public function test_create_supplier_berhasil(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -102,6 +118,16 @@ class SupplierTest extends TestCase
         $this->deleteJson("/api/supplier/{$supplier->id_supplier}")->assertStatus(200);
         $this->assertSoftDeleted('supplier', ['id_supplier' => $supplier->id_supplier]);
         $this->getJson("/api/supplier/{$supplier->id_supplier}")->assertStatus(404);
+    }
+
+    public function test_hapus_supplier_yang_dipakai_pr_ditolak(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $supplier = $this->makeSupplier();
+        $this->makePrDenganSupplier($supplier->id_supplier);
+
+        $this->deleteJson("/api/supplier/{$supplier->id_supplier}")->assertStatus(422);
+        $this->assertDatabaseHas('supplier', ['id_supplier' => $supplier->id_supplier, 'dihapus_pada' => null]);
     }
 
     public function test_isolasi_tenant(): void

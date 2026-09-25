@@ -25,6 +25,9 @@ class PermintaanVendorModel extends BaseModel
         'status',
         'alasan_ditolak',
         'id_kontrak_vendor',
+        'diproses_oleh',
+        'diproses_pada',
+        'alasan_batal',
     ];
 
     protected $casts = [

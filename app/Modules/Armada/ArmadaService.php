@@ -6,6 +6,7 @@ namespace App\Modules\Armada;
 
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Armada\Imports\ArmadaImport;
+use App\Modules\PermintaanPembelian\PermintaanPembelianService;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,10 @@ class ArmadaService
     private const BAHAN_BAKAR_VALID = ['solar', 'bensin', 'gas', 'listrik', 'hybrid'];
     private const KONDISI_BELI_VALID = ['baru', 'bekas'];
 
-    public function __construct(private readonly ArmadaRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly ArmadaRepositoryInterface $repo,
+        private readonly PermintaanPembelianService $permintaanPembelianService,
+    ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $status = null, ?string $search = null): array
     {
@@ -60,7 +64,7 @@ class ArmadaService
         return $record;
     }
 
-    public function create(array $data, ?UploadedFile $foto = null): ArmadaModel
+    public function create(array $data, ?UploadedFile $foto = null, ?string $idPengguna = null): ArmadaModel
     {
         $existing = $this->repo->findByNopol($data['nopol']);
         if ($existing !== null) {
@@ -74,7 +78,22 @@ class ArmadaService
         }
         unset($data['foto']);
 
-        return $this->repo->create($data);
+        $idItem = !empty($data['id_permintaan_pembelian_item']) ? (string) $data['id_permintaan_pembelian_item'] : null;
+        $data['id_permintaan_pembelian_item'] = $idItem;
+        if ($idItem === null) {
+            return $this->repo->create($data);
+        }
+
+        return DB::transaction(function () use ($data, $idItem, $idPengguna) {
+            $record = $this->repo->create($data);
+            $this->permintaanPembelianService->catatUnitDiterima(
+                $idItem,
+                (string) $record->id_armada,
+                (string) $data['id_perusahaan'],
+                (string) ($idPengguna ?? ''),
+            );
+            return $record;
+        });
     }
 
     public function update(string $id, array $data, string $idPerusahaan, ?UploadedFile $foto = null): ArmadaModel
@@ -123,8 +142,14 @@ class ArmadaService
             abort(422, 'Armada masih punya riwayat penugasan/perawatan — ubah statusnya menjadi tidak aktif saja');
         }
 
-        $this->repo->lepasArmadaDefaultSupir($id);
-        $this->repo->delete($record);
+        $idItem = $record->id_permintaan_pembelian_item !== null ? (string) $record->id_permintaan_pembelian_item : null;
+        DB::transaction(function () use ($record, $id, $idItem) {
+            if ($idItem !== null) {
+                $this->permintaanPembelianService->batalkanUnitDiterima($idItem, (string) $record->id_perusahaan);
+            }
+            $this->repo->lepasArmadaDefaultSupir($id);
+            $this->repo->delete($record);
+        });
     }
 
     /**

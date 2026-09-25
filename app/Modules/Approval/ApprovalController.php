@@ -93,6 +93,17 @@ class ApprovalController extends Controller
         return ApiResponse::success($data);
     }
 
+    public function rincianPengajuan(Request $request, string $id): JsonResponse
+    {
+        $data = $this->service->rincianPengajuan(
+            $id,
+            (string) $request->user()->id_perusahaan,
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->kode_peran,
+        );
+        return ApiResponse::success($data);
+    }
+
     public function uploadLampiran(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -122,6 +133,7 @@ class ApprovalController extends Controller
             $request->get('search'),
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
+            $request->get('id_approval') !== null ? (string) $request->get('id_approval') : null,
         );
 
         return ApiResponse::paginated(ApprovalPengajuanResource::collection($hasil['data']), $hasil['meta']);

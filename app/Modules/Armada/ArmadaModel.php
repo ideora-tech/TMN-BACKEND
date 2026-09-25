@@ -33,5 +33,6 @@ class ArmadaModel extends BaseModel
         'kondisi_beli',
         'url_foto',
         'keterangan',
+        'id_permintaan_pembelian_item',
     ];
 }

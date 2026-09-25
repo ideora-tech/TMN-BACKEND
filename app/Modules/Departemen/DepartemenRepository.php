@@ -102,9 +102,17 @@ class DepartemenRepository implements DepartemenRepositoryInterface
             return true;
         }
 
-        return DB::table('departemen')
+        $adaSubDepartemen = DB::table('departemen')
             ->whereNull('dihapus_pada')
             ->where('id_departemen_induk', $idDepartemen)
+            ->exists();
+        if ($adaSubDepartemen) {
+            return true;
+        }
+
+        return DB::table('permintaan_pembelian')
+            ->whereNull('dihapus_pada')
+            ->where('id_departemen', $idDepartemen)
             ->exists();
     }
 

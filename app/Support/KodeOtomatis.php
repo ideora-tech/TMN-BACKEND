@@ -22,6 +22,8 @@ class KodeOtomatis
         'tipe_pembayaran'  => ['prefix' => 'TPB', 'panjang_digit' => 4, 'reset' => 'tidak'],
         'vendor'           => ['prefix' => 'VDR', 'panjang_digit' => 4, 'reset' => 'tidak'],
         'sparepart'        => ['prefix' => 'SPR', 'panjang_digit' => 4, 'reset' => 'tidak'],
+        'barang'               => ['prefix' => 'BRG', 'panjang_digit' => 4, 'reset' => 'tidak'],
+        'permintaan_pembelian' => ['prefix' => 'PR',  'panjang_digit' => 4, 'reset' => 'bulanan'],
     ];
 
     public static function berikutnya(string $idPerusahaan, string $entitas): string

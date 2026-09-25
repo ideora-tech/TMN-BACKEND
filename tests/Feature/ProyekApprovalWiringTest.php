@@ -85,7 +85,8 @@ class ProyekApprovalWiringTest extends TestCase
 
         $res->assertStatus(200)->assertJsonPath('data.status', 'menunggu_approval');
         $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $id, 'status' => 'menunggu']);
-        $this->assertDatabaseHas('notifikasi', ['link' => '/persetujuan-saya']);
+        $idApproval = (string) DB::table('approval_pengajuan')->where('id_referensi', $id)->value('id_approval');
+        $this->assertDatabaseHas('notifikasi', ['link' => "/persetujuan-saya?id_approval={$idApproval}"]);
     }
 
     public function test_proyek_dari_penawaran_tidak_bisa_diajukan_approval(): void

@@ -119,7 +119,7 @@ class KontrakDariPermintaanTest extends TestCase
         ]);
 
         $res->assertStatus(422);
-        $this->assertStringContainsString('sudah dikontrakkan', $res->json('message'));
+        $this->assertStringContainsString('disetujui atau diproses', $res->json('message'));
     }
 
     public function test_permintaan_tenant_lain_404(): void

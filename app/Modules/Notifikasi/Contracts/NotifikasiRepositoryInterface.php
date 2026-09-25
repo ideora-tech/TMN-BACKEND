@@ -19,4 +19,7 @@ interface NotifikasiRepositoryInterface
 
     /** @param string[] $paths @return string[] */
     public function idPenggunaDenganIzinMenu(array $paths, string $idPerusahaan, string $aksi = 'lihat'): array;
+
+    /** @param string[] $kodePeran @return string[] */
+    public function idPenggunaDenganPeran(array $kodePeran, string $idPerusahaan): array;
 }

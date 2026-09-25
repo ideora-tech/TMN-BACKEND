@@ -25,6 +25,8 @@ class KontrakVendorModel extends BaseModel
         'satuan',
         'pajak_persen',
         'termin_pembayaran_hari',
+        'jumlah_trip',
+        'jumlah_hari',
         'tanggal_mulai',
         'tanggal_selesai',
         'status',
@@ -36,5 +38,7 @@ class KontrakVendorModel extends BaseModel
         'rate'                   => 'float',
         'pajak_persen'           => 'float',
         'termin_pembayaran_hari' => 'integer',
+        'jumlah_trip'            => 'integer',
+        'jumlah_hari'            => 'integer',
     ];
 }

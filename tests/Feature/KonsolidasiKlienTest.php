@@ -461,4 +461,52 @@ class KonsolidasiKlienTest extends TestCase
             $this->assertSame($tipe, $data[$trip->id_trip]['tipe_harga']);
         }
     }
+
+    public function test_siap_tagih_mengelompokkan_per_klien_dan_proyek_dan_mengabaikan_yang_sudah_difakturkan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyekA = $this->buatProyek();
+        $this->buatProyekRute($proyekA->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
+        $tripA1 = $this->buatTrip($proyekA->id_proyek);
+        $this->buatTrip($proyekA->id_proyek);
+        $this->buatTrip($proyekA->id_proyek, true, 100, 'berjalan');
+        $this->buatTrip($proyekA->id_proyek, true, 100, 'selesai', false);
+
+        $proyekB = $this->buatProyek('borongan');
+        $this->buatTrip($proyekB->id_proyek);
+
+        $res = $this->getJson('/api/konsolidasi-klien/siap-tagih')->assertStatus(200);
+        $data = collect($res->json('data'))->keyBy('id_proyek');
+        $this->assertCount(2, $data);
+        $this->assertSame(2, $data[$proyekA->id_proyek]['jumlah_trip']);
+        $this->assertSame($this->idKlien, $data[$proyekA->id_proyek]['id_klien']);
+        $this->assertFalse($data[$proyekA->id_proyek]['borongan']);
+        $this->assertTrue($data[$proyekB->id_proyek]['borongan']);
+        $this->assertNotNull($data[$proyekA->id_proyek]['tanggal_pertama']);
+
+        $this->postJson('/api/penagihan-trip/faktur', [
+            'id_proyek'      => $proyekA->id_proyek,
+            'trip_ids'       => [$tripA1->id_trip],
+            'tanggal_faktur' => now()->toDateString(),
+        ])->assertStatus(201);
+
+        $setelah = collect($this->getJson('/api/konsolidasi-klien/siap-tagih')->json('data'))->keyBy('id_proyek');
+        $this->assertSame(1, $setelah[$proyekA->id_proyek]['jumlah_trip']);
+    }
+
+    public function test_siap_tagih_tidak_menampilkan_data_perusahaan_lain(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $proyek = $this->buatProyek();
+        $this->buatTrip($proyek->id_proyek);
+
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Lain', 'dibuat_pada' => now()]);
+        DB::table('proyek')->where('id_proyek', $proyek->id_proyek)->update(['id_perusahaan' => $idPerusahaanLain]);
+
+        $this->getJson('/api/konsolidasi-klien/siap-tagih')->assertStatus(200)->assertJsonCount(0, 'data');
+    }
 }

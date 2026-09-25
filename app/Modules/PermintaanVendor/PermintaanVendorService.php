@@ -29,6 +29,7 @@ class PermintaanVendorService
                 'limit'      => $result->perPage(),
                 'total'      => $result->total(),
                 'totalPages' => $result->lastPage(),
+                'ringkasan'  => $this->repo->ringkasanStatus($idPerusahaan),
             ],
         ];
     }
@@ -153,6 +154,120 @@ class PermintaanVendorService
             $this->beritahuTimVendor($diajukan, 'menunggu_approval', $idPengguna);
             return $diajukan;
         });
+    }
+
+    public function proses(string $id, string $idPengguna, string $idPerusahaan): PermintaanVendorModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        $pesanStatus = 'Hanya permintaan berstatus disetujui yang bisa diproses';
+
+        if ($record->status !== 'disetujui') {
+            abort(422, $pesanStatus);
+        }
+
+        return DB::transaction(function () use ($id, $idPengguna, $idPerusahaan, $pesanStatus) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || (string) $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Permintaan vendor tidak ditemukan');
+            }
+            if ($terkunci->status !== 'disetujui') {
+                abort(422, $pesanStatus);
+            }
+
+            $diproses = $this->repo->update($terkunci, [
+                'status'        => 'diproses',
+                'diproses_oleh' => $idPengguna,
+                'diproses_pada' => now(),
+            ]);
+
+            $this->beritahuPengaju(
+                $diproses,
+                "Permintaan vendor {$diproses->nomor_permintaan} sedang diproses Pengadaan",
+                $this->ringkasanUnit($diproses),
+                $idPengguna,
+            );
+
+            return $diproses;
+        });
+    }
+
+    public function batal(string $id, string $alasan, string $idPengguna, string $idPerusahaan): PermintaanVendorModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        $bolehStatus = ['draft', 'menunggu_approval', 'disetujui', 'diproses'];
+        $pesanStatus = 'Permintaan tidak bisa dibatalkan pada status ini';
+
+        if (!in_array($record->status, $bolehStatus, true)) {
+            abort(422, $pesanStatus);
+        }
+
+        return DB::transaction(function () use ($id, $alasan, $idPengguna, $idPerusahaan, $bolehStatus, $pesanStatus) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || (string) $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Permintaan vendor tidak ditemukan');
+            }
+            if (!in_array($terkunci->status, $bolehStatus, true)) {
+                abort(422, $pesanStatus);
+            }
+
+            if ($terkunci->status === 'menunggu_approval') {
+                app(\App\Modules\Approval\ApprovalService::class)
+                    ->batalkanUntukReferensi(['permintaan_vendor'], $id, $idPerusahaan);
+            }
+
+            $dibatalkan = $this->repo->update($terkunci, [
+                'status'       => 'dibatalkan',
+                'alasan_batal' => $alasan,
+            ]);
+
+            $this->notifikasiService->kirimKePemilikIzinMenu(
+                ['/kontrak-vendor'],
+                (string) $dibatalkan->id_perusahaan,
+                "Permintaan vendor {$dibatalkan->nomor_permintaan} dibatalkan",
+                $alasan,
+                'permintaan_vendor',
+                'permintaan_vendor',
+                (string) $dibatalkan->id_permintaan,
+                '/permintaan-vendor/' . $dibatalkan->id_permintaan,
+                $idPengguna,
+            );
+
+            return $dibatalkan;
+        });
+    }
+
+    public function beritahuPengaju(PermintaanVendorModel $record, string $judul, string $isi, ?string $kecualiIdPengguna = null): void
+    {
+        $idPengaju = $record->dibuat_oleh !== null ? (string) $record->dibuat_oleh : null;
+        if ($idPengaju === null || $idPengaju === '' || $idPengaju === $kecualiIdPengguna) {
+            return;
+        }
+
+        $this->notifikasiService->buatDanKirim([
+            'id_perusahaan'  => (string) $record->id_perusahaan,
+            'id_pengguna'    => $idPengaju,
+            'judul'          => $judul,
+            'isi'            => $isi,
+            'tipe'           => 'permintaan_vendor',
+            'referensi_id'   => (string) $record->id_permintaan,
+            'referensi_tipe' => 'permintaan_vendor',
+            'link'           => '/permintaan-vendor/' . $record->id_permintaan,
+            'dibaca'         => 0,
+        ]);
+    }
+
+    public function ringkasanUnit(PermintaanVendorModel $record): string
+    {
+        $unit = collect($record->unit_diminta ?? [])
+            ->map(fn ($u) => ((string) ($u['nama_jenis_kendaraan'] ?? 'Unit')) . ' x ' . ((int) ($u['jumlah_unit'] ?? 0)))
+            ->implode(', ');
+
+        $rincian = implode(' - ', array_values(array_filter([
+            $record->nama_proyek !== null ? "Proyek {$record->nama_proyek}" : null,
+            $unit !== '' ? $unit : null,
+        ])));
+
+        return $rincian !== '' ? $rincian : "Permintaan {$record->nomor_permintaan}";
     }
 
     private function beritahuTimVendor(PermintaanVendorModel $record, string $tahap, ?string $kecualiIdPengguna = null): void

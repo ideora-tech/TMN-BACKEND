@@ -20,6 +20,7 @@ class PengajuanPengeluaranResource extends JsonResource
             'id_pembelian'      => $this->id_pembelian,
             'id_periode'        => $this->id_periode,
             'id_invoice_vendor' => $this->id_invoice_vendor,
+            'id_permintaan_pembelian' => $this->id_permintaan_pembelian,
             'id_supir'          => $this->id_supir,
             'id_proyek'         => $this->id_proyek,
             'periode_dari'      => $this->periode_dari,

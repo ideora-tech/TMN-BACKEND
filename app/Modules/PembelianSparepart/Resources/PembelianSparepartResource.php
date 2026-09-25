@@ -26,6 +26,8 @@ class PembelianSparepartResource extends JsonResource
             'nama_supplier'          => $this->nama_supplier ?? null,
             'id_perawatan'           => $this->id_perawatan,
             'nopol_armada'           => $this->nopol_armada ?? null,
+            'id_permintaan_pembelian' => $this->id_permintaan_pembelian ?? null,
+            'nomor_permintaan'       => $this->nomor_permintaan ?? null,
             'status'                 => $this->status,
             'alasan_ditolak'         => $this->alasan_ditolak,
             'disetujui_manager_pada' => $this->disetujui_manager_pada,
