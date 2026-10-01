@@ -149,6 +149,8 @@ class PenugasanService
             'id_kontrak_vendor_unit' => $baris['id_kontrak_vendor_unit'],
             'kontrak_habis'          => $baris['kontrak_habis'],
             'status_kontrak'         => $baris['status_kontrak'],
+            'id_supir_vendor_default' => $baris['id_supir_vendor_default'],
+            'nama_supir_default'     => $baris['nama_supir_vendor_default'],
         ], $this->armadaVendorRepo->listOpsiBoard($idPerusahaan));
 
         $assignments = $this->repo->boardAssignments($idPerusahaan, $dari, $sampai);
@@ -254,8 +256,8 @@ class PenugasanService
      * 1 rute, di-assign untuk satu rentang tanggal sekaligus (maks 62 hari,
      * pola sama dengan JadwalShiftService::createBatch). Gagal per-tanggal
      * (unit/supir dobel) tidak menggagalkan tanggal lain dalam rentang yang
-     * sama. Uang jalan (manual atau hasil resolusi rate card) dikumpulkan
-     * jadi SATU pengajuan per batch, bukan per baris penugasan.
+     * sama. Uang jalan (manual atau hasil resolusi rate card) hanya disimpan
+     * sebagai estimasi_biaya per baris; pengajuannya dibuat lewat menu Uang Jalan.
      */
     public function assignHarian(array $data, string $idPerusahaan): array
     {
@@ -306,6 +308,8 @@ class PenugasanService
                 if ($idSupirInternal === null) {
                     abort(422, 'Unit internal harus ditugaskan ke supir internal');
                 }
+
+                $this->assertKeteranganBilaBukanSupirDefault((string) $data['id_armada'], $idSupirInternal, $data['keterangan'] ?? null);
 
                 $rowDasar['sumber']    = 'internal';
                 $rowDasar['id_armada'] = $data['id_armada'];
@@ -374,11 +378,10 @@ class PenugasanService
 
             $titikDrop = $data['titik_drop'] ?? null;
 
-            $sukses        = 0;
-            $gagal         = [];
-            $dilewati      = [];
-            $tanggalSukses = [];
-            $rekaman       = [];
+            $sukses   = 0;
+            $gagal    = [];
+            $dilewati = [];
+            $rekaman  = [];
 
             foreach ($periode as $tanggal) {
                 if ($idSupirInternal !== null && $this->repo->adaPenugasanSupirPadaTanggal($idSupirInternal, $tanggal, (string) $data['id_proyek'], (string) $data['id_rute'])) {
@@ -408,35 +411,13 @@ class PenugasanService
                 }
 
                 $sukses++;
-                $tanggalSukses[] = $tanggal;
-                $rekaman[]       = $record;
+                $rekaman[] = $record;
 
                 if (!empty($record->id_supir) || !empty($record->id_supir_vendor)) {
                     $this->notifikasiPenugasan($record);
                 }
             }
 
-            $peringatan = [];
-
-            if ($tanggalSukses !== [] && $idSupirInternal !== null) {
-                if ($tarif !== null) {
-                    $pengajuan = $this->arusKasService->buatPengajuanUangJalanPenugasan(
-                        $idPerusahaan,
-                        $idSupirInternal,
-                        (string) $data['id_proyek'],
-                        $tarif,
-                        $tanggalSukses,
-                    );
-
-                    foreach ($rekaman as $record) {
-                        $this->repo->update($record, ['id_pengajuan' => $pengajuan->id_pengajuan]);
-                    }
-                } else {
-                    $peringatan[] = 'Tarif uang jalan rute tidak ditemukan — pengajuan tidak dibuat';
-                }
-            }
-
-            /** Atribut virtual titik_drop diisi TERAKHIR — tidak boleh sebelum repo->update() di atas, karena Eloquent akan menganggapnya kolom dirty dan ikut ditulis (kolomnya memang tidak ada, hidup di tabel titik_drop_penugasan terpisah). */
             $lokasiSaja = $this->lokasiSajaTitikDrop($titikDrop);
             $detailDrop = $this->detailTitikDrop($titikDrop);
             foreach ($rekaman as $record) {
@@ -445,11 +426,10 @@ class PenugasanService
             }
 
             return [
-                'sukses'     => $sukses,
-                'gagal'      => $gagal,
-                'dilewati'   => $dilewati,
-                'peringatan' => $peringatan,
-                'penugasan'  => $rekaman,
+                'sukses'    => $sukses,
+                'gagal'     => $gagal,
+                'dilewati'  => $dilewati,
+                'penugasan' => $rekaman,
             ];
         });
     }
@@ -567,6 +547,15 @@ class PenugasanService
             }
         }
 
+        if ($idSupirBerubah) {
+            $keteranganEfektif = array_key_exists('keterangan', $data) ? $data['keterangan'] : $record->keterangan;
+            $this->assertKeteranganBilaBukanSupirDefault(
+                !empty($merged['id_armada']) ? (string) $merged['id_armada'] : null,
+                !empty($merged['id_supir']) ? (string) $merged['id_supir'] : null,
+                $keteranganEfektif,
+            );
+        }
+
         $supirSebelum = $record->id_supir;
 
         return DB::transaction(function () use ($record, $data, $id, $titikDropDikirim, $titikDrop, $supirSebelum, $idPengajuanUntukSinkron) {
@@ -665,6 +654,18 @@ class PenugasanService
      * lewat alokasi armada (papan jadwal), bukan kolom id_armada di sini.
      * tanggal_tugas juga bukan syarat, dengan alasan yang sama.
      */
+    private function assertKeteranganBilaBukanSupirDefault(?string $idArmada, ?string $idSupir, ?string $keterangan): void
+    {
+        if (empty($idArmada) || empty($idSupir) || trim((string) $keterangan) !== '') {
+            return;
+        }
+
+        $pemegang = $this->supirRepo->findPemegangArmadaDefault($idArmada);
+        if ($pemegang !== null && (string) $pemegang->id_supir !== $idSupir) {
+            abort(422, 'Keterangan wajib diisi karena supir berbeda dari supir default unit');
+        }
+    }
+
     private function sudahAdaSupir(array $data): bool
     {
         if (($data['sumber'] ?? 'internal') === 'vendor') {

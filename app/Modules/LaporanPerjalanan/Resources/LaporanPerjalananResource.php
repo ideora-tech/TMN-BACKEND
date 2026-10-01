@@ -28,6 +28,7 @@ class LaporanPerjalananResource extends JsonResource
             'biaya_lain'      => BiayaLainTripResource::collection($this->whenLoaded('biayaLain')),
             'biaya_tagihan'   => BiayaTagihanTripResource::collection($this->whenLoaded('biayaTagihan')),
             'foto'            => FotoLaporanResource::collection($this->whenLoaded('foto')),
+            'surat_jalan'     => SuratJalanTripResource::collection($this->whenLoaded('suratJalan')),
         ];
     }
 }

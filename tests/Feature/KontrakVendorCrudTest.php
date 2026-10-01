@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Modules\ArmadaVendor\ArmadaVendorModel;
 use App\Modules\KontrakVendor\KontrakVendorModel;
+use App\Modules\PermintaanVendor\PermintaanVendorModel;
 use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -187,6 +188,103 @@ class KontrakVendorCrudTest extends TestCase
         $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")->assertStatus(422);
     }
 
+    public function test_hapus_kontrak_ditolak_bila_ada_invoice_vendor(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor);
+        DB::table('invoice_vendor')->insert([
+            'id_invoice_vendor' => (string) Str::uuid(),
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nomor_invoice'     => 'INV-HPS-' . Str::random(5),
+            'tanggal_invoice'   => '2026-09-01',
+            'dibuat_pada'       => now(),
+        ]);
+
+        $res = $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")->assertStatus(422);
+        $this->assertStringContainsString('invoice vendor', $res->json('message'));
+        $this->assertNull(DB::table('kontrak_vendor')
+            ->where('id_kontrak_vendor', $kontrak->id_kontrak_vendor)->value('dihapus_pada'));
+    }
+
+    public function test_hapus_kontrak_boleh_bila_invoicenya_sudah_dihapus(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor);
+        DB::table('invoice_vendor')->insert([
+            'id_invoice_vendor' => (string) Str::uuid(),
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'id_vendor'         => $vendor->id_vendor,
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nomor_invoice'     => 'INV-HPS-' . Str::random(5),
+            'tanggal_invoice'   => '2026-09-01',
+            'dibuat_pada'       => now(),
+            'dihapus_pada'      => now(),
+        ]);
+
+        $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")->assertStatus(200);
+    }
+
+    public function test_hapus_kontrak_mengembalikan_permintaan_dikontrakkan_ke_pengadaan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor);
+        $diproses = PermintaanVendorModel::create([
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'nomor_permintaan'  => 'PMV-HPS-' . Str::random(5),
+            'jumlah_unit'       => 1,
+            'mekanisme'         => 'unit_only',
+            'status'            => 'dikontrakkan',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'diproses_oleh'     => (string) Str::uuid(),
+            'dikontrakkan_pada' => now(),
+        ]);
+        $disetujui = PermintaanVendorModel::create([
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'nomor_permintaan'  => 'PMV-HPS-' . Str::random(5),
+            'jumlah_unit'       => 1,
+            'mekanisme'         => 'unit_only',
+            'status'            => 'dikontrakkan',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'dikontrakkan_pada' => now(),
+        ]);
+
+        $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")->assertStatus(200);
+
+        $segarDiproses = $diproses->fresh();
+        $this->assertSame('diproses', $segarDiproses->status);
+        $this->assertNull($segarDiproses->id_kontrak_vendor);
+        $this->assertNull($segarDiproses->dikontrakkan_pada);
+
+        $segarDisetujui = $disetujui->fresh();
+        $this->assertSame('disetujui', $segarDisetujui->status);
+        $this->assertNull($segarDisetujui->id_kontrak_vendor);
+    }
+
+    public function test_hapus_kontrak_ditolak_bila_permintaan_sudah_selesai(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor);
+        $permintaan = PermintaanVendorModel::create([
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'nomor_permintaan'  => 'PMV-SLS-1',
+            'jumlah_unit'       => 1,
+            'mekanisme'         => 'unit_only',
+            'status'            => 'selesai',
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+        ]);
+
+        $res = $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")->assertStatus(422);
+        $this->assertStringContainsString('PMV-SLS-1', $res->json('message'));
+        $this->assertSame('selesai', $permintaan->fresh()->status);
+        $this->assertSame($kontrak->id_kontrak_vendor, $permintaan->fresh()->id_kontrak_vendor);
+    }
+
     public function test_kontrak_baru_mengadopsi_unit_lama_yang_kontraknya_sudah_dihapus(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -336,6 +434,7 @@ class KontrakVendorCrudTest extends TestCase
             'id_vendor' => $vendor->id_vendor,
             'mekanisme' => 'unit_only',
             'satuan'    => 'per trip',
+            'rate'      => 150000,
         ])->assertStatus(201);
     }
 
@@ -351,7 +450,7 @@ class KontrakVendorCrudTest extends TestCase
             'jenis_layanan' => 'Angkutan kontainer',
             'nilai_kontrak' => null,
             'rate'          => null,
-            'satuan'        => 'per trip',
+            'satuan'        => 'per hari',
             'pajak_persen'  => null,
             'termin_pembayaran_hari' => null,
             'tanggal_mulai' => null,

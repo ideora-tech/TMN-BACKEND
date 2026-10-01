@@ -18,9 +18,9 @@ class PermintaanVendorService
         private readonly NotifikasiService $notifikasiService,
     ) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null, ?string $idPenawaran = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status, $idPenawaran);
 
         return [
             'data' => $result->items(),
@@ -30,7 +30,21 @@ class PermintaanVendorService
                 'total'      => $result->total(),
                 'totalPages' => $result->lastPage(),
                 'ringkasan'  => $this->repo->ringkasanStatus($idPerusahaan),
+                'kpi'        => $this->repo->ringkasanKpi($idPerusahaan),
             ],
+        ];
+    }
+
+    public function jumlahAktif(string $idPerusahaan): array
+    {
+        $ringkasan = $this->repo->ringkasanStatus($idPerusahaan);
+        $disetujui = (int) ($ringkasan['disetujui'] ?? 0);
+        $diproses  = (int) ($ringkasan['diproses'] ?? 0);
+
+        return [
+            'jumlah'    => $disetujui + $diproses,
+            'disetujui' => $disetujui,
+            'diproses'  => $diproses,
         ];
     }
 
@@ -69,7 +83,7 @@ class PermintaanVendorService
             abort(422, 'Hanya permintaan berstatus draft atau ditolak yang dapat diubah');
         }
 
-        $this->validasiReferensi($data, $idPerusahaan);
+        $this->validasiReferensi($data, $idPerusahaan, $record);
 
         $unitDikirim = array_key_exists('unit', $data)
             || array_key_exists('id_jenis_kendaraan', $data)
@@ -118,6 +132,7 @@ class PermintaanVendorService
         if ($record->status !== 'draft') {
             abort(422, 'Hanya permintaan berstatus draft yang bisa diajukan approval');
         }
+        $this->pastikanPenawaranMasihBerlaku($record);
 
         return DB::transaction(function () use ($id, $idPengguna, $idPerusahaan) {
             $terkunci = $this->repo->findForUpdate($id);
@@ -134,6 +149,7 @@ class PermintaanVendorService
                 $disetujui = $this->repo->update($terkunci, [
                     'status'         => 'disetujui',
                     'alasan_ditolak' => null,
+                    'disetujui_pada' => now(),
                 ]);
                 $this->beritahuTimVendor($disetujui, 'disetujui', $idPengguna);
                 return $disetujui;
@@ -188,6 +204,83 @@ class PermintaanVendorService
             );
 
             return $diproses;
+        });
+    }
+
+    public function tolak(string $id, string $alasan, string $idPengguna, string $idPerusahaan): PermintaanVendorModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        $bolehStatus = ['disetujui', 'diproses'];
+        $pesanStatus = 'Hanya permintaan berstatus disetujui atau diproses yang bisa ditolak Pengadaan';
+
+        if (!in_array($record->status, $bolehStatus, true)) {
+            abort(422, $pesanStatus);
+        }
+
+        return DB::transaction(function () use ($id, $alasan, $idPengguna, $idPerusahaan, $bolehStatus, $pesanStatus) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || (string) $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Permintaan vendor tidak ditemukan');
+            }
+            if (!in_array($terkunci->status, $bolehStatus, true)) {
+                abort(422, $pesanStatus);
+            }
+
+            $ditolak = $this->repo->update($terkunci, [
+                'status'                 => 'ditolak_pengadaan',
+                'alasan_tolak_pengadaan' => $alasan,
+                'ditolak_pengadaan_oleh' => $idPengguna,
+                'ditolak_pengadaan_pada' => now(),
+            ]);
+
+            $this->beritahuPengaju(
+                $ditolak,
+                "Permintaan vendor {$ditolak->nomor_permintaan} ditolak Pengadaan",
+                $alasan,
+                $idPengguna,
+            );
+
+            return $ditolak;
+        });
+    }
+
+    public function revisi(string $id, string $idPengguna, string $idPerusahaan): PermintaanVendorModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        $pesanStatus = 'Hanya permintaan berstatus disetujui yang bisa direvisi — bila sudah diproses Pengadaan, batalkan lalu buat permintaan baru';
+
+        if ($record->status !== 'disetujui') {
+            abort(422, $pesanStatus);
+        }
+
+        return DB::transaction(function () use ($id, $idPengguna, $idPerusahaan, $pesanStatus) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || (string) $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Permintaan vendor tidak ditemukan');
+            }
+            if ($terkunci->status !== 'disetujui' || $terkunci->id_kontrak_vendor !== null) {
+                abort(422, $pesanStatus);
+            }
+
+            $direvisi = $this->repo->update($terkunci, [
+                'status'         => 'draft',
+                'alasan_ditolak' => null,
+                'disetujui_pada' => null,
+            ]);
+
+            $this->notifikasiService->kirimKePemilikIzinMenu(
+                self::MENU_TIM_VENDOR,
+                (string) $direvisi->id_perusahaan,
+                "Permintaan vendor {$direvisi->nomor_permintaan} ditarik untuk direvisi",
+                'Tunda proses — permintaan akan diajukan ulang setelah direvisi Sales',
+                'permintaan_vendor',
+                'permintaan_vendor',
+                (string) $direvisi->id_permintaan,
+                '/permintaan-vendor/' . $direvisi->id_permintaan,
+                $idPengguna,
+            );
+
+            return $direvisi;
         });
     }
 
@@ -316,14 +409,52 @@ class PermintaanVendorService
             return;
         }
 
-        $disetujui = $this->repo->update($record, ['status' => 'disetujui']);
+        $disetujui = $this->repo->update($record, ['status' => 'disetujui', 'disetujui_pada' => now()]);
         $this->beritahuTimVendor($disetujui, 'disetujui');
     }
 
-    private function validasiReferensi(array $data, string $idPerusahaan): void
+    private function validasiReferensi(array &$data, string $idPerusahaan, ?PermintaanVendorModel $record = null): void
     {
+        $idPenawaranLama = $record?->id_penawaran !== null ? (string) $record->id_penawaran : null;
+        $idPenawaran = array_key_exists('id_penawaran', $data)
+            ? (!empty($data['id_penawaran']) ? (string) $data['id_penawaran'] : null)
+            : $idPenawaranLama;
+        $penawaranBaru = $idPenawaran !== null && $idPenawaran !== $idPenawaranLama;
+
+        if ($idPenawaran !== null) {
+            $penawaran = $this->repo->penawaranMilikPerusahaan($idPenawaran, $idPerusahaan);
+            if ($penawaran === null && $penawaranBaru) {
+                abort(404, 'Penawaran tidak ditemukan');
+            }
+            if ($penawaran !== null && $penawaranBaru && $penawaran->status === 'ditolak') {
+                abort(422, 'Penawaran sudah ditolak — tidak bisa mengajukan permintaan vendor');
+            }
+
+            if ($penawaran !== null && $penawaran->id_proyek !== null) {
+                $idProyekDiminta = array_key_exists('id_proyek', $data) ? $data['id_proyek'] : $record?->id_proyek;
+                if (!empty($idProyekDiminta) && (string) $idProyekDiminta !== (string) $penawaran->id_proyek) {
+                    abort(422, 'Proyek tidak sesuai dengan proyek penawaran');
+                }
+                $data['id_proyek'] = (string) $penawaran->id_proyek;
+            } elseif ($penawaran !== null && !empty($data['id_proyek'])) {
+                abort(422, 'Penawaran belum dijadikan proyek — proyek akan tertaut otomatis saat penawaran dijadikan proyek');
+            }
+        }
+
         if (!empty($data['id_proyek']) && !$this->repo->proyekMilikPerusahaan((string) $data['id_proyek'], $idPerusahaan)) {
             abort(404, 'Proyek tidak ditemukan');
+        }
+    }
+
+    private function pastikanPenawaranMasihBerlaku(PermintaanVendorModel $record): void
+    {
+        if ($record->id_penawaran === null) {
+            return;
+        }
+
+        $penawaran = $this->repo->penawaranMilikPerusahaan((string) $record->id_penawaran, (string) $record->id_perusahaan);
+        if ($penawaran !== null && $penawaran->status === 'ditolak') {
+            abort(422, 'Penawaran asal sudah ditolak — batalkan permintaan vendor ini');
         }
     }
 

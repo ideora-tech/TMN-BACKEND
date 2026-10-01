@@ -7,6 +7,8 @@ namespace App\Modules\Proyek;
 use App\Modules\Faktur\Contracts\FakturRepositoryInterface;
 use App\Modules\Faktur\FakturModel;
 use App\Modules\Faktur\FakturService;
+use App\Modules\Notifikasi\NotifikasiService;
+use App\Modules\PermintaanVendor\Contracts\PermintaanVendorRepositoryInterface;
 use App\Modules\Penawaran\Contracts\PenawaranItemRepositoryInterface;
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Modules\Penawaran\PenawaranModel;
@@ -15,6 +17,7 @@ use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Modules\ProyekRute\ProyekRuteService;
 use App\Support\HtmlAman;
 use App\Support\KodeOtomatis;
+use App\Support\ParameterPenawaran;
 use App\Support\TipeHarga;
 use Illuminate\Support\Facades\DB;
 
@@ -30,6 +33,8 @@ class ProyekService
         private readonly ProyekRuteService $proyekRuteService,
         private readonly FakturService $fakturService,
         private readonly FakturRepositoryInterface $fakturRepo,
+        private readonly NotifikasiService $notifikasiService,
+        private readonly PermintaanVendorRepositoryInterface $permintaanVendorRepo,
     ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
@@ -95,7 +100,7 @@ class ProyekService
             $data['status'] = 'draft';
         }
 
-        return DB::transaction(function () use ($data, $idPenawaran, $ruteManual, $idPerusahaan) {
+        $proyekBaru = DB::transaction(function () use ($data, $idPenawaran, $ruteManual, $idPerusahaan) {
             $penawaran = null;
             if ($idPenawaran !== null) {
                 $penawaran = $this->penawaranRepo->findForUpdate($idPenawaran);
@@ -131,6 +136,7 @@ class ProyekService
                     abort(422, 'Penawaran sudah memiliki proyek');
                 }
                 $this->salinRuteDariPenawaran($proyek->id_proyek, $penawaran->id_penawaran, $idPerusahaan);
+                $this->permintaanVendorRepo->tautkanProyekDariPenawaran((string) $penawaran->id_penawaran, (string) $proyek->id_proyek);
             }
 
             foreach ($ruteManual as $baris) {
@@ -139,6 +145,34 @@ class ProyekService
 
             return $proyek;
         });
+
+        if ($proyekBaru->status === 'aktif') {
+            $this->beritahuOperasionalProyekAktif($proyekBaru);
+        }
+
+        return $proyekBaru;
+    }
+
+    private function beritahuOperasionalProyekAktif(ProyekModel $proyek): void
+    {
+        $this->notifikasiService->kirimKePemilikIzinMenu(
+            ['/penugasan'],
+            (string) $proyek->id_perusahaan,
+            "Proyek baru {$proyek->kode_proyek} siap dioperasikan",
+            "Proyek {$proyek->nama_proyek} sudah aktif. Siapkan armada dan supir di menu Penugasan.",
+            'proyek_aktif',
+            'proyek',
+            (string) $proyek->id_proyek,
+            '/penugasan',
+            null,
+            'tambah',
+        );
+    }
+
+    /** @return array<int, array{kolom: string, label: string, satuan: string, nilai: float}> */
+    public function parameterPenawaranAktif(string $idProyek): array
+    {
+        return ParameterPenawaran::terisi($this->penawaranRepo->penawaranDisetujuiTerbaruProyek($idProyek));
     }
 
     public function buatPenawaranRevisi(string $idProyek, array $data, string $idPerusahaan): PenawaranModel
@@ -180,8 +214,9 @@ class ProyekService
 
         return DB::transaction(function () use ($idProyek, $idPerusahaan, $proyek, $items, $tipeHarga, $nilaiPenawaran, $data) {
             $induk = $this->penawaranRepo->penawaranPertamaProyek($idProyek);
+            $acuanParameter = $this->penawaranRepo->penawaranDisetujuiTerbaruProyek($idProyek) ?? $induk;
 
-            $penawaran = $this->penawaranRepo->create([
+            $penawaran = $this->penawaranRepo->create(ParameterPenawaran::nilai($acuanParameter) + [
                 'id_perusahaan'      => $idPerusahaan,
                 'id_klien'           => $proyek->id_klien,
                 'nomor_penawaran'    => KodeOtomatis::berikutnya($idPerusahaan, 'penawaran'),
@@ -194,8 +229,17 @@ class ProyekService
                 'id_penawaran_induk' => $induk->id_penawaran,
             ]);
 
+            $sumberUnitAcuan = [];
+            foreach ($this->penawaranItemRepo->listByPenawaran((string) $acuanParameter->id_penawaran) as $lama) {
+                $sumberUnitAcuan[$lama->id_rute . '|' . $lama->id_jenis_kendaraan] = [
+                    'unit_aset'   => $lama->unit_aset,
+                    'unit_vendor' => $lama->unit_vendor,
+                ];
+            }
+
             foreach ($items as $item) {
-                $this->simpanItemRevisi($penawaran, $item);
+                $acuanUnit = $sumberUnitAcuan[($item['id_rute'] ?? '') . '|' . ($item['id_jenis_kendaraan'] ?? '')] ?? [];
+                $this->simpanItemRevisi($penawaran, $item + $acuanUnit);
             }
 
             $penawaran->setRelation('items', $this->penawaranItemRepo->listByPenawaran($penawaran->id_penawaran));
@@ -245,6 +289,8 @@ class ProyekService
             'estimasi_ritase'    => $ritase,
             'subtotal'           => $hargaSatuan !== null ? (float) $hargaSatuan * $ritase : 0,
             'keterangan'         => $item['keterangan'] ?? null,
+            'unit_aset'          => $item['unit_aset'] ?? null,
+            'unit_vendor'        => $item['unit_vendor'] ?? null,
         ]);
     }
 
@@ -395,7 +441,14 @@ class ProyekService
             }
         }
 
-        return $this->repo->update($record, ['status' => $status]);
+        $statusSebelum = $record->status;
+        $diperbarui    = $this->repo->update($record, ['status' => $status]);
+
+        if ($status === 'aktif' && $statusSebelum !== 'aktif') {
+            $this->beritahuOperasionalProyekAktif($diperbarui);
+        }
+
+        return $diperbarui;
     }
 
     public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): ProyekModel
@@ -444,9 +497,13 @@ class ProyekService
             return;
         }
 
-        $this->repo->update($record, [
+        $diperbarui = $this->repo->update($record, [
             'status' => $keputusan === 'disetujui' ? 'aktif' : 'draft',
         ]);
+
+        if ($keputusan === 'disetujui') {
+            $this->beritahuOperasionalProyekAktif($diperbarui);
+        }
     }
 
     public function delete(string $id, ?string $idPerusahaan = null): void

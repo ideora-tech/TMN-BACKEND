@@ -33,6 +33,7 @@ class PermintaanPembelianServiceProvider extends ServiceProvider
                 Route::get('permintaan-pembelian/laporan/export/excel', [PermintaanPembelianController::class, 'exportLaporanExcel']);
                 Route::get('permintaan-pembelian/laporan/export/pdf', [PermintaanPembelianController::class, 'exportLaporanPdf']);
                 Route::get('permintaan-pembelian/{id}/pengajuan', [PermintaanPembelianController::class, 'infoPengajuan']);
+                Route::get('permintaan-pembelian/{id}/po/pdf', [PermintaanPembelianController::class, 'cetakPo']);
                 Route::patch('permintaan-pembelian/{id}/realisasi-sparepart', [PermintaanPembelianController::class, 'realisasiSparepart']);
                 Route::patch('permintaan-pembelian/{id}/proses', [PermintaanPembelianController::class, 'proses']);
                 Route::patch('permintaan-pembelian/{id}/dibeli', [PermintaanPembelianController::class, 'dibeli']);

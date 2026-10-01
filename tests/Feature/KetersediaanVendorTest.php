@@ -135,6 +135,30 @@ class KetersediaanVendorTest extends TestCase
         return collect($res->json('data'))->keyBy('nopol')->all();
     }
 
+    public function test_ringkasan_per_jenis_menghitung_aset_dan_vendor_tersedia(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $jenis = $this->makeJenis('CDD');
+        $vendor = $this->makeVendor();
+        $proyek = $this->makeProyek();
+
+        $aset = $this->makeAset('B 10 AS', ['id_jenis_kendaraan' => $jenis]);
+        $this->makePenugasanAset($aset, $proyek, $this->tanggal(-2));
+        $unitBebas = $this->makeUnit($vendor, 'B 20 VD', ['id_jenis_kendaraan' => $jenis]);
+        $this->makePenugasan($unitBebas, $proyek, $this->tanggal(-2));
+        $unitTerjadwal = $this->makeUnit($vendor, 'B 21 VD', ['id_jenis_kendaraan' => $jenis]);
+        $this->makePenugasan($unitTerjadwal, $proyek, $this->tanggal(-2));
+        $this->makePenugasan($unitTerjadwal, $proyek, $this->tanggal(3), 'pending');
+
+        $res = $this->getJson('/api/ketersediaan-vendor/ringkasan-jenis')->assertStatus(200);
+        $baris = collect($res->json('data'))->firstWhere('id_jenis_kendaraan', $jenis);
+
+        $this->assertSame(1, $baris['aset_total']);
+        $this->assertSame(1, $baris['aset_tersedia']);
+        $this->assertSame(2, $baris['vendor_total']);
+        $this->assertSame(1, $baris['vendor_tersedia']);
+    }
+
     public function test_hanya_unit_yang_pernah_dipakai_di_proyek_yang_tampil(): void
     {
         $this->actingAsRole('SUPERADMIN');

@@ -49,8 +49,10 @@ class KonsolidasiKlienService
             $rows
         )))));
 
+        $suratJalanMap = $this->repo->suratJalanPerTrip($idTrips);
+
         $trips = array_map(
-            fn ($row) => $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap, $uangJalanTambahanMap, $uangJalanTambahanDetailMap),
+            fn ($row) => $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap, $uangJalanTambahanMap, $uangJalanTambahanDetailMap, $suratJalanMap[$row->id_trip] ?? []),
             $rows
         );
 
@@ -69,7 +71,7 @@ class KonsolidasiKlienService
         ];
     }
 
-    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap, array $uangJalanTambahanMap, array $uangJalanTambahanDetailMap): array
+    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap, array $uangJalanTambahanMap, array $uangJalanTambahanDetailMap, array $suratJalan = []): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
         $borongan = TipeHarga::nilaiTetap($row->tipe_harga ?? null);
@@ -100,6 +102,8 @@ class KonsolidasiKlienService
             'supir_nama'        => $row->nama_supir_internal ?? $row->nama_supir_vendor,
             'sumber'            => $row->sumber ?? 'internal',
             'jarak_tempuh_km'   => $row->jarak_tempuh_km !== null ? (float) $row->jarak_tempuh_km : null,
+            'no_surat_jalan'    => $suratJalan !== [] ? implode(', ', array_column($suratJalan, 'no_surat_jalan')) : $row->no_surat_jalan,
+            'surat_jalan'       => $suratJalan,
             'tarif'             => $tarif,
             'borongan'          => $borongan,
             'tipe_harga'        => $row->tipe_harga ?? 'per_rit',

@@ -58,6 +58,7 @@ class ProyekController extends Controller
         $klien = $proyek->id_klien ? $this->klienRepo->findById((string) $proyek->id_klien) : null;
         $proyek->nama_klien = $klien->nama_klien ?? null;
         $proyek->realisasi  = $this->service->ringkasanRealisasi($proyek);
+        $proyek->parameter_penawaran = $this->service->parameterPenawaranAktif((string) $proyek->id_proyek);
         $proyek->setAttribute(
             'approval_aktif',
             app(\App\Modules\Approval\ApprovalService::class)->eventTypeAktifAda('proyek', $idPerusahaan),

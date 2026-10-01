@@ -192,7 +192,8 @@ class TripController extends Controller
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $trip = $this->service->findOrFail($id, $idPerusahaan);
         $trip->titik_drop           = $this->service->titikDropTrip($id);
-        $trip->sudah_difakturkan    = $this->service->tripPunyaFakturAktif($id);
+        $trip->titik_drop_detail    = $this->service->titikDropTripDetail($id);
+        $trip->sudah_difakturkan   = $this->service->tripPunyaFakturAktif($id);
         $trip->punya_laporan        = $this->service->tripPunyaLaporan($id);
         $trip->pengajuan_uang_jalan = $this->service->infoPengajuanUangJalan($id);
         return ApiResponse::success(new TripResource($trip));

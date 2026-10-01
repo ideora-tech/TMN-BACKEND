@@ -291,6 +291,28 @@ class PenugasanHarianTest extends TestCase
         $this->assertTrue($unit['kontrak_habis']);
     }
 
+    public function test_board_menyertakan_supir_default_unit_paket(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $paket = $this->makeVendorPaket('full');
+        DB::table('armada_vendor')
+            ->where('id_armada_vendor', $paket['id_armada_vendor'])
+            ->update(['id_supir_vendor_default' => $paket['id_supir_vendor']]);
+        $tanpaDefault = $this->makeVendorPaket('full');
+
+        $units = collect($this->getJson('/api/penugasan/board?dari=2026-09-01&sampai=2026-09-02')
+            ->assertStatus(200)
+            ->json('data.units'));
+
+        $unit = $units->firstWhere('id_armada_vendor', $paket['id_armada_vendor']);
+        $this->assertSame($paket['id_supir_vendor'], $unit['id_supir_vendor_default']);
+        $this->assertSame('Supir Vendor Paket', $unit['nama_supir_default']);
+
+        $unitTanpaDefault = $units->firstWhere('id_armada_vendor', $tanpaDefault['id_armada_vendor']);
+        $this->assertNull($unitTanpaDefault['id_supir_vendor_default']);
+        $this->assertNull($unitTanpaDefault['nama_supir_default']);
+    }
+
     public function test_assign_harian_menyimpan_titik_drop_dengan_uang_jalan_tambahan(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -346,7 +368,34 @@ class PenugasanHarianTest extends TestCase
         $res->assertStatus(422);
     }
 
-    public function test_assign_rentang_membuat_baris_per_tanggal_dan_satu_pengajuan(): void
+    private function tautkanPengajuanLegacy(string $idSupir, string $idProyek, float $tarif = 150000.0, string $status = 'menunggu_approval'): string
+    {
+        $baris = DB::table('penugasan')->where('id_supir', $idSupir)->orderBy('tanggal_tugas')->get(['id_penugasan', 'tanggal_tugas']);
+        $idPengajuan = (string) Str::uuid();
+
+        DB::table('pengajuan_pengeluaran')->insert([
+            'id_pengajuan'      => $idPengajuan,
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'id_supir'          => $idSupir,
+            'id_proyek'         => $idProyek,
+            'periode_dari'      => $baris->first()->tanggal_tugas,
+            'periode_sampai'    => $baris->last()->tanggal_tugas,
+            'tarif_per_hari'    => $tarif,
+            'nomor_pengajuan'   => 'PP-202609-' . str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
+            'kategori'          => 'uang_jalan',
+            'nominal'           => $tarif * $baris->count(),
+            'tanggal_pengajuan' => '2026-09-01',
+            'penerima'          => 'Supir Legacy',
+            'keterangan'        => 'Uang jalan legacy',
+            'status'            => $status,
+            'dibuat_pada'       => now(),
+        ]);
+        DB::table('penugasan')->whereIn('id_penugasan', $baris->pluck('id_penugasan')->all())->update(['id_pengajuan' => $idPengajuan]);
+
+        return $idPengajuan;
+    }
+
+    public function test_assign_rentang_membuat_baris_per_tanggal_tanpa_pengajuan_uang_jalan(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -364,7 +413,7 @@ class PenugasanHarianTest extends TestCase
             'id_rute'        => $rute,
         ]);
 
-        $res->assertStatus(200)->assertJsonPath('data.sukses', 3)->assertJsonPath('data.peringatan', []);
+        $res->assertStatus(200)->assertJsonPath('data.sukses', 3)->assertJsonMissingPath('data.peringatan');
 
         foreach (['2026-09-01', '2026-09-02', '2026-09-03'] as $tanggal) {
             $this->assertDatabaseHas('penugasan', [
@@ -375,42 +424,9 @@ class PenugasanHarianTest extends TestCase
             ]);
         }
 
-        $this->assertSame(1, DB::table('pengajuan_pengeluaran')->where('kategori', 'uang_jalan')->count());
-        $this->assertDatabaseHas('pengajuan_pengeluaran', [
-            'id_supir' => $supir, 'id_proyek' => $proyek->id_proyek,
-            'kategori' => 'uang_jalan', 'nominal' => 450000, 'tarif_per_hari' => 150000,
-            'periode_dari' => '2026-09-01', 'periode_sampai' => '2026-09-03', 'status' => 'menunggu_approval',
-        ]);
-
-        $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_supir', $supir)->value('id_pengajuan');
-        $this->assertSame(3, DB::table('penugasan')->where('id_supir', $supir)->where('id_pengajuan', $idPengajuan)->count());
-    }
-
-    public function test_uang_jalan_event_type_nonaktif_pengajuan_langsung_disetujui_tanpa_fallback(): void
-    {
-        DB::table('approval_event_type')->insert([
-            'id_event_type' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'kode' => 'uang_jalan', 'nama' => 'Uang Jalan', 'mode_resolusi' => 'pinned',
-            'aktif' => 0, 'dibuat_pada' => now(),
-        ]);
-        $this->actingAsRole('SUPERADMIN');
-        $proyek = $this->makeProyek();
-        $rute   = $this->makeRute();
-        $this->makeProyekRute($proyek->id_proyek, $rute, 150000.0);
-        $armada = $this->makeArmada();
-        $supir  = $this->makeSupir('Budi Nonaktif');
-
-        $this->postJson('/api/penugasan/harian', [
-            'tanggal' => '2026-09-01', 'tanggal_sampai' => '2026-09-02',
-            'id_armada' => $armada->id_armada, 'id_supir' => $supir,
-            'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
-        ])->assertStatus(200)->assertJsonPath('data.sukses', 2);
-
-        $this->assertDatabaseHas('pengajuan_pengeluaran', [
-            'id_supir' => $supir, 'kategori' => 'uang_jalan', 'nominal' => 300000, 'status' => 'disetujui',
-        ]);
-        $idPengajuan = DB::table('pengajuan_pengeluaran')->where('id_supir', $supir)->value('id_pengajuan');
-        $this->assertSame(0, DB::table('approval_pengajuan')->where('id_referensi', $idPengajuan)->count());
+        $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
+        $this->assertSame(0, DB::table('approval_pengajuan')->count());
+        $this->assertSame(0, DB::table('penugasan')->where('id_supir', $supir)->whereNotNull('id_pengajuan')->count());
     }
 
     public function test_guard_supir_dobel_tanggal_unit_boleh_dobel(): void
@@ -667,7 +683,7 @@ class PenugasanHarianTest extends TestCase
         );
     }
 
-    public function test_tarif_tidak_ketemu_penugasan_tetap_dibuat_dengan_peringatan(): void
+    public function test_tarif_tidak_ketemu_penugasan_tetap_dibuat_tanpa_estimasi_biaya(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $proyek = $this->makeProyek();
@@ -685,8 +701,6 @@ class PenugasanHarianTest extends TestCase
         ]);
 
         $res->assertStatus(200)->assertJsonPath('data.sukses', 1);
-        $this->assertNotEmpty($res->json('data.peringatan'));
-        $this->assertStringContainsString('Tarif uang jalan', $res->json('data.peringatan.0'));
 
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
         $this->assertDatabaseHas('penugasan', [
@@ -710,7 +724,7 @@ class PenugasanHarianTest extends TestCase
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
         ])->assertJsonPath('data.sukses', 3);
 
-        $idPengajuan = (string) DB::table('pengajuan_pengeluaran')->where('id_supir', $supir)->value('id_pengajuan');
+        $idPengajuan = $this->tautkanPengajuanLegacy($supir, $proyek->id_proyek);
         $ids = DB::table('penugasan')->where('id_supir', $supir)->orderBy('tanggal_tugas')->pluck('id_penugasan')->all();
         $this->assertCount(3, $ids);
 
@@ -779,9 +793,7 @@ class PenugasanHarianTest extends TestCase
             'id_armada' => $armada->id_armada, 'id_supir' => $supir,
             'tanggal_tugas' => '2026-09-08', 'estimasi_biaya' => 99000,
         ]);
-        $this->assertDatabaseHas('pengajuan_pengeluaran', [
-            'id_supir' => $supir, 'tarif_per_hari' => 99000, 'nominal' => 99000,
-        ]);
+        $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
     }
 
     public function test_id_armada_dan_id_armada_vendor_bersamaan_ditolak(): void
@@ -1028,7 +1040,7 @@ class PenugasanHarianTest extends TestCase
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
         ])->assertJsonPath('data.sukses', 3);
 
-        $idPengajuan = (string) DB::table('pengajuan_pengeluaran')->where('id_supir', $supirLama)->value('id_pengajuan');
+        $idPengajuan = $this->tautkanPengajuanLegacy($supirLama, $proyek->id_proyek);
         $this->assertDatabaseHas('pengajuan_pengeluaran', [
             'id_pengajuan' => $idPengajuan, 'nominal' => 450000, 'status' => 'menunggu_approval',
         ]);
@@ -1063,7 +1075,7 @@ class PenugasanHarianTest extends TestCase
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
         ])->assertJsonPath('data.sukses', 2);
 
-        $idPengajuan = (string) DB::table('pengajuan_pengeluaran')->where('id_supir', $supirLama)->value('id_pengajuan');
+        $idPengajuan = $this->tautkanPengajuanLegacy($supirLama, $proyek->id_proyek);
         $ids = DB::table('penugasan')->where('id_supir', $supirLama)->orderBy('tanggal_tugas')->pluck('id_penugasan')->all();
         $this->assertCount(2, $ids);
 
@@ -1089,7 +1101,7 @@ class PenugasanHarianTest extends TestCase
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
         ])->assertJsonPath('data.sukses', 3);
 
-        $idPengajuan = (string) DB::table('pengajuan_pengeluaran')->where('id_supir', $supirLama)->value('id_pengajuan');
+        $idPengajuan = $this->tautkanPengajuanLegacy($supirLama, $proyek->id_proyek);
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['status' => 'dicek']);
         $ids = DB::table('penugasan')->where('id_supir', $supirLama)->orderBy('tanggal_tugas')->pluck('id_penugasan')->all();
 
@@ -1124,7 +1136,7 @@ class PenugasanHarianTest extends TestCase
             'id_proyek' => $proyek->id_proyek, 'id_rute' => $rute,
         ])->assertJsonPath('data.sukses', 3);
 
-        $idPengajuan = (string) DB::table('pengajuan_pengeluaran')->where('id_supir', $supirLama)->value('id_pengajuan');
+        $idPengajuan = $this->tautkanPengajuanLegacy($supirLama, $proyek->id_proyek);
         DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->update(['status' => 'siap_transfer']);
         $ids = DB::table('penugasan')->where('id_supir', $supirLama)->orderBy('tanggal_tugas')->pluck('id_penugasan')->all();
 

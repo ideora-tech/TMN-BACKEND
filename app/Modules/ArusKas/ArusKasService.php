@@ -368,6 +368,9 @@ class ArusKasService
     public function updatePengajuan(string $id, array $data, string $idPerusahaan, ?UploadedFile $bukti): PengajuanPengeluaranModel
     {
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
+        if ($record->id_uang_jalan !== null) {
+            abort(422, 'Pengajuan uang jalan diubah lewat menu Uang Jalan');
+        }
         $this->pastikanStatus($record, [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DITOLAK], 'Pengajuan hanya bisa diubah saat status menunggu approval atau ditolak');
         if ($bukti !== null) {
             $data['url_bukti'] = PenyimpananBerkas::simpan($bukti, 'bukti-kas');
@@ -391,6 +394,9 @@ class ArusKasService
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
         if ($record->id_termin_pembelian !== null) {
             abort(422, 'Pengajuan termin PR aset tidak bisa dihapus; batalkan lewat modul Permintaan Pembelian');
+        }
+        if ($record->id_uang_jalan !== null) {
+            abort(422, 'Pengajuan uang jalan dihapus lewat menu Uang Jalan');
         }
         $this->pastikanStatus($record, [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DITOLAK], 'Pengajuan hanya bisa dihapus saat status menunggu approval atau ditolak');
 
@@ -535,12 +541,14 @@ class ArusKasService
                 'id_perusahaan'  => (string) $record->id_perusahaan,
                 'id_pengguna'    => $idPengguna,
                 'judul'          => 'Pengajuan pengeluaran perlu approval ulang',
-                'isi'            => sprintf(
-                    'Nominal pengajuan %s berubah dari Rp %s menjadi Rp %s — perlu approval ulang',
-                    $record->nomor_pengajuan,
-                    number_format($nominalLama, 0, ',', '.'),
-                    number_format((float) $record->nominal, 0, ',', '.'),
-                ),
+                'isi'            => round($nominalLama, 2) === round((float) $record->nominal, 2)
+                    ? sprintf('Data pengajuan %s diubah — perlu approval ulang', $record->nomor_pengajuan)
+                    : sprintf(
+                        'Nominal pengajuan %s berubah dari Rp %s menjadi Rp %s — perlu approval ulang',
+                        $record->nomor_pengajuan,
+                        number_format($nominalLama, 0, ',', '.'),
+                        number_format((float) $record->nominal, 0, ',', '.'),
+                    ),
                 'tipe'           => 'approval_keuangan',
                 'referensi_id'   => (string) $record->id_pengajuan,
                 'referensi_tipe' => 'pengajuan_pengeluaran',
@@ -1395,51 +1403,95 @@ class ArusKasService
         ];
     }
 
-    /**
-     * Satu pengajuan uang jalan untuk seluruh tanggal sukses dalam satu batch
-     * assign penugasan harian (bukan per-tanggal) — nominal = tarif × jumlah
-     * tanggal, periode = rentang MIN..MAX tanggal sukses.
-     */
-    public function buatPengajuanUangJalanPenugasan(
+    public function buatPengajuanUangJalanManual(
         string $idPerusahaan,
-        string $idSupir,
-        string $idProyek,
-        float $tarif,
-        array $tanggalList,
+        string $idUangJalan,
+        float $nominal,
+        string $penerima,
+        string $keterangan,
     ): PengajuanPengeluaranModel {
-        sort($tanggalList);
-        $jumlah = count($tanggalList);
-        $dari   = $tanggalList[0];
-        $sampai = $tanggalList[$jumlah - 1];
-
-        $info = $this->repo->dataUntukPengajuanPenugasan($idSupir, $idProyek);
-
-        return DB::transaction(function () use ($idPerusahaan, $idSupir, $idProyek, $dari, $sampai, $tarif, $jumlah, $info) {
+        return DB::transaction(function () use ($idPerusahaan, $idUangJalan, $nominal, $penerima, $keterangan) {
             $record = $this->repo->createPengajuan([
                 'id_perusahaan'     => $idPerusahaan,
-                'id_supir'          => $idSupir,
-                'id_proyek'         => $idProyek,
-                'periode_dari'      => $dari,
-                'periode_sampai'    => $sampai,
-                'tarif_per_hari'    => $tarif,
+                'id_uang_jalan'     => $idUangJalan,
                 'nomor_pengajuan'   => $this->repo->nomorPengajuanBerikutnya($idPerusahaan),
                 'kategori'          => 'uang_jalan',
-                'nominal'           => $tarif * $jumlah,
+                'nominal'           => $nominal,
                 'tanggal_pengajuan' => now()->toDateString(),
-                'penerima'          => $info->nama_supir,
-                'keterangan'        => sprintf(
-                    'Uang jalan %s — %s (%s–%s, Rp %s/hari × %d hari)',
-                    $info->nama_supir,
-                    $info->nama_proyek,
-                    Carbon::parse($dari)->format('d/m'),
-                    Carbon::parse($sampai)->format('d/m'),
-                    number_format($tarif, 0, ',', '.'),
-                    $jumlah,
-                ),
-                'status' => self::STATUS_DIAJUKAN,
+                'penerima'          => $penerima,
+                'keterangan'        => $keterangan,
+                'status'            => self::STATUS_DIAJUKAN,
             ]);
+
             return $this->masukTahapApproval($record);
         });
+    }
+
+    public function perbaruiPengajuanUangJalan(
+        string $idPengajuan,
+        string $idPerusahaan,
+        float $nominal,
+        string $penerima,
+        string $keterangan,
+    ): PengajuanPengeluaranModel {
+        return DB::transaction(function () use ($idPengajuan, $idPerusahaan, $nominal, $penerima, $keterangan) {
+            $record = $this->kunciPengajuanUangJalan($idPengajuan, $idPerusahaan, 'diubah');
+
+            $statusAwal  = $record->status;
+            $nominalLama = (float) $record->nominal;
+            $updated     = $this->repo->updatePengajuan($record, [
+                'nominal'    => $nominal,
+                'penerima'   => $penerima,
+                'keterangan' => $keterangan,
+            ]);
+
+            if ($statusAwal === self::STATUS_MENUNGGU_APPROVAL) {
+                return $this->resetSnapshotApproval($updated, $nominalLama);
+            }
+
+            $this->approvalService->batalkanUntukReferensi(
+                [...self::KODE_EVENT_PENGELUARAN, self::KODE_PERSETUJUAN_TRANSFER],
+                (string) $updated->id_pengajuan,
+                $idPerusahaan,
+            );
+
+            $bersih = $this->repo->updatePengajuan($updated, [
+                'alasan_ditolak' => null,
+                'dicek_oleh'     => null,
+                'dicek_pada'     => null,
+                'disetujui_oleh' => null,
+                'disetujui_pada' => null,
+            ]);
+
+            return $this->masukTahapApproval($bersih);
+        });
+    }
+
+    public function hapusPengajuanUangJalan(string $idPengajuan, string $idPerusahaan): void
+    {
+        DB::transaction(function () use ($idPengajuan, $idPerusahaan) {
+            $record = $this->kunciPengajuanUangJalan($idPengajuan, $idPerusahaan, 'dihapus');
+
+            $this->approvalService->batalkanUntukReferensi(
+                [...self::KODE_EVENT_PENGELUARAN, self::KODE_PERSETUJUAN_TRANSFER],
+                (string) $record->id_pengajuan,
+                (string) $record->id_perusahaan,
+            );
+
+            $this->repo->deletePengajuan($record);
+        });
+    }
+
+    private function kunciPengajuanUangJalan(string $idPengajuan, string $idPerusahaan, string $aksi): PengajuanPengeluaranModel
+    {
+        $record = $this->repo->findPengajuanForUpdate($idPengajuan);
+        if ($record === null || $record->id_perusahaan !== $idPerusahaan || $record->id_uang_jalan === null) {
+            abort(404, 'Pengajuan uang jalan tidak ditemukan');
+        }
+
+        $this->pastikanStatus($record, [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DITOLAK], "Uang jalan hanya bisa {$aksi} saat status menunggu approval atau ditolak");
+
+        return $record;
     }
 
     /**

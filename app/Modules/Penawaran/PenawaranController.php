@@ -10,6 +10,7 @@ use App\Modules\Penawaran\Requests\KirimEmailPenawaranRequest;
 use App\Modules\Penawaran\Requests\StorePenawaranRequest;
 use App\Modules\Penawaran\Requests\UpdatePenawaranRequest;
 use App\Modules\Penawaran\Requests\UpdateStatusPenawaranRequest;
+use App\Modules\Penawaran\Requests\UploadLampiranPenawaranRequest;
 use App\Modules\Penawaran\Resources\PenawaranResource;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -134,6 +135,18 @@ class PenawaranController extends Controller
         $record = $this->service->kirimEmail($id, $idPerusahaan, $pdfBinary, $data['email_tujuan'], $data['subjek'], $data['pesan'], $lampiran);
 
         return ApiResponse::success(new PenawaranResource($record), 'Penawaran berhasil dikirim ke ' . $record->email_terkirim_ke);
+    }
+
+    public function storeLampiran(UploadLampiranPenawaranRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->tambahLampiran($id, $request->file('lampiran', []), (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(new PenawaranResource($record), 'Lampiran berhasil diunggah');
+    }
+
+    public function destroyLampiran(Request $request, string $id, string $idLampiran): JsonResponse
+    {
+        $this->service->hapusLampiran($id, $idLampiran, (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(null, 'Lampiran berhasil dihapus');
     }
 
     private function logoBase64(): ?string

@@ -28,6 +28,7 @@ interface PermintaanPembelianRepositoryInterface
     public function softDeleteBukti(string $idBukti): void;
     public function supplierMilik(string $idPerusahaan, string $idSupplier): ?object;
     public function departemenMilik(string $idPerusahaan, string $idDepartemen): bool;
+    public function judulPermintaanAktif(string $idPerusahaan, string $idJudulPermintaan): ?object;
     public function perawatanMilik(string $idPerusahaan, string $idPerawatan): bool;
     /** @return array<string,object> */
     public function sparepartMilik(string $idPerusahaan, array $ids): array;
@@ -47,6 +48,7 @@ interface PermintaanPembelianRepositoryInterface
     public function semuaItemLengkap(string $idPermintaan): bool;
     public function tanggalTransferTerminTerakhir(string $idPermintaan): ?string;
     public function getPerusahaan(string $idPerusahaan): ?object;
+    public function usernamePengguna(string $idPengguna): ?string;
     /** @return object[] */
     public function laporanPermintaan(string $idPerusahaan, ?string $dari, ?string $sampai, ?string $tipe): array;
     /** @return object[] */

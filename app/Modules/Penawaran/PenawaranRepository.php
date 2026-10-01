@@ -7,6 +7,7 @@ namespace App\Modules\Penawaran;
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Support\RecordHelper;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class PenawaranRepository implements PenawaranRepositoryInterface
@@ -40,7 +41,7 @@ class PenawaranRepository implements PenawaranRepositoryInterface
         }
 
         if ($status !== null && $status !== '') {
-            $query->where('penawaran.status', $status);
+            $query->whereIn('penawaran.status', explode(',', $status));
         }
 
         if ($idProyek !== null && $idProyek !== '') {
@@ -75,6 +76,15 @@ class PenawaranRepository implements PenawaranRepositoryInterface
      * referensi di faktur: mencatat kesepakatan mana yang menjustifikasi
      * tarif invoice.
      */
+    public function dirujukPermintaanVendorAktif(string $idPenawaran): bool
+    {
+        return DB::table('permintaan_vendor')
+            ->where('id_penawaran', $idPenawaran)
+            ->whereNull('dihapus_pada')
+            ->where('status', '!=', 'dibatalkan')
+            ->exists();
+    }
+
     public function penawaranDisetujuiTerbaruProyek(string $idProyek): ?PenawaranModel
     {
         return PenawaranModel::active()
@@ -151,6 +161,38 @@ class PenawaranRepository implements PenawaranRepositoryInterface
             ->where('email_terkirim_pada', '<=', $sebelum)
             ->whereNull('email_gagal_pada')
             ->orderBy('email_terkirim_pada', 'desc')
+            ->first();
+    }
+
+    public function listLampiran(string $idPenawaran): Collection
+    {
+        return PenawaranLampiranModel::active()
+            ->where('id_penawaran', $idPenawaran)
+            ->orderBy('urutan')
+            ->orderBy('dibuat_pada')
+            ->get();
+    }
+
+    public function hitungLampiran(string $idPenawaran): int
+    {
+        return PenawaranLampiranModel::active()->where('id_penawaran', $idPenawaran)->count();
+    }
+
+    public function urutanLampiranTerakhir(string $idPenawaran): int
+    {
+        return (int) PenawaranLampiranModel::active()->where('id_penawaran', $idPenawaran)->max('urutan');
+    }
+
+    public function createLampiran(array $data): PenawaranLampiranModel
+    {
+        return PenawaranLampiranModel::create($data);
+    }
+
+    public function findLampiran(string $idPenawaran, string $idLampiran): ?PenawaranLampiranModel
+    {
+        return PenawaranLampiranModel::active()
+            ->where('id_penawaran', $idPenawaran)
+            ->where('id_lampiran', $idLampiran)
             ->first();
     }
 }

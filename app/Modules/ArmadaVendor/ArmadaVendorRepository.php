@@ -154,13 +154,17 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
         $rows = ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
             ->leftJoin('kontrak_vendor', $this->joinKontrakResolusiUnit($idPerusahaan))
+            ->leftJoin('supir_vendor as sv_default', function ($join) {
+                $join->on('sv_default.id_supir_vendor', '=', 'armada_vendor.id_supir_vendor_default')
+                    ->whereNull('sv_default.dihapus_pada');
+            })
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->where('armada_vendor.aktif', 1)
             ->whereNull('vendor.dihapus_pada')
             ->select(
                 'armada_vendor.id_armada_vendor', 'armada_vendor.nopol', 'armada_vendor.merk', 'armada_vendor.jenis',
                 'armada_vendor.id_vendor', 'armada_vendor.id_kontrak_vendor as id_kontrak_vendor_unit', 'vendor.nama_vendor',
-                'armada_vendor.id_supir_vendor_default',
+                'armada_vendor.id_supir_vendor_default', 'sv_default.nama as nama_supir_vendor_default',
                 'kontrak_vendor.id_kontrak_vendor', 'kontrak_vendor.mekanisme',
                 'kontrak_vendor.status as status_kontrak', 'kontrak_vendor.tanggal_selesai as tanggal_selesai_kontrak',
             )
@@ -185,6 +189,7 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 'id_vendor'              => $row->id_vendor,
                 'nama_vendor'            => $row->nama_vendor,
                 'id_supir_vendor_default' => $row->id_supir_vendor_default,
+                'nama_supir_vendor_default' => $row->nama_supir_vendor_default,
             ];
         }
 

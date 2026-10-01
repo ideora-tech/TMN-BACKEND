@@ -126,6 +126,21 @@ class PermintaanPembelianController extends Controller
         return $pdf->download('laporan-pengadaan-' . date('Ymd') . '.pdf');
     }
 
+    public function cetakPo(Request $request, string $id): Response
+    {
+        $data = $this->service->dataPurchaseOrder($id, (string) $request->user()->id_perusahaan);
+
+        $pdf = Pdf::loadView('exports.purchase-order', $data + ['logoBase64' => $this->logoBase64()]);
+
+        return $pdf->download($this->namaFileAman((string) $data['pr']->nomor_po) . '.pdf');
+    }
+
+    private function namaFileAman(string $nomor): string
+    {
+        $bersih = preg_replace('/[^A-Za-z0-9._-]+/', '-', $nomor);
+        return trim((string) $bersih, '-') ?: 'purchase-order';
+    }
+
     private function logoBase64(): ?string
     {
         $path = public_path('img/logo/logo-sli.png');

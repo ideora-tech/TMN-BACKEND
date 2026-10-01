@@ -244,14 +244,13 @@ class PermintaanPembelianService
         }
         $barangMap = $this->barangService->pastikanMilik($idBarangDipakai, $idPerusahaan);
 
-        $totalAktual = 0.0;
-        foreach ($itemTercatat as $idItem => $item) {
-            $totalAktual += (int) $item->qty * (float) $masuk[$idItem]['harga_aktual'];
-        }
+        $biaya = $this->hitungBiayaPembelian($itemTercatat, $masuk, $data);
+        $totalAktual = $biaya['total_aktual'];
         $termin = self::tipeAset($record) ? $this->susunTermin($data['termin'] ?? [], $totalAktual) : [];
 
-        return DB::transaction(function () use ($record, $data, $itemTercatat, $masuk, $barangMap, $idPerusahaan, $idPengguna, $supplier, $pesanStatus, $totalAktual, $termin) {
+        return DB::transaction(function () use ($record, $data, $itemTercatat, $masuk, $barangMap, $idPerusahaan, $idPengguna, $supplier, $pesanStatus, $biaya, $totalAktual, $termin) {
             $this->kunciDanPastikanStatus($record->id_permintaan, [self::STATUS_DIPROSES], $pesanStatus);
+            $nomorPo = KodeOtomatis::berikutnya($idPerusahaan, 'purchase_order');
             foreach ($itemTercatat as $idItem => $item) {
                 $harga = (float) $masuk[$idItem]['harga_aktual'];
                 $idBarang = $item->jenis === 'barang' ? ($masuk[$idItem]['id_barang'] ?? $item->id_barang) : null;
@@ -266,6 +265,11 @@ class PermintaanPembelianService
             $this->repo->updateHeader($record, [
                 'status'            => self::STATUS_DIBELI,
                 'id_supplier'       => $supplier->id_supplier,
+                'nomor_po'          => $nomorPo,
+                'diskon'            => $biaya['diskon'],
+                'ppn_persen'        => $biaya['ppn_persen'],
+                'ppn'               => $biaya['ppn'],
+                'ongkir'            => $biaya['ongkir'],
                 'total_aktual'      => $totalAktual,
                 'tanggal_pembelian' => $data['tanggal_pembelian'],
                 'dibeli_oleh'       => $idPengguna,
@@ -310,6 +314,29 @@ class PermintaanPembelianService
             $this->notifikasiKePengaju($hasil, "PR {$hasil->nomor_permintaan} sudah dibeli", 'Konfirmasi penerimaan setelah barang/jasa diterima');
             return $hasil;
         });
+    }
+
+    private function hitungBiayaPembelian(array $itemTercatat, array $masuk, array $data): array
+    {
+        $subtotal = 0.0;
+        foreach ($itemTercatat as $idItem => $item) {
+            $subtotal += (int) $item->qty * (float) $masuk[$idItem]['harga_aktual'];
+        }
+        $diskon = (float) ($data['diskon'] ?? 0);
+        if (round($diskon, 2) > round($subtotal, 2)) {
+            abort(422, 'Diskon tidak boleh melebihi subtotal (Rp ' . number_format($subtotal, 0, ',', '.') . ')');
+        }
+        $ppnPersen = (float) ($data['ppn_persen'] ?? 0);
+        $ongkir = (float) ($data['ongkir'] ?? 0);
+        $ppn = round(($subtotal - $diskon) * $ppnPersen / 100);
+
+        return [
+            'diskon'       => $diskon,
+            'ppn_persen'   => $ppnPersen,
+            'ppn'          => $ppn,
+            'ongkir'       => $ongkir,
+            'total_aktual' => $subtotal - $diskon + $ppn + $ongkir,
+        ];
     }
 
     private function susunTermin(array $masuk, float $totalAktual): array
@@ -611,6 +638,22 @@ class PermintaanPembelianService
         return $this->repo->getPerusahaan($idPerusahaan);
     }
 
+    public function dataPurchaseOrder(string $id, string $idPerusahaan): array
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        if ((string) ($record->nomor_po ?? '') === '') {
+            abort(422, 'PO belum tersedia untuk permintaan ini');
+        }
+
+        return [
+            'pr'         => $record,
+            'subtotal'   => (float) collect($record->items)->sum(fn ($i) => (int) $i->qty * (float) $i->harga_aktual),
+            'supplier'   => $record->id_supplier !== null ? $this->repo->supplierMilik($idPerusahaan, (string) $record->id_supplier) : null,
+            'pembuat'    => $record->dibeli_oleh !== null ? $this->repo->usernamePengguna((string) $record->dibeli_oleh) : null,
+            'perusahaan' => $this->repo->getPerusahaan($idPerusahaan),
+        ];
+    }
+
     public function laporan(string $idPerusahaan, ?string $dari, ?string $sampai, ?string $tipe, string $kodePeran): array
     {
         $this->pastikanAksesLaporan($kodePeran);
@@ -881,6 +924,16 @@ class PermintaanPembelianService
         if ($idDepartemen !== null && !$this->repo->departemenMilik($idPerusahaan, $idDepartemen)) {
             abort(422, 'Departemen tidak ditemukan');
         }
+        $idJudulPermintaan = null;
+        if (!empty($data['id_judul_permintaan'])) {
+            $judulMaster = $this->repo->judulPermintaanAktif($idPerusahaan, (string) $data['id_judul_permintaan']);
+            if ($judulMaster === null) {
+                abort(422, 'Judul permintaan tidak ditemukan atau tidak aktif');
+            }
+            $idJudulPermintaan = (string) $judulMaster->id_judul_permintaan;
+            $data['judul'] = $judulMaster->nama_judul;
+            $data['tipe'] = $judulMaster->tipe;
+        }
         $tipe = (string) ($data['tipe'] ?? self::TIPE_UMUM);
         $adaSparepart = count(array_filter($data['items'], fn ($i) => $i['jenis'] === 'sparepart')) > 0;
         $adaNonSparepart = count(array_filter($data['items'], fn ($i) => $i['jenis'] !== 'sparepart')) > 0;
@@ -991,6 +1044,7 @@ class PermintaanPembelianService
         }
 
         $header = [
+            'id_judul_permintaan' => $idJudulPermintaan,
             'judul'              => trim((string) $data['judul']),
             'tipe'               => $tipe,
             'alasan'             => $data['alasan'],

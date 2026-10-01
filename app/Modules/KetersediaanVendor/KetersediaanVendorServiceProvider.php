@@ -19,6 +19,12 @@ class KetersediaanVendorServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:ketersediaan-vendor|penawaran'])
+            ->group(function () {
+                Route::get('ketersediaan-vendor/ringkasan-jenis', [KetersediaanVendorController::class, 'ringkasanPerJenis']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:ketersediaan-vendor'])
             ->group(function () {
                 Route::get('ketersediaan-vendor/export/excel', [KetersediaanVendorController::class, 'exportExcel']);

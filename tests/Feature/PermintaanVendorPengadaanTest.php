@@ -105,6 +105,149 @@ class PermintaanVendorPengadaanTest extends TestCase
             ->all();
     }
 
+    public function test_pengadaan_menolak_permintaan_dengan_alasan_dan_pengaju_diberitahu(): void
+    {
+        $sales = $this->buatPengguna('SALES');
+        $permintaan = $this->makePermintaan(['disetujui_pada' => now()->subHours(3)], (string) $sales->id_pengguna);
+        $pengadaan = $this->actingAsRole('PENGADAAN');
+
+        $res = $this->patchJson("/api/permintaan-vendor/{$permintaan->id_permintaan}/tolak", ['alasan' => 'Vendor tidak tersedia'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'ditolak_pengadaan')
+            ->assertJsonPath('data.alasan_tolak_pengadaan', 'Vendor tidak tersedia')
+            ->assertJsonPath('data.ditolak_pengadaan_oleh', $pengadaan->id_pengguna)
+            ->assertJsonPath('data.nama_ditolak_pengadaan_oleh', $pengadaan->username);
+        $this->assertNotNull($res->json('data.ditolak_pengadaan_pada'));
+        $this->assertEqualsWithDelta(180, $res->json('data.lama_pemenuhan_menit'), 1);
+        $this->assertFalse($res->json('data.pemenuhan_berjalan'));
+
+        $notif = $this->notifikasiUntuk((string) $sales->id_pengguna);
+        $this->assertCount(1, $notif);
+        $this->assertSame("Permintaan vendor {$permintaan->nomor_permintaan} ditolak Pengadaan", $notif[0]->judul);
+        $this->assertSame('Vendor tidak tersedia', $notif[0]->isi);
+    }
+
+    public function test_tolak_dari_status_diproses_berhasil_tanpa_alasan_atau_status_lain_422_sales_403(): void
+    {
+        $diproses = $this->makePermintaan(['status' => 'diproses']);
+        $draft = $this->makePermintaan(['status' => 'draft']);
+
+        $this->actingAsRole('SALES');
+        $this->patchJson("/api/permintaan-vendor/{$diproses->id_permintaan}/tolak", ['alasan' => 'x'])->assertStatus(403);
+
+        $this->actingAsRole('PENGADAAN');
+        $this->patchJson("/api/permintaan-vendor/{$diproses->id_permintaan}/tolak", [])->assertStatus(422);
+        $this->patchJson("/api/permintaan-vendor/{$draft->id_permintaan}/tolak", ['alasan' => 'x'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Hanya permintaan berstatus disetujui atau diproses yang bisa ditolak Pengadaan');
+        $this->patchJson("/api/permintaan-vendor/{$diproses->id_permintaan}/tolak", ['alasan' => 'Tidak ada unit'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'ditolak_pengadaan');
+        $this->patchJson("/api/permintaan-vendor/{$diproses->id_permintaan}/tolak", ['alasan' => 'lagi'])->assertStatus(422);
+    }
+
+    public function test_kpi_lama_pemenuhan_berjalan_lalu_berhenti_saat_dikontrakkan(): void
+    {
+        $permintaan = $this->makePermintaan(['disetujui_pada' => now()->subHours(5)]);
+        $this->actingAsRole('SUPERADMIN');
+
+        $awal = $this->getJson("/api/permintaan-vendor/{$permintaan->id_permintaan}")
+            ->assertJsonPath('data.pemenuhan_berjalan', true);
+        $this->assertEqualsWithDelta(300, $awal->json('data.lama_pemenuhan_menit'), 2);
+
+        $this->buatKontrakDariPermintaan($permintaan, 'KV-KPI-1');
+
+        $res = $this->getJson("/api/permintaan-vendor/{$permintaan->id_permintaan}")
+            ->assertJsonPath('data.status', 'dikontrakkan')
+            ->assertJsonPath('data.pemenuhan_berjalan', false);
+        $this->assertNotNull($res->json('data.dikontrakkan_pada'));
+        $this->assertEqualsWithDelta(300, $res->json('data.lama_pemenuhan_menit'), 2);
+
+        $kpi = $this->getJson('/api/permintaan-vendor')->json('meta.kpi');
+        $this->assertSame(1, $kpi['jumlah_terpenuhi']);
+        $this->assertEqualsWithDelta(300, $kpi['rata_rata_menit'], 2);
+    }
+
+    public function test_sales_merevisi_permintaan_disetujui_kembali_ke_draft_lalu_wajib_approval_ulang(): void
+    {
+        $this->aktifkanApprovalPermintaanVendor();
+        $pengadaan = $this->buatPengguna('PENGADAAN');
+        $permintaan = $this->makePermintaan(['disetujui_pada' => now()->subHour()]);
+        $this->actingAsRole('SALES');
+
+        $this->patchJson("/api/permintaan-vendor/{$permintaan->id_permintaan}/revisi")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'draft')
+            ->assertJsonPath('data.disetujui_pada', null)
+            ->assertJsonPath('data.lama_pemenuhan_menit', null);
+
+        $notif = $this->notifikasiUntuk((string) $pengadaan->id_pengguna);
+        $this->assertCount(1, $notif);
+        $this->assertSame("Permintaan vendor {$permintaan->nomor_permintaan} ditarik untuk direvisi", $notif[0]->judul);
+
+        $this->putJson("/api/permintaan-vendor/{$permintaan->id_permintaan}", ['jumlah_unit' => 5])
+            ->assertStatus(200)
+            ->assertJsonPath('data.jumlah_unit', 5);
+
+        $this->postJson("/api/permintaan-vendor/{$permintaan->id_permintaan}/ajukan-approval")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'menunggu_approval');
+    }
+
+    public function test_revisi_selain_status_disetujui_ditolak_422(): void
+    {
+        $this->actingAsRole('SALES');
+        $pesan = 'Hanya permintaan berstatus disetujui yang bisa direvisi — bila sudah diproses Pengadaan, batalkan lalu buat permintaan baru';
+
+        foreach (['draft', 'menunggu_approval', 'diproses', 'dikontrakkan', 'selesai', 'dibatalkan'] as $status) {
+            $permintaan = $this->makePermintaan(['status' => $status]);
+            $this->patchJson("/api/permintaan-vendor/{$permintaan->id_permintaan}/revisi")
+                ->assertStatus(422)
+                ->assertJsonPath('message', $pesan);
+            $this->assertSame($status, $permintaan->fresh()->status);
+        }
+    }
+
+    public function test_revisi_permintaan_tenant_lain_404(): void
+    {
+        $permintaan = $this->makePermintaan(['id_perusahaan' => (string) Str::uuid()]);
+        $this->actingAsRole('SALES');
+
+        $this->patchJson("/api/permintaan-vendor/{$permintaan->id_permintaan}/revisi")->assertStatus(404);
+    }
+
+    public function test_persetujuan_tanpa_approval_mengisi_disetujui_pada(): void
+    {
+        $this->actingAsRole('SALES');
+        $draft = $this->makePermintaan(['status' => 'draft']);
+
+        $this->postJson("/api/permintaan-vendor/{$draft->id_permintaan}/ajukan-approval")->assertStatus(200);
+
+        $this->assertNotNull($draft->fresh()->disetujui_pada);
+    }
+
+    public function test_sales_mengisi_dan_mengubah_harga_penawaran(): void
+    {
+        $this->actingAsRole('SALES');
+
+        $id = $this->postJson('/api/permintaan-vendor', [
+            'mekanisme'       => 'unit_only',
+            'unit'            => [['jumlah_unit' => 2]],
+            'harga_penawaran' => 15000000,
+        ])->assertStatus(201)
+            ->assertJsonPath('data.harga_penawaran', 15000000)
+            ->json('data.id_permintaan');
+
+        $this->putJson("/api/permintaan-vendor/{$id}", ['harga_penawaran' => 17500000])
+            ->assertStatus(200)
+            ->assertJsonPath('data.harga_penawaran', 17500000);
+
+        $this->putJson("/api/permintaan-vendor/{$id}", ['harga_penawaran' => -1])->assertStatus(422);
+        $this->putJson("/api/permintaan-vendor/{$id}", ['harga_penawaran' => null])
+            ->assertStatus(200)
+            ->assertJsonPath('data.harga_penawaran', null);
+    }
+
     public function test_sales_tidak_boleh_memproses_permintaan(): void
     {
         $permintaan = $this->makePermintaan();

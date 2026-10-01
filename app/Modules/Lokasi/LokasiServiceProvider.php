@@ -19,10 +19,18 @@ class LokasiServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:lokasi|rute|penawaran|project'])
+            ->group(function () {
+                Route::get('lokasi', [LokasiController::class, 'index']);
+                Route::get('lokasi/{id}', [LokasiController::class, 'show']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:lokasi'])
             ->group(function () {
-                Route::apiResource('lokasi', LokasiController::class)
-                    ->parameters(['lokasi' => 'id']);
+                Route::post('lokasi', [LokasiController::class, 'store']);
+                Route::match(['put', 'patch'], 'lokasi/{id}', [LokasiController::class, 'update']);
+                Route::delete('lokasi/{id}', [LokasiController::class, 'destroy']);
             });
     }
 }

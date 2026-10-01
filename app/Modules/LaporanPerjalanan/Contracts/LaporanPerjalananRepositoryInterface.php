@@ -18,6 +18,7 @@ interface LaporanPerjalananRepositoryInterface
     public function reload(LaporanPerjalananModel $model): LaporanPerjalananModel;
     public function syncBiayaLain(LaporanPerjalananModel $laporan, array $biayaLain): void;
     public function syncBiayaTagihan(LaporanPerjalananModel $laporan, array $biayaTagihan): void;
+    public function syncSuratJalan(LaporanPerjalananModel $laporan, array $suratJalan): void;
     public function addFoto(string $idLaporan, array $data): FotoLaporanPerjalananModel;
     public function findFotoById(string $idLaporan, string $idFoto): ?FotoLaporanPerjalananModel;
     public function deleteFoto(FotoLaporanPerjalananModel $foto): void;

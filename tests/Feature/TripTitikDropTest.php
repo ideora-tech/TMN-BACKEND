@@ -165,7 +165,7 @@ class TripTitikDropTest extends TestCase
 
         $res->assertStatus(200)->assertJsonPath('data.titik_drop', ['JLB', 'MRY', 'RDS', 'KPM']);
 
-        $this->assertNotNull(DB::table('titik_drop_trip')->where('id_titik_drop', $idLama)->value('dihapus_pada'));
+        $this->assertNull(DB::table('titik_drop_trip')->where('id_titik_drop', $idLama)->value('dihapus_pada'));
 
         $lokasi = DB::table('titik_drop_trip')
             ->where('id_trip', $idTrip)

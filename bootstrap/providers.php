@@ -55,6 +55,7 @@ return [
     App\Modules\Perusahaan\PerusahaanServiceProvider::class,
     App\Modules\Proyek\ProyekServiceProvider::class,
     App\Modules\ProyekRute\ProyekRuteServiceProvider::class,
+    App\Modules\ProyekUnit\ProyekUnitServiceProvider::class,
     App\Modules\Rute\RuteServiceProvider::class,
     App\Modules\Shift\ShiftServiceProvider::class,
     App\Modules\Sparepart\SparepartServiceProvider::class,
@@ -64,6 +65,7 @@ return [
     App\Modules\Supplier\SupplierServiceProvider::class,
     App\Modules\TokenPerangkat\TokenPerangkatServiceProvider::class,
     App\Modules\Trip\TripServiceProvider::class,
+    App\Modules\UangJalan\UangJalanServiceProvider::class,
     App\Modules\Vendor\VendorServiceProvider::class,
     App\Modules\WajahReferensi\WajahReferensiServiceProvider::class,
 ];

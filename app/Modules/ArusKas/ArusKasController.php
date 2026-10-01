@@ -25,6 +25,8 @@ use App\Modules\PerawatanArmada\PerawatanArmadaService;
 use App\Modules\PerawatanArmada\Resources\PerawatanArmadaResource;
 use App\Modules\PermintaanPembelian\PermintaanPembelianService;
 use App\Modules\PermintaanPembelian\Resources\PermintaanPembelianResource;
+use App\Modules\UangJalan\Resources\UangJalanResource;
+use App\Modules\UangJalan\UangJalanService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -108,10 +110,20 @@ class ArusKasController extends Controller
         PayrollService $payrollService,
         InvoiceVendorService $invoiceVendorService,
         PermintaanPembelianService $permintaanService,
+        UangJalanService $uangJalanService,
         string $id
     ): JsonResponse {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $pengajuan = $this->service->findPengajuanOrFail($id, $idPerusahaan);
+
+        if ($pengajuan->id_uang_jalan !== null) {
+            return ApiResponse::success([
+                'tipe' => 'uang_jalan_manual',
+                'data' => new UangJalanResource(
+                    $uangJalanService->findOrFail((string) $pengajuan->id_uang_jalan, $idPerusahaan)
+                ),
+            ]);
+        }
 
         if ($pengajuan->id_invoice_vendor !== null) {
             return ApiResponse::success([

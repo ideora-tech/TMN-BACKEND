@@ -54,11 +54,10 @@ class PenugasanController extends Controller
         $hasil = $this->service->assignHarian($request->validated(), $idPerusahaan);
 
         return ApiResponse::success([
-            'sukses'     => $hasil['sukses'],
-            'gagal'      => $hasil['gagal'],
-            'dilewati'   => $hasil['dilewati'],
-            'peringatan' => $hasil['peringatan'],
-            'penugasan'  => PenugasanResource::collection($hasil['penugasan']),
+            'sukses'    => $hasil['sukses'],
+            'gagal'     => $hasil['gagal'],
+            'dilewati'  => $hasil['dilewati'],
+            'penugasan' => PenugasanResource::collection($hasil['penugasan']),
         ], 'Penugasan harian diproses');
     }
 

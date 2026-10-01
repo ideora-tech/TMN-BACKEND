@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\KonsolidasiKlien;
 
 use App\Helpers\ApiResponse;
-use App\Modules\KonsolidasiKlien\Exports\KonsolidasiKlienExport;
+use App\Modules\KonsolidasiKlien\Exports\KonsolidasiKlienWorkbookExport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -53,7 +53,7 @@ class KonsolidasiKlienController extends Controller
             : 'Semua periode';
 
         return Excel::download(
-            new KonsolidasiKlienExport($rekap['klien']['nama_klien'], $periode, collect($rekap['trips'])),
+            new KonsolidasiKlienWorkbookExport($rekap['klien']['nama_klien'], $periode, collect($rekap['trips'])),
             'konsolidasi-klien.xlsx'
         );
     }

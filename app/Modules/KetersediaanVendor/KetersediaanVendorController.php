@@ -29,6 +29,11 @@ class KetersediaanVendorController extends Controller
         return ApiResponse::paginated($result['data'], $result['meta']);
     }
 
+    public function ringkasanPerJenis(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->ringkasanPerJenis((string) $request->user()->id_perusahaan));
+    }
+
     public function show(Request $request, string $sumber, string $id): JsonResponse
     {
         return ApiResponse::success($this->service->detail($sumber, $id, (string) $request->user()->id_perusahaan));

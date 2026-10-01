@@ -180,13 +180,24 @@ class ArusKasRincianSumberTest extends TestCase
         $idArmada = $this->buatArmada('B 7001 TMN');
 
         $tanggal = ['2026-09-01', '2026-09-02', '2026-09-03'];
-        $pengajuan = app(ArusKasService::class)->buatPengajuanUangJalanPenugasan(
-            self::PERUSAHAAN_ID,
-            $idSupir,
-            $idProyek,
-            150000,
-            $tanggal,
-        );
+        $idPengajuan = (string) Str::uuid();
+        DB::table('pengajuan_pengeluaran')->insert([
+            'id_pengajuan'      => $idPengajuan,
+            'id_perusahaan'     => self::PERUSAHAAN_ID,
+            'id_supir'          => $idSupir,
+            'id_proyek'         => $idProyek,
+            'periode_dari'      => '2026-09-01',
+            'periode_sampai'    => '2026-09-03',
+            'tarif_per_hari'    => 150000,
+            'nomor_pengajuan'   => 'PP-202609-0001',
+            'kategori'          => 'uang_jalan',
+            'nominal'           => 450000,
+            'tanggal_pengajuan' => '2026-09-01',
+            'penerima'          => 'Budi Supir',
+            'keterangan'        => 'Uang jalan Budi Supir',
+            'status'            => 'disetujui',
+            'dibuat_pada'       => now(),
+        ]);
 
         // Satu tanggal dibatalkan setelah pengajuan dibuat — selisihnya harus terlihat.
         foreach ($tanggal as $i => $t) {
@@ -196,7 +207,7 @@ class ArusKasRincianSumberTest extends TestCase
                 'id_armada'      => $idArmada,
                 'id_supir'       => $idSupir,
                 'id_rute'        => $idRute,
-                'id_pengajuan'   => $pengajuan->id_pengajuan,
+                'id_pengajuan'   => $idPengajuan,
                 'tanggal_tugas'  => $t,
                 'status'         => $i === 2 ? 'batal' : 'aktif',
                 'estimasi_biaya' => 150000,
@@ -204,7 +215,7 @@ class ArusKasRincianSumberTest extends TestCase
             ]);
         }
 
-        $this->getJson("/api/arus-kas/pengajuan/{$pengajuan->id_pengajuan}/rincian-sumber")
+        $this->getJson("/api/arus-kas/pengajuan/{$idPengajuan}/rincian-sumber")
             ->assertStatus(200)
             ->assertJsonPath('data.tipe', 'uang_jalan')
             ->assertJsonPath('data.data.nama_supir', 'Budi Supir')

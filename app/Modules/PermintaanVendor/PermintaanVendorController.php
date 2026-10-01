@@ -7,6 +7,7 @@ namespace App\Modules\PermintaanVendor;
 use App\Helpers\ApiResponse;
 use App\Modules\PermintaanVendor\Requests\BatalPermintaanVendorRequest;
 use App\Modules\PermintaanVendor\Requests\StorePermintaanVendorRequest;
+use App\Modules\PermintaanVendor\Requests\TolakPermintaanVendorRequest;
 use App\Modules\PermintaanVendor\Requests\UpdatePermintaanVendorRequest;
 use App\Modules\PermintaanVendor\Resources\PermintaanVendorResource;
 use Illuminate\Http\JsonResponse;
@@ -25,12 +26,18 @@ class PermintaanVendorController extends Controller
             (int) $request->get('limit', 10),
             $request->get('search'),
             $request->get('status'),
+            $request->get('id_penawaran'),
         );
 
         return ApiResponse::paginated(
             PermintaanVendorResource::collection($result['data']),
             $result['meta']
         );
+    }
+
+    public function jumlahAktif(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->jumlahAktif((string) $request->user()->id_perusahaan));
     }
 
     public function show(Request $request, string $id): JsonResponse
@@ -81,6 +88,29 @@ class PermintaanVendorController extends Controller
         );
 
         return ApiResponse::success(new PermintaanVendorResource($record), 'Permintaan vendor sedang diproses');
+    }
+
+    public function tolak(TolakPermintaanVendorRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->tolak(
+            $id,
+            (string) $request->validated('alasan'),
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->id_perusahaan,
+        );
+
+        return ApiResponse::success(new PermintaanVendorResource($record), 'Permintaan vendor ditolak Pengadaan');
+    }
+
+    public function revisi(Request $request, string $id): JsonResponse
+    {
+        $record = $this->service->revisi(
+            $id,
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->id_perusahaan,
+        );
+
+        return ApiResponse::success(new PermintaanVendorResource($record), 'Permintaan vendor dikembalikan ke draft untuk direvisi');
     }
 
     public function batal(BatalPermintaanVendorRequest $request, string $id): JsonResponse

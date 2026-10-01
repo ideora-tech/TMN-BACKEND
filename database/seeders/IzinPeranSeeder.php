@@ -37,6 +37,7 @@ class IzinPeranSeeder extends Seeder
         ['DISPATCHER', '/armada', ['lihat']],
         ['DISPATCHER', '/trip', ['lihat']],
         ['DISPATCHER', '/laporan', ['lihat']],
+        ['DISPATCHER', '/permintaan-vendor', ['lihat']],
         ['MANAGER', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['SALES', '/penugasan', ['lihat', 'tambah', 'ubah', 'hapus']],
         ['SALES', '/rute', ['lihat']],

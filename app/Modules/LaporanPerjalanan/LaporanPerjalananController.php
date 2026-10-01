@@ -48,6 +48,12 @@ class LaporanPerjalananController extends Controller
         return ApiResponse::success($laporan === null ? null : new LaporanPerjalananResource($laporan));
     }
 
+    public function titikDropSaya(Request $request, string $idTrip): JsonResponse
+    {
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
+        return ApiResponse::success($this->service->titikDropUntukSupir($idTrip, $idSupir, $tipe));
+    }
+
     public function storeLaporanSaya(StoreLaporanPerjalananRequest $request, string $idTrip): JsonResponse
     {
         [$tipe, $idSupir] = $this->konteksSupirSaya($request);

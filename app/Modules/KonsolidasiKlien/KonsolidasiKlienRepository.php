@@ -105,6 +105,7 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
                 's.nama as nama_supir_internal',
                 'sv.nama as nama_supir_vendor',
                 'lp.jarak_tempuh_km',
+                'lp.no_surat_jalan',
                 'pr.kode_proyek',
                 'pr.nama_proyek',
                 'pr.tipe_harga',
@@ -168,6 +169,28 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->get(['lp.id_trip', 'bt.nama_biaya', 'bt.nominal'])
             ->groupBy('id_trip')
             ->map(fn ($g) => $g->map(fn ($b) => ['nama_biaya' => $b->nama_biaya, 'nominal' => (float) $b->nominal])->values()->all())
+            ->all();
+    }
+
+    public function suratJalanPerTrip(array $idTrips): array
+    {
+        if ($idTrips === []) {
+            return [];
+        }
+
+        return DB::table('surat_jalan_trip as sj')
+            ->join('laporan_perjalanan as lp', 'lp.id_laporan', '=', 'sj.id_laporan')
+            ->leftJoin('titik_drop_trip as td', 'td.id_titik_drop', '=', 'sj.id_titik_drop')
+            ->whereIn('lp.id_trip', $idTrips)
+            ->whereNull('sj.dihapus_pada')->whereNull('lp.dihapus_pada')
+            ->orderBy('sj.urutan')
+            ->get(['lp.id_trip', 'sj.no_surat_jalan', 'td.urutan as urutan_drop', 'td.lokasi as lokasi_drop'])
+            ->groupBy('id_trip')
+            ->map(fn ($g) => $g->map(fn ($s) => [
+                'no_surat_jalan' => (string) $s->no_surat_jalan,
+                'urutan_drop'    => $s->urutan_drop !== null ? (int) $s->urutan_drop : null,
+                'lokasi_drop'    => $s->lokasi_drop,
+            ])->values()->all())
             ->all();
     }
 

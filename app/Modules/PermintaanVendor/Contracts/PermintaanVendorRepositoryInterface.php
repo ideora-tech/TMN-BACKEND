@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface PermintaanVendorRepositoryInterface
 {
-    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator;
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null, ?string $idPenawaran = null): LengthAwarePaginator;
     public function findAktifMilikPerusahaan(string $id, string $idPerusahaan): ?PermintaanVendorModel;
     public function findForUpdate(string $id): ?PermintaanVendorModel;
     public function create(array $data, array $unitRows = []): PermintaanVendorModel;
@@ -17,9 +17,14 @@ interface PermintaanVendorRepositoryInterface
     public function delete(PermintaanVendorModel $model): void;
     public function proyekMilikPerusahaan(string $idProyek, string $idPerusahaan): bool;
     public function jenisKendaraanMilikPerusahaan(string $idJenisKendaraan, string $idPerusahaan): bool;
+    public function penawaranMilikPerusahaan(string $idPenawaran, string $idPerusahaan): ?object;
+    public function tautkanProyekDariPenawaran(string $idPenawaran, string $idProyek): void;
     public function unitUntukBanyak(array $idPermintaanList): array;
     public function replaceUnit(string $idPermintaan, array $unitRows): void;
     public function ringkasanStatus(string $idPerusahaan): array;
+    public function ringkasanKpi(string $idPerusahaan): array;
     public function listMenungguDiproses(string $idPerusahaan, int $limit): array;
     public function selesaikanOlehKontrak(string $idKontrakVendor): array;
+    public function nomorPermintaanTerpenuhiOlehKontrak(string $idKontrakVendor): ?string;
+    public function kembalikanDariKontrak(string $idKontrakVendor): array;
 }

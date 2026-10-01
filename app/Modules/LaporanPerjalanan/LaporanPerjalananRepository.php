@@ -60,6 +60,11 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
         $laporan->setRelation('foto', DB::table('foto_laporan_perjalanan')
             ->where('id_laporan', $laporan->id_laporan)->whereNull('dihapus_pada')
             ->get(['id_foto', 'id_laporan', 'url_file', 'keterangan']));
+        $laporan->setRelation('suratJalan', DB::table('surat_jalan_trip as sj')
+            ->leftJoin('titik_drop_trip as td', 'td.id_titik_drop', '=', 'sj.id_titik_drop')
+            ->where('sj.id_laporan', $laporan->id_laporan)->whereNull('sj.dihapus_pada')
+            ->orderBy('sj.urutan')
+            ->get(['sj.id_surat_jalan', 'sj.id_titik_drop', 'td.urutan as urutan_drop', 'td.lokasi as lokasi_drop', 'sj.urutan', 'sj.no_surat_jalan']));
     }
 
     public function create(array $data): LaporanPerjalananModel
@@ -107,6 +112,22 @@ class LaporanPerjalananRepository implements LaporanPerjalananRepositoryInterfac
                 'id_laporan' => $laporan->id_laporan,
                 'nama_biaya' => $item['nama_biaya'],
                 'nominal'    => $item['nominal'],
+            ]);
+        }
+    }
+
+    public function syncSuratJalan(LaporanPerjalananModel $laporan, array $suratJalan): void
+    {
+        SuratJalanTripModel::active()
+            ->where('id_laporan', $laporan->id_laporan)
+            ->each(fn (SuratJalanTripModel $item) => $item->softDelete());
+
+        foreach (array_values($suratJalan) as $i => $item) {
+            SuratJalanTripModel::create([
+                'id_laporan'     => $laporan->id_laporan,
+                'id_titik_drop'  => $item['id_titik_drop'] ?? null,
+                'urutan'         => $i + 1,
+                'no_surat_jalan' => $item['no_surat_jalan'],
             ]);
         }
     }

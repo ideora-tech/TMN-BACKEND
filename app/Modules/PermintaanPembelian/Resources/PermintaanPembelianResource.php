@@ -38,6 +38,9 @@ class PermintaanPembelianResource extends JsonResource
             'keterangan'        => $i->keterangan,
         ])->all();
 
+        $semuaHargaAktual = $items !== [] && collect($items)->every(fn ($i) => $i['harga_aktual'] !== null);
+        $subtotalAktual = $semuaHargaAktual ? (float) collect($items)->sum('subtotal_aktual') : null;
+
         $ps = $this->pembelian_sparepart ?? null;
 
         $termin = collect($this->termin ?? [])->map(fn ($t) => [
@@ -55,6 +58,7 @@ class PermintaanPembelianResource extends JsonResource
             'id_permintaan'      => $this->id_permintaan,
             'nomor_permintaan'   => $this->nomor_permintaan,
             'tipe'               => $this->tipe ?? 'umum',
+            'id_judul_permintaan' => $this->id_judul_permintaan ?? null,
             'judul'              => $this->judul,
             'alasan'             => $this->alasan,
             'status'             => $this->status,
@@ -70,10 +74,16 @@ class PermintaanPembelianResource extends JsonResource
             'tanggal_permintaan' => $this->tanggal_permintaan,
             'tanggal_dibutuhkan' => $this->tanggal_dibutuhkan,
             'tanggal_pembelian'  => $this->tanggal_pembelian,
+            'nomor_po'           => $this->nomor_po ?? null,
             'tanggal_diterima'   => $this->tanggal_diterima,
             'keterangan_penerimaan' => $this->keterangan_penerimaan ?? null,
             'tanggal_pembayaran' => $this->tanggal_pembayaran,
             'total_estimasi'     => (float) $this->total_estimasi,
+            'subtotal_aktual'    => $subtotalAktual,
+            'diskon'             => (float) ($this->diskon ?? 0),
+            'ppn_persen'         => (float) ($this->ppn_persen ?? 0),
+            'ppn'                => (float) ($this->ppn ?? 0),
+            'ongkir'             => (float) ($this->ongkir ?? 0),
             'total_aktual'       => $this->total_aktual !== null ? (float) $this->total_aktual : null,
             'boleh_realisasi_mandiri' => (bool) ($this->boleh_realisasi_mandiri ?? false),
             'batas_mandiri'      => isset($this->batas_mandiri) ? (float) $this->batas_mandiri : null,

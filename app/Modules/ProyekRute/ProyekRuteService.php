@@ -58,7 +58,7 @@ class ProyekRuteService
             abort(404, 'Rute proyek tidak ditemukan');
         }
 
-        if ($this->adaPerubahanHarga($record, $data) && $this->hargaTerkunci($idProyek)) {
+        if ($this->adaPerubahanTerkunci($record, $data) && $this->hargaTerkunci($idProyek)) {
             abort(422, 'Harga terkunci — ubah lewat penawaran revisi');
         }
 
@@ -83,6 +83,11 @@ class ProyekRuteService
         if ($record === null || $record->id_proyek !== $idProyek) {
             abort(404, 'Rute proyek tidak ditemukan');
         }
+
+        if ($this->hargaTerkunci($idProyek)) {
+            abort(422, 'Harga terkunci — ubah lewat penawaran revisi');
+        }
+
         $this->repo->delete($record);
     }
 
@@ -92,7 +97,7 @@ class ProyekRuteService
         return TipeHarga::perRit($tipeHarga) && $this->repo->adaPenawaranDisetujui($idProyek);
     }
 
-    private function adaPerubahanHarga(ProyekRuteModel $record, array $data): bool
+    private function adaPerubahanTerkunci(ProyekRuteModel $record, array $data): bool
     {
         if (array_key_exists('harga_penawaran', $data)) {
             $baru = $data['harga_penawaran'];
@@ -106,6 +111,14 @@ class ProyekRuteService
         }
 
         if (array_key_exists('estimasi_ritase', $data) && (int) $data['estimasi_ritase'] !== (int) $record->estimasi_ritase) {
+            return true;
+        }
+
+        if (array_key_exists('id_rute', $data) && $data['id_rute'] !== $record->id_rute) {
+            return true;
+        }
+
+        if (array_key_exists('id_jenis_kendaraan', $data) && $data['id_jenis_kendaraan'] !== $record->id_jenis_kendaraan) {
             return true;
         }
 

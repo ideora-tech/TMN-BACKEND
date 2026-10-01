@@ -18,8 +18,9 @@ class UpdatePermintaanPembelianRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'judul'                  => ['required', 'string', 'max:150'],
-            'tipe'                   => ['required', 'string', Rule::in(PermintaanPembelianService::TIPE)],
+            'id_judul_permintaan'    => ['nullable', 'string', 'max:36'],
+            'judul'                  => ['required_without:id_judul_permintaan', 'nullable', 'string', 'max:150'],
+            'tipe'                   => ['required_without:id_judul_permintaan', 'nullable', 'string', Rule::in(PermintaanPembelianService::TIPE)],
             'alasan'                 => ['required', 'string', 'max:2000'],
             'id_departemen'          => ['nullable', 'string', 'max:36'],
             'id_perawatan'           => ['nullable', 'string', 'max:36'],

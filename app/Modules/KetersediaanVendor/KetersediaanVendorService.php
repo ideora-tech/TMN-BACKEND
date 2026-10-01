@@ -241,6 +241,30 @@ class KetersediaanVendorService
         return $hasil;
     }
 
+    public function ringkasanPerJenis(string $idPerusahaan): array
+    {
+        $grup = [];
+        foreach ($this->repo->listUnit($idPerusahaan, now()->toDateString()) as $r) {
+            if ($r->id_jenis_kendaraan === null) {
+                continue;
+            }
+            $grup[$r->id_jenis_kendaraan] ??= [
+                'id_jenis_kendaraan' => $r->id_jenis_kendaraan,
+                'aset_total'         => 0,
+                'aset_tersedia'      => 0,
+                'vendor_total'       => 0,
+                'vendor_tersedia'    => 0,
+            ];
+            $sumber = $r->sumber === 'vendor' ? 'vendor' : 'aset';
+            $grup[$r->id_jenis_kendaraan]["{$sumber}_total"]++;
+            if ($r->status_ketersediaan === 'tersedia') {
+                $grup[$r->id_jenis_kendaraan]["{$sumber}_tersedia"]++;
+            }
+        }
+
+        return array_values($grup);
+    }
+
     /**
      * @param object[] $semua
      * @param object[] $terhitung

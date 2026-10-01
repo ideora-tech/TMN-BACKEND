@@ -21,6 +21,7 @@ class PengajuanPengeluaranModel extends BaseModel
         'id_invoice_vendor',
         'id_permintaan_pembelian',
         'id_termin_pembelian',
+        'id_uang_jalan',
         'id_supir',
         'id_proyek',
         'periode_dari',

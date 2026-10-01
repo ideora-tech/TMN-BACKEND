@@ -171,6 +171,28 @@
             </table>
         @endif
 
+        @php $parameter = \App\Support\ParameterPenawaran::terisi($p); @endphp
+        @if ($parameter !== [])
+            <table class="rincian" style="margin-top: 14px;">
+                <thead>
+                    <tr>
+                        <th>PARAMETER PENAWARAN</th>
+                        <th>SATUAN</th>
+                        <th class="jumlah">BIAYA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($parameter as $baris)
+                        <tr>
+                            <td>{{ $baris['label'] }}</td>
+                            <td>{{ $baris['satuan'] }}</td>
+                            <td class="jumlah">{{ $rp($baris['nilai']) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+
         @if ($catatanHtml !== '')
             <div class="catatan">
                 <strong>Catatan:</strong>

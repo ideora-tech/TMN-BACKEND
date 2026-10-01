@@ -647,15 +647,33 @@ class TripRepository implements TripRepositoryInterface
 
     public function syncTitikDropTrip(string $idTrip, array $lokasiList): void
     {
-        DB::table('titik_drop_trip')
+        $sisaLama = DB::table('titik_drop_trip')
             ->where('id_trip', $idTrip)->whereNull('dihapus_pada')
-            ->update(RecordHelper::stampDelete());
+            ->orderBy('urutan')
+            ->get(['id_titik_drop', 'lokasi'])
+            ->all();
+
         foreach (array_values($lokasiList) as $i => $lokasi) {
-            DB::table('titik_drop_trip')->insert(RecordHelper::stampCreate([
-                'id_trip' => $idTrip,
-                'urutan'  => $i + 1,
-                'lokasi'  => trim((string) $lokasi),
-            ], 'id_titik_drop'));
+            $data = ['urutan' => $i + 1, 'lokasi' => trim((string) $lokasi)];
+            $cocok = null;
+            foreach ($sisaLama as $k => $lama) {
+                if (mb_strtolower(trim((string) $lama->lokasi)) === mb_strtolower($data['lokasi'])) {
+                    $cocok = $lama->id_titik_drop;
+                    unset($sisaLama[$k]);
+                    break;
+                }
+            }
+            if ($cocok !== null) {
+                DB::table('titik_drop_trip')->where('id_titik_drop', $cocok)->update(RecordHelper::stampUpdate($data));
+                continue;
+            }
+            DB::table('titik_drop_trip')->insert(RecordHelper::stampCreate(array_merge($data, ['id_trip' => $idTrip]), 'id_titik_drop'));
+        }
+
+        if ($sisaLama !== []) {
+            DB::table('titik_drop_trip')
+                ->whereIn('id_titik_drop', array_map(fn ($l) => $l->id_titik_drop, $sisaLama))
+                ->update(RecordHelper::stampDelete());
         }
     }
 
@@ -676,6 +694,20 @@ class TripRepository implements TripRepositoryInterface
     public function titikDropTrip(string $idTrip): array
     {
         return $this->titikDropTripBanyak([$idTrip])[$idTrip] ?? [];
+    }
+
+    public function titikDropTripDetail(string $idTrip): array
+    {
+        return DB::table('titik_drop_trip')
+            ->where('id_trip', $idTrip)->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['id_titik_drop', 'urutan', 'lokasi'])
+            ->map(fn ($d) => [
+                'id_titik_drop' => (string) $d->id_titik_drop,
+                'urutan'        => (int) $d->urutan,
+                'lokasi'        => (string) $d->lokasi,
+            ])
+            ->all();
     }
 
     public function tripPunyaFakturAktif(string $idTrip): bool

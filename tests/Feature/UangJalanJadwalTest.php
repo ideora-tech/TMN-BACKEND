@@ -16,9 +16,8 @@ use Tests\TestCase;
 /**
  * Pengajuan uang jalan otomatis dari batch/import papan shift
  * (ArusKasService::buatPengajuanUangJalanJadwal + sinkronisasi berbasis
- * jadwal_shift.id_pengajuan) sudah dicabut — resolusi tarif & pembuatan
- * pengajuan uang jalan sekarang berbasis penugasan harian eksplisit (Task 5,
- * lihat PenugasanHarianTest). Test di sini murni regresi: memastikan papan
+ * jadwal_shift.id_pengajuan) sudah dicabut — pengajuan uang jalan sekarang
+ * hanya dibuat lewat menu Uang Jalan (lihat UangJalanTest). Test di sini murni regresi: memastikan papan
  * shift tidak lagi membuat pengajuan. Satu test dipertahankan lewat fixture
  * DB langsung untuk jalur baca historis (`jadwal_shift.id_pengajuan` sengaja
  * DIBIARKAN) yang masih hidup di ArusKasRepository::findPengajuanPeriodeUntukTrip.

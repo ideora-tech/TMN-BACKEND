@@ -405,6 +405,26 @@ class KontrakVendorApprovalTest extends TestCase
         $this->assertDatabaseMissing('approval_pengajuan', ['id_referensi' => $idKontrak, 'status' => 'menunggu']);
     }
 
+    public function test_hapus_kontrak_saat_menunggu_membatalkan_pengajuan_approval(): void
+    {
+        $idApprover = $this->makeApprover();
+        $this->makeEventTypeDanApprover($idApprover);
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+
+        $idKontrak = $this->postJson('/api/kontrak-vendor', [
+            'id_vendor'     => $vendor->id_vendor,
+            'mekanisme'     => 'unit_only',
+            'nomor_kontrak' => 'KV-HPS-APV',
+        ])->json('data.id_kontrak_vendor');
+        $this->postJson("/api/kontrak-vendor/{$idKontrak}/ajukan-approval")->assertStatus(200);
+
+        $this->deleteJson("/api/kontrak-vendor/{$idKontrak}")->assertStatus(200);
+
+        $this->assertDatabaseHas('approval_pengajuan', ['id_referensi' => $idKontrak, 'status' => 'dibatalkan']);
+        $this->assertDatabaseMissing('approval_pengajuan', ['id_referensi' => $idKontrak, 'status' => 'menunggu']);
+    }
+
     public function test_update_tanpa_perubahan_saat_menunggu_tidak_mengubah_status(): void
     {
         $idApprover = $this->makeApprover();

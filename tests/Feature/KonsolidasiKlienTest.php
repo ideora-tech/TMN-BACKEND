@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel;
+use App\Modules\KonsolidasiKlien\Exports\KonsolidasiKlienExport;
+use App\Modules\KonsolidasiKlien\Exports\KonsolidasiSuratJalanSheet;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
 use App\Modules\Trip\TripModel;
@@ -284,6 +286,56 @@ class KonsolidasiKlienTest extends TestCase
         $this->assertCount(1, $satu->json('data.trips'));
         $this->assertSame($proyekA->id_proyek, $satu->json('data.trips.0.id_proyek'));
         $this->assertNotNull($satu->json('data.trips.0.id_rute'));
+    }
+
+    public function test_rekap_dan_excel_menyertakan_no_surat_jalan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyek = $this->buatProyek();
+        $this->buatProyekRute($proyek->id_proyek, $this->idRute, $this->idJenisKendaraan, 1000000);
+        $trip = $this->buatTrip($proyek->id_proyek, true, 120);
+        DB::table('laporan_perjalanan')->where('id_trip', $trip->id_trip)->update(['no_surat_jalan' => 'SJ-2026-0042']);
+
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
+        $res->assertStatus(200)->assertJsonPath('data.trips.0.no_surat_jalan', 'SJ-2026-0042');
+
+        $export = new KonsolidasiKlienExport('Klien', 'Periode', collect($res->json('data.trips')));
+        $kolomDoNo = array_search('DO No', $export->headings()[0], true);
+        $this->assertSame('SJ-2026-0042', $export->array()[0][$kolomDoNo]);
+    }
+
+    public function test_sheet_surat_jalan_satu_baris_per_surat_jalan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyek = $this->buatProyek();
+        $tripDuaSj = $this->buatTrip($proyek->id_proyek, true, 120);
+        $this->buatTrip($proyek->id_proyek, true, 80);
+
+        $idDrop = (string) Str::uuid();
+        DB::table('titik_drop_trip')->insert([
+            'id_titik_drop' => $idDrop, 'id_trip' => $tripDuaSj->id_trip, 'urutan' => 1, 'lokasi' => 'JLB', 'dibuat_pada' => now(),
+        ]);
+        $idLaporan = DB::table('laporan_perjalanan')->where('id_trip', $tripDuaSj->id_trip)->value('id_laporan');
+        DB::table('surat_jalan_trip')->insert([
+            ['id_surat_jalan' => (string) Str::uuid(), 'id_laporan' => $idLaporan, 'id_titik_drop' => $idDrop, 'urutan' => 1, 'no_surat_jalan' => 'SJ-1', 'dibuat_pada' => now()],
+            ['id_surat_jalan' => (string) Str::uuid(), 'id_laporan' => $idLaporan, 'id_titik_drop' => null, 'urutan' => 2, 'no_surat_jalan' => 'SJ-2', 'dibuat_pada' => now()],
+        ]);
+
+        $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}")->assertStatus(200);
+        $trips = collect($res->json('data.trips'));
+        $this->assertSame('SJ-1, SJ-2', $trips->firstWhere('id_trip', $tripDuaSj->id_trip)['no_surat_jalan']);
+
+        $rows = (new KonsolidasiSuratJalanSheet('Klien', 'Periode', $trips))->array();
+        $this->assertCount(3, $rows);
+        $baris = collect($rows)->filter(fn ($r) => in_array($r[7], ['SJ-1', 'SJ-2'], true))->values();
+        $this->assertSame('Drop 1: JLB', $baris[0][6]);
+        $this->assertSame('-', $baris[1][6]);
+
+        $this->get("/api/konsolidasi-klien/export/excel?id_klien={$this->idKlien}")->assertStatus(200);
     }
 
     public function test_rekap_menyertakan_titik_drop_dan_biaya_tambahan(): void

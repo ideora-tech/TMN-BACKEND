@@ -9,13 +9,14 @@ use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize, WithEvents
+class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize, WithEvents, WithTitle
 {
     private const PPN_PERSEN = 1.1;
     private const PPH_PERSEN = 2.0;
@@ -43,6 +44,11 @@ class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize,
             }
         }
         $this->namaBiaya = $seen === [] ? ['-'] : array_values($seen);
+    }
+
+    public function title(): string
+    {
+        return 'Konsolidasi';
     }
 
     public function judulLaporan(): string
@@ -125,7 +131,7 @@ class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize,
                     $t['asal'] ?? '-',
                 ],
                 $this->kolomDrop($t['titik_drop'] ?? [], $t['tujuan'] ?? null),
-                ['', $cost],
+                [$t['no_surat_jalan'] ?? '', $cost],
                 array_map(fn ($v) => $v ?: '', $biayaPerKolom),
                 [$total],
             );

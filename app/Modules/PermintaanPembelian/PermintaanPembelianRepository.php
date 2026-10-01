@@ -56,7 +56,9 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
         if (($filter['search'] ?? '') !== '') {
             $s = $filter['search'];
             $q->where(function ($w) use ($s) {
-                $w->where('p.nomor_permintaan', 'like', "%{$s}%")->orWhere('p.judul', 'like', "%{$s}%");
+                $w->where('p.nomor_permintaan', 'like', "%{$s}%")
+                    ->orWhere('p.judul', 'like', "%{$s}%")
+                    ->orWhere('p.nomor_po', 'like', "%{$s}%");
             });
         }
         return $q->orderByDesc('p.tanggal_permintaan')->orderByDesc('p.nomor_permintaan')->paginate($limit, ['*'], 'page', $page);
@@ -296,6 +298,13 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
             ->where('id_perusahaan', $idPerusahaan)->where('id_departemen', $idDepartemen)->exists();
     }
 
+    public function judulPermintaanAktif(string $idPerusahaan, string $idJudulPermintaan): ?object
+    {
+        return DB::table('judul_permintaan')->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)->where('id_judul_permintaan', $idJudulPermintaan)
+            ->where('aktif', 1)->first();
+    }
+
     public function perawatanMilik(string $idPerusahaan, string $idPerawatan): bool
     {
         return DB::table('perawatan_armada as pa')
@@ -328,6 +337,12 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
     public function getPerusahaan(string $idPerusahaan): ?object
     {
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
+    }
+
+    public function usernamePengguna(string $idPengguna): ?string
+    {
+        $username = DB::table('pengguna')->where('id_pengguna', $idPengguna)->value('username');
+        return $username !== null ? (string) $username : null;
     }
 
     private function baseLaporan()

@@ -623,6 +623,97 @@ class ProyekRuteTest extends TestCase
         $res->assertStatus(200)->assertJsonPath('data.harga_penawaran', 900000);
     }
 
+    public function test_update_id_rute_proyek_per_rit_dengan_penawaran_disetujui_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek('per_rit');
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'            => $this->makeRute(),
+            'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+            'harga_penawaran'    => 500000,
+        ])->json('data.id_proyek_rute');
+        $this->makePenawaranDisetujui($idProyek);
+
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
+            'id_rute' => $this->makeRute(),
+        ]);
+
+        $res->assertStatus(422)->assertJsonPath('message', 'Harga terkunci — ubah lewat penawaran revisi');
+    }
+
+    public function test_update_id_jenis_kendaraan_proyek_per_rit_dengan_penawaran_disetujui_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek('per_rit');
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'            => $this->makeRute(),
+            'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+            'harga_penawaran'    => 500000,
+        ])->json('data.id_proyek_rute');
+        $this->makePenawaranDisetujui($idProyek);
+
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
+            'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+        ]);
+
+        $res->assertStatus(422)->assertJsonPath('message', 'Harga terkunci — ubah lewat penawaran revisi');
+    }
+
+    public function test_update_keterangan_rute_proyek_per_rit_dengan_penawaran_disetujui_tetap_boleh(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek('per_rit');
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'            => $this->makeRute(),
+            'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+            'harga_penawaran'    => 500000,
+        ])->json('data.id_proyek_rute');
+        $this->makePenawaranDisetujui($idProyek);
+
+        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
+            'keterangan'    => 'Muatan mudah pecah',
+            'estimasi_tol'  => 50000,
+        ]);
+
+        $res->assertStatus(200)
+            ->assertJsonPath('data.keterangan', 'Muatan mudah pecah')
+            ->assertJsonPath('data.estimasi_tol', 50000);
+    }
+
+    public function test_destroy_rute_proyek_per_rit_dengan_penawaran_disetujui_ditolak_422(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek('per_rit');
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'            => $this->makeRute(),
+            'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+            'harga_penawaran'    => 500000,
+        ])->json('data.id_proyek_rute');
+        $this->makePenawaranDisetujui($idProyek);
+
+        $res = $this->deleteJson("/api/proyek/{$idProyek}/rute/{$id}");
+
+        $res->assertStatus(422)->assertJsonPath('message', 'Harga terkunci — ubah lewat penawaran revisi');
+        $this->assertNull(DB::table('proyek_rute')->where('id_proyek_rute', $id)->value('dihapus_pada'));
+    }
+
+    public function test_destroy_rute_proyek_borongan_dengan_penawaran_disetujui_tetap_boleh(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek('borongan');
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'            => $this->makeRute(),
+            'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+            'harga_penawaran'    => 500000,
+        ])->json('data.id_proyek_rute');
+        $this->makePenawaranDisetujui($idProyek);
+
+        $res = $this->deleteJson("/api/proyek/{$idProyek}/rute/{$id}");
+
+        $res->assertStatus(200);
+        $this->assertNotNull(DB::table('proyek_rute')->where('id_proyek_rute', $id)->value('dihapus_pada'));
+    }
+
     public function test_store_rute_proyek_tipe_harga_baru_dengan_penawaran_disetujui_tetap_boleh_201(): void
     {
         $this->actingAsRole('SUPERADMIN');

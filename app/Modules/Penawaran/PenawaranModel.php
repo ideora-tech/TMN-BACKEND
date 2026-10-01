@@ -33,5 +33,9 @@ class PenawaranModel extends BaseModel
         'id_proyek',
         'id_penawaran_induk',
         'aktif',
+        'biaya_overnight',
+        'biaya_cancellation',
+        'biaya_add_drop',
+        'biaya_cross_cluster',
     ];
 }

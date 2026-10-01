@@ -12,7 +12,9 @@ use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Support\HtmlAman;
 use App\Support\KodeOtomatis;
+use App\Support\PenyimpananBerkas;
 use App\Support\TipeHarga;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -28,6 +30,8 @@ class PenawaranService
     ];
 
     private const STATUS_BELUM_BISA_KIRIM_EMAIL = ['draft', 'menunggu_approval'];
+
+    public const MAKS_LAMPIRAN = 10;
 
     public function __construct(
         private readonly PenawaranRepositoryInterface $repo,
@@ -98,7 +102,58 @@ class PenawaranService
             $record->syncOriginalAttribute('nama_proyek');
         }
 
+        return $this->denganLampiran($record);
+    }
+
+    public function denganLampiran(PenawaranModel $record): PenawaranModel
+    {
+        $record->setRelation('lampiran', $this->repo->listLampiran((string) $record->id_penawaran));
         return $record;
+    }
+
+    /** @param UploadedFile[] $files */
+    public function tambahLampiran(string $id, array $files, string $idPerusahaan): PenawaranModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if ($record->status === 'ditolak') {
+            abort(422, 'Lampiran tidak bisa diunggah pada penawaran yang ditolak');
+        }
+
+        if ($this->repo->hitungLampiran((string) $record->id_penawaran) + count($files) > self::MAKS_LAMPIRAN) {
+            abort(422, 'Maksimal ' . self::MAKS_LAMPIRAN . ' lampiran per penawaran');
+        }
+
+        DB::transaction(function () use ($record, $files) {
+            $urutan = $this->repo->urutanLampiranTerakhir((string) $record->id_penawaran);
+
+            foreach ($files as $file) {
+                $this->repo->createLampiran([
+                    'id_penawaran' => $record->id_penawaran,
+                    'url_file'     => PenyimpananBerkas::simpan($file, 'penawaran'),
+                    'nama_asli'    => $file->getClientOriginalName(),
+                    'urutan'       => ++$urutan,
+                ]);
+            }
+        });
+
+        return $this->denganLampiran($this->findOrFail($id, $idPerusahaan));
+    }
+
+    public function hapusLampiran(string $id, string $idLampiran, string $idPerusahaan): void
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+
+        if (in_array($record->status, ['disetujui', 'ditolak'], true)) {
+            abort(422, 'Lampiran tidak bisa dihapus pada status ini');
+        }
+
+        $lampiran = $this->repo->findLampiran((string) $record->id_penawaran, $idLampiran);
+        if ($lampiran === null) {
+            abort(404, 'Lampiran tidak ditemukan');
+        }
+
+        $lampiran->softDelete();
     }
 
     public function create(array $data): PenawaranModel
@@ -368,6 +423,10 @@ class PenawaranService
             abort(422, 'Hanya penawaran berstatus draft atau menunggu approval yang dapat dihapus');
         }
 
+        if ($this->repo->dirujukPermintaanVendorAktif($id)) {
+            abort(422, 'Penawaran masih dirujuk permintaan vendor — batalkan permintaan vendornya terlebih dahulu');
+        }
+
         if ($record->status === 'menunggu_approval') {
             app(\App\Modules\Approval\ApprovalService::class)
                 ->batalkanUntukReferensi(['penawaran'], $id, $idPerusahaan);
@@ -421,6 +480,8 @@ class PenawaranService
             'jumlah_hari'        => $item['jumlah_hari'] ?? null,
             'subtotal'           => $hargaSatuan !== null ? (float) $hargaSatuan * $ritase : 0,
             'keterangan'         => $item['keterangan'] ?? null,
+            'unit_aset'          => $item['unit_aset'] ?? null,
+            'unit_vendor'        => $item['unit_vendor'] ?? null,
         ]);
     }
 }

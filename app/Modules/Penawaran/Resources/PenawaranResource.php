@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Penawaran\Resources;
 
+use App\Support\ParameterPenawaran;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class PenawaranResource extends JsonResource
 {
     public function toArray($request): array
     {
-        return [
+        return ParameterPenawaran::nilai($this->resource) + [
             'id_penawaran'     => $this->id_penawaran,
             'id_perusahaan'    => $this->id_perusahaan,
             'id_klien'         => $this->id_klien,
@@ -42,6 +43,10 @@ class PenawaranResource extends JsonResource
             'items'            => $this->when(
                 $this->relationLoaded('items'),
                 fn () => PenawaranItemResource::collection($this->getRelation('items')),
+            ),
+            'lampiran'         => $this->when(
+                $this->relationLoaded('lampiran'),
+                fn () => PenawaranLampiranResource::collection($this->getRelation('lampiran')),
             ),
         ];
     }

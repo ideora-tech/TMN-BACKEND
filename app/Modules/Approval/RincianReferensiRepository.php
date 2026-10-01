@@ -67,7 +67,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('id_pengajuan', $idPengajuan)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['nomor_pengajuan', 'kategori', 'penerima', 'nominal', 'tanggal_pengajuan', 'keterangan', 'id_perawatan', 'id_pembelian']);
+            ->first(['nomor_pengajuan', 'kategori', 'penerima', 'nominal', 'tanggal_pengajuan', 'keterangan', 'id_perawatan', 'id_pembelian', 'id_uang_jalan']);
         if ($pengajuan === null) {
             return null;
         }
@@ -78,6 +78,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
         $sumber = match (true) {
             $kategori === 'perawatan' && $pengajuan->id_perawatan !== null => $this->sumberPerawatan((string) $pengajuan->id_perawatan, $idPerusahaan),
             $kategori === 'sparepart' && $pengajuan->id_pembelian !== null => $this->sumberPembelianSparepart((string) $pengajuan->id_pembelian, $idPerusahaan),
+            $kategori === 'uang_jalan' && $pengajuan->id_uang_jalan !== null => $this->sumberUangJalan((string) $pengajuan->id_uang_jalan, $idPerusahaan),
             default                                                        => null,
         };
 
@@ -151,6 +152,39 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->kolom('harga', 'Harga', 'rupiah'),
                 $this->kolom('subtotal', 'Subtotal', 'rupiah'),
             ], $baris, (float) $perawatan->biaya + $totalSparepart, 'Total Jasa + Sparepart'),
+        ];
+    }
+
+    private function sumberUangJalan(string $idUangJalan, string $idPerusahaan): ?array
+    {
+        $uangJalan = DB::table('uang_jalan')
+            ->where('id_uang_jalan', $idUangJalan)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->first(['nomor_uang_jalan', 'tanggal', 'nama_driver', 'tipe_driver', 'nama_vendor', 'nopol', 'rute', 'uang_jalan_per_trip', 'jumlah_trip', 'nomor_rekening', 'nama_bank', 'catatan']);
+        if ($uangJalan === null) {
+            return null;
+        }
+
+        $statusDriver = $uangJalan->tipe_driver === 'vendor'
+            ? trim('Driver Vendor ' . (string) $uangJalan->nama_vendor)
+            : 'Driver Internal';
+
+        return [
+            'info'   => [
+                $this->teks('No. Uang Jalan', $uangJalan->nomor_uang_jalan),
+                $this->tanggal('Tanggal', $uangJalan->tanggal),
+                $this->teks('Nama Driver', $uangJalan->nama_driver),
+                $this->teks('Status', $statusDriver),
+                $this->teks('No. Polisi', $uangJalan->nopol),
+                $this->teks('Rute', $uangJalan->rute),
+                $this->rupiah('UJ per Trip', $uangJalan->uang_jalan_per_trip),
+                $this->angka('Jumlah Trip', $uangJalan->jumlah_trip),
+                $this->teks('Nomor Rekening', $uangJalan->nomor_rekening),
+                $this->teks('Bank', $uangJalan->nama_bank),
+                $this->teks('Catatan', $uangJalan->catatan),
+            ],
+            'bagian' => [],
         ];
     }
 

@@ -24,6 +24,7 @@ class KodeOtomatis
         'sparepart'        => ['prefix' => 'SPR', 'panjang_digit' => 4, 'reset' => 'tidak'],
         'barang'               => ['prefix' => 'BRG', 'panjang_digit' => 4, 'reset' => 'tidak'],
         'permintaan_pembelian' => ['prefix' => 'PR',  'panjang_digit' => 4, 'reset' => 'bulanan'],
+        'purchase_order'       => ['prefix' => 'PO',  'panjang_digit' => 4, 'reset' => 'bulanan'],
     ];
 
     public static function berikutnya(string $idPerusahaan, string $entitas): string

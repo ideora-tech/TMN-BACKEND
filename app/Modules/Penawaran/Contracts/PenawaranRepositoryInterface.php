@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Penawaran\Contracts;
 
+use App\Modules\Penawaran\PenawaranLampiranModel;
 use App\Modules\Penawaran\PenawaranModel;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 interface PenawaranRepositoryInterface
 {
@@ -25,6 +27,7 @@ interface PenawaranRepositoryInterface
     public function penawaranPertamaProyek(string $idProyek): ?PenawaranModel;
 
     public function penawaranDisetujuiTerbaruProyek(string $idProyek): ?PenawaranModel;
+    public function dirujukPermintaanVendorAktif(string $idPenawaran): bool;
 
     public function adaRevisiBerjalan(string $idProyek): bool;
 
@@ -43,4 +46,14 @@ interface PenawaranRepositoryInterface
     public function findByEmailMessageId(string $messageId): ?PenawaranModel;
 
     public function findKirimanEmailTerakhirKe(string $email, string $sebelum): ?PenawaranModel;
+
+    public function listLampiran(string $idPenawaran): Collection;
+
+    public function hitungLampiran(string $idPenawaran): int;
+
+    public function urutanLampiranTerakhir(string $idPenawaran): int;
+
+    public function createLampiran(array $data): PenawaranLampiranModel;
+
+    public function findLampiran(string $idPenawaran, string $idLampiran): ?PenawaranLampiranModel;
 }

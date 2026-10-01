@@ -40,6 +40,7 @@ interface TripRepositoryInterface
     public function salinTitikDropDariPenugasan(string $idPenugasan, string $idTrip): void;
     public function syncTitikDropTrip(string $idTrip, array $lokasiList): void;
     public function titikDropTrip(string $idTrip): array;
+    public function titikDropTripDetail(string $idTrip): array;
     public function titikDropTripBanyak(array $idTrips): array;
     public function tripPunyaFakturAktif(string $idTrip): bool;
     public function tripPunyaLaporan(string $idTrip): bool;

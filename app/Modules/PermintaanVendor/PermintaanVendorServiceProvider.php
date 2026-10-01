@@ -27,6 +27,7 @@ class PermintaanVendorServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:permintaan-vendor|kontrak-vendor'])
             ->group(function () {
                 Route::get('permintaan-vendor', [PermintaanVendorController::class, 'index']);
+                Route::get('permintaan-vendor/jumlah-aktif', [PermintaanVendorController::class, 'jumlahAktif']);
                 Route::get('permintaan-vendor/{id}', [PermintaanVendorController::class, 'show']);
             });
 
@@ -36,6 +37,7 @@ class PermintaanVendorServiceProvider extends ServiceProvider
                 Route::post('permintaan-vendor', [PermintaanVendorController::class, 'store']);
                 Route::post('permintaan-vendor/{id}/ajukan-approval', [PermintaanVendorController::class, 'ajukanApproval']);
                 Route::patch('permintaan-vendor/{id}/batal', [PermintaanVendorController::class, 'batal']);
+                Route::patch('permintaan-vendor/{id}/revisi', [PermintaanVendorController::class, 'revisi']);
                 Route::put('permintaan-vendor/{id}', [PermintaanVendorController::class, 'update']);
                 Route::delete('permintaan-vendor/{id}', [PermintaanVendorController::class, 'destroy']);
             });
@@ -44,6 +46,7 @@ class PermintaanVendorServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:kontrak-vendor'])
             ->group(function () {
                 Route::patch('permintaan-vendor/{id}/proses', [PermintaanVendorController::class, 'proses']);
+                Route::patch('permintaan-vendor/{id}/tolak', [PermintaanVendorController::class, 'tolak']);
             });
     }
 }

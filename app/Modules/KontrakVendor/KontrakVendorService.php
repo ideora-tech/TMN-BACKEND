@@ -110,6 +110,7 @@ class KontrakVendorService
         // Kolom nilai_kontrak NOT NULL DEFAULT 0 — input kosong dari klien
         // (null) dinormalisasi supaya tidak meledak di constraint DB.
         $data['nilai_kontrak'] = (float) ($data['nilai_kontrak'] ?? 0);
+        $this->pastikanRateWajibUntukPerTrip($data['satuan'] ?? null, $data['rate'] ?? null);
         $this->pastikanRateTidakMelebihiNilai($data['rate'] ?? null, $data['nilai_kontrak']);
 
         // Kontrak baru selalu lahir draft — aktif hanya lewat approval.
@@ -123,6 +124,7 @@ class KontrakVendorService
                 $dikontrakkan = $this->permintaanVendorRepo->update($permintaan, [
                     'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
                     'status'            => 'dikontrakkan',
+                    'dikontrakkan_pada' => now(),
                 ]);
                 $this->permintaanVendorService->beritahuPengaju(
                     $dikontrakkan,
@@ -998,6 +1000,13 @@ class KontrakVendorService
         });
     }
 
+    private function pastikanRateWajibUntukPerTrip(mixed $satuan, mixed $rate): void
+    {
+        if ($satuan === 'per trip' && ($rate === null || $rate === '' || (float) $rate <= 0)) {
+            abort(422, 'Rate wajib diisi untuk kontrak dengan satuan Per Trip');
+        }
+    }
+
     private function pastikanRateTidakMelebihiNilai(mixed $rate, mixed $nilaiKontrak): void
     {
         $rate = $rate !== null ? (float) $rate : 0.0;
@@ -1056,6 +1065,13 @@ class KontrakVendorService
             $data['nilai_kontrak'] = 0;
         }
 
+        if (array_key_exists('rate', $data) || array_key_exists('satuan', $data)) {
+            $this->pastikanRateWajibUntukPerTrip(
+                array_key_exists('satuan', $data) ? $data['satuan'] : $record->satuan,
+                array_key_exists('rate', $data) ? $data['rate'] : $record->rate,
+            );
+        }
+
         $this->pastikanRateTidakMelebihiNilai(
             array_key_exists('rate', $data) ? $data['rate'] : $record->rate,
             array_key_exists('nilai_kontrak', $data) ? $data['nilai_kontrak'] : $record->nilai_kontrak,
@@ -1106,8 +1122,32 @@ class KontrakVendorService
             abort(422, 'Kontrak ini menjadi payung bagi kontrak lain — lepaskan tautannya dulu');
         }
 
-        DB::transaction(function () use ($record) {
-            $this->repo->lepasTautanUnitDanSupir((string) $record->id_kontrak_vendor);
+        if ($this->repo->adaInvoiceUntukKontrak((string) $record->id_kontrak_vendor)) {
+            abort(422, 'Kontrak sudah memiliki invoice vendor — ubah statusnya menjadi nonaktif saja');
+        }
+
+        $nomorPermintaanTerpenuhi = $this->permintaanVendorRepo->nomorPermintaanTerpenuhiOlehKontrak((string) $record->id_kontrak_vendor);
+        if ($nomorPermintaanTerpenuhi !== null) {
+            abort(422, "Kontrak ini sudah memenuhi permintaan vendor {$nomorPermintaanTerpenuhi} — ubah statusnya menjadi nonaktif saja");
+        }
+
+        DB::transaction(function () use ($record, $idPerusahaan) {
+            $idKontrak = (string) $record->id_kontrak_vendor;
+
+            app(\App\Modules\Approval\ApprovalService::class)
+                ->batalkanUntukReferensi(['kontrak_vendor'], $idKontrak, $idPerusahaan);
+
+            $labelKontrak = trim('Kontrak ' . ($record->nomor_kontrak ?? ''));
+            foreach ($this->permintaanVendorRepo->kembalikanDariKontrak($idKontrak) as $permintaan) {
+                $this->permintaanVendorService->beritahuPengaju(
+                    $permintaan,
+                    "{$labelKontrak} dihapus, permintaan vendor {$permintaan->nomor_permintaan} kembali ke Pengadaan",
+                    $this->permintaanVendorService->ringkasanUnit($permintaan),
+                    auth()->id() !== null ? (string) auth()->id() : null,
+                );
+            }
+
+            $this->repo->lepasTautanUnitDanSupir($idKontrak);
             $this->repo->delete($record);
         });
     }

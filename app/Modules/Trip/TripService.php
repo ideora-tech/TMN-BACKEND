@@ -711,6 +711,11 @@ class TripService
         return $this->repo->titikDropTrip($idTrip);
     }
 
+    public function titikDropTripDetail(string $idTrip): array
+    {
+        return $this->repo->titikDropTripDetail($idTrip);
+    }
+
     public function titikDropTripBanyak(array $idTrips): array
     {
         return $this->repo->titikDropTripBanyak($idTrips);

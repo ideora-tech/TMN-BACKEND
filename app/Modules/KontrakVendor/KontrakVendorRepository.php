@@ -316,6 +316,14 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
             ->exists();
     }
 
+    public function adaInvoiceUntukKontrak(string $idKontrakVendor): bool
+    {
+        return DB::table('invoice_vendor')
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
     public function lepasTautanUnitDanSupir(string $idKontrakVendor): void
     {
         foreach (['armada_vendor', 'supir_vendor'] as $tabel) {

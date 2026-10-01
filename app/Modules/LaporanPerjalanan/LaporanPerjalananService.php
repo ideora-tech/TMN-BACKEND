@@ -53,6 +53,8 @@ class LaporanPerjalananService
             abort(422, 'Laporan wajib menyertakan minimal 1 foto bukti');
         }
 
+        $suratJalan = $this->siapkanSuratJalan($idTrip, $data, null);
+
         $laporan = $this->repo->create(array_merge($data, [
             'id_trip'       => $idTrip,
             'id_perusahaan' => $idPerusahaan,
@@ -61,6 +63,9 @@ class LaporanPerjalananService
         $this->repo->syncBiayaLain($laporan, $biayaLain);
         if ($hasBiayaTagihan) {
             $this->repo->syncBiayaTagihan($laporan, $biayaTagihan);
+        }
+        if ($suratJalan !== null) {
+            $this->repo->syncSuratJalan($laporan, $suratJalan);
         }
         $this->simpanFotoFiles($laporan, $fotoFiles, null, $fotoKeterangan);
 
@@ -131,12 +136,17 @@ class LaporanPerjalananService
         $fotoKeterangan = $data['foto_keterangan'] ?? null;
         unset($data['biaya_lain'], $data['foto'], $data['foto_keterangan']);
 
+        $suratJalan = $this->siapkanSuratJalan($idTrip, $data, $existing);
+
         $laporan = $existing === null
             ? $this->repo->create(array_merge($data, ['id_trip' => $idTrip, 'id_perusahaan' => $idPerusahaan]))
             : $this->repo->update($existing, $data);
 
         if ($hasBiayaLain) {
             $this->repo->syncBiayaLain($laporan, $biayaLain);
+        }
+        if ($suratJalan !== null) {
+            $this->repo->syncSuratJalan($laporan, $suratJalan);
         }
         $this->simpanFotoFiles($laporan, $fotoFiles, null, $fotoKeterangan);
 
@@ -231,6 +241,8 @@ class LaporanPerjalananService
         $fotoKeterangan = $data['foto_keterangan'] ?? null;
         unset($data['biaya_lain'], $data['foto'], $data['foto_keterangan']);
 
+        $suratJalan = $this->siapkanSuratJalan((string) $record->id_trip, $data, $record);
+
         $record = $this->repo->update($record, $data);
 
         if ($hasBiayaLain) {
@@ -239,9 +251,84 @@ class LaporanPerjalananService
         if ($hasBiayaTagihan) {
             $this->repo->syncBiayaTagihan($record, $biayaTagihan);
         }
+        if ($suratJalan !== null) {
+            $this->repo->syncSuratJalan($record, $suratJalan);
+        }
         $this->simpanFotoFiles($record, $fotoFiles, null, $fotoKeterangan);
 
         return $this->repo->reload($record);
+    }
+
+    public function titikDropUntukSupir(string $idTrip, string $idSupir, string $tipe = 'internal'): array
+    {
+        $this->pastikanTripMilikSupir($idTrip, $idSupir, $tipe);
+
+        return $this->tripRepo->titikDropTripDetail($idTrip);
+    }
+
+    /** @return array<int, array{no_surat_jalan: string, id_titik_drop: ?string}>|null */
+    private function siapkanSuratJalan(string $idTrip, array &$data, ?LaporanPerjalananModel $existing): ?array
+    {
+        if (array_key_exists('surat_jalan', $data)) {
+            $idDropValid = array_column($this->tripRepo->titikDropTripDetail($idTrip), 'id_titik_drop');
+            $daftar = [];
+            foreach ($data['surat_jalan'] ?? [] as $item) {
+                $no = trim((string) ($item['no_surat_jalan'] ?? ''));
+                if ($no === '') {
+                    continue;
+                }
+                $idDrop = !empty($item['id_titik_drop']) ? (string) $item['id_titik_drop'] : null;
+                if ($idDrop !== null && !in_array($idDrop, $idDropValid, true)) {
+                    abort(422, 'Titik drop surat jalan tidak ditemukan di trip ini');
+                }
+                $daftar[] = ['no_surat_jalan' => $no, 'id_titik_drop' => $idDrop];
+            }
+            unset($data['surat_jalan']);
+            $data['no_surat_jalan'] = $this->gabungNoSuratJalan(array_column($daftar, 'no_surat_jalan'));
+
+            return $daftar;
+        }
+
+        if (!array_key_exists('no_surat_jalan', $data)) {
+            return null;
+        }
+
+        $teks = trim((string) ($data['no_surat_jalan'] ?? ''));
+        $data['no_surat_jalan'] = $teks === '' ? null : $teks;
+        if ($existing !== null && trim((string) ($existing->no_surat_jalan ?? '')) === $teks) {
+            return null;
+        }
+
+        $sisaLama = collect($existing?->suratJalan ?? [])->values()->all();
+        $daftar = [];
+        foreach (array_filter(array_map('trim', preg_split('/[,;]/', $teks) ?: []), fn ($no) => $no !== '') as $no) {
+            $no = mb_substr($no, 0, 100);
+            $idDrop = null;
+            foreach ($sisaLama as $i => $lama) {
+                if ((string) $lama->no_surat_jalan === $no) {
+                    $idDrop = $lama->id_titik_drop;
+                    unset($sisaLama[$i]);
+                    break;
+                }
+            }
+            $daftar[] = ['no_surat_jalan' => $no, 'id_titik_drop' => $idDrop];
+        }
+
+        return $daftar;
+    }
+
+    private function gabungNoSuratJalan(array $daftarNo): ?string
+    {
+        $gabung = '';
+        foreach ($daftarNo as $no) {
+            $calon = $gabung === '' ? $no : "{$gabung}, {$no}";
+            if (mb_strlen($calon) > 500) {
+                break;
+            }
+            $gabung = $calon;
+        }
+
+        return $gabung === '' ? null : $gabung;
     }
 
     private const LABEL_MEKANISME = ['unit_only' => 'Unit Only', 'unit_driver' => 'Unit + Driver', 'full' => 'Full'];

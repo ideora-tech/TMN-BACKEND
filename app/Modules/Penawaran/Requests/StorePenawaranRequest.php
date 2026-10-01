@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Penawaran\Requests;
 
+use App\Support\ParameterPenawaran;
 use App\Support\TipeHarga;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -16,7 +17,7 @@ class StorePenawaranRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        return ParameterPenawaran::aturanValidasi() + [
             'nomor_penawaran'  => ['sometimes', 'nullable', 'string', 'max:50'],
             'judul'            => ['required', 'string', 'max:200'],
             'id_klien'         => ['required', 'string', 'max:36'],
@@ -34,6 +35,8 @@ class StorePenawaranRequest extends FormRequest
             'items.*.estimasi_ritase'    => ['sometimes', 'integer', 'min:1'],
             'items.*.jumlah_hari'        => ['sometimes', 'nullable', 'integer', 'min:1'],
             'items.*.keterangan'         => ['sometimes', 'nullable', 'string'],
+            'items.*.unit_aset'          => ['sometimes', 'nullable', 'integer', 'min:0', 'max:9999'],
+            'items.*.unit_vendor'        => ['sometimes', 'nullable', 'integer', 'min:0', 'max:9999'],
         ];
     }
 

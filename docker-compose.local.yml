@@ -63,6 +63,7 @@ services:
       dockerfile: Dockerfile
       args:
         BACKEND_INTERNAL_URL: http://backend:4019
+        NODE_HEAP_MB: 4096
     container_name: TMN-FRONTEND
     restart: unless-stopped
     ports:
