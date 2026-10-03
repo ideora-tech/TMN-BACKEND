@@ -41,6 +41,7 @@ return [
     App\Modules\Notifikasi\NotifikasiServiceProvider::class,
     App\Modules\PaketPerawatanSparepart\PaketPerawatanSparepartServiceProvider::class,
     App\Modules\ParameterBok\ParameterBokServiceProvider::class,
+    App\Modules\ParameterTagihanTrip\ParameterTagihanTripServiceProvider::class,
     App\Modules\Payroll\PayrollServiceProvider::class,
     App\Modules\PembelianSparepart\PembelianSparepartServiceProvider::class,
     App\Modules\PenagihanTrip\PenagihanTripServiceProvider::class,

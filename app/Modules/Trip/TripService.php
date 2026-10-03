@@ -686,6 +686,14 @@ class TripService
             abort(422, 'Trip yang belum selesai/dibatalkan tidak dapat dihapus — selesaikan atau batalkan trip terlebih dahulu');
         }
 
+        if ($this->repo->tripPunyaFakturAktif($id)) {
+            abort(422, 'Trip sudah masuk invoice — tidak dapat dihapus');
+        }
+
+        if ($this->repo->tripDitandaiCancellation($id)) {
+            abort(422, 'Trip ditandai Cancellation untuk ditagih — hapus tandanya di Parameter Tagihan terlebih dahulu');
+        }
+
         $this->repo->delete($trip);
     }
 

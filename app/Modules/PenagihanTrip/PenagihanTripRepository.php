@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\PenagihanTrip;
 
 use App\Modules\PenagihanTrip\Contracts\PenagihanTripRepositoryInterface;
+use App\Support\ParameterTagihan;
 use App\Support\RecordHelper;
 use Illuminate\Support\Facades\DB;
 
@@ -25,7 +26,12 @@ class PenagihanTripRepository implements PenagihanTripRepositoryInterface
             ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
             ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
             ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
-            ->join('laporan_perjalanan as lp', 'lp.id_trip', '=', 't.id_trip')
+            ->leftJoin('laporan_perjalanan as lp', function ($j) {
+                $j->on('lp.id_trip', '=', 't.id_trip')->whereNull('lp.dihapus_pada');
+            })
+            ->leftJoin('parameter_tagihan_trip as ptt', function ($j) {
+                $j->on('ptt.id_trip', '=', 't.id_trip')->whereNull('ptt.dihapus_pada');
+            })
             ->leftJoin('armada as a', 'p.id_armada', '=', 'a.id_armada')
             ->leftJoin('armada_vendor as av', 'p.id_armada_vendor', '=', 'av.id_armada_vendor')
             ->leftJoin('supir as s', 'p.id_supir', '=', 's.id_supir')
@@ -33,12 +39,14 @@ class PenagihanTripRepository implements PenagihanTripRepositoryInterface
             ->leftJoin('rute as r', 'jk.id_rute', '=', 'r.id_rute')
             ->where('pr.id_perusahaan', $idPerusahaan)
             ->where('p.id_proyek', $idProyek)
-            ->where('t.status', 'selesai')
+            ->where(function ($q) {
+                $q->where(fn ($s) => $s->where('t.status', 'selesai')->whereNotNull('lp.id_laporan'))
+                    ->orWhere(fn ($s) => $s->where('t.status', 'dibatalkan')->where('ptt.cancellation', 1)->where('ptt.tarif_cancellation', '>', 0));
+            })
             ->whereNull('t.dihapus_pada')
             ->whereNull('jk.dihapus_pada')
             ->whereNull('p.dihapus_pada')
             ->whereNull('pr.dihapus_pada')
-            ->whereNull('lp.dihapus_pada')
             ->whereNotExists(function ($q) {
                 $q->select(DB::raw(1))->from('faktur_trip as ft')
                     ->join('faktur as f', 'f.id_faktur', '=', 'ft.id_faktur')
@@ -51,8 +59,9 @@ class PenagihanTripRepository implements PenagihanTripRepositoryInterface
             ->when($sampai, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) <= ?', [$v]))
             ->when($lock, fn ($q) => $q->lockForUpdate())
             ->orderByRaw('COALESCE(jk.waktu_berangkat, t.dibuat_pada)')
-            ->select([
+            ->select(array_merge([
                 't.id_trip',
+                't.status',
                 DB::raw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) as tanggal'),
                 'jk.id_rute',
                 'r.nama_rute',
@@ -70,7 +79,7 @@ class PenagihanTripRepository implements PenagihanTripRepositoryInterface
                 'pr.id_klien',
                 'pr.id_proyek',
                 'pr.tipe_harga',
-            ])
+            ], ParameterTagihan::kolomSelect('ptt')))
             ->get();
 
         return $rows->all();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\KonsolidasiKlien;
 
 use App\Modules\KonsolidasiKlien\Contracts\KonsolidasiKlienRepositoryInterface;
+use App\Support\ParameterTagihan;
 use Illuminate\Support\Facades\DB;
 
 class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
@@ -25,15 +26,22 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
             ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
             ->join('klien as k', 'pr.id_klien', '=', 'k.id_klien')
-            ->join('laporan_perjalanan as lp', 'lp.id_trip', '=', 't.id_trip')
+            ->leftJoin('laporan_perjalanan as lp', function ($j) {
+                $j->on('lp.id_trip', '=', 't.id_trip')->whereNull('lp.dihapus_pada');
+            })
+            ->leftJoin('parameter_tagihan_trip as ptt', function ($j) {
+                $j->on('ptt.id_trip', '=', 't.id_trip')->whereNull('ptt.dihapus_pada');
+            })
             ->where('pr.id_perusahaan', $idPerusahaan)
-            ->where('t.status', 'selesai')
+            ->where(function ($q) {
+                $q->where(fn ($s) => $s->where('t.status', 'selesai')->whereNotNull('lp.id_laporan'))
+                    ->orWhere(fn ($s) => $s->where('t.status', 'dibatalkan')->where('ptt.cancellation', 1)->where('ptt.tarif_cancellation', '>', 0));
+            })
             ->whereNull('t.dihapus_pada')
             ->whereNull('jk.dihapus_pada')
             ->whereNull('p.dihapus_pada')
             ->whereNull('pr.dihapus_pada')
             ->whereNull('k.dihapus_pada')
-            ->whereNull('lp.dihapus_pada')
             ->whereNotExists(function ($q) {
                 $q->select(DB::raw(1))
                     ->from('faktur_trip as ft')
@@ -67,7 +75,12 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
             ->join('penugasan as p', 'jk.id_penugasan', '=', 'p.id_penugasan')
             ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
-            ->join('laporan_perjalanan as lp', 'lp.id_trip', '=', 't.id_trip')
+            ->leftJoin('laporan_perjalanan as lp', function ($j) {
+                $j->on('lp.id_trip', '=', 't.id_trip')->whereNull('lp.dihapus_pada');
+            })
+            ->leftJoin('parameter_tagihan_trip as ptt', function ($j) {
+                $j->on('ptt.id_trip', '=', 't.id_trip')->whereNull('ptt.dihapus_pada');
+            })
             ->leftJoin('armada as a', 'p.id_armada', '=', 'a.id_armada')
             ->leftJoin('armada_vendor as av', 'p.id_armada_vendor', '=', 'av.id_armada_vendor')
             ->leftJoin('supir as s', 'p.id_supir', '=', 's.id_supir')
@@ -75,19 +88,22 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->leftJoin('rute as r', 'jk.id_rute', '=', 'r.id_rute')
             ->where('pr.id_perusahaan', $idPerusahaan)
             ->where('pr.id_klien', $idKlien)
-            ->where('t.status', 'selesai')
+            ->where(function ($q) {
+                $q->where(fn ($s) => $s->where('t.status', 'selesai')->whereNotNull('lp.id_laporan'))
+                    ->orWhere(fn ($s) => $s->where('t.status', 'dibatalkan')->where('ptt.cancellation', 1)->where('ptt.tarif_cancellation', '>', 0));
+            })
             ->whereNull('t.dihapus_pada')
             ->whereNull('jk.dihapus_pada')
             ->whereNull('p.dihapus_pada')
             ->whereNull('pr.dihapus_pada')
-            ->whereNull('lp.dihapus_pada')
             ->when($dari, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) >= ?', [$v]))
             ->when($sampai, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) <= ?', [$v]))
             ->when($sumber, fn ($q, $v) => $q->where('p.sumber', $v))
             ->when($idProyek, fn ($q, $v) => $q->where('pr.id_proyek', $v))
             ->orderByRaw('COALESCE(jk.waktu_berangkat, t.dibuat_pada)')
-            ->select([
+            ->select(array_merge([
                 't.id_trip',
+                't.status',
                 'pr.id_proyek',
                 DB::raw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) as tanggal'),
                 'jk.id_rute',
@@ -109,7 +125,7 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
                 'pr.kode_proyek',
                 'pr.nama_proyek',
                 'pr.tipe_harga',
-            ])
+            ], ParameterTagihan::kolomSelect('ptt')))
             ->selectRaw("(case when exists (
                 select 1 from faktur_trip ft
                 join faktur f on f.id_faktur = ft.id_faktur
@@ -191,48 +207,6 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
                 'urutan_drop'    => $s->urutan_drop !== null ? (int) $s->urutan_drop : null,
                 'lokasi_drop'    => $s->lokasi_drop,
             ])->values()->all())
-            ->all();
-    }
-
-    public function uangJalanTambahanPerTrip(array $idTrips): array
-    {
-        if ($idTrips === []) {
-            return [];
-        }
-
-        return DB::table('titik_drop_trip')
-            ->whereIn('id_trip', $idTrips)
-            ->whereNull('dihapus_pada')
-            ->where('uang_jalan_tambahan', '>', 0)
-            ->groupBy('id_trip')
-            ->selectRaw('id_trip, SUM(uang_jalan_tambahan) as total')
-            ->pluck('total', 'id_trip')
-            ->map(fn ($v) => (float) $v)
-            ->all();
-    }
-
-    /**
-     * Nama biaya SENGAJA konstan (bukan disisipi lokasi) — KonsolidasiKlienExport
-     * membuat satu kolom Excel per nama_biaya unik, jadi nama harus stabil
-     * supaya beberapa titik drop tidak meledak jadi banyak kolom terpisah.
-     */
-    public function uangJalanTambahanDetailPerTrip(array $idTrips): array
-    {
-        if ($idTrips === []) {
-            return [];
-        }
-
-        return DB::table('titik_drop_trip')
-            ->whereIn('id_trip', $idTrips)
-            ->whereNull('dihapus_pada')
-            ->where('uang_jalan_tambahan', '>', 0)
-            ->orderBy('urutan')
-            ->get(['id_trip', 'uang_jalan_tambahan'])
-            ->groupBy('id_trip')
-            ->map(fn ($g) => [[
-                'nama_biaya' => 'Uang Jalan Tambahan',
-                'nominal'    => (float) $g->sum('uang_jalan_tambahan'),
-            ]])
             ->all();
     }
 

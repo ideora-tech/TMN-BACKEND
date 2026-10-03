@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\KonsolidasiKlien\Exports;
 
+use App\Support\ParameterTagihan;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -31,6 +32,15 @@ class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize,
         private readonly Collection $trips,
     ) {
         $seen = [];
+        foreach (array_keys(ParameterTagihan::DAFTAR) as $kode) {
+            foreach ($this->trips as $t) {
+                if (($t['bisa_ditagih'] ?? false) && in_array($kode, array_column($t['parameter']['komponen'] ?? [], 'kode'), true)) {
+                    $nama = ParameterTagihan::label($kode);
+                    $seen[mb_strtolower($nama)] = $nama;
+                    break;
+                }
+            }
+        }
         foreach ($this->trips as $t) {
             foreach ($t['biaya_tagihan'] ?? [] as $b) {
                 $nama = trim((string) ($b['nama_biaya'] ?? ''));
@@ -97,6 +107,16 @@ class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize,
         return array_pad($drops, self::MAX_DROP_KOLOM, '');
     }
 
+    private function biayaTrip(array $t): array
+    {
+        $komponen = ($t['bisa_ditagih'] ?? false) ? ($t['parameter']['komponen'] ?? []) : [];
+
+        return array_merge(
+            array_map(fn ($k) => ['nama_biaya' => $k['label'], 'nominal' => $k['nominal']], $komponen),
+            $t['biaya_tagihan'] ?? [],
+        );
+    }
+
     private function pecahBiaya(array $biayaTagihan): array
     {
         $perNama = array_fill_keys(array_map(fn ($n) => mb_strtolower($n), $this->namaBiaya), 0.0);
@@ -115,8 +135,8 @@ class KonsolidasiKlienExport implements FromArray, WithHeadings, ShouldAutoSize,
         $totalKeseluruhan = 0.0;
 
         $rows = $this->trips->values()->map(function ($t, $i) use (&$totalKeseluruhan) {
-            $biayaPerKolom = $this->pecahBiaya($t['biaya_tagihan'] ?? []);
-            $cost  = (float) ($t['tarif']['harga'] ?? 0);
+            $biayaPerKolom = $this->pecahBiaya($this->biayaTrip($t));
+            $cost  = (float) ($t['harga_dasar'] ?? $t['tarif']['harga'] ?? 0);
             $total = $cost + array_sum($biayaPerKolom);
             $totalKeseluruhan += $total;
 

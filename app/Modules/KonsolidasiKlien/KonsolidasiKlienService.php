@@ -6,6 +6,7 @@ namespace App\Modules\KonsolidasiKlien;
 
 use App\Modules\KonsolidasiKlien\Contracts\KonsolidasiKlienRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Support\ParameterTagihan;
 use App\Support\TipeHarga;
 
 class KonsolidasiKlienService
@@ -42,8 +43,6 @@ class KonsolidasiKlienService
         $dropMap   = $this->repo->titikDropPerTrip($idTrips);
         $biayaMap  = $this->repo->biayaTagihanPerTrip($idTrips);
         $biayaDetailMap = $this->repo->biayaTagihanDetailPerTrip($idTrips);
-        $uangJalanTambahanMap = $this->repo->uangJalanTambahanPerTrip($idTrips);
-        $uangJalanTambahanDetailMap = $this->repo->uangJalanTambahanDetailPerTrip($idTrips);
         $jenisMap  = $this->repo->namaJenisKendaraanMap(array_values(array_unique(array_filter(array_map(
             fn ($r) => $r->id_jenis_kendaraan ?? $r->id_jenis_kendaraan_vendor ?? null,
             $rows
@@ -52,11 +51,11 @@ class KonsolidasiKlienService
         $suratJalanMap = $this->repo->suratJalanPerTrip($idTrips);
 
         $trips = array_map(
-            fn ($row) => $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap, $uangJalanTambahanMap, $uangJalanTambahanDetailMap, $suratJalanMap[$row->id_trip] ?? []),
+            fn ($row) => $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap, $suratJalanMap[$row->id_trip] ?? []),
             $rows
         );
 
-        $bertarif = array_filter($trips, fn ($t) => $t['tarif'] !== null);
+        $tertagih = array_filter($trips, fn ($t) => $t['total_tagihan'] !== null);
         $borongan = array_filter($trips, fn ($t) => $t['borongan'] === true);
 
         return [
@@ -64,14 +63,14 @@ class KonsolidasiKlienService
             'ringkasan' => [
                 'total_rit'      => count($trips),
                 'total_jarak_km' => array_sum(array_map(fn ($t) => $t['jarak_tempuh_km'] ?? 0, $trips)),
-                'estimasi_nilai' => array_sum(array_map(fn ($t) => $t['tarif']['harga'] + $t['biaya_tambahan'], $bertarif)),
-                'tanpa_tarif'    => count($trips) - count($bertarif) - count($borongan),
+                'estimasi_nilai' => array_sum(array_map(fn ($t) => $t['total_tagihan'], $tertagih)),
+                'tanpa_tarif'    => count($trips) - count($tertagih) - count($borongan),
             ],
             'trips' => $trips,
         ];
     }
 
-    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap, array $uangJalanTambahanMap, array $uangJalanTambahanDetailMap, array $suratJalan = []): array
+    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap, array $suratJalan = []): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
         $borongan = TipeHarga::nilaiTetap($row->tipe_harga ?? null);
@@ -88,8 +87,13 @@ class KonsolidasiKlienService
             }
         }
 
+        $rincian = $borongan ? null : ParameterTagihan::rincian($tarif['harga'] ?? null, $row);
+        $biayaTambahan = $biayaMap[$row->id_trip] ?? 0.0;
+        $bisaDitagih = $rincian !== null && $rincian['harga_dasar'] !== null;
+
         return [
             'id_trip'           => $row->id_trip,
+            'status'            => $row->status ?? 'selesai',
             'id_proyek'         => $row->id_proyek,
             'id_rute'           => $row->id_rute,
             'tanggal'           => $row->tanggal,
@@ -109,8 +113,17 @@ class KonsolidasiKlienService
             'tipe_harga'        => $row->tipe_harga ?? 'per_rit',
             'sudah_difakturkan' => (int) $row->sudah_difakturkan === 1,
             'titik_drop'        => $dropMap[$row->id_trip] ?? [],
-            'biaya_tambahan'    => ($biayaMap[$row->id_trip] ?? 0.0) + ($uangJalanTambahanMap[$row->id_trip] ?? 0.0),
-            'biaya_tagihan'     => array_merge($biayaDetailMap[$row->id_trip] ?? [], $uangJalanTambahanDetailMap[$row->id_trip] ?? []),
+            'biaya_tambahan'    => $biayaTambahan,
+            'biaya_tagihan'     => $biayaDetailMap[$row->id_trip] ?? [],
+            'parameter'         => [
+                'cancellation'    => $rincian['cancellation'] ?? false,
+                'komponen'        => $rincian['komponen'] ?? [],
+                'total'           => $rincian['total_parameter'] ?? 0.0,
+                'keterangan'      => $rincian['keterangan'] ?? null,
+            ],
+            'harga_dasar'       => $rincian['harga_dasar'] ?? null,
+            'bisa_ditagih'      => $bisaDitagih,
+            'total_tagihan'     => $bisaDitagih ? $rincian['harga_dasar'] + $rincian['total_parameter'] + $biayaTambahan : null,
             'jenis_kendaraan'   => $idJenisKendaraan !== null ? ($jenisMap[$idJenisKendaraan] ?? null) : null,
         ];
     }

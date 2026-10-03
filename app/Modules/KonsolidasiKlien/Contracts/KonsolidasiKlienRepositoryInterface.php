@@ -13,7 +13,5 @@ interface KonsolidasiKlienRepositoryInterface
     public function biayaTagihanPerTrip(array $idTrips): array;
     public function biayaTagihanDetailPerTrip(array $idTrips): array;
     public function suratJalanPerTrip(array $idTrips): array;
-    public function uangJalanTambahanPerTrip(array $idTrips): array;
-    public function uangJalanTambahanDetailPerTrip(array $idTrips): array;
     public function namaJenisKendaraanMap(array $ids): array;
 }

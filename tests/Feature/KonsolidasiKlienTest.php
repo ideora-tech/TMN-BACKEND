@@ -371,7 +371,7 @@ class KonsolidasiKlienTest extends TestCase
             ->assertJsonPath('data.ringkasan.estimasi_nilai', 1150000);
     }
 
-    public function test_rekap_menjumlahkan_uang_jalan_tambahan_titik_drop_ke_biaya_tambahan(): void
+    public function test_uang_jalan_tambahan_titik_drop_tidak_ditagihkan_ke_klien(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $this->siapkanMaster();
@@ -399,12 +399,13 @@ class KonsolidasiKlienTest extends TestCase
 
         $res = $this->getJson("/api/konsolidasi-klien?id_klien={$this->idKlien}");
         $res->assertStatus(200)
-            ->assertJsonPath('data.trips.0.biaya_tambahan', 275000)
-            ->assertJsonPath('data.ringkasan.estimasi_nilai', 1275000);
+            ->assertJsonPath('data.trips.0.biaya_tambahan', 150000)
+            ->assertJsonPath('data.trips.0.total_tagihan', 1150000)
+            ->assertJsonPath('data.ringkasan.estimasi_nilai', 1150000);
 
         $biayaTagihan = collect($res->json('data.trips.0.biaya_tagihan'));
         $this->assertSame(150000, $biayaTagihan->firstWhere('nama_biaya', 'Bongkar Muat')['nominal']);
-        $this->assertSame(125000, $biayaTagihan->firstWhere('nama_biaya', 'Uang Jalan Tambahan')['nominal']);
+        $this->assertNull($biayaTagihan->firstWhere('nama_biaya', 'Uang Jalan Tambahan'));
     }
 
     public function test_titik_drop_tanpa_uang_jalan_tambahan_tidak_menambah_biaya(): void

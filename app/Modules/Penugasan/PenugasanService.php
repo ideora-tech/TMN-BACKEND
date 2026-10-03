@@ -965,6 +965,10 @@ class PenugasanService
             abort(422, 'Penugasan sudah punya trip selesai — jejaknya dipakai laporan & penagihan, tidak bisa dihapus');
         }
 
+        if ($this->tripRepo->adaTripCancellationTertagihUntukPenugasan($id)) {
+            abort(422, 'Penugasan punya trip yang ditagih biaya cancellation — jejaknya dipakai penagihan, tidak bisa dihapus');
+        }
+
         $idPengajuan = $record->id_pengajuan;
 
         DB::transaction(function () use ($record, $idPengajuan) {

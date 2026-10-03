@@ -10,6 +10,7 @@ use App\Modules\Faktur\FakturService;
 use App\Modules\PenagihanTrip\Contracts\PenagihanTripRepositoryInterface;
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Support\ParameterTagihan;
 use App\Support\TipeHarga;
 use Illuminate\Support\Facades\DB;
 
@@ -54,8 +55,11 @@ class PenagihanTripService
             }
         }
 
+        $rincian = $borongan ? null : ParameterTagihan::rincian($tarif['harga'] ?? null, $row);
+
         return [
             'id_trip'         => $row->id_trip,
+            'status'          => $row->status ?? 'selesai',
             'tanggal'         => $row->tanggal,
             'id_rute'         => $row->id_rute,
             'rute'            => $row->nama_rute ?? $row->rute_teks,
@@ -65,7 +69,13 @@ class PenagihanTripService
             'jarak_tempuh_km' => $row->jarak_tempuh_km !== null ? (float) $row->jarak_tempuh_km : null,
             'tarif'           => $tarif,
             'borongan'        => $borongan,
-            'bisa_ditagih'    => $tarif !== null && !$borongan,
+            'bisa_ditagih'    => $rincian !== null && $rincian['harga_dasar'] !== null,
+            'harga_dasar'     => $rincian['harga_dasar'] ?? null,
+            'parameter'       => [
+                'cancellation' => $rincian['cancellation'] ?? false,
+                'komponen'     => $rincian['komponen'] ?? [],
+                'total'        => $rincian['total_parameter'] ?? 0.0,
+            ],
             'biaya_tagihan'       => $biayaTagihan,
             'total_biaya_tagihan' => array_sum(array_column($biayaTagihan, 'nominal')),
         ];
@@ -92,7 +102,7 @@ class PenagihanTripService
                 if ($baris['borongan']) {
                     abort(422, 'Trip proyek selain On Call difakturkan dari halaman proyek');
                 }
-                if ($baris['tarif'] === null) {
+                if (!$baris['bisa_ditagih']) {
                     abort(422, 'Tarif belum diatur di rute proyek');
                 }
                 $terpilih[] = $baris;
@@ -103,17 +113,24 @@ class PenagihanTripService
             foreach ($biayaMap as $daftarBiaya) {
                 $totalBiaya += array_sum(array_column($daftarBiaya, 'nominal'));
             }
-            $totalTarif = array_sum(array_map(fn ($b) => (float) $b['tarif']['harga'], $terpilih));
+            $totalTarif = array_sum(array_map(fn ($b) => (float) $b['harga_dasar'], $terpilih));
+            $totalParameter = array_sum(array_map(fn ($b) => (float) $b['parameter']['total'], $terpilih));
 
             $deskripsi = trim((string) ($data['keterangan'] ?? ''));
             if ($deskripsi === '') {
-                $deskripsi = 'Jasa angkutan ' . $proyek->nama_proyek . ' — ' . count($terpilih) . ' rit';
+                $jumlahCancel = count(array_filter($terpilih, fn ($b) => $b['parameter']['cancellation']));
+                $jumlahRit = count($terpilih) - $jumlahCancel;
+                $rincianJumlah = array_filter([
+                    $jumlahRit > 0 ? "{$jumlahRit} rit" : null,
+                    $jumlahCancel > 0 ? "{$jumlahCancel} cancellation" : null,
+                ]);
+                $deskripsi = 'Jasa angkutan ' . $proyek->nama_proyek . ' — ' . implode(' + ', $rincianJumlah);
             }
 
             $items = [[
                 'deskripsi'    => $deskripsi,
                 'qty'          => 1,
-                'harga_satuan' => $totalTarif + $totalBiaya,
+                'harga_satuan' => $totalTarif + $totalParameter + $totalBiaya,
             ]];
 
             $penawaran = $this->penawaranRepo->penawaranDisetujuiTerbaruProyek((string) $proyek->id_proyek);
