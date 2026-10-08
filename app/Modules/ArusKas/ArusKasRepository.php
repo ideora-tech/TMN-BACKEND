@@ -236,6 +236,47 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         return $status !== null ? (string) $status : null;
     }
 
+    public function permintaanPembelianDibayarDiMuka(string $idPermintaan): bool
+    {
+        return DB::table('permintaan_pembelian')
+            ->whereNull('dihapus_pada')
+            ->where('id_permintaan', $idPermintaan)
+            ->value('syarat_pembayaran') === 'di_muka';
+    }
+
+    public function kunciPermintaanPembelian(string $idPermintaan): void
+    {
+        DB::table('permintaan_pembelian')
+            ->whereNull('dihapus_pada')
+            ->where('id_permintaan', $idPermintaan)
+            ->lockForUpdate()
+            ->value('id_permintaan');
+    }
+
+    public function catatPembayaranPermintaanPembelian(string $idPermintaan, string $tanggalPembayaran): void
+    {
+        $status = DB::table('permintaan_pembelian')
+            ->whereNull('dihapus_pada')
+            ->where('id_permintaan', $idPermintaan)
+            ->lockForUpdate()
+            ->value('status');
+        if ($status === null) {
+            return;
+        }
+
+        $ubah = ['tanggal_pembayaran' => $tanggalPembayaran];
+        if ($status === 'dipesan') {
+            $ubah['status'] = 'dibeli';
+            $ubah['tanggal_pembelian'] = $tanggalPembayaran;
+            $ubah['dibeli_pada'] = now();
+        } elseif ($status === 'diterima') {
+            $ubah['status'] = 'selesai';
+        }
+        DB::table('permintaan_pembelian')
+            ->where('id_permintaan', $idPermintaan)
+            ->update(RecordHelper::stampUpdate($ubah));
+    }
+
     public function idPengajuPermintaanPembelian(string $idPermintaan): ?string
     {
         $idPengaju = DB::table('permintaan_pembelian')

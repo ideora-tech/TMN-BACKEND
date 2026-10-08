@@ -26,6 +26,9 @@ interface ArusKasRepositoryInterface
     public function findPengajuanByPembelian(string $idPembelian): ?PengajuanPengeluaranModel;
     public function findPengajuanByPermintaanPembelian(string $idPermintaan): ?PengajuanPengeluaranModel;
     public function statusPermintaanPembelian(string $idPermintaan): ?string;
+    public function permintaanPembelianDibayarDiMuka(string $idPermintaan): bool;
+    public function kunciPermintaanPembelian(string $idPermintaan): void;
+    public function catatPembayaranPermintaanPembelian(string $idPermintaan, string $tanggalPembayaran): void;
     public function idPengajuPermintaanPembelian(string $idPermintaan): ?string;
     public function sinkronPermintaanPembelianSelesai(string $idPermintaan, string $tanggalPembayaran): void;
     /** @return PengajuanPengeluaranModel[] */

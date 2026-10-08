@@ -37,6 +37,10 @@ class PermintaanPembelianService
     public const TIPE_SPAREPART     = 'sparepart';
     public const TIPE_ASET          = 'aset';
     public const JENIS_ITEM         = ['barang', 'jasa', 'sparepart', 'aset'];
+    public const PRIORITAS          = ['normal', 'urgent'];
+    public const SYARAT_PEMBAYARAN  = ['setelah_terima', 'di_muka'];
+    public const SYARAT_DI_MUKA     = 'di_muka';
+    public const METODE_TUNAI       = 'tunai';
 
     public const PERAN_PENGADAAN = ['PENGADAAN', 'SUPERADMIN'];
     public const PERAN_KELOLA    = ['PENGADAAN', 'SUPERADMIN', 'ADMIN'];
@@ -72,6 +76,7 @@ class PermintaanPembelianService
                 'totalPages' => $result->lastPage(),
                 'ringkasan'  => $this->repo->ringkasanStatus($idPerusahaan, $idPenglihat),
                 'pembayaran_ditolak' => $this->repo->jumlahPembayaranDitolak($idPerusahaan, $idPenglihat),
+                'dibayar_menunggu_barang' => $this->repo->jumlahDibayarMenungguBarang($idPerusahaan, $idPenglihat),
                 'lihat_semua' => $idPenglihat === null,
             ],
         ];
@@ -122,6 +127,10 @@ class PermintaanPembelianService
             $record->batas_mandiri = null;
             $record->boleh_realisasi_mandiri = false;
         }
+        $record->batas_beli_tunai = (string) ($record->tipe ?? self::TIPE_UMUM) === self::TIPE_UMUM
+            && in_array($record->status, [self::STATUS_DISETUJUI, self::STATUS_DIPROSES], true)
+            ? $this->arusKasService->batasRealisasiMandiri($idPerusahaan)
+            : null;
         return $record;
     }
 
@@ -156,7 +165,7 @@ class PermintaanPembelianService
         $pesanStatus = 'Permintaan hanya bisa diubah sebelum diproses Pengadaan';
         $this->pastikanStatus($record, self::STATUS_BOLEH_UBAH, $pesanStatus);
         $this->pastikanPengajuAtauKelola($record, $idPengguna, $kodePeran);
-        [$header, $items] = $this->susunHeaderItems($data, $idPerusahaan);
+        [$header, $items] = $this->susunHeaderItems($data, $idPerusahaan, $record->id_judul_permintaan ?? null, (string) $record->judul);
         return DB::transaction(function () use ($record, $header, $items, $idPerusahaan, $pesanStatus) {
             $this->kunciDanPastikanStatus($record->id_permintaan, self::STATUS_BOLEH_UBAH, $pesanStatus);
             $this->repo->updateWithItems($record, $header, $items);
@@ -233,18 +242,25 @@ class PermintaanPembelianService
         $pesanStatus = 'PO hanya bisa diterbitkan saat permintaan sedang diproses Pengadaan';
         $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
 
+        $syarat = (string) ($data['syarat_pembayaran'] ?? ($record->syarat_pembayaran ?? self::SYARAT_PEMBAYARAN[0]));
+        if ($syarat === self::SYARAT_DI_MUKA && (string) ($record->tipe ?? self::TIPE_UMUM) !== self::TIPE_UMUM) {
+            abort(422, 'Bayar di muka baru tersedia untuk PR barang/jasa');
+        }
+
         $rincian = $this->susunRincianPembelian($record, $data, $idPerusahaan);
 
-        return DB::transaction(function () use ($record, $data, $rincian, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
+        return DB::transaction(function () use ($record, $data, $rincian, $syarat, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
             $terkunci = $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
             $poBaru = (string) ($terkunci->nomor_po ?? '') === '';
             $nomorPo = $poBaru ? KodeOtomatis::berikutnya($idPerusahaan, 'purchase_order') : (string) $terkunci->nomor_po;
-            $this->terapkanHargaItem($rincian, false);
+            $diMuka = $syarat === self::SYARAT_DI_MUKA;
+            $this->terapkanHargaItem($rincian, $diMuka);
             $this->repo->updateHeader($record, [
                 'status'       => self::STATUS_DIPESAN,
                 'id_supplier'  => $rincian['supplier']->id_supplier,
                 'nomor_po'     => $nomorPo,
                 'tanggal_po'   => $data['tanggal_po'],
+                'syarat_pembayaran' => $syarat,
                 'diskon'       => $rincian['biaya']['diskon'],
                 'ppn_persen'   => $rincian['biaya']['ppn_persen'],
                 'ppn'          => $rincian['biaya']['ppn'],
@@ -253,9 +269,23 @@ class PermintaanPembelianService
                 'dipesan_oleh' => $idPengguna,
                 'dipesan_pada' => now(),
             ]);
+            if ($diMuka) {
+                $this->arusKasService->sinkronPengajuanBayarDiMuka(
+                    $record->id_permintaan,
+                    $idPerusahaan,
+                    $record->nomor_permintaan,
+                    (float) $rincian['biaya']['total_aktual'],
+                    (string) $rincian['supplier']->nama,
+                    $idPengguna,
+                );
+            } elseif ((string) ($terkunci->syarat_pembayaran ?? '') === self::SYARAT_DI_MUKA) {
+                $this->arusKasService->hapusPengajuanPermintaanPembelian($record->id_permintaan);
+            }
             $hasil = $this->findOrFail($record->id_permintaan, $idPerusahaan);
             if ($poBaru) {
-                $this->notifikasiKePengaju($hasil, "PO {$nomorPo} terbit untuk PR {$hasil->nomor_permintaan}", 'Dipesan ke ' . (string) $rincian['supplier']->nama);
+                $this->notifikasiKePengaju($hasil, "PO {$nomorPo} terbit untuk PR {$hasil->nomor_permintaan}", $diMuka
+                    ? 'Dipesan ke ' . (string) $rincian['supplier']->nama . ' — bayar di muka, pembayarannya sudah diajukan ke Keuangan'
+                    : 'Dipesan ke ' . (string) $rincian['supplier']->nama);
             }
             return $hasil;
         });
@@ -327,6 +357,9 @@ class PermintaanPembelianService
         $this->pastikanPengadaan($kodePeran);
         $pesanStatus = 'Tandai Dibeli hanya bisa dilakukan setelah PO diterbitkan';
         $this->pastikanStatus($record, [self::STATUS_DIPESAN], $pesanStatus);
+        if ((string) ($record->syarat_pembayaran ?? '') === self::SYARAT_DI_MUKA) {
+            abort(422, 'PO bayar di muka otomatis menjadi Dibeli setelah ditransfer Keuangan — koreksi harga lewat Revisi PO');
+        }
 
         $rincian = $this->susunRincianPembelian($record, $data, $idPerusahaan);
         $supplier = $rincian['supplier'];
@@ -400,11 +433,161 @@ class PermintaanPembelianService
         });
     }
 
-    private function hitungBiayaPembelian(array $itemTercatat, array $masuk, array $data): array
+    public function beliTunai(string $id, array $data, array $bukti, string $idPerusahaan, string $idPengguna, string $kodePeran): object
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        if ((string) ($record->tipe ?? self::TIPE_UMUM) !== self::TIPE_UMUM) {
+            abort(422, 'Pembelian tunai hanya untuk PR barang/jasa');
+        }
+        $bolehStatus = [];
+        if (in_array(strtoupper($kodePeran), self::PERAN_PENGADAAN, true)) {
+            $bolehStatus[] = self::STATUS_DIPROSES;
+        }
+        if ((string) $record->id_pengaju === $idPengguna && $this->mandiriBeliTunai($record, $idPerusahaan)) {
+            $bolehStatus[] = self::STATUS_DISETUJUI;
+        }
+        if ($bolehStatus === []) {
+            abort(422, 'Pembelian tunai dicatat oleh tim Pengadaan, atau oleh pemohonnya sendiri bila nilai PR di bawah batas pembelian tunai');
+        }
+        $pesanStatus = 'Pembelian tunai hanya bisa dicatat setelah PR disetujui dan sebelum PO diterbitkan';
+        $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
+
+        $supplier = null;
+        if (!empty($data['id_supplier'])) {
+            $supplier = $this->repo->supplierMilik($idPerusahaan, (string) $data['id_supplier']);
+            if ($supplier === null) {
+                abort(422, 'Supplier tidak ditemukan');
+            }
+        }
+        $namaToko = trim((string) ($data['nama_toko'] ?? ''));
+        $namaPenjual = $supplier !== null ? (string) $supplier->nama : $namaToko;
+        if ($namaPenjual === '') {
+            abort(422, 'Pilih supplier atau isi nama toko');
+        }
+        $namaPenalang = trim((string) $data['nama_penalang']);
+
+        $itemTercatat = [];
+        foreach ($record->items as $item) {
+            $itemTercatat[$item->id_item] = $item;
+        }
+        $masuk = [];
+        foreach ($data['items'] as $baris) {
+            if (!isset($itemTercatat[$baris['id_item']])) {
+                abort(422, 'Item tidak ditemukan pada permintaan ini');
+            }
+            $masuk[$baris['id_item']] = $baris;
+        }
+        if (count($masuk) !== count($itemTercatat)) {
+            abort(422, 'Jumlah dan harga semua item wajib diisi');
+        }
+
+        $qtyDibeli = [];
+        $idBarangDipakai = [];
+        foreach ($itemTercatat as $idItem => $item) {
+            $qty = (int) $masuk[$idItem]['qty_dibeli'];
+            if ($qty > (int) $item->qty) {
+                abort(422, "Jumlah dibeli \"{$item->nama_item}\" melebihi jumlah yang diminta");
+            }
+            $qtyDibeli[$idItem] = $qty;
+            if ($qty > 0 && $item->jenis === 'barang') {
+                $idBarang = $masuk[$idItem]['id_barang'] ?? $item->id_barang;
+                if ($idBarang === null || $idBarang === '') {
+                    abort(422, "Item \"{$item->nama_item}\" belum ditautkan ke Master Barang");
+                }
+                $idBarangDipakai[$idItem] = (string) $idBarang;
+            }
+        }
+        if (array_sum($qtyDibeli) <= 0) {
+            abort(422, 'Isi jumlah yang dibeli minimal untuk satu item');
+        }
+
+        $barangMap = $this->barangService->pastikanMilik(array_values($idBarangDipakai), $idPerusahaan);
+        $biaya = $this->hitungBiayaPembelian($itemTercatat, $masuk, $data, $qtyDibeli);
+        $total = $biaya['total_aktual'];
+        $batas = $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
+        if ($total > $batas) {
+            abort(422, 'Total Rp ' . number_format($total, 0, ',', '.') . ' melebihi batas pembelian tunai Rp ' . number_format($batas, 0, ',', '.') . ' — terbitkan PO untuk pembelian ini');
+        }
+        $adaSisa = false;
+        foreach ($itemTercatat as $idItem => $item) {
+            if ($qtyDibeli[$idItem] < (int) $item->qty) {
+                $adaSisa = true;
+            }
+        }
+
+        return DB::transaction(function () use ($record, $data, $bukti, $masuk, $itemTercatat, $qtyDibeli, $idBarangDipakai, $barangMap, $biaya, $total, $adaSisa, $supplier, $namaToko, $namaPenjual, $namaPenalang, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
+            $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
+            $tanggal = (string) $data['tanggal_pembelian'];
+            $rincian = [];
+            foreach ($itemTercatat as $idItem => $item) {
+                $harga = (float) $masuk[$idItem]['harga_aktual'];
+                $qty = $qtyDibeli[$idItem];
+                $ubah = ['harga_aktual' => $harga, 'qty_diterima' => $qty];
+                $idBarang = $idBarangDipakai[$idItem] ?? null;
+                if ($idBarang !== null) {
+                    $ubah['id_barang'] = $idBarang;
+                    $ubah['nama_item'] = $barangMap[$idBarang]->nama;
+                    $this->barangService->perbaruiHargaStandar($idBarang, $harga);
+                }
+                $this->repo->updateItem((string) $idItem, $ubah);
+                if ($qty > 0) {
+                    $rincian[(string) $idItem] = $qty;
+                    if ($idBarang !== null) {
+                        $this->barangService->tambahStokDariPenerimaan($idBarang, $qty, $harga, $record->id_permintaan, $record->nomor_permintaan, $tanggal);
+                    }
+                }
+            }
+            $this->simpanBukti($record->id_permintaan, $bukti, 'pembelian');
+            $this->repo->insertPenerimaan([
+                'id_permintaan'    => $record->id_permintaan,
+                'tanggal_diterima' => $tanggal,
+                'keterangan'       => 'Pembelian tunai, barang langsung diterima',
+            ], $rincian);
+            $header = [
+                'status'                => self::STATUS_DITERIMA,
+                'metode_pembelian'      => self::METODE_TUNAI,
+                'id_supplier'           => $supplier?->id_supplier,
+                'nama_toko'             => $supplier === null ? $namaToko : null,
+                'nama_penalang'         => $namaPenalang,
+                'diskon'                => $biaya['diskon'],
+                'ppn_persen'            => $biaya['ppn_persen'],
+                'ppn'                   => $biaya['ppn'],
+                'ongkir'                => $biaya['ongkir'],
+                'total_aktual'          => $total,
+                'tanggal_pembelian'     => $tanggal,
+                'dibeli_oleh'           => $idPengguna,
+                'dibeli_pada'           => now(),
+                'tanggal_diterima'      => $tanggal,
+                'keterangan_penerimaan' => 'Pembelian tunai, barang langsung diterima',
+                'diterima_oleh'         => $idPengguna,
+                'diterima_pada'         => now(),
+            ];
+            if ($adaSisa) {
+                $header['sisa_ditutup_pada'] = now();
+                $header['sisa_ditutup_oleh'] = $idPengguna;
+                $header['alasan_tutup_sisa'] = 'Tidak dibeli pada pembelian tunai';
+            }
+            $this->repo->updateHeader($record, $header);
+            $this->arusKasService->buatPengajuanPermintaanPembelianOtomatis(
+                $record->id_permintaan,
+                $idPerusahaan,
+                $record->nomor_permintaan,
+                $total,
+                $namaPenalang,
+                keterangan: "{$record->nomor_permintaan} - Penggantian beli tunai di {$namaPenjual}",
+            );
+            $hasil = $this->findOrFail($record->id_permintaan, $idPerusahaan);
+            $this->notifikasiKePengaju($hasil, "PR {$hasil->nomor_permintaan} sudah dibeli tunai", "Dibeli di {$namaPenjual}, barang/jasa sudah diterima");
+            return $hasil;
+        });
+    }
+
+    private function hitungBiayaPembelian(array $itemTercatat, array $masuk, array $data, ?array $qtyPerItem = null): array
     {
         $subtotal = 0.0;
         foreach ($itemTercatat as $idItem => $item) {
-            $subtotal += (int) $item->qty * (float) $masuk[$idItem]['harga_aktual'];
+            $qty = $qtyPerItem !== null ? (int) ($qtyPerItem[$idItem] ?? 0) : (int) $item->qty;
+            $subtotal += $qty * (float) $masuk[$idItem]['harga_aktual'];
         }
         $diskon = (float) ($data['diskon'] ?? 0);
         if (round($diskon, 2) > round($subtotal, 2)) {
@@ -535,6 +718,15 @@ class PermintaanPembelianService
                 $this->notifikasiKePengadaan($hasil, "PR {$hasil->nomor_permintaan} diterima sebagian", 'Catat penerimaan berikutnya, atau tutup sisanya bila tidak jadi dikirim', $idPengguna);
                 return $hasil;
             }
+            if (($hasil->pengajuan_keuangan['status'] ?? null) === ArusKasService::STATUS_DITRANSFER) {
+                $this->repo->updateHeader($record, ['status' => self::STATUS_SELESAI]);
+                $hasil = $this->findOrFail($record->id_permintaan, $idPerusahaan);
+                if ($hasil->id_pengaju !== $idPengguna) {
+                    $this->notifikasiKePengaju($hasil, "PR {$hasil->nomor_permintaan} selesai", 'Barang/jasa sudah diterima dan pembayarannya sudah ditransfer di muka');
+                }
+                $this->notifikasiKePengadaan($hasil, "PR {$hasil->nomor_permintaan} selesai", 'Barang/jasa sudah diterima dan pembayarannya sudah ditransfer di muka', $idPengguna);
+                return $hasil;
+            }
             if ($hasil->id_pengaju !== $idPengguna) {
                 $this->notifikasiKePengaju($hasil, "PR {$hasil->nomor_permintaan} sudah diterima", 'Penerimaan barang/jasa telah dikonfirmasi Pengadaan');
             }
@@ -548,12 +740,20 @@ class PermintaanPembelianService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
         $this->pastikanPengadaan($kodePeran);
-        $bolehStatus = [self::STATUS_DITERIMA_SEBAGIAN];
+        $dibayarLebihDulu = ($record->pengajuan_keuangan['status'] ?? null) === ArusKasService::STATUS_DITRANSFER;
+        $bolehStatus = $dibayarLebihDulu
+            ? [self::STATUS_DIBELI, self::STATUS_DITERIMA_SEBAGIAN]
+            : [self::STATUS_DITERIMA_SEBAGIAN];
         $pesanStatus = 'Sisa hanya bisa ditutup saat permintaan berstatus diterima sebagian';
         $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
 
         return DB::transaction(function () use ($record, $data, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
             $terkunci = $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
+            $pengajuanAwal = $this->arusKasService->infoPengajuanPermintaanPembelian($record->id_permintaan);
+            $sudahDibayar = ($pengajuanAwal['status'] ?? null) === ArusKasService::STATUS_DITRANSFER;
+            if (!$sudahDibayar && $terkunci->status !== self::STATUS_DITERIMA_SEBAGIAN) {
+                abort(422, $pesanStatus . " (status saat ini: {$terkunci->status})");
+            }
             $subtotalPesan = 0.0;
             $subtotalDiterima = 0.0;
             $jumlahDiterima = 0;
@@ -573,10 +773,54 @@ class PermintaanPembelianService
             }
             $ppnPersen = (float) $terkunci->ppn_persen;
             $ongkir = isset($data['ongkir']) ? (float) $data['ongkir'] : (float) $terkunci->ongkir;
+            if ($jumlahDiterima === 0) {
+                $diskon = 0.0;
+                $ongkir = 0.0;
+            }
             $ppn = round(($subtotalDiterima - $diskon) * $ppnPersen / 100);
             $total = $subtotalDiterima - $diskon + $ppn + $ongkir;
-            if (round($total, 2) <= 0) {
+            if (!$sudahDibayar && round($total, 2) <= 0) {
                 abort(422, 'Total pembelian tidak boleh Rp 0');
+            }
+
+            if ($sudahDibayar) {
+                $terbayar = (float) ($pengajuanAwal['nominal'] ?? $terkunci->total_aktual);
+                if (round($total, 2) > round($terbayar, 2)) {
+                    abort(422, 'Nilai setelah sisa ditutup (Rp ' . number_format($total, 0, ',', '.') . ') melebihi yang sudah dibayar (Rp ' . number_format($terbayar, 0, ',', '.') . ') — periksa diskon dan ongkos kirim');
+                }
+                $kelebihan = round($terbayar - $total, 2);
+                $this->repo->updateHeader($record, [
+                    'status'            => self::STATUS_SELESAI,
+                    'diskon'            => $diskon,
+                    'ppn'               => $ppn,
+                    'ongkir'            => $ongkir,
+                    'total_aktual'      => $total,
+                    'kelebihan_bayar'   => $kelebihan,
+                    'sisa_ditutup_pada' => now(),
+                    'sisa_ditutup_oleh' => $idPengguna,
+                    'alasan_tutup_sisa' => trim((string) $data['alasan']),
+                ]);
+                $hasil = $this->findOrFail($record->id_permintaan, $idPerusahaan);
+                $lebih = number_format($kelebihan, 0, ',', '.');
+                $isi = $kelebihan > 0
+                    ? "Sudah dibayar di muka — kelebihan bayar Rp {$lebih} perlu diminta kembali dari supplier"
+                    : 'Sudah dibayar di muka, tidak ada kelebihan bayar';
+                $this->notifikasiKePengaju($hasil, "Sisa PR {$hasil->nomor_permintaan} ditutup", trim((string) $data['alasan']));
+                $this->notifikasiKePengadaan($hasil, "Sisa PR {$hasil->nomor_permintaan} ditutup", $isi, $idPengguna);
+                if ($kelebihan > 0) {
+                    $this->notifikasiService->kirimKePeran(
+                        ArusKasService::PERAN_KEUANGAN,
+                        $idPerusahaan,
+                        "Kelebihan bayar PR {$hasil->nomor_permintaan}",
+                        "Sisa pesanan ditutup setelah dibayar di muka — Rp {$lebih} perlu diminta kembali dari supplier",
+                        'permintaan_pembelian',
+                        'permintaan_pembelian',
+                        (string) $hasil->id_permintaan,
+                        '/permintaan-pembelian?detail=' . $hasil->id_permintaan,
+                        $idPengguna,
+                    );
+                }
+                return $hasil;
             }
 
             $this->repo->updateHeader($record, [
@@ -688,7 +932,7 @@ class PermintaanPembelianService
                     $idPerusahaan,
                     $segar->nomor_permintaan,
                     $total,
-                    (string) ($segar->nama_supplier ?? ''),
+                    (string) (($segar->metode_pembelian ?? null) === self::METODE_TUNAI ? ($segar->nama_penalang ?? '') : ($segar->nama_supplier ?? '')),
                     $idPembelian,
                     $catatan,
                 );
@@ -1332,7 +1576,9 @@ class PermintaanPembelianService
                 $this->notifikasiKePengaju($segar, "PR {$segar->nomor_permintaan} disetujui", 'Nilainya di bawah batas mandiri, silakan beli lalu catat realisasi');
                 return;
             }
-            $this->notifikasiKePengaju($segar, "PR {$segar->nomor_permintaan} disetujui", 'Menunggu diproses Pengadaan');
+            $this->notifikasiKePengaju($segar, "PR {$segar->nomor_permintaan} disetujui", $this->mandiriBeliTunai($segar, $idPerusahaan)
+                ? 'Nilainya di bawah batas pembelian tunai — boleh dibeli sendiri lalu dicatat lewat Beli Tunai, atau tunggu diproses Pengadaan'
+                : 'Menunggu diproses Pengadaan');
             $this->notifikasiKePengadaan($segar, "PR {$segar->nomor_permintaan} siap diproses", $segar->judul);
             return;
         }
@@ -1344,21 +1590,35 @@ class PermintaanPembelianService
         return self::tipeSparepart($record) && (float) $record->total_estimasi <= $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
     }
 
-    private function susunHeaderItems(array $data, string $idPerusahaan): array
+    private function mandiriBeliTunai(object $record, string $idPerusahaan): bool
+    {
+        return (string) ($record->tipe ?? self::TIPE_UMUM) === self::TIPE_UMUM
+            && (float) $record->total_estimasi <= $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
+    }
+
+    private function susunHeaderItems(array $data, string $idPerusahaan, ?string $idKategoriLama = null, ?string $judulLama = null): array
     {
         $idDepartemen = !empty($data['id_departemen']) ? (string) $data['id_departemen'] : null;
         if ($idDepartemen !== null && !$this->repo->departemenMilik($idPerusahaan, $idDepartemen)) {
             abort(422, 'Departemen tidak ditemukan');
         }
         $idJudulPermintaan = null;
-        if (!empty($data['id_judul_permintaan'])) {
-            $judulMaster = $this->repo->judulPermintaanAktif($idPerusahaan, (string) $data['id_judul_permintaan']);
+        $judul = trim((string) ($data['judul'] ?? ''));
+        $idDiminta = trim((string) ($data['id_judul_permintaan'] ?? ''));
+        if ($idDiminta !== '') {
+            $kategoriTetap = $idDiminta === $idKategoriLama;
+            $judulMaster = $this->repo->judulPermintaanAktif($idPerusahaan, $idDiminta, !$kategoriTetap);
             if ($judulMaster === null) {
-                abort(422, 'Judul permintaan tidak ditemukan atau tidak aktif');
+                abort(422, 'Kategori permintaan tidak ditemukan atau tidak aktif');
             }
             $idJudulPermintaan = (string) $judulMaster->id_judul_permintaan;
-            $data['judul'] = $judulMaster->nama_judul;
+            if ($judul === '') {
+                $judul = $kategoriTetap && trim((string) $judulLama) !== '' ? trim((string) $judulLama) : (string) $judulMaster->nama_judul;
+            }
             $data['tipe'] = $judulMaster->tipe;
+        }
+        if ($judul === '') {
+            abort(422, 'Judul permintaan wajib diisi');
         }
         $tipe = (string) ($data['tipe'] ?? self::TIPE_UMUM);
         $adaSparepart = count(array_filter($data['items'], fn ($i) => $i['jenis'] === 'sparepart')) > 0;
@@ -1471,7 +1731,7 @@ class PermintaanPembelianService
 
         $header = [
             'id_judul_permintaan' => $idJudulPermintaan,
-            'judul'              => trim((string) $data['judul']),
+            'judul'              => $judul,
             'tipe'               => $tipe,
             'alasan'             => $data['alasan'],
             'id_departemen'      => $idDepartemen,
@@ -1480,6 +1740,9 @@ class PermintaanPembelianService
             'tanggal_dibutuhkan' => $data['tanggal_dibutuhkan'] ?? null,
             'total_estimasi'     => $total,
         ];
+        if (!empty($data['prioritas'])) {
+            $header['prioritas'] = (string) $data['prioritas'];
+        }
         return [$header, $items];
     }
 

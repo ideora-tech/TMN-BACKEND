@@ -127,6 +127,6 @@ class JudulPermintaanTest extends TestCase
         $this->actingAsRole('PENGADAAN');
         $this->deleteJson("/api/judul-permintaan/{$idJudul}")
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Judul permintaan masih dipakai di permintaan pembelian — nonaktifkan saja');
+            ->assertJsonPath('message', 'Kategori permintaan masih dipakai di permintaan pembelian — nonaktifkan saja');
     }
 }

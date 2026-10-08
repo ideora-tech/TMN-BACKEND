@@ -80,7 +80,7 @@ class TipePermintaanService
         $record = $this->findOrFail($id, $idPerusahaan);
 
         if ($this->repo->jumlahJudulPemakai($id) > 0) {
-            abort(422, 'Tipe permintaan masih dipakai judul permintaan — nonaktifkan saja');
+            abort(422, 'Tipe permintaan masih dipakai kategori permintaan — nonaktifkan saja');
         }
 
         $this->repo->delete($record);

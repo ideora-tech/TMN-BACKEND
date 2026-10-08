@@ -8,6 +8,7 @@ use App\Helpers\ApiResponse;
 use App\Modules\PermintaanPembelian\Exports\LaporanPengadaanExport;
 use App\Modules\PermintaanPembelian\Requests\AjukanUlangPembayaranPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\BatalPermintaanPembelianRequest;
+use App\Modules\PermintaanPembelian\Requests\BeliTunaiPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\DibeliPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\LaporanPengadaanRequest;
 use App\Modules\PermintaanPembelian\Requests\PesanPermintaanPembelianRequest;
@@ -32,12 +33,15 @@ class PermintaanPembelianController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $filter = $request->only(['status', 'tipe', 'search', 'id_departemen', 'dari', 'sampai']);
+        $filter = $request->only(['status', 'tipe', 'search', 'id_departemen', 'prioritas', 'dari', 'sampai']);
         if ($request->boolean('milik_saya')) {
             $filter['id_pengaju'] = (string) $request->user()->id_pengguna;
         }
         if ($request->boolean('pembayaran_ditolak')) {
             $filter['pembayaran_ditolak'] = true;
+        }
+        if ($request->boolean('menunggu_barang')) {
+            $filter['menunggu_barang'] = true;
         }
         $result = $this->service->list(
             (string) $request->user()->id_perusahaan,
@@ -89,6 +93,12 @@ class PermintaanPembelianController extends Controller
     {
         $record = $this->service->dibeli($id, $request->validated(), ...$this->aktor($request));
         return ApiResponse::success(new PermintaanPembelianResource($record), 'Permintaan ditandai dibeli, pengajuan pembayaran dibuat');
+    }
+
+    public function beliTunai(BeliTunaiPermintaanPembelianRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->beliTunai($id, $request->safe()->except('bukti'), $request->file('bukti', []), ...$this->aktor($request));
+        return ApiResponse::success(new PermintaanPembelianResource($record), 'Pembelian tunai dicatat, pengajuan penggantian dibuat');
     }
 
     public function terima(TerimaPermintaanPembelianRequest $request, string $id): JsonResponse

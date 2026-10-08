@@ -55,19 +55,19 @@ class JudulPermintaanController extends Controller
         );
 
         $record = $this->service->create($data);
-        return ApiResponse::success(new JudulPermintaanResource($record), 'Judul permintaan berhasil dibuat', 201);
+        return ApiResponse::success(new JudulPermintaanResource($record), 'Kategori permintaan berhasil dibuat', 201);
     }
 
     public function update(UpdateJudulPermintaanRequest $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $record = $this->service->update($id, $request->validated(), $idPerusahaan);
-        return ApiResponse::success(new JudulPermintaanResource($record), 'Judul permintaan berhasil diperbarui');
+        return ApiResponse::success(new JudulPermintaanResource($record), 'Kategori permintaan berhasil diperbarui');
     }
 
     public function destroy(Request $request, string $id): JsonResponse
     {
         $this->service->delete($id, (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(null, 'Judul permintaan berhasil dihapus');
+        return ApiResponse::success(null, 'Kategori permintaan berhasil dihapus');
     }
 }

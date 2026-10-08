@@ -664,10 +664,11 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
         $permintaan = DB::table('permintaan_pembelian as pp')
             ->leftJoin('departemen as d', $this->milik('d', 'd.id_departemen', 'pp.id_departemen', $idPerusahaan))
             ->leftJoin('pengguna as u', 'u.id_pengguna', '=', 'pp.id_pengaju')
+            ->leftJoin('judul_permintaan as jp', 'jp.id_judul_permintaan', '=', 'pp.id_judul_permintaan')
             ->where('pp.id_permintaan', $idPermintaan)
             ->where('pp.id_perusahaan', $idPerusahaan)
             ->whereNull('pp.dihapus_pada')
-            ->first(['pp.nomor_permintaan', 'pp.judul', 'pp.tipe', 'pp.alasan', 'pp.tanggal_permintaan', 'pp.tanggal_dibutuhkan', 'pp.total_estimasi', 'd.nama_departemen', 'u.username']);
+            ->first(['pp.nomor_permintaan', 'pp.judul', 'pp.tipe', 'pp.prioritas', 'pp.alasan', 'pp.tanggal_permintaan', 'pp.tanggal_dibutuhkan', 'pp.total_estimasi', 'd.nama_departemen', 'u.username', 'jp.nama_judul as nama_kategori']);
         if ($permintaan === null) {
             return null;
         }
@@ -719,6 +720,8 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             'info'   => [
                 $this->teks('Pengaju', $permintaan->username),
                 $this->teks('Departemen', $permintaan->nama_departemen),
+                $this->teks('Kategori', $permintaan->nama_kategori),
+                $this->teks('Prioritas', ($permintaan->prioritas ?? 'normal') === 'urgent' ? 'Urgent' : 'Normal'),
                 $this->teks('Tipe', $this->label(self::LABEL_TIPE_PERMINTAAN, $permintaan->tipe)),
                 $this->tanggal('Tanggal', $permintaan->tanggal_permintaan),
                 $this->tanggal('Dibutuhkan', $permintaan->tanggal_dibutuhkan),

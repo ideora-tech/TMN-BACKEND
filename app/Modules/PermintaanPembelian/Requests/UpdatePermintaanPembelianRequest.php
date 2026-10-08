@@ -26,6 +26,7 @@ class UpdatePermintaanPembelianRequest extends FormRequest
             'id_perawatan'           => ['nullable', 'string', 'max:36'],
             'tanggal_permintaan'     => ['required', 'date'],
             'tanggal_dibutuhkan'     => ['nullable', 'date', 'after_or_equal:tanggal_permintaan'],
+            'prioritas'              => ['nullable', 'string', Rule::in(PermintaanPembelianService::PRIORITAS)],
             'items'                  => ['required', 'array', 'min:1'],
             'items.*.jenis'          => ['required', 'string', Rule::in(PermintaanPembelianService::JENIS_ITEM)],
             'items.*.id_barang'      => ['nullable', 'string', 'max:36'],

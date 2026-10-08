@@ -22,6 +22,7 @@ class ArusKasService
     public const STATUS_DISETUJUI         = 'disetujui';
     public const STATUS_DITOLAK           = 'ditolak';
     public const STATUS_DITRANSFER        = 'ditransfer';
+    private const STATUS_PR_BOLEH_BAYAR_DI_MUKA = ['dipesan', 'dibeli', 'diterima_sebagian', 'diterima', 'selesai'];
 
     public const KUNCI_BATAS_APPROVAL = 'batas_approval_keuangan';
 
@@ -841,7 +842,12 @@ class ArusKasService
     {
         if ($record->id_permintaan_pembelian !== null && $record->id_termin_pembelian === null) {
             $statusPr = $this->repo->statusPermintaanPembelian((string) $record->id_permintaan_pembelian);
-            if (!in_array($statusPr, ['diterima', 'selesai'], true)) {
+            $diMuka = $this->repo->permintaanPembelianDibayarDiMuka((string) $record->id_permintaan_pembelian);
+            if (!in_array($statusPr, $diMuka ? self::STATUS_PR_BOLEH_BAYAR_DI_MUKA : ['diterima', 'selesai'], true)) {
+                return;
+            }
+            if ($diMuka && !in_array($statusPr, ['diterima', 'selesai'], true)) {
+                $this->beritahuKeuangan($record, 'transfer', 'Bayar di muka — barang belum diterima. ');
                 return;
             }
         }
@@ -1036,7 +1042,10 @@ class ArusKasService
         $record = $this->findPengajuanOrFail($id, $idPerusahaan);
         $this->pastikanStatus($record, [self::STATUS_SIAP_TRANSFER], 'Pengajuan hanya bisa ditransfer setelah diverifikasi');
 
-        return DB::transaction(function () use ($id, $idPerusahaan, $tanggalTransfer, $bukti) {
+        return DB::transaction(function () use ($id, $idPerusahaan, $tanggalTransfer, $bukti, $record) {
+            if ($record->id_permintaan_pembelian !== null) {
+                $this->repo->kunciPermintaanPembelian((string) $record->id_permintaan_pembelian);
+            }
             $terkunci = $this->repo->findPengajuanForUpdate($id);
             if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
                 abort(404, 'Pengajuan pengeluaran tidak ditemukan');
@@ -1057,11 +1066,19 @@ class ArusKasService
                     abort(409, 'Pembelian sparepart belum disetujui (status saat ini: ' . ($statusPembelian ?? 'tidak ditemukan') . '), transfer tidak bisa dilakukan');
                 }
             }
+            $statusPr = null;
+            $prDiMuka = false;
             if ($terkunci->id_permintaan_pembelian !== null) {
                 $statusPr = $this->repo->statusPermintaanPembelian($terkunci->id_permintaan_pembelian);
+                $prDiMuka = $terkunci->id_termin_pembelian === null
+                    && $this->repo->permintaanPembelianDibayarDiMuka((string) $terkunci->id_permintaan_pembelian);
                 if ($terkunci->id_termin_pembelian !== null) {
                     if (!in_array($statusPr, ['dibeli', 'diterima', 'selesai'], true)) {
                         abort(409, 'PR belum ditandai dibeli, transfer termin tidak bisa dilakukan');
+                    }
+                } elseif ($prDiMuka) {
+                    if (!in_array($statusPr, self::STATUS_PR_BOLEH_BAYAR_DI_MUKA, true)) {
+                        abort(409, 'PO belum terbit (status PR saat ini: ' . ($statusPr ?? 'tidak ditemukan') . '), pembayaran di muka belum bisa ditransfer');
                     }
                 } elseif ($statusPr === 'diterima_sebagian') {
                     abort(409, 'Barang/jasa pada PR baru diterima sebagian — transfer menunggu penerimaan lengkap atau sisanya ditutup');
@@ -1091,6 +1108,8 @@ class ArusKasService
                 if ($terkunci->id_termin_pembelian !== null) {
                     $this->repo->tandaiTerminDitransfer((string) $terkunci->id_termin_pembelian, $tanggalTransfer);
                     $this->repo->sinkronPermintaanPembelianSelesaiJikaLunas((string) $terkunci->id_permintaan_pembelian, $tanggalTransfer);
+                } elseif ($prDiMuka) {
+                    $this->repo->catatPembayaranPermintaanPembelian((string) $terkunci->id_permintaan_pembelian, $tanggalTransfer);
                 } else {
                     $this->repo->sinkronPermintaanPembelianSelesai($terkunci->id_permintaan_pembelian, $tanggalTransfer);
                 }
@@ -1532,7 +1551,7 @@ class ArusKasService
         $this->repo->deletePengajuan($record);
     }
 
-    public function buatPengajuanPermintaanPembelianOtomatis(string $idPermintaan, string $idPerusahaan, string $nomorPermintaan, float $totalAktual, string $namaSupplier, ?string $idPembelian = null, ?string $catatanDibuatUlang = null): void
+    public function buatPengajuanPermintaanPembelianOtomatis(string $idPermintaan, string $idPerusahaan, string $nomorPermintaan, float $totalAktual, string $namaSupplier, ?string $idPembelian = null, ?string $catatanDibuatUlang = null, ?string $keterangan = null): void
     {
         if ($totalAktual <= 0) {
             return;
@@ -1540,7 +1559,7 @@ class ArusKasService
         if ($this->repo->findPengajuanByPermintaanPembelian($idPermintaan) !== null) {
             return;
         }
-        DB::transaction(function () use ($idPermintaan, $idPerusahaan, $nomorPermintaan, $totalAktual, $namaSupplier, $idPembelian, $catatanDibuatUlang) {
+        DB::transaction(function () use ($idPermintaan, $idPerusahaan, $nomorPermintaan, $totalAktual, $namaSupplier, $idPembelian, $catatanDibuatUlang, $keterangan) {
             $record = $this->repo->createPengajuan([
                 'id_perusahaan'           => $idPerusahaan,
                 'id_permintaan_pembelian' => $idPermintaan,
@@ -1550,7 +1569,7 @@ class ArusKasService
                 'nominal'                 => $totalAktual,
                 'tanggal_pengajuan'       => now()->toDateString(),
                 'penerima'                => $namaSupplier !== '' ? $namaSupplier : '-',
-                'keterangan'              => $namaSupplier !== '' ? "{$nomorPermintaan} - {$namaSupplier}" : $nomorPermintaan,
+                'keterangan'              => $keterangan ?? ($namaSupplier !== '' ? "{$nomorPermintaan} - {$namaSupplier}" : $nomorPermintaan),
                 'status'                  => self::STATUS_DIAJUKAN,
             ]);
             if ($catatanDibuatUlang !== null) {
@@ -1600,8 +1619,47 @@ class ArusKasService
             if ($record->status === self::STATUS_DITRANSFER) {
                 continue;
             }
+            $this->approvalService->batalkanUntukReferensi(
+                [...self::KODE_EVENT_PENGELUARAN, self::KODE_PERSETUJUAN_TRANSFER],
+                (string) $record->id_pengajuan,
+                (string) $record->id_perusahaan,
+            );
             $this->repo->deletePengajuan($record);
         }
+    }
+
+    public function sinkronPengajuanBayarDiMuka(string $idPermintaan, string $idPerusahaan, string $nomorPermintaan, float $total, string $namaSupplier, string $idPengguna): void
+    {
+        $keterangan = "{$nomorPermintaan} - {$namaSupplier} (bayar di muka)";
+        $record = $this->repo->findPengajuanByPermintaanPembelian($idPermintaan);
+        if ($record === null) {
+            $this->buatPengajuanPermintaanPembelianOtomatis($idPermintaan, $idPerusahaan, $nomorPermintaan, $total, $namaSupplier, keterangan: $keterangan);
+            return;
+        }
+        if ($record->status === self::STATUS_DITRANSFER) {
+            return;
+        }
+
+        $penerima = $namaSupplier !== '' ? $namaSupplier : '-';
+        if ($record->status === self::STATUS_DITOLAK) {
+            $this->repo->updatePengajuan($record, ['penerima' => $penerima, 'keterangan' => $keterangan]);
+            $this->ajukanUlangPengajuanPermintaanPembelian(
+                (string) $record->id_pengajuan,
+                $idPermintaan,
+                $idPerusahaan,
+                $idPengguna,
+                'PO direvisi, pembayaran di muka diajukan ulang',
+                $total,
+            );
+            return;
+        }
+
+        $berubah = (string) $record->penerima !== $penerima || round((float) $record->nominal, 2) !== round($total, 2);
+        if (!$berubah) {
+            return;
+        }
+        $this->hapusPengajuanPermintaanPembelian($idPermintaan);
+        $this->buatPengajuanPermintaanPembelianOtomatis($idPermintaan, $idPerusahaan, $nomorPermintaan, $total, $namaSupplier, keterangan: $keterangan);
     }
 
     public function buatPengajuanPayrollOtomatis(object $periode): void

@@ -25,9 +25,11 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
                 $j->on('pa.id_perawatan', '=', 'p.id_perawatan')->whereNull('pa.dihapus_pada');
             })
             ->leftJoin('armada as ar', 'ar.id_armada', '=', 'pa.id_armada')
+            ->leftJoin('judul_permintaan as jp', 'jp.id_judul_permintaan', '=', 'p.id_judul_permintaan')
             ->whereNull('p.dihapus_pada')
             ->select([
                 'p.*', 's.nama as nama_supplier', 'd.nama_departemen', 'u.username as username_pengaju',
+                'jp.nama_judul as nama_kategori',
                 'ar.nopol as nopol_perawatan', 'pa.tanggal as tanggal_perawatan',
                 DB::raw("EXISTS (SELECT 1 FROM pengajuan_pengeluaran pp WHERE pp.id_permintaan_pembelian = p.id_permintaan AND pp.dihapus_pada IS NULL AND pp.status = 'ditolak') as pembayaran_ditolak"),
             ]);
@@ -40,6 +42,17 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
             ->where('p.id_perusahaan', $idPerusahaan)
             ->when($idPenglihat !== null, fn ($q) => $q->where(fn ($w) => $this->terlihatOleh($w, (string) $idPenglihat)))
             ->whereExists(fn ($w) => $this->pengajuanDitolak($w))
+            ->count();
+    }
+
+    public function jumlahDibayarMenungguBarang(string $idPerusahaan, ?string $idPenglihat = null): int
+    {
+        return DB::table('permintaan_pembelian as p')
+            ->whereNull('p.dihapus_pada')
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->when($idPenglihat !== null, fn ($q) => $q->where(fn ($w) => $this->terlihatOleh($w, (string) $idPenglihat)))
+            ->whereNotNull('p.tanggal_pembayaran')
+            ->whereIn('p.status', ['dibeli', 'diterima_sebagian'])
             ->count();
     }
 
@@ -85,6 +98,9 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
         if (!empty($filter['pembayaran_ditolak'])) {
             $q->whereExists(fn ($w) => $this->pengajuanDitolak($w));
         }
+        if (!empty($filter['menunggu_barang'])) {
+            $q->whereNotNull('p.tanggal_pembayaran')->whereIn('p.status', ['dibeli', 'diterima_sebagian']);
+        }
         if (($filter['status'] ?? '') !== '') {
             $q->where('p.status', $filter['status']);
         }
@@ -93,6 +109,9 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
         }
         if (($filter['id_departemen'] ?? '') !== '') {
             $q->where('p.id_departemen', $filter['id_departemen']);
+        }
+        if (($filter['prioritas'] ?? '') !== '') {
+            $q->where('p.prioritas', $filter['prioritas']);
         }
         if (($filter['id_pengaju'] ?? '') !== '') {
             $q->where('p.id_pengaju', $filter['id_pengaju']);
@@ -127,6 +146,7 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
         return $this->base()
             ->where('p.id_perusahaan', $idPerusahaan)
             ->whereIn('p.status', ['disetujui', 'diproses', 'dipesan'])
+            ->orderByRaw("CASE WHEN p.prioritas = 'urgent' THEN 0 ELSE 1 END")
             ->orderBy('p.tanggal_permintaan')
             ->orderBy('p.dibuat_pada')
             ->limit($limit)
@@ -389,11 +409,11 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
             ->where('id_perusahaan', $idPerusahaan)->where('id_departemen', $idDepartemen)->exists();
     }
 
-    public function judulPermintaanAktif(string $idPerusahaan, string $idJudulPermintaan): ?object
+    public function judulPermintaanAktif(string $idPerusahaan, string $idJudulPermintaan, bool $wajibAktif = true): ?object
     {
         return DB::table('judul_permintaan')->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)->where('id_judul_permintaan', $idJudulPermintaan)
-            ->where('aktif', 1)->first();
+            ->when($wajibAktif, fn ($q) => $q->where('aktif', 1))->first();
     }
 
     public function perawatanMilik(string $idPerusahaan, string $idPerawatan): bool

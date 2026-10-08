@@ -22,6 +22,7 @@ class PengadaanService
             'id_permintaan'      => $r->id_permintaan,
             'nomor_permintaan'   => $r->nomor_permintaan,
             'judul'              => $r->judul,
+            'prioritas'          => $r->prioritas ?? 'normal',
             'status'             => $r->status,
             'tipe'               => $r->tipe,
             'tanggal_permintaan' => $r->tanggal_permintaan,

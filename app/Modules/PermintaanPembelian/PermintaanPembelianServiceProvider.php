@@ -38,6 +38,7 @@ class PermintaanPembelianServiceProvider extends ServiceProvider
                 Route::patch('permintaan-pembelian/{id}/proses', [PermintaanPembelianController::class, 'proses']);
                 Route::patch('permintaan-pembelian/{id}/pesan', [PermintaanPembelianController::class, 'pesan']);
                 Route::patch('permintaan-pembelian/{id}/dibeli', [PermintaanPembelianController::class, 'dibeli']);
+                Route::patch('permintaan-pembelian/{id}/beli-tunai', [PermintaanPembelianController::class, 'beliTunai']);
                 Route::patch('permintaan-pembelian/{id}/terima', [PermintaanPembelianController::class, 'terima']);
                 Route::patch('permintaan-pembelian/{id}/tutup-sisa', [PermintaanPembelianController::class, 'tutupSisa']);
                 Route::patch('permintaan-pembelian/{id}/ajukan-ulang-pembayaran', [PermintaanPembelianController::class, 'ajukanUlangPembayaran']);

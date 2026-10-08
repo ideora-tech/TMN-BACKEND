@@ -36,7 +36,7 @@ class JudulPermintaanService
     {
         $record = $this->repo->findById($id);
         if ($record === null || ($idPerusahaan !== null && $record->id_perusahaan !== $idPerusahaan)) {
-            abort(404, 'Judul permintaan tidak ditemukan');
+            abort(404, 'Kategori permintaan tidak ditemukan');
         }
         return $record;
     }
@@ -46,7 +46,7 @@ class JudulPermintaanService
         $data['nama_judul'] = trim((string) $data['nama_judul']);
 
         if ($this->repo->findByNama($data['id_perusahaan'], $data['nama_judul'])) {
-            abort(409, 'Judul permintaan sudah ada');
+            abort(409, 'Kategori permintaan sudah ada');
         }
 
         $this->terapkanTipe($data, (string) $data['id_perusahaan'], null);
@@ -61,7 +61,7 @@ class JudulPermintaanService
         if (isset($data['nama_judul'])) {
             $data['nama_judul'] = trim((string) $data['nama_judul']);
             if ($this->repo->findByNama($idPerusahaan, $data['nama_judul'], $id)) {
-                abort(409, 'Judul permintaan sudah ada');
+                abort(409, 'Kategori permintaan sudah ada');
             }
         }
 
@@ -96,7 +96,7 @@ class JudulPermintaanService
         $record = $this->findOrFail($id, $idPerusahaan);
 
         if ($this->repo->dipakaiPermintaanPembelian($id)) {
-            abort(422, 'Judul permintaan masih dipakai di permintaan pembelian — nonaktifkan saja');
+            abort(422, 'Kategori permintaan masih dipakai di permintaan pembelian — nonaktifkan saja');
         }
 
         $this->repo->delete($record);
