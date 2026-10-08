@@ -246,4 +246,117 @@ class FakturRepository implements FakturRepositoryInterface
             ], 'id_faktur_pajak'));
         }
     }
+
+    public function listPembayaran(string $idFaktur): array
+    {
+        return DB::table('pembayaran_faktur as pf')
+            ->leftJoin('pengguna as u', 'u.id_pengguna', '=', 'pf.dibuat_oleh')
+            ->whereNull('pf.dihapus_pada')
+            ->where('pf.id_faktur', $idFaktur)
+            ->orderBy('pf.tanggal_bayar')
+            ->orderBy('pf.dibuat_pada')
+            ->get([
+                'pf.id_pembayaran_faktur', 'pf.tanggal_bayar', 'pf.nominal', 'pf.potongan', 'pf.keterangan_potongan',
+                'pf.no_referensi', 'pf.url_bukti', 'pf.catatan', 'pf.dibuat_pada', 'u.username as dicatat_oleh',
+            ])
+            ->all();
+    }
+
+    public function insertPembayaran(array $data): string
+    {
+        $data = RecordHelper::stampCreate($data, 'id_pembayaran_faktur');
+        DB::table('pembayaran_faktur')->insert($data);
+        return (string) $data['id_pembayaran_faktur'];
+    }
+
+    public function findPembayaran(string $idFaktur, string $idPembayaran): ?object
+    {
+        return DB::table('pembayaran_faktur')
+            ->whereNull('dihapus_pada')
+            ->where('id_faktur', $idFaktur)
+            ->where('id_pembayaran_faktur', $idPembayaran)
+            ->first();
+    }
+
+    public function softDeletePembayaran(string $idPembayaran): void
+    {
+        DB::table('pembayaran_faktur')->where('id_pembayaran_faktur', $idPembayaran)->update(RecordHelper::stampDelete());
+    }
+
+    public function totalPembayaran(string $idFaktur): float
+    {
+        return round((float) DB::table('pembayaran_faktur')
+            ->whereNull('dihapus_pada')
+            ->where('id_faktur', $idFaktur)
+            ->sum(DB::raw('nominal + potongan')), 2);
+    }
+
+    public function tanggalBayarTerakhir(string $idFaktur): ?string
+    {
+        $tanggal = DB::table('pembayaran_faktur')
+            ->whereNull('dihapus_pada')
+            ->where('id_faktur', $idFaktur)
+            ->max('tanggal_bayar');
+        return $tanggal !== null ? substr((string) $tanggal, 0, 10) : null;
+    }
+
+    public function pembayaranUntukBanyak(array $idFakturList): array
+    {
+        if ($idFakturList === []) {
+            return [];
+        }
+
+        return DB::table('pembayaran_faktur')
+            ->whereNull('dihapus_pada')
+            ->whereIn('id_faktur', $idFakturList)
+            ->groupBy('id_faktur')
+            ->selectRaw('id_faktur, SUM(nominal) as diterima, SUM(potongan) as potongan')
+            ->get()
+            ->mapWithKeys(fn ($r) => [(string) $r->id_faktur => ['diterima' => (float) $r->diterima, 'potongan' => (float) $r->potongan]])
+            ->all();
+    }
+
+    public function outstanding(string $idPerusahaan): array
+    {
+        $bayar = DB::table('pembayaran_faktur as pf')
+            ->join('faktur as f', 'f.id_faktur', '=', 'pf.id_faktur')
+            ->whereNull('pf.dihapus_pada')
+            ->whereNull('f.dihapus_pada')
+            ->where('f.id_perusahaan', $idPerusahaan)
+            ->where('f.status', 'terkirim')
+            ->groupBy('pf.id_faktur')
+            ->selectRaw('pf.id_faktur, SUM(pf.nominal + pf.potongan) as terbayar');
+
+        return DB::table('faktur')
+            ->leftJoin('klien', function ($join) use ($idPerusahaan) {
+                $join->on('klien.id_klien', '=', 'faktur.id_klien')
+                    ->where('klien.id_perusahaan', $idPerusahaan)
+                    ->whereNull('klien.dihapus_pada');
+            })
+            ->leftJoin('proyek', function ($join) use ($idPerusahaan) {
+                $join->on('proyek.id_proyek', '=', 'faktur.id_proyek')
+                    ->where('proyek.id_perusahaan', $idPerusahaan)
+                    ->whereNull('proyek.dihapus_pada');
+            })
+            ->leftJoinSub($bayar, 'bayar', 'bayar.id_faktur', '=', 'faktur.id_faktur')
+            ->whereNull('faktur.dihapus_pada')
+            ->where('faktur.id_perusahaan', $idPerusahaan)
+            ->where('faktur.status', 'terkirim')
+            ->get([
+                'faktur.id_faktur', 'faktur.nomor_faktur', 'faktur.id_klien', 'klien.nama_klien', 'faktur.id_proyek', 'proyek.nama_proyek',
+                'faktur.tanggal_faktur', 'faktur.jatuh_tempo', 'faktur.total', DB::raw('COALESCE(bayar.terbayar, 0) as terbayar'),
+            ])
+            ->all();
+    }
+
+    public function diterimaAntara(string $idPerusahaan, string $dari, string $sampai): float
+    {
+        return round((float) DB::table('pembayaran_faktur as pf')
+            ->join('faktur', 'faktur.id_faktur', '=', 'pf.id_faktur')
+            ->whereNull('pf.dihapus_pada')
+            ->whereNull('faktur.dihapus_pada')
+            ->where('faktur.id_perusahaan', $idPerusahaan)
+            ->whereBetween('pf.tanggal_bayar', [$dari, $sampai])
+            ->sum('pf.nominal'), 2);
+    }
 }

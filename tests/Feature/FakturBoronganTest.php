@@ -357,4 +357,40 @@ class FakturBoronganTest extends TestCase
                 ->assertJsonPath('data.realisasi.sisa_belum_difakturkan', 30000000);
         }
     }
+
+    private function setIzinKeuangan(string $path, int $diizinkan): void
+    {
+        $idMenu = DB::table('menu')->where('path', $path)->value('id_menu');
+        if ($idMenu === null) {
+            $idMenu = (string) Str::uuid();
+            DB::table('menu')->insert([
+                'id_menu' => $idMenu, 'nama_menu' => trim($path, '/'), 'path' => $path,
+                'aktif' => 1, 'dibuat_pada' => now(),
+            ]);
+        }
+
+        DB::table('izin_peran')->where('id_menu', $idMenu)->where('kode_peran', 'KEUANGAN')->where('aksi', 'tambah')->delete();
+        DB::table('izin_peran')->insert([
+            'id_izin' => (string) Str::uuid(), 'id_perusahaan' => null, 'kode_peran' => 'KEUANGAN',
+            'id_menu' => $idMenu, 'aksi' => 'tambah', 'diizinkan' => $diizinkan, 'dibuat_pada' => now(),
+        ]);
+    }
+
+    public function test_faktur_termin_dijaga_izin_tambah_invoice_bukan_izin_proyek(): void
+    {
+        $this->ensurePerusahaan();
+        $klien  = $this->makeKlien();
+        $proyek = $this->makeProyekBorongan($klien->id_klien, 50000000);
+        $isi    = ['nominal' => 10000000, 'uraian' => 'Termin 1', 'tanggal_faktur' => now()->toDateString()];
+
+        $this->setIzinKeuangan('/project', 1);
+        $this->setIzinKeuangan('/faktur', 0);
+        $this->actingAsRole('KEUANGAN');
+        $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", $isi)->assertStatus(403);
+        $this->assertSame(0, DB::table('faktur')->where('id_proyek', $proyek->id_proyek)->count());
+
+        $this->setIzinKeuangan('/project', 0);
+        $this->setIzinKeuangan('/faktur', 1);
+        $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", $isi)->assertStatus(201);
+    }
 }

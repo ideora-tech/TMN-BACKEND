@@ -21,6 +21,9 @@ class RealisasiSparepartPermintaanPembelianRequest extends FormRequest
             'items'                => ['required', 'array', 'min:1'],
             'items.*.id_item'      => ['required', 'string', 'max:36', 'distinct'],
             'items.*.harga_aktual' => ['required', 'numeric', 'min:0'],
+            'diskon'               => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999999.99'],
+            'ppn_persen'           => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:100'],
+            'ongkir'               => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999999.99'],
         ];
     }
 }

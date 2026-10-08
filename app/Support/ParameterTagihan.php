@@ -30,6 +30,13 @@ final class ParameterTagihan
         return ParameterPenawaran::DAFTAR[self::DAFTAR[$kode]['sumber']]['label'];
     }
 
+    public static function deskripsiInvoice(string $kode): string
+    {
+        $sumber = ParameterPenawaran::DAFTAR[self::DAFTAR[$kode]['sumber']];
+
+        return "{$sumber['label']} ({$sumber['satuan']})";
+    }
+
     public static function cancellation(?object $baris): bool
     {
         return (int) ($baris?->cancellation ?? 0) === 1 && (float) ($baris?->tarif_cancellation ?? 0) > 0;

@@ -229,16 +229,13 @@ class ProyekService
                 'id_penawaran_induk' => $induk->id_penawaran,
             ]);
 
-            $sumberUnitAcuan = [];
+            $jumlahUnitAcuan = [];
             foreach ($this->penawaranItemRepo->listByPenawaran((string) $acuanParameter->id_penawaran) as $lama) {
-                $sumberUnitAcuan[$lama->id_rute . '|' . $lama->id_jenis_kendaraan] = [
-                    'unit_aset'   => $lama->unit_aset,
-                    'unit_vendor' => $lama->unit_vendor,
-                ];
+                $jumlahUnitAcuan[$lama->id_rute . '|' . $lama->id_jenis_kendaraan] = ['jumlah_unit' => $lama->jumlah_unit];
             }
 
             foreach ($items as $item) {
-                $acuanUnit = $sumberUnitAcuan[($item['id_rute'] ?? '') . '|' . ($item['id_jenis_kendaraan'] ?? '')] ?? [];
+                $acuanUnit = $jumlahUnitAcuan[($item['id_rute'] ?? '') . '|' . ($item['id_jenis_kendaraan'] ?? '')] ?? [];
                 $this->simpanItemRevisi($penawaran, $item + $acuanUnit);
             }
 
@@ -289,8 +286,7 @@ class ProyekService
             'estimasi_ritase'    => $ritase,
             'subtotal'           => $hargaSatuan !== null ? (float) $hargaSatuan * $ritase : 0,
             'keterangan'         => $item['keterangan'] ?? null,
-            'unit_aset'          => $item['unit_aset'] ?? null,
-            'unit_vendor'        => $item['unit_vendor'] ?? null,
+            'jumlah_unit'        => $item['jumlah_unit'] ?? null,
         ]);
     }
 

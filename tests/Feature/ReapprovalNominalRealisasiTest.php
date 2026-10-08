@@ -11,11 +11,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class ReapprovalNominalRealisasiTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -126,7 +128,7 @@ class ReapprovalNominalRealisasiTest extends TestCase
 
     private function buatPembelian(): array
     {
-        $create = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian());
+        $create = $this->buatPembelianLangsung($this->payloadPembelian());
         $create->assertStatus(201);
         $idPembelian = $create->json('data.id_pembelian');
         $items = $create->json('data.items');

@@ -36,8 +36,11 @@ class PermintaanPembelianServiceProvider extends ServiceProvider
                 Route::get('permintaan-pembelian/{id}/po/pdf', [PermintaanPembelianController::class, 'cetakPo']);
                 Route::patch('permintaan-pembelian/{id}/realisasi-sparepart', [PermintaanPembelianController::class, 'realisasiSparepart']);
                 Route::patch('permintaan-pembelian/{id}/proses', [PermintaanPembelianController::class, 'proses']);
+                Route::patch('permintaan-pembelian/{id}/pesan', [PermintaanPembelianController::class, 'pesan']);
                 Route::patch('permintaan-pembelian/{id}/dibeli', [PermintaanPembelianController::class, 'dibeli']);
                 Route::patch('permintaan-pembelian/{id}/terima', [PermintaanPembelianController::class, 'terima']);
+                Route::patch('permintaan-pembelian/{id}/tutup-sisa', [PermintaanPembelianController::class, 'tutupSisa']);
+                Route::patch('permintaan-pembelian/{id}/ajukan-ulang-pembayaran', [PermintaanPembelianController::class, 'ajukanUlangPembayaran']);
                 Route::patch('permintaan-pembelian/{id}/batal', [PermintaanPembelianController::class, 'batal']);
                 Route::post('permintaan-pembelian/{id}/bukti', [PermintaanPembelianController::class, 'tambahBukti']);
                 Route::delete('permintaan-pembelian/{id}/bukti/{idBukti}', [PermintaanPembelianController::class, 'hapusBukti']);

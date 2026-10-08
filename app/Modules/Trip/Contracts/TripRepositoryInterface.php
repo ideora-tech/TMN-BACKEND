@@ -41,6 +41,9 @@ interface TripRepositoryInterface
 
     public function salinTitikDropDariPenugasan(string $idPenugasan, string $idTrip): void;
     public function syncTitikDropTrip(string $idTrip, array $lokasiList): void;
+    public function idTripAktifUntukPenugasan(string $idPenugasan): array;
+    public function lokasiBersuratJalanYangAkanHilang(string $idTrip, array $lokasiBaru): array;
+    public function sinkronTitikDropDariPenugasan(string $idPenugasan, string $idTrip): void;
     public function titikDropTrip(string $idTrip): array;
     public function titikDropTripDetail(string $idTrip): array;
     public function titikDropTripBanyak(array $idTrips): array;

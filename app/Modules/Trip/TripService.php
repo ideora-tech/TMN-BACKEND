@@ -420,7 +420,17 @@ class TripService
 
         $trip = $this->repo->create($data);
         $this->repo->salinTitikDropDariPenugasan((string) $penugasan->id_penugasan, (string) $trip->id_trip);
+        $this->isiAddDropOtomatis((string) $trip->id_trip);
         return $trip;
+    }
+
+    private function isiAddDropOtomatis(string $idTrip): void
+    {
+        try {
+            app(\App\Modules\ParameterTagihanTrip\ParameterTagihanTripService::class)->sinkronAddDropOtomatis($idTrip);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Isi Add Drop otomatis gagal: ' . $e->getMessage());
+        }
     }
 
     public function mulaiDariPenugasan(array $data, string $idPerusahaan): TripModel
@@ -480,6 +490,7 @@ class TripService
             ]);
 
             $this->repo->salinTitikDropDariPenugasan((string) $penugasan->id_penugasan, (string) $trip->id_trip);
+            $this->isiAddDropOtomatis((string) $trip->id_trip);
 
             return $this->checkin($trip->id_trip, $idPerusahaan);
         });

@@ -23,6 +23,10 @@ class UangJalanServiceProvider extends ServiceProvider
             ->group(function () {
                 Route::get('uang-jalan/opsi', [UangJalanController::class, 'opsi']);
                 Route::get('uang-jalan/opsi/vendor/{idVendor}', [UangJalanController::class, 'opsiVendor']);
+                Route::get('uang-jalan/tarif-rate-card', [UangJalanController::class, 'tarifRateCard']);
+                Route::get('uang-jalan/opsi/proyek', [UangJalanController::class, 'opsiProyek']);
+                Route::get('uang-jalan/opsi/proyek/{idProyek}/rute', [UangJalanController::class, 'opsiRuteProyek']);
+                Route::get('uang-jalan/opsi/proyek/{idProyek}/penugasan', [UangJalanController::class, 'opsiPenugasan']);
                 Route::get('uang-jalan/{id}/riwayat', [UangJalanController::class, 'riwayat']);
                 Route::apiResource('uang-jalan', UangJalanController::class)
                     ->parameters(['uang-jalan' => 'id']);

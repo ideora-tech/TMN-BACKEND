@@ -8,11 +8,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class PembelianBuktiRealisasiTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -59,7 +61,7 @@ class PembelianBuktiRealisasiTest extends TestCase
     private function pengajuanDisetujuiFinance(): array
     {
         $this->actingAsRole('SUPERADMIN');
-        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan());
+        $res = $this->buatPembelianLangsung($this->payloadPengajuan());
         $id = $res->json('data.id_pembelian');
         DB::table('pembelian_sparepart')->where('id_pembelian', $id)->update(['status' => 'disetujui_finance']);
         return [$id, $res->json('data.items')];
@@ -103,7 +105,7 @@ class PembelianBuktiRealisasiTest extends TestCase
     {
         Storage::fake('public');
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan())->json('data.id_pembelian');
+        $id = $this->buatPembelianLangsung($this->payloadPengajuan())->json('data.id_pembelian');
 
         $this->postJson("/api/pembelian-sparepart/{$id}/bukti", [
             'bukti' => [UploadedFile::fake()->image('penawaran.jpg'), UploadedFile::fake()->create('penawaran.pdf', 100, 'application/pdf')],
@@ -119,7 +121,7 @@ class PembelianBuktiRealisasiTest extends TestCase
     public function test_hapus_bukti_terakhir_saat_diajukan_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $id = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan())->json('data.id_pembelian');
+        $id = $this->buatPembelianLangsung($this->payloadPengajuan())->json('data.id_pembelian');
         DB::table('pembelian_sparepart')->where('id_pembelian', $id)->update(['status' => 'diajukan']);
         $idBuktiAwal = $this->getJson("/api/pembelian-sparepart/{$id}")->json('data.bukti.0.id_bukti');
 
@@ -196,7 +198,7 @@ class PembelianBuktiRealisasiTest extends TestCase
     {
         Storage::fake('public');
         $this->actingAsRole('SUPERADMIN');
-        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan());
+        $res = $this->buatPembelianLangsung($this->payloadPengajuan());
         $id = $res->json('data.id_pembelian');
         $items = $res->json('data.items');
         DB::table('pembelian_sparepart')->where('id_pembelian', $id)->update(['status' => 'diajukan']);

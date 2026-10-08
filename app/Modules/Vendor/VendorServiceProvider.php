@@ -24,7 +24,16 @@ class VendorServiceProvider extends ServiceProvider
                 Route::get('vendor/import/template', [VendorController::class, 'downloadTemplate']);
                 Route::post('vendor/import', [VendorController::class, 'import']);
                 Route::apiResource('vendor', VendorController::class)
-                    ->parameters(['vendor' => 'id']);
+                    ->parameters(['vendor' => 'id'])
+                    ->except(['index', 'show']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:vendor|invoice-vendor'])
+            ->group(function () {
+                Route::apiResource('vendor', VendorController::class)
+                    ->parameters(['vendor' => 'id'])
+                    ->only(['index', 'show']);
             });
     }
 }

@@ -26,6 +26,15 @@ class FakturServiceProvider extends ServiceProvider
         Event::listen(ApprovalDiputuskan::class, [FakturApprovalListener::class, 'handle']);
 
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:piutang'])
+            ->group(function () {
+                Route::get('faktur/outstanding', [FakturController::class, 'outstanding']);
+                Route::get('faktur/outstanding/export/excel', [FakturController::class, 'exportOutstandingExcel']);
+                Route::post('faktur/{id}/pembayaran', [FakturController::class, 'storePembayaran']);
+                Route::delete('faktur/{id}/pembayaran/{idPembayaran}', [FakturController::class, 'destroyPembayaran']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:faktur'])
             ->group(function () {
                 Route::get('faktur/{id}/export/pdf', [FakturController::class, 'exportPdf']);

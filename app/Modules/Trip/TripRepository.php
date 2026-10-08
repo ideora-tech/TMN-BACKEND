@@ -667,6 +667,94 @@ class TripRepository implements TripRepositoryInterface
         }
     }
 
+    public function idTripAktifUntukPenugasan(string $idPenugasan): array
+    {
+        return DB::table('trip as t')
+            ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+            ->where('jk.id_penugasan', $idPenugasan)
+            ->whereIn('t.status', ['belum_mulai', 'berjalan'])
+            ->whereNull('t.dihapus_pada')
+            ->whereNull('jk.dihapus_pada')
+            ->pluck('t.id_trip')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
+    public function lokasiBersuratJalanYangAkanHilang(string $idTrip, array $lokasiBaru): array
+    {
+        $sisaLama = DB::table('titik_drop_trip')
+            ->where('id_trip', $idTrip)->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['id_titik_drop', 'lokasi'])
+            ->all();
+
+        foreach ($lokasiBaru as $lokasi) {
+            $kunci = mb_strtolower(trim((string) $lokasi));
+            foreach ($sisaLama as $k => $lama) {
+                if (mb_strtolower(trim((string) $lama->lokasi)) === $kunci) {
+                    unset($sisaLama[$k]);
+                    break;
+                }
+            }
+        }
+        if ($sisaLama === []) {
+            return [];
+        }
+
+        return DB::table('titik_drop_trip as td')
+            ->join('surat_jalan_trip as sj', 'sj.id_titik_drop', '=', 'td.id_titik_drop')
+            ->join('laporan_perjalanan as lp', 'lp.id_laporan', '=', 'sj.id_laporan')
+            ->whereIn('td.id_titik_drop', array_map(fn ($l) => $l->id_titik_drop, $sisaLama))
+            ->whereNull('sj.dihapus_pada')
+            ->whereNull('lp.dihapus_pada')
+            ->distinct()
+            ->pluck('td.lokasi')
+            ->map(fn ($l) => (string) $l)
+            ->all();
+    }
+
+    public function sinkronTitikDropDariPenugasan(string $idPenugasan, string $idTrip): void
+    {
+        $baru = DB::table('titik_drop_penugasan')
+            ->where('id_penugasan', $idPenugasan)
+            ->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['urutan', 'lokasi', 'uang_jalan_tambahan']);
+
+        $sisaLama = DB::table('titik_drop_trip')
+            ->where('id_trip', $idTrip)->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->get(['id_titik_drop', 'lokasi'])
+            ->all();
+
+        foreach ($baru as $row) {
+            $data = [
+                'urutan'              => (int) $row->urutan,
+                'lokasi'              => $row->lokasi,
+                'uang_jalan_tambahan' => (float) $row->uang_jalan_tambahan,
+            ];
+            $cocok = null;
+            foreach ($sisaLama as $k => $lama) {
+                if (mb_strtolower(trim((string) $lama->lokasi)) === mb_strtolower(trim((string) $row->lokasi))) {
+                    $cocok = $lama->id_titik_drop;
+                    unset($sisaLama[$k]);
+                    break;
+                }
+            }
+            if ($cocok !== null) {
+                DB::table('titik_drop_trip')->where('id_titik_drop', $cocok)->update(RecordHelper::stampUpdate($data));
+                continue;
+            }
+            DB::table('titik_drop_trip')->insert(RecordHelper::stampCreate(array_merge($data, ['id_trip' => $idTrip]), 'id_titik_drop'));
+        }
+
+        if ($sisaLama !== []) {
+            DB::table('titik_drop_trip')
+                ->whereIn('id_titik_drop', array_map(fn ($l) => $l->id_titik_drop, $sisaLama))
+                ->update(RecordHelper::stampDelete());
+        }
+    }
+
     public function syncTitikDropTrip(string $idTrip, array $lokasiList): void
     {
         $sisaLama = DB::table('titik_drop_trip')

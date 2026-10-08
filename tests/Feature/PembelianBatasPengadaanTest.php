@@ -9,11 +9,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class PembelianBatasPengadaanTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -51,7 +53,7 @@ class PembelianBatasPengadaanTest extends TestCase
         if ($hargaEstimasi > $batas) {
             return $this->buatDisetujuiFinanceLewatDb($hargaEstimasi);
         }
-        $res = $this->postJson('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'id_supplier'       => $this->makeSupplier(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [

@@ -18,17 +18,45 @@ class KonsolidasiKlienService
 
     public function siapTagih(string $idPerusahaan): array
     {
-        return array_map(fn ($r) => [
-            'id_klien'         => $r->id_klien,
-            'nama_klien'       => $r->nama_klien,
-            'id_proyek'        => $r->id_proyek,
-            'kode_proyek'      => $r->kode_proyek,
-            'nama_proyek'      => $r->nama_proyek,
-            'borongan'         => TipeHarga::nilaiTetap($r->tipe_harga ?? null),
-            'jumlah_trip'      => (int) $r->jumlah_trip,
-            'tanggal_pertama'  => $r->tanggal_pertama,
-            'tanggal_terakhir' => $r->tanggal_terakhir,
-        ], $this->repo->siapTagih($idPerusahaan));
+        $rows = $this->repo->siapTagih($idPerusahaan);
+
+        $idNilaiTetap = [];
+        foreach ($rows as $r) {
+            if (TipeHarga::nilaiTetap($r->tipe_harga ?? null)) {
+                $idNilaiTetap[] = (string) $r->id_proyek;
+            }
+        }
+        $fakturMap = $this->repo->totalFakturPerProyek($idNilaiTetap);
+
+        $hasil = [];
+        foreach ($rows as $r) {
+            $borongan     = TipeHarga::nilaiTetap($r->tipe_harga ?? null);
+            $nilaiKontrak = $borongan && $r->harga_penawaran !== null && (float) $r->harga_penawaran > 0
+                ? (float) $r->harga_penawaran
+                : null;
+            $sisaKontrak  = $nilaiKontrak !== null ? $nilaiKontrak - ($fakturMap[$r->id_proyek] ?? 0.0) : null;
+
+            if ($sisaKontrak !== null && $sisaKontrak < 1) {
+                continue;
+            }
+
+            $hasil[] = [
+                'id_klien'         => $r->id_klien,
+                'nama_klien'       => $r->nama_klien,
+                'id_proyek'        => $r->id_proyek,
+                'kode_proyek'      => $r->kode_proyek,
+                'nama_proyek'      => $r->nama_proyek,
+                'tipe_harga'       => $r->tipe_harga ?? 'per_rit',
+                'borongan'         => $borongan,
+                'nilai_kontrak'    => $nilaiKontrak,
+                'sisa_kontrak'     => $sisaKontrak,
+                'jumlah_trip'      => (int) $r->jumlah_trip,
+                'tanggal_pertama'  => $r->tanggal_pertama,
+                'tanggal_terakhir' => $r->tanggal_terakhir,
+            ];
+        }
+
+        return $hasil;
     }
 
     public function rekap(string $idKlien, string $idPerusahaan, ?string $dari, ?string $sampai, ?string $sumber = null, ?string $idProyek = null): array
@@ -50,10 +78,11 @@ class KonsolidasiKlienService
 
         $suratJalanMap = $this->repo->suratJalanPerTrip($idTrips);
 
-        $trips = array_map(
-            fn ($row) => $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap, $suratJalanMap[$row->id_trip] ?? []),
-            $rows
-        );
+        $tarifMap = [];
+        $trips = [];
+        foreach ($rows as $row) {
+            $trips[] = $this->mapBaris($row, $dropMap, $biayaMap, $biayaDetailMap, $jenisMap, $suratJalanMap[$row->id_trip] ?? [], $tarifMap);
+        }
 
         $tertagih = array_filter($trips, fn ($t) => $t['total_tagihan'] !== null);
         $borongan = array_filter($trips, fn ($t) => $t['borongan'] === true);
@@ -70,21 +99,25 @@ class KonsolidasiKlienService
         ];
     }
 
-    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap, array $suratJalan = []): array
+    private function mapBaris(object $row, array $dropMap, array $biayaMap, array $biayaDetailMap, array $jenisMap, array $suratJalan, array &$tarifMap): array
     {
         $idJenisKendaraan = $row->id_jenis_kendaraan ?? $row->id_jenis_kendaraan_vendor ?? null;
         $borongan = TipeHarga::nilaiTetap($row->tipe_harga ?? null);
 
         $tarif = null;
         if (!$borongan && $row->id_rute !== null) {
-            $baris = $this->proyekRuteRepo->findHarga(
-                (string) $row->id_proyek,
-                (string) $row->id_rute,
-                $idJenisKendaraan !== null ? (string) $idJenisKendaraan : null,
-            );
-            if ($baris !== null && $baris->harga_penawaran !== null) {
-                $tarif = ['harga' => (float) $baris->harga_penawaran, 'perkiraan' => (bool) ($baris->tarif_perkiraan ?? false)];
+            $kunci = $row->id_proyek . '|' . $row->id_rute . '|' . ($idJenisKendaraan ?? '');
+            if (!array_key_exists($kunci, $tarifMap)) {
+                $baris = $this->proyekRuteRepo->findHarga(
+                    (string) $row->id_proyek,
+                    (string) $row->id_rute,
+                    $idJenisKendaraan !== null ? (string) $idJenisKendaraan : null,
+                );
+                $tarifMap[$kunci] = $baris !== null && $baris->harga_penawaran !== null
+                    ? ['harga' => (float) $baris->harga_penawaran, 'perkiraan' => (bool) ($baris->tarif_perkiraan ?? false)]
+                    : null;
             }
+            $tarif = $tarifMap[$kunci];
         }
 
         $rincian = $borongan ? null : ParameterTagihan::rincian($tarif['harga'] ?? null, $row);

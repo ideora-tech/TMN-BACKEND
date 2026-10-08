@@ -178,6 +178,35 @@ class BarangService
         $this->repo->setHargaStandar($idBarang, $harga);
     }
 
+    /** @param array<int, array{id_barang: string, lama: float, baru: float}> $baris */
+    public function koreksiHargaPenerimaan(string $idPermintaan, array $baris): void
+    {
+        $rencana = [];
+        foreach ($baris as $b) {
+            $kunci = $b['id_barang'] . '|' . number_format((float) $b['lama'], 2, '.', '');
+            if (isset($rencana[$kunci]) && round((float) $rencana[$kunci]['baru'], 2) !== round((float) $b['baru'], 2)) {
+                abort(422, 'Barang yang sama muncul di dua baris dengan harga lama yang sama — isi harga baru yang sama untuk keduanya');
+            }
+            $rencana[$kunci] = $b;
+        }
+        $rencana = array_filter($rencana, fn ($r) => round((float) $r['lama'], 2) !== round((float) $r['baru'], 2));
+
+        $standar = [];
+        foreach ($rencana as $kunci => $r) {
+            if (!array_key_exists($r['id_barang'], $standar)) {
+                $terkunci = $this->repo->findByIdForUpdate($r['id_barang']);
+                $standar[$r['id_barang']] = $terkunci !== null ? round((float) $terkunci->harga_standar, 2) : null;
+            }
+            $rencana[$kunci]['id_mutasi'] = $this->repo->idMutasiMasukPermintaan($r['id_barang'], $idPermintaan, (float) $r['lama']);
+        }
+        foreach ($rencana as $r) {
+            $this->repo->setHargaMutasi($r['id_mutasi'], (float) $r['baru']);
+            if ($standar[$r['id_barang']] !== null && $standar[$r['id_barang']] === round((float) $r['lama'], 2)) {
+                $this->repo->setHargaStandar($r['id_barang'], (float) $r['baru']);
+            }
+        }
+    }
+
     /** @return array<string, object> */
     public function pastikanMilik(array $ids, string $idPerusahaan): array
     {

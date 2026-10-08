@@ -51,7 +51,7 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
                     ->whereNull('f.dihapus_pada')
                     ->where('f.status', '!=', 'batal');
             })
-            ->groupBy('k.id_klien', 'k.nama_klien', 'pr.id_proyek', 'pr.kode_proyek', 'pr.nama_proyek', 'pr.tipe_harga')
+            ->groupBy('k.id_klien', 'k.nama_klien', 'pr.id_proyek', 'pr.kode_proyek', 'pr.nama_proyek', 'pr.tipe_harga', 'pr.harga_penawaran')
             ->orderByRaw('MIN(DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)))')
             ->select([
                 'k.id_klien',
@@ -60,6 +60,7 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
                 'pr.kode_proyek',
                 'pr.nama_proyek',
                 'pr.tipe_harga',
+                'pr.harga_penawaran',
                 DB::raw('COUNT(DISTINCT t.id_trip) as jumlah_trip'),
                 DB::raw('MIN(DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada))) as tanggal_pertama'),
                 DB::raw('MAX(DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada))) as tanggal_terakhir'),
@@ -67,6 +68,23 @@ class KonsolidasiKlienRepository implements KonsolidasiKlienRepositoryInterface
             ->get();
 
         return $rows->all();
+    }
+
+    public function totalFakturPerProyek(array $idProyek): array
+    {
+        if ($idProyek === []) {
+            return [];
+        }
+
+        return DB::table('faktur')
+            ->whereIn('id_proyek', $idProyek)
+            ->where('status', '!=', 'batal')
+            ->whereNull('dihapus_pada')
+            ->groupBy('id_proyek')
+            ->selectRaw('id_proyek, SUM(total) as total')
+            ->pluck('total', 'id_proyek')
+            ->map(fn ($v) => (float) $v)
+            ->all();
     }
 
     public function tripKlien(string $idPerusahaan, string $idKlien, ?string $dari, ?string $sampai, ?string $sumber = null, ?string $idProyek = null): array

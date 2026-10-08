@@ -134,6 +134,28 @@ class ParameterTagihanTripTest extends TestCase
             ->assertJsonPath('data.total_tagihan', 2500000);
     }
 
+    public function test_detail_menyertakan_jumlah_titik_drop_untuk_petunjuk_add_drop(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+        $trip = $this->buatTrip($this->buatProyek()->id_proyek);
+
+        $this->getJson("/api/trip/{$trip->id_trip}/parameter-tagihan")
+            ->assertOk()->assertJsonPath('data.jumlah_titik_drop', 0);
+
+        $idPenugasan = DB::table('jadwal_keberangkatan')->where('id_jadwal', $trip->id_jadwal)->value('id_penugasan');
+        foreach (['JLB', 'MRY', 'CKR'] as $i => $lokasi) {
+            DB::table('titik_drop_penugasan')->insert([
+                'id_titik_drop' => (string) Str::uuid(), 'id_penugasan' => $idPenugasan,
+                'urutan' => $i + 1, 'lokasi' => $lokasi, 'dibuat_pada' => now(),
+            ]);
+        }
+        DB::table('titik_drop_penugasan')->where('lokasi', 'CKR')->update(['dihapus_pada' => now()]);
+
+        $this->getJson("/api/trip/{$trip->id_trip}/parameter-tagihan")
+            ->assertOk()->assertJsonPath('data.jumlah_titik_drop', 2);
+    }
+
     public function test_simpan_parameter_menghitung_total_dan_mengunci_tarif(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -374,9 +396,15 @@ class ParameterTagihanTripTest extends TestCase
             'tanggal_faktur' => now()->toDateString(),
         ])->assertStatus(201)->json('data.id_faktur');
 
-        $item = DB::table('faktur_item')->where('id_faktur', $idFaktur)->first();
-        $this->assertSame(4000000.0, (float) $item->harga_satuan);
-        $this->assertStringContainsString('1 rit + 1 cancellation', $item->deskripsi);
+        $items = DB::table('faktur_item')->where('id_faktur', $idFaktur)->orderBy('urutan')->get()
+            ->map(fn ($i) => [$i->deskripsi, (float) $i->qty, (float) $i->harga_satuan, (float) $i->subtotal])->all();
+        $this->assertSame([
+            ['Jasa angkutan Proyek Parameter — 1 rit', 1.0, 2500000.0, 2500000.0],
+            ['Add Drop (per titik tambahan)', 2.0, 150000.0, 300000.0],
+            ['Cross Cluster (per trip)', 1.0, 200000.0, 200000.0],
+            ['Cancellation (per trip)', 1.0, 1000000.0, 1000000.0],
+        ], $items);
+        $this->assertEquals(4000000, DB::table('faktur')->where('id_faktur', $idFaktur)->value('total'));
 
         $this->putJson("/api/trip/{$tripNormal->id_trip}/parameter-tagihan", $this->payload())
             ->assertStatus(422)

@@ -19,9 +19,11 @@ class FakturItemModel extends BaseModel
         'qty',
         'harga_satuan',
         'subtotal',
+        'urutan',
     ];
 
     protected $casts = [
+        'urutan'       => 'integer',
         'qty'          => 'float',
         'harga_satuan' => 'float',
         'subtotal'     => 'float',

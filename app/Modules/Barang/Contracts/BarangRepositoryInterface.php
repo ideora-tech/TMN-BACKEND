@@ -20,6 +20,9 @@ interface BarangRepositoryInterface
     public function setStok(string $id, int $stokBaru): void;
     public function setHargaStandar(string $id, float $harga): void;
     public function insertMutasi(array $data): void;
+    /** @return string[] */
+    public function idMutasiMasukPermintaan(string $idBarang, string $idPermintaan, float $harga): array;
+    public function setHargaMutasi(array $idMutasi, float $harga): void;
     public function paginateMutasi(string $idBarang, int $page, int $limit): LengthAwarePaginator;
     /** @return object[] */
     public function listKategori(string $idPerusahaan, bool $hanyaAktif): array;

@@ -193,7 +193,7 @@ class PenawaranRevisiTest extends TestCase
         ]);
 
         $res->assertStatus(422)
-            ->assertJsonPath('message', 'Harga terkunci — ubah lewat penawaran revisi');
+            ->assertJsonPath('message', 'Rute, jenis kendaraan, dan harga penawaran tidak dapat diubah dari sini — ubah lewat penawaran');
         $this->assertDatabaseHas('proyek_rute', [
             'id_proyek_rute'  => $idBaris,
             'harga_penawaran' => 500000,
@@ -261,7 +261,7 @@ class PenawaranRevisiTest extends TestCase
         $this->assertEquals(150000, $res->json('data.uang_jalan'));
     }
 
-    public function test_proyek_manual_tanpa_penawaran_harga_bebas_diedit(): void
+    public function test_proyek_manual_tanpa_penawaran_harga_tetap_tidak_bisa_diedit(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $klien   = $this->makeKlien();
@@ -280,7 +280,8 @@ class PenawaranRevisiTest extends TestCase
         $update = $this->putJson("/api/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
             'harga_penawaran' => 750000,
         ]);
-        $update->assertStatus(200)->assertJsonPath('data.harga_penawaran', 750000);
+        $update->assertStatus(422)->assertJsonPath('message', 'Rute, jenis kendaraan, dan harga penawaran tidak dapat diubah dari sini — ubah lewat penawaran');
+        $this->assertDatabaseHas('proyek_rute', ['id_proyek_rute' => $idBaris, 'harga_penawaran' => 500000]);
     }
 
     public function test_buat_penawaran_revisi_berhasil_dengan_induk_benar(): void
@@ -304,6 +305,34 @@ class PenawaranRevisiTest extends TestCase
         $this->assertMatchesRegularExpression('/^PNW-\d{6}-\d{4}$/', $res->json('data.nomor_penawaran'));
         $this->assertEquals(1200000, $res->json('data.nilai_penawaran'));
         $this->assertSame($proyek->id_proyek, $res->json('data.id_proyek'));
+    }
+
+    public function test_penawaran_revisi_mewarisi_jumlah_unit_item_dengan_rute_dan_jenis_sama(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien    = $this->makeKlien();
+        $proyek   = $this->makeProyek($klien);
+        $idInduk  = $this->makePenawaranDisetujui($klien, $proyek->id_proyek);
+        $idRute   = $this->makeRute();
+        $idRuteB  = $this->makeRute();
+        $idJenis  = $this->makeJenisKendaraan();
+        DB::table('penawaran_item')->insert([
+            'id_penawaran_item' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_penawaran' => $idInduk,
+            'id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 500000, 'estimasi_ritase' => 1,
+            'subtotal' => 500000, 'jumlah_unit' => 4, 'dibuat_pada' => now(),
+        ]);
+
+        $idRevisi = $this->postJson("/api/proyek/{$proyek->id_proyek}/penawaran-revisi", [
+            'items' => [
+                ['id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 600000],
+                ['id_rute' => $idRuteB, 'id_jenis_kendaraan' => $idJenis, 'harga_satuan' => 700000],
+            ],
+        ])->assertStatus(201)->json('data.id_penawaran');
+
+        $jumlah = fn (string $rute) => DB::table('penawaran_item')
+            ->where('id_penawaran', $idRevisi)->where('id_rute', $rute)->value('jumlah_unit');
+        $this->assertEquals(4, $jumlah($idRute));
+        $this->assertNull($jumlah($idRuteB));
     }
 
     public function test_buat_penawaran_revisi_judul_default_revisi_nomor_induk(): void

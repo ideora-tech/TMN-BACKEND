@@ -157,7 +157,10 @@
                     <tr><td>Uang Makan Mingguan</td><td class="jumlah">{{ $rp($slip->uang_makan_mingguan) }}</td></tr>
                 @endif
                 @if ((float) $slip->kasbon > 0)
-                    <tr><td>Kasbon</td><td class="jumlah">{{ $rp($slip->kasbon) }}</td></tr>
+                    <tr>
+                        <td>Kasbon @if (($sisaKasbon ?? null) !== null)<span class="ket">(sisa kasbon {{ $rp($sisaKasbon) }})</span>@endif</td>
+                        <td class="jumlah">{{ $rp($slip->kasbon) }}</td>
+                    </tr>
                 @endif
                 @if ((float) $slip->uang_jalan_terpakai > 0)
                     <tr><td>Uang Jalan Terpakai</td><td class="jumlah">{{ $rp($slip->uang_jalan_terpakai) }}</td></tr>

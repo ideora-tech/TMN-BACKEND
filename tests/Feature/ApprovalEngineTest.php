@@ -390,6 +390,39 @@ class ApprovalEngineTest extends TestCase
         $this->assertNull($barisLintasTenant['nama']);
     }
 
+    public function test_daftar_approver_menampilkan_nama_pemegang_jabatan_dan_pengguna(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idEventType = $this->makeEventType('pinned');
+        $idJabatan   = $this->makeJabatan('Direktur Keuangan');
+        $this->makePenggunaDenganJabatan($idJabatan, 'Budi Santoso');
+        DB::table('karyawan')->insert([
+            'id_karyawan' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_jabatan' => $idJabatan,
+            'nik' => 'NIK-' . Str::random(8), 'nama_karyawan' => 'Andi Tanpa Akun', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        DB::table('karyawan')->insert([
+            'id_karyawan' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_jabatan' => $idJabatan,
+            'nik' => 'NIK-' . Str::random(8), 'nama_karyawan' => 'Citra Nonaktif', 'aktif' => 0, 'dibuat_pada' => now(),
+        ]);
+        $penggunaLangsung = $this->makePenggunaDenganJabatan($this->makeJabatan('Staf'), 'Dewi Lestari');
+        $idJabatanKosong = $this->makeJabatan('Komisaris');
+
+        DB::table('approval_config_approver')->insert([
+            ['id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType, 'tipe' => 'jabatan', 'id_jabatan' => $idJabatan, 'id_pengguna' => null, 'dibuat_pada' => now()->subMinutes(2)],
+            ['id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType, 'tipe' => 'pengguna', 'id_jabatan' => null, 'id_pengguna' => $penggunaLangsung->id_pengguna, 'dibuat_pada' => now()->subMinute()],
+            ['id_config' => (string) Str::uuid(), 'id_event_type' => $idEventType, 'tipe' => 'jabatan', 'id_jabatan' => $idJabatanKosong, 'id_pengguna' => null, 'dibuat_pada' => now()],
+        ]);
+
+        $data = $this->getJson("/api/approval-event-type/{$idEventType}/approver")->assertOk()->json('data');
+
+        $this->assertSame([
+            ['nama' => 'Andi Tanpa Akun', 'punya_akun' => false],
+            ['nama' => 'Budi Santoso', 'punya_akun' => true],
+        ], $data[0]['pemegang']);
+        $this->assertSame([['nama' => 'Dewi Lestari', 'punya_akun' => true]], $data[1]['pemegang']);
+        $this->assertSame([], $data[2]['pemegang']);
+    }
+
     public function test_create_event_type_kode_duplikat_ditolak_409(): void
     {
         $this->actingAsRole('SUPERADMIN');

@@ -25,8 +25,7 @@ class PenawaranItemResource extends JsonResource
             'jumlah_hari'        => $this->jumlah_hari !== null ? (int) $this->jumlah_hari : null,
             'subtotal'           => (float) $this->subtotal,
             'keterangan'         => $this->keterangan,
-            'unit_aset'          => $this->unit_aset !== null ? (int) $this->unit_aset : null,
-            'unit_vendor'        => $this->unit_vendor !== null ? (int) $this->unit_vendor : null,
+            'jumlah_unit'        => $this->jumlah_unit !== null ? (int) $this->jumlah_unit : null,
         ];
     }
 }

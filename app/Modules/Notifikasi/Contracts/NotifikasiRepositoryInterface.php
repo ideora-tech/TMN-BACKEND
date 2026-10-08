@@ -13,6 +13,8 @@ interface NotifikasiRepositoryInterface
     public function findById(string $id): ?NotifikasiModel;
     public function unreadCount(string $idPengguna, string $idPerusahaan, bool $termasukBroadcast = true): int;
     public function create(array $data): NotifikasiModel;
+    public function belumDibacaTerbaru(string $idPengguna, string $idPerusahaan, string $tipe, \DateTimeInterface $sejak): ?NotifikasiModel;
+    public function perbaruiIsi(NotifikasiModel $model, array $data): void;
     public function markRead(NotifikasiModel $model): NotifikasiModel;
     public function markAllRead(string $idPengguna, string $idPerusahaan, bool $termasukBroadcast = true): int;
     public function idPenggunaUntukSupir(string $idSupir): ?string;

@@ -29,12 +29,62 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
             ->select([
                 'p.*', 's.nama as nama_supplier', 'd.nama_departemen', 'u.username as username_pengaju',
                 'ar.nopol as nopol_perawatan', 'pa.tanggal as tanggal_perawatan',
+                DB::raw("EXISTS (SELECT 1 FROM pengajuan_pengeluaran pp WHERE pp.id_permintaan_pembelian = p.id_permintaan AND pp.dihapus_pada IS NULL AND pp.status = 'ditolak') as pembayaran_ditolak"),
             ]);
+    }
+
+    public function jumlahPembayaranDitolak(string $idPerusahaan, ?string $idPenglihat = null): int
+    {
+        return DB::table('permintaan_pembelian as p')
+            ->whereNull('p.dihapus_pada')
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->when($idPenglihat !== null, fn ($q) => $q->where(fn ($w) => $this->terlihatOleh($w, (string) $idPenglihat)))
+            ->whereExists(fn ($w) => $this->pengajuanDitolak($w))
+            ->count();
+    }
+
+    public function penggunaApprover(string $idPermintaan, string $idPengguna): bool
+    {
+        return DB::table('approval_pengajuan as ap')
+            ->join('approval_keputusan as ak', 'ak.id_approval', '=', 'ap.id_approval')
+            ->whereNull('ap.dihapus_pada')
+            ->where('ap.id_referensi', $idPermintaan)
+            ->where('ak.id_pengguna', $idPengguna)
+            ->exists();
+    }
+
+    private function terlihatOleh($query, string $idPengguna): void
+    {
+        $query->where('p.id_pengaju', $idPengguna)
+            ->orWhereExists(function ($w) use ($idPengguna) {
+                $w->select(DB::raw(1))
+                    ->from('approval_pengajuan as ap')
+                    ->join('approval_keputusan as ak', 'ak.id_approval', '=', 'ap.id_approval')
+                    ->whereNull('ap.dihapus_pada')
+                    ->whereColumn('ap.id_referensi', 'p.id_permintaan')
+                    ->where('ak.id_pengguna', $idPengguna);
+            });
+    }
+
+    private function pengajuanDitolak($query): void
+    {
+        $query->select(DB::raw(1))
+            ->from('pengajuan_pengeluaran as pp')
+            ->whereColumn('pp.id_permintaan_pembelian', 'p.id_permintaan')
+            ->whereNull('pp.dihapus_pada')
+            ->where('pp.status', 'ditolak');
     }
 
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, array $filter): LengthAwarePaginator
     {
         $q = $this->base()->where('p.id_perusahaan', $idPerusahaan);
+        if (($filter['terlihat_oleh'] ?? '') !== '') {
+            $idPenglihat = (string) $filter['terlihat_oleh'];
+            $q->where(fn ($w) => $this->terlihatOleh($w, $idPenglihat));
+        }
+        if (!empty($filter['pembayaran_ditolak'])) {
+            $q->whereExists(fn ($w) => $this->pengajuanDitolak($w));
+        }
         if (($filter['status'] ?? '') !== '') {
             $q->where('p.status', $filter['status']);
         }
@@ -64,10 +114,11 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
         return $q->orderByDesc('p.tanggal_permintaan')->orderByDesc('p.nomor_permintaan')->paginate($limit, ['*'], 'page', $page);
     }
 
-    public function ringkasanStatus(string $idPerusahaan): array
+    public function ringkasanStatus(string $idPerusahaan, ?string $idPenglihat = null): array
     {
-        return DB::table('permintaan_pembelian')->whereNull('dihapus_pada')->where('id_perusahaan', $idPerusahaan)
-            ->select('status', DB::raw('COUNT(*) as jumlah'))->groupBy('status')->pluck('jumlah', 'status')
+        return DB::table('permintaan_pembelian as p')->whereNull('p.dihapus_pada')->where('p.id_perusahaan', $idPerusahaan)
+            ->when($idPenglihat !== null, fn ($q) => $q->where(fn ($w) => $this->terlihatOleh($w, (string) $idPenglihat)))
+            ->select('p.status', DB::raw('COUNT(*) as jumlah'))->groupBy('p.status')->pluck('jumlah', 'status')
             ->map(fn ($v) => (int) $v)->all();
     }
 
@@ -75,7 +126,7 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
     {
         return $this->base()
             ->where('p.id_perusahaan', $idPerusahaan)
-            ->whereIn('p.status', ['disetujui', 'diproses'])
+            ->whereIn('p.status', ['disetujui', 'diproses', 'dipesan'])
             ->orderBy('p.tanggal_permintaan')
             ->orderBy('p.dibuat_pada')
             ->limit($limit)
@@ -183,6 +234,46 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
         $data = RecordHelper::stampCreate($data, 'id_termin');
         DB::table('permintaan_pembelian_termin')->insert($data);
         return (string) $data['id_termin'];
+    }
+
+    public function insertPenerimaan(array $header, array $qtyPerItem): void
+    {
+        $header = RecordHelper::stampCreate($header, 'id_penerimaan');
+        DB::table('permintaan_pembelian_penerimaan')->insert($header);
+        foreach ($qtyPerItem as $idItem => $qty) {
+            DB::table('permintaan_pembelian_penerimaan_item')->insert(RecordHelper::stampCreate([
+                'id_penerimaan' => $header['id_penerimaan'],
+                'id_item'       => (string) $idItem,
+                'qty'           => (int) $qty,
+            ], 'id_penerimaan_item'));
+        }
+    }
+
+    public function listPenerimaan(string $idPermintaan): array
+    {
+        $daftar = DB::table('permintaan_pembelian_penerimaan as t')
+            ->leftJoin('pengguna as u', 'u.id_pengguna', '=', 't.dibuat_oleh')
+            ->whereNull('t.dihapus_pada')
+            ->where('t.id_permintaan', $idPermintaan)
+            ->orderBy('t.tanggal_diterima')
+            ->orderBy('t.dibuat_pada')
+            ->get(['t.id_penerimaan', 't.tanggal_diterima', 't.keterangan', 't.dibuat_pada', 'u.username as diterima_oleh'])
+            ->all();
+        if ($daftar === []) {
+            return [];
+        }
+
+        $items = DB::table('permintaan_pembelian_penerimaan_item as pi')
+            ->join('permintaan_pembelian_item as i', 'i.id_item', '=', 'pi.id_item')
+            ->whereNull('pi.dihapus_pada')
+            ->whereIn('pi.id_penerimaan', array_map(fn ($t) => $t->id_penerimaan, $daftar))
+            ->get(['pi.id_penerimaan', 'pi.id_item', 'pi.qty', 'i.nama_item', 'i.satuan'])
+            ->groupBy('id_penerimaan');
+
+        foreach ($daftar as $baris) {
+            $baris->items = ($items[$baris->id_penerimaan] ?? collect())->values()->all();
+        }
+        return $daftar;
     }
 
     public function listTermin(string $idPermintaan): array
@@ -368,7 +459,7 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
     {
         return $this->baseLaporan()
             ->where('p.id_perusahaan', $idPerusahaan)
-            ->whereIn('p.status', ['dibeli', 'diterima', 'selesai'])
+            ->whereIn('p.status', ['dibeli', 'diterima_sebagian', 'diterima', 'selesai'])
             ->whereNotNull('p.total_aktual')
             ->when($tipe, fn ($q, $v) => $q->where('p.tipe', $v))
             ->when($dari, fn ($q, $v) => $q->where('p.tanggal_pembelian', '>=', $v))
@@ -382,6 +473,7 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
             return [];
         }
         return DB::table('permintaan_pembelian_item as i')
+            ->join('permintaan_pembelian as p', 'p.id_permintaan', '=', 'i.id_permintaan')
             ->leftJoin('barang as b', function ($j) {
                 $j->on('b.id_barang', '=', 'i.id_barang')->whereNull('b.dihapus_pada');
             })
@@ -396,7 +488,7 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
             ->whereNull('i.dihapus_pada')
             ->whereIn('i.id_permintaan', $idPermintaanList)
             ->select([
-                'i.id_permintaan', 'i.jenis', 'i.qty', 'i.qty_diterima', 'i.harga_aktual',
+                'i.id_permintaan', 'i.jenis', 'i.qty', 'i.qty_diterima', 'i.harga_aktual', 'p.sisa_ditutup_pada',
                 'kb.nama as kategori_barang', 'ks.nama as kategori_sparepart', 'jk.nama_jenis as nama_jenis_kendaraan',
             ])
             ->get()->all();
@@ -419,7 +511,7 @@ class PermintaanPembelianRepository implements PermintaanPembelianRepositoryInte
     {
         return $this->base()
             ->where('p.id_perusahaan', $idPerusahaan)
-            ->whereIn('p.status', ['disetujui', 'diproses'])
+            ->whereIn('p.status', ['disetujui', 'diproses', 'dipesan'])
             ->when($tipe, fn ($q, $v) => $q->where('p.tipe', $v))
             ->get()->all();
     }

@@ -100,6 +100,26 @@ class BarangRepository implements BarangRepositoryInterface
         DB::table('barang_mutasi')->insert(RecordHelper::stampCreate($data, 'id_mutasi'));
     }
 
+    public function idMutasiMasukPermintaan(string $idBarang, string $idPermintaan, float $harga): array
+    {
+        return DB::table('barang_mutasi')
+            ->whereNull('dihapus_pada')
+            ->where('id_barang', $idBarang)
+            ->where('id_permintaan_pembelian', $idPermintaan)
+            ->where('jenis', 'masuk')
+            ->where('harga', $harga)
+            ->pluck('id_mutasi')
+            ->all();
+    }
+
+    public function setHargaMutasi(array $idMutasi, float $harga): void
+    {
+        if ($idMutasi === []) {
+            return;
+        }
+        DB::table('barang_mutasi')->whereIn('id_mutasi', $idMutasi)->update(RecordHelper::stampUpdate(['harga' => $harga]));
+    }
+
     public function paginateMutasi(string $idBarang, int $page, int $limit): LengthAwarePaginator
     {
         return DB::table('barang_mutasi as m')

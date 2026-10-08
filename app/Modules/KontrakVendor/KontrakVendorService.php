@@ -209,6 +209,10 @@ class KontrakVendorService
                 "Permintaan vendor {$permintaan->nomor_permintaan} selesai, kontrak {$kontrak->nomor_kontrak} aktif",
                 $this->permintaanVendorService->ringkasanUnit($permintaan),
             );
+            $this->permintaanVendorService->beritahuOperasionalUnitSiap(
+                $permintaan,
+                $kontrak->nomor_kontrak !== null ? (string) $kontrak->nomor_kontrak : null,
+            );
         }
     }
 

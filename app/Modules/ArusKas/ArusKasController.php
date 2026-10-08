@@ -18,6 +18,8 @@ use App\Modules\ArusKas\Resources\PemasukanResource;
 use App\Modules\ArusKas\Resources\PengajuanPengeluaranResource;
 use App\Modules\ArusKas\Resources\TransaksiArusKasResource;
 use App\Modules\InvoiceVendor\InvoiceVendorService;
+use App\Modules\Kasbon\KasbonService;
+use App\Modules\Kasbon\Resources\KasbonResource;
 use App\Modules\Payroll\PayrollService;
 use App\Modules\PembelianSparepart\PembelianSparepartService;
 use App\Modules\PembelianSparepart\Resources\PembelianSparepartResource;
@@ -111,6 +113,7 @@ class ArusKasController extends Controller
         InvoiceVendorService $invoiceVendorService,
         PermintaanPembelianService $permintaanService,
         UangJalanService $uangJalanService,
+        KasbonService $kasbonService,
         string $id
     ): JsonResponse {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
@@ -121,6 +124,15 @@ class ArusKasController extends Controller
                 'tipe' => 'uang_jalan_manual',
                 'data' => new UangJalanResource(
                     $uangJalanService->findOrFail((string) $pengajuan->id_uang_jalan, $idPerusahaan)
+                ),
+            ]);
+        }
+
+        if ($pengajuan->id_kasbon !== null) {
+            return ApiResponse::success([
+                'tipe' => 'kasbon',
+                'data' => new KasbonResource(
+                    $kasbonService->detail((string) $pengajuan->id_kasbon, $idPerusahaan)
                 ),
             ]);
         }

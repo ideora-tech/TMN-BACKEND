@@ -110,6 +110,23 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
         return NotifikasiModel::create($data);
     }
 
+    public function belumDibacaTerbaru(string $idPengguna, string $idPerusahaan, string $tipe, \DateTimeInterface $sejak): ?NotifikasiModel
+    {
+        return NotifikasiModel::active()
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('id_pengguna', $idPengguna)
+            ->where('tipe', $tipe)
+            ->where('dibaca', 0)
+            ->where('dibuat_pada', '>=', $sejak)
+            ->orderByDesc('dibuat_pada')
+            ->first();
+    }
+
+    public function perbaruiIsi(NotifikasiModel $model, array $data): void
+    {
+        $model->update($data);
+    }
+
     public function markRead(NotifikasiModel $model): NotifikasiModel
     {
         NotifikasiModel::where('id_notifikasi', $model->id_notifikasi)->update([

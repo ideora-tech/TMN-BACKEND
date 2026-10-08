@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 class InvoiceVendorService
 {
     private const STATUS_BISA_DIUBAH = ['draft', 'ditolak'];
+    private const STATUS_BISA_DIBATALKAN = ['draft', 'ditolak'];
 
     public function __construct(private readonly InvoiceVendorRepositoryInterface $repo) {}
 
@@ -54,7 +55,11 @@ class InvoiceVendorService
         $kontrak = $record->id_kontrak_vendor !== null
             ? $this->repo->findKontrakMilikPerusahaan($record->id_kontrak_vendor, $idPerusahaan)
             : null;
+        $ringkasanKontrak = $kontrak !== null ? $this->susunRingkasanKontrak($kontrak) : null;
         $totalDibayar = round($this->repo->totalDibayar($record->id_invoice_vendor), 2);
+
+        $pengajuanPembayaran = $this->repo->pengajuanPembayaranUntukInvoice($record->id_invoice_vendor);
+        $nomorPengajuan = array_map(static fn (object $row) => (string) $row->nomor_pengajuan, $pengajuanPembayaran);
 
         $pembayaran = array_map(static fn (object $row) => [
             'id_pembayaran_vendor' => $row->id_pembayaran_vendor,
@@ -65,6 +70,7 @@ class InvoiceVendorService
             'no_referensi'         => $row->no_referensi,
             'url_bukti'            => PenyimpananBerkas::url($row->url_bukti),
             'catatan'              => $row->catatan,
+            'bisa_dihapus'         => !in_array((string) $row->no_referensi, $nomorPengajuan, true),
         ], $this->repo->daftarPembayaran($record->id_invoice_vendor));
 
         return [
@@ -92,6 +98,11 @@ class InvoiceVendorService
             'diverifikasi_pada'  => $record->diverifikasi_pada?->toIso8601String(),
             'status_pembayaran'  => $record->status_pembayaran,
             'keterangan'         => $record->keterangan,
+            'alasan_batal'       => $record->alasan_batal,
+            'dibatalkan_pada'    => $record->dibatalkan_pada?->toIso8601String(),
+            'dibatalkan_oleh_nama' => $this->repo->namaPengguna($record->dibatalkan_oleh),
+            'dibuat_oleh_nama'   => $this->repo->namaPengguna($record->dibuat_oleh),
+            'bisa_dibatalkan'    => $this->bolehMembatalkan($record, auth()->user()),
             'dibuat_pada'        => $record->dibuat_pada,
             'diubah_pada'        => $record->diubah_pada,
             'vendor'             => $vendor !== null
@@ -102,6 +113,8 @@ class InvoiceVendorService
                     'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
                     'nomor_kontrak'     => $kontrak->nomor_kontrak,
                     'nilai_kontrak'     => (float) $kontrak->nilai_kontrak,
+                    'total_ditagih'     => $ringkasanKontrak['total_ditagih'],
+                    'sisa'              => $ringkasanKontrak['sisa'],
                 ]
                 : null,
             'total_dibayar'      => $totalDibayar,
@@ -114,7 +127,7 @@ class InvoiceVendorService
                 'nominal'           => (float) $row->nominal,
                 'status'            => $row->status,
                 'alasan_ditolak'    => $row->alasan_ditolak,
-            ], $this->repo->pengajuanPembayaranUntukInvoice($record->id_invoice_vendor)),
+            ], $pengajuanPembayaran),
             'trip_terkait'       => array_map(static fn (object $row) => [
                 'id_trip'        => $row->id_trip,
                 'tanggal'        => $row->tanggal,
@@ -248,6 +261,10 @@ class InvoiceVendorService
         }
 
         return DB::transaction(function () use ($data, $idPerusahaan, $kontrak, $tripIds) {
+            if ($kontrak !== null) {
+                $this->pastikanDppTidakMelebihiNilaiKontrak((string) $kontrak->id_kontrak_vendor, (float) $data['dpp']);
+            }
+
             $record = $this->repo->create(array_merge($data, [
                 'id_perusahaan'     => $idPerusahaan,
                 'status'            => 'draft',
@@ -334,7 +351,65 @@ class InvoiceVendorService
             $data['catatan_verifikasi'] = null;
         }
 
-        return $this->repo->update($record, $data);
+        $perluCekNilaiKontrak = $kontrak !== null && ($kontrakBerubah || $dpp > (float) $record->dpp);
+
+        return DB::transaction(function () use ($record, $data, $kontrak, $dpp, $perluCekNilaiKontrak) {
+            if ($perluCekNilaiKontrak) {
+                $this->pastikanDppTidakMelebihiNilaiKontrak(
+                    (string) $kontrak->id_kontrak_vendor,
+                    $dpp,
+                    (string) $record->id_invoice_vendor,
+                );
+            }
+
+            return $this->repo->update($record, $data);
+        });
+    }
+
+    public function ringkasanKontrak(string $idKontrak, string $idPerusahaan, ?string $kecualiIdInvoice = null): array
+    {
+        $kontrak = $this->repo->findKontrakMilikPerusahaan($idKontrak, $idPerusahaan);
+        if ($kontrak === null) {
+            abort(404, 'Kontrak vendor tidak ditemukan');
+        }
+
+        return $this->susunRingkasanKontrak($kontrak, $kecualiIdInvoice);
+    }
+
+    private function susunRingkasanKontrak(object $kontrak, ?string $kecualiIdInvoice = null): array
+    {
+        $nilai   = round((float) $kontrak->nilai_kontrak, 2);
+        $ditagih = round($this->repo->totalDppKontrak((string) $kontrak->id_kontrak_vendor, $kecualiIdInvoice), 2);
+
+        return [
+            'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'nilai_kontrak'     => $nilai,
+            'total_ditagih'     => $ditagih,
+            'sisa'              => $nilai > 0 ? round(max(0, $nilai - $ditagih), 2) : null,
+        ];
+    }
+
+    private function pastikanDppTidakMelebihiNilaiKontrak(string $idKontrak, float $dpp, ?string $kecualiIdInvoice = null): void
+    {
+        $kontrak = $this->repo->kunciKontrak($idKontrak);
+        if ($kontrak === null) {
+            return;
+        }
+
+        $nilai = round((float) $kontrak->nilai_kontrak, 2);
+        if ($nilai <= 0) {
+            return;
+        }
+
+        $ditagih = round($this->repo->totalDppKontrak($idKontrak, $kecualiIdInvoice), 2);
+        if (round($ditagih + $dpp, 2) > $nilai) {
+            abort(422, sprintf(
+                'DPP melebihi sisa nilai kontrak — nilai kontrak Rp %s, sudah ditagih Rp %s, sisa Rp %s',
+                number_format($nilai, 0, ',', '.'),
+                number_format($ditagih, 0, ',', '.'),
+                number_format(max(0, $nilai - $ditagih), 0, ',', '.'),
+            ));
+        }
     }
 
     public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): InvoiceVendorModel
@@ -376,6 +451,41 @@ class InvoiceVendorService
                 'catatan_verifikasi' => null,
             ]);
         });
+    }
+
+    public function batalkan(string $id, string $idPerusahaan, object $pengguna, string $alasan): InvoiceVendorModel
+    {
+        $this->findOrFail($id, $idPerusahaan);
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($id, $idPerusahaan, $pengguna, $alasan) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Invoice vendor tidak ditemukan');
+            }
+            if (!in_array($terkunci->status, self::STATUS_BISA_DIBATALKAN, true)) {
+                abort(422, 'Hanya invoice berstatus draft atau ditolak yang bisa dibatalkan');
+            }
+            if (!$this->bolehMembatalkan($terkunci, $pengguna)) {
+                abort(403, 'Hanya pembuat invoice atau Superadmin yang dapat membatalkan invoice ini');
+            }
+
+            return $this->repo->update($terkunci, [
+                'status'          => 'dibatalkan',
+                'alasan_batal'    => $alasan,
+                'dibatalkan_oleh' => (string) $pengguna->id_pengguna,
+                'dibatalkan_pada' => now(),
+            ]);
+        });
+    }
+
+    private function bolehMembatalkan(InvoiceVendorModel $record, ?object $pengguna): bool
+    {
+        if ($pengguna === null || !in_array($record->status, self::STATUS_BISA_DIBATALKAN, true)) {
+            return false;
+        }
+
+        return ($pengguna->kode_peran ?? null) === 'SUPERADMIN'
+            || ($record->dibuat_oleh !== null && (string) $record->dibuat_oleh === (string) $pengguna->id_pengguna);
     }
 
     public function terapkanKeputusanApproval(string $idInvoice, string $idPerusahaan, string $idPengguna, string $keputusan, ?string $alasanDitolak): void

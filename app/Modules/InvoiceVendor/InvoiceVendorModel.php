@@ -37,6 +37,9 @@ class InvoiceVendorModel extends BaseModel
         'diverifikasi_pada',
         'status_pembayaran',
         'keterangan',
+        'alasan_batal',
+        'dibatalkan_oleh',
+        'dibatalkan_pada',
     ];
 
     protected $casts = [
@@ -47,6 +50,7 @@ class InvoiceVendorModel extends BaseModel
         'pph'               => 'float',
         'total'             => 'float',
         'diverifikasi_pada' => 'datetime',
+        'dibatalkan_pada'   => 'datetime',
         'top_hari'          => 'integer',
     ];
 }

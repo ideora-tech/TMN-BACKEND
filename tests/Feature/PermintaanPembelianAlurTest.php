@@ -8,11 +8,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Concerns\MenerbitkanPo;
 use Tests\TestCase;
 
 class PermintaanPembelianAlurTest extends TestCase
 {
     use RefreshDatabase;
+    use MenerbitkanPo;
 
     protected function setUp(): void
     {
@@ -61,14 +63,16 @@ class PermintaanPembelianAlurTest extends TestCase
         $pr = $this->buatPr();
         $this->actingAsRole('PENGADAAN');
         $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/proses")->assertStatus(200);
-        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
-        $res = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", [
+        $payload = [
             'id_supplier' => $this->makeSupplier(), 'tanggal_pembelian' => now()->toDateString(),
             'items' => [
                 ['id_item' => $pr['items'][0]['id_item'], 'harga_aktual' => 52000],
                 ['id_item' => $pr['items'][1]['id_item'], 'harga_aktual' => 350000],
             ],
-        ])->assertStatus(200);
+        ];
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
+        $res = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(200);
         return $res->json('data');
     }
 
@@ -88,11 +92,16 @@ class PermintaanPembelianAlurTest extends TestCase
         $this->actingAsRole('PENGADAAN');
         $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/proses")->assertStatus(200);
         $payload = ['id_supplier' => $this->makeSupplier(), 'tanggal_pembelian' => now()->toDateString(), 'items' => [['id_item' => $pr['items'][0]['id_item'], 'harga_aktual' => 2500]]];
-        $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(422);
-        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
-        $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(422)->assertJsonPath('message', 'Item "Pulpen Bebas" belum ditautkan ke Master Barang');
+        $this->terbitkanPo($pr['id_permintaan'], array_merge($payload, ['id_supplier' => (string) Str::uuid()]))->assertStatus(422)->assertJsonPath('message', 'Supplier tidak ditemukan');
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(422)->assertJsonPath('message', 'Item "Pulpen Bebas" belum ditautkan ke Master Barang');
+        $header = DB::table('permintaan_pembelian')->where('id_permintaan', $pr['id_permintaan'])->first();
+        $this->assertSame('diproses', $header->status);
+        $this->assertNull($header->nomor_po);
         $idBarang = $this->postJson('/api/barang/buat-cepat', ['nama' => 'Pulpen', 'satuan' => 'pcs'])->assertStatus(201)->json('data.id_barang');
         $payload['items'][0]['id_barang'] = $idBarang;
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan')->assertJsonPath('data.items.0.nama_item', 'Pulpen');
+        $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(422)->assertJsonPath('message', 'Unggah minimal 1 nota/PO supplier (tahap pembelian) sebelum menandai dibeli');
+        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
         $res = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(200);
         $this->assertSame('dibeli', $res->json('data.status'));
         $this->assertSame(12500.0, (float) $res->json('data.total_aktual'));
@@ -116,7 +125,7 @@ class PermintaanPembelianAlurTest extends TestCase
             'keterangan' => '2 rim rusak, ditolak',
             'items' => [['id_item' => $pr['items'][0]['id_item'], 'qty_diterima' => 8], ['id_item' => $pr['items'][1]['id_item'], 'qty_diterima' => 1]],
         ])->assertStatus(200);
-        $this->assertSame('diterima', $res->json('data.status'));
+        $this->assertSame('diterima_sebagian', $res->json('data.status'));
         $this->assertSame('2 rim rusak, ditolak', $res->json('data.keterangan_penerimaan'));
         $this->assertDatabaseHas('permintaan_pembelian', ['id_permintaan' => $pr['id_permintaan'], 'keterangan_penerimaan' => '2 rim rusak, ditolak']);
         $this->assertSame(8, (int) DB::table('barang')->where('id_barang', $idBarang)->value('stok'));

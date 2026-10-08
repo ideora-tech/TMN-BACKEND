@@ -53,8 +53,7 @@ class UpdatePenawaranRequest extends FormRequest
             'items.*.estimasi_ritase'    => ['sometimes', 'integer', 'min:1'],
             'items.*.jumlah_hari'        => ['sometimes', 'nullable', 'integer', 'min:1'],
             'items.*.keterangan'         => ['sometimes', 'nullable', 'string'],
-            'items.*.unit_aset'          => ['sometimes', 'nullable', 'integer', 'min:0', 'max:9999'],
-            'items.*.unit_vendor'        => ['sometimes', 'nullable', 'integer', 'min:0', 'max:9999'],
+            'items.*.jumlah_unit'        => ['sometimes', 'nullable', 'integer', 'min:1', 'max:9999'],
         ];
     }
 

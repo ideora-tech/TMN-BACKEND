@@ -40,6 +40,19 @@ class PayrollImportTest extends TestCase
         return $id;
     }
 
+    private function makeKasbonLama(string $idKaryawan, float $nominal, float $cicilan): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('kasbon')->insert([
+            'id_kasbon' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nomor_kasbon' => 'KSB-TES-' . Str::random(6), 'id_karyawan' => $idKaryawan,
+            'tanggal' => '2020-01-01', 'nominal' => $nominal, 'cicilan_per_periode' => $cicilan,
+            'mulai_potong' => '2020-01-01', 'keperluan' => 'Kasbon lama', 'saldo_awal' => 1,
+            'dibuat_pada' => now(),
+        ]);
+        return $id;
+    }
+
     private function buatPeriode(?string $bulan = null): string
     {
         $this->putJson('/api/payroll/pengaturan', [
@@ -94,6 +107,7 @@ class PayrollImportTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan('Ade Sandico Marpaung', 'NIK-IMP-01');
+        $this->makeKasbonLama($idKaryawan, 500000, 100000);
         $idPeriode = $this->buatPeriode();
 
         $file = $this->fileGaji([
@@ -106,7 +120,8 @@ class PayrollImportTest extends TestCase
         $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file]);
         $res->assertStatus(200)
             ->assertJsonPath('data.berhasil', 1)
-            ->assertJsonPath('data.gagal', []);
+            ->assertJsonPath('data.gagal', [])
+            ->assertJsonPath('data.selisih_kasbon', []);
 
         $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
             ->firstWhere('id_karyawan', $idKaryawan);
@@ -126,6 +141,170 @@ class PayrollImportTest extends TestCase
         $this->assertEquals(3075000, $slip['gaji_bersih']);
         $this->assertStringContainsString('06 Juli 2026', $slip['catatan']);
         $this->assertStringContainsString('CDD DUA TRIP', $slip['catatan']);
+    }
+
+    public function test_import_excel_mengabaikan_kolom_kasbon_dan_melaporkan_selisihnya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $tanpaKasbon = $this->makeKaryawan('Rani Tanpa Kasbon', 'NIK-IMP-11');
+        $berkasbon   = $this->makeKaryawan('Seno Berkasbon', 'NIK-IMP-12');
+        $this->makeKasbonLama($berkasbon, 900000, 300000);
+        $idPeriode = $this->buatPeriode();
+
+        $file = $this->fileGaji([
+            $this->barisGaji('Rani Tanpa Kasbon', ['KASBON' => 100000]),
+            $this->barisGaji('Seno Berkasbon', ['KASBON' => 0]),
+        ]);
+
+        $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file]);
+        $res->assertStatus(200)->assertJsonPath('data.berhasil', 2);
+
+        $selisih = collect($res->json('data.selisih_kasbon'));
+        $this->assertCount(2, $selisih);
+        $this->assertEquals(100000, $selisih->firstWhere('nama', 'Rani Tanpa Kasbon')['excel']);
+        $this->assertEquals(0, $selisih->firstWhere('nama', 'Rani Tanpa Kasbon')['sistem']);
+        $this->assertEquals(0, $selisih->firstWhere('nama', 'Seno Berkasbon')['excel']);
+        $this->assertEquals(300000, $selisih->firstWhere('nama', 'Seno Berkasbon')['sistem']);
+
+        $slips = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'));
+        $slipRani = $slips->firstWhere('id_karyawan', $tanpaKasbon);
+        $this->assertEquals(0, $slipRani['kasbon']);
+        $this->assertEquals(250000, $slipRani['total_potongan']);
+        $this->assertEquals(3250000, $slipRani['gaji_bersih']);
+
+        $slipSeno = $slips->firstWhere('id_karyawan', $berkasbon);
+        $this->assertEquals(300000, $slipSeno['kasbon']);
+        $this->assertEquals(550000, $slipSeno['total_potongan']);
+        $this->assertEquals(2950000, $slipSeno['gaji_bersih']);
+    }
+
+    public function test_import_setelah_generate_bergaji_nol_tetap_memotong_cicilan_terjadwal(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKaryawan = $this->makeKaryawan('Udin Gaji Dari Excel', 'NIK-IMP-13');
+        $this->makeKasbonLama($idKaryawan, 2000000, 500000);
+        $idPeriode = $this->buatPeriode();
+
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $slipAwal = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
+            ->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertEquals(0, $slipAwal['kasbon']);
+
+        $file = $this->fileGaji([$this->barisGaji('Udin Gaji Dari Excel', ['KASBON' => 0])]);
+        $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file]);
+        $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
+        $this->assertEquals(500000, $res->json('data.selisih_kasbon.0.sistem'));
+
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
+            ->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertEquals(500000, $slip['kasbon']);
+        $this->assertEquals(750000, $slip['total_potongan']);
+        $this->assertEquals(2750000, $slip['gaji_bersih']);
+    }
+
+    public function test_import_mempertahankan_koreksi_manual_kasbon_pada_slip(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKaryawan = $this->makeKaryawan('Vina Koreksi Manual', 'NIK-IMP-14', 5000000);
+        $this->makeKasbonLama($idKaryawan, 1000000, 200000);
+        $idPeriode = $this->buatPeriode();
+
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
+            ->firstWhere('id_karyawan', $idKaryawan);
+        $this->putJson("/api/payroll/slip/{$slip['id_slip']}", ['kasbon' => 50000])->assertStatus(200);
+
+        $file = $this->fileGaji([$this->barisGaji('Vina Koreksi Manual', ['KASBON' => 200000])]);
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file])->assertStatus(200);
+
+        $sesudah = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
+            ->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertEquals(50000, $sesudah['kasbon']);
+    }
+
+    public function test_koreksi_manual_kasbon_tidak_ikut_terpangkas_saat_import_bergaji_keliru(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKaryawan = $this->makeKaryawan('Xena Manual Bertahan', 'NIK-IMP-16', 5000000);
+        $this->makeKasbonLama($idKaryawan, 1000000, 200000);
+        $idPeriode = $this->buatPeriode();
+
+        $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
+            ->firstWhere('id_karyawan', $idKaryawan);
+        $this->putJson("/api/payroll/slip/{$slip['id_slip']}", ['kasbon' => 300000])->assertStatus(200);
+
+        $keliru = $this->fileGaji([$this->barisGaji('Xena Manual Bertahan', [
+            'GAJI POKOK' => 0, 'UANG MAKAN' => 0, 'TUNJANGAN' => 0, 'UANG MAKAN MINGGUAN' => 0,
+        ])]);
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $keliru])->assertStatus(200);
+        $benar = $this->fileGaji([$this->barisGaji('Xena Manual Bertahan')]);
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $benar])->assertStatus(200);
+
+        $sesudah = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
+            ->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertEquals(300000, $sesudah['kasbon']);
+    }
+
+    public function test_import_melaporkan_baris_dengan_teks_terlalu_panjang_tanpa_menggagalkan_baris_lain(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->makeKaryawan('Yuli Teks Panjang', 'NIK-IMP-17');
+        $normal = $this->makeKaryawan('Zaki Normal', 'NIK-IMP-18');
+        $idPeriode = $this->buatPeriode();
+
+        $file = $this->fileGaji([
+            $this->barisGaji('Yuli Teks Panjang', ['Absen Masuk' => 'Masuk penuh satu bulan']),
+            $this->barisGaji('Zaki Normal'),
+        ]);
+
+        $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file]);
+        $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
+        $this->assertCount(1, $res->json('data.gagal'));
+        $this->assertSame(5, $res->json('data.gagal.0.baris'));
+        $this->assertStringContainsString('ABSEN MASUK', $res->json('data.gagal.0.alasan'));
+
+        $slips = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'));
+        $this->assertCount(1, $slips);
+        $this->assertSame($normal, $slips->first()['id_karyawan']);
+    }
+
+    public function test_import_ulang_mengganti_kasbon_lama_dari_excel_dengan_angka_sistem(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKaryawan = $this->makeKaryawan('Wawan Slip Lama', 'NIK-IMP-15');
+        $idPeriode = $this->buatPeriode();
+
+        $file = $this->fileGaji([$this->barisGaji('Wawan Slip Lama', ['KASBON' => 100000])]);
+        $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $file])->assertStatus(200);
+        DB::table('payroll_slip')->where('id_periode', $idPeriode)->where('id_karyawan', $idKaryawan)->update([
+            'kasbon' => 100000, 'total_potongan' => 350000, 'gaji_bersih' => 3150000,
+        ]);
+
+        $ulang = $this->fileGaji([$this->barisGaji('Wawan Slip Lama', ['KASBON' => 100000])]);
+        $res = $this->post("/api/payroll/periode/{$idPeriode}/import", ['file' => $ulang]);
+        $res->assertStatus(200);
+        $this->assertEquals(100000, $res->json('data.selisih_kasbon.0.excel'));
+        $this->assertEquals(0, $res->json('data.selisih_kasbon.0.sistem'));
+
+        $slip = collect($this->getJson("/api/payroll/periode/{$idPeriode}")->json('data.slips'))
+            ->firstWhere('id_karyawan', $idKaryawan);
+        $this->assertEquals(0, $slip['kasbon']);
+        $this->assertEquals(3250000, $slip['gaji_bersih']);
+    }
+
+    public function test_template_import_memakai_cicilan_kasbon_bila_slip_belum_ada(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idKaryawan = $this->makeKaryawan('Tono Template Kasbon', 'NIK-TPL-05', 5000000);
+        $this->makeKasbonLama($idKaryawan, 600000, 75000);
+        $idPeriode = $this->buatPeriode();
+
+        [, $rows] = $this->unduhTemplate($idPeriode);
+
+        $baris = collect(array_slice($rows, 1))->first(fn ($r) => trim((string) $r[1]) === 'Tono Template Kasbon');
+        $this->assertNotNull($baris);
+        $this->assertEquals(75000, $baris[15]);
     }
 
     public function test_import_excel_memakai_gaji_prorate_jika_terisi(): void
@@ -204,6 +383,7 @@ class PayrollImportTest extends TestCase
             'ikut_bpjs_ketenagakerjaan' => 1,
             'status_ptkp' => 'TK/0',
         ]);
+        $this->makeKasbonLama($idKaryawan, 1000000, 200000);
         $idPeriode = $this->buatPeriode();
 
         $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
@@ -350,6 +530,7 @@ class PayrollImportTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idKaryawan = $this->makeKaryawan('Dini Prefill', 'NIK-TPL-04', 5000000);
+        $this->makeKasbonLama($idKaryawan, 500000, 50000);
         $idPeriode = $this->buatPeriode();
 
         $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);
@@ -371,7 +552,8 @@ class PayrollImportTest extends TestCase
     public function test_edit_slip_bisa_ubah_komponen_import(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $this->makeKaryawan('Hani Edit Komponen', 'NIK-IMP-09', 4000000);
+        $idKaryawan = $this->makeKaryawan('Hani Edit Komponen', 'NIK-IMP-09', 4000000);
+        $this->makeKasbonLama($idKaryawan, 500000, 50000);
         $idPeriode = $this->buatPeriode();
 
         $this->postJson("/api/payroll/periode/{$idPeriode}/generate")->assertStatus(200);

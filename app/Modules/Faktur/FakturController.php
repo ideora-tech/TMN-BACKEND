@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Modules\Faktur;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Faktur\Exports\OutstandingFakturExport;
+use App\Modules\Faktur\Requests\HapusPembayaranFakturRequest;
 use App\Modules\Faktur\Requests\StoreFakturRequest;
+use App\Modules\Faktur\Requests\StorePembayaranFakturRequest;
 use App\Modules\Faktur\Requests\UpdateFakturRequest;
 use App\Modules\Faktur\Requests\UpdateStatusFakturRequest;
 use App\Modules\Faktur\Resources\FakturResource;
@@ -14,6 +17,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class FakturController extends Controller
 {
@@ -45,7 +50,7 @@ class FakturController extends Controller
         $record = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
         $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
-        $record = $this->service->denganStatusApproval($record);
+        $record = $this->service->denganPembayaran($this->service->denganStatusApproval($record));
         return ApiResponse::success(new FakturResource($record));
     }
 
@@ -65,7 +70,7 @@ class FakturController extends Controller
         $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
         $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
-        $record = $this->service->denganStatusApproval($record);
+        $record = $this->service->denganPembayaran($this->service->denganStatusApproval($record));
         return ApiResponse::success(new FakturResource($record), 'Invoice berhasil diperbarui');
     }
 
@@ -74,7 +79,7 @@ class FakturController extends Controller
         $record = $this->service->updateStatus($id, $request->validated()['status'], (string) $request->user()->id_perusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
         $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
-        $record = $this->service->denganStatusApproval($record);
+        $record = $this->service->denganPembayaran($this->service->denganStatusApproval($record));
         return ApiResponse::success(new FakturResource($record), 'Status invoice berhasil diperbarui');
     }
 
@@ -84,8 +89,49 @@ class FakturController extends Controller
         $record = $this->service->ajukanApproval($id, (string) $request->user()->id_pengguna, $idPerusahaan);
         $record->riwayat_status = $this->service->riwayatStatus($record);
         $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
-        $record = $this->service->denganStatusApproval($record);
+        $record = $this->service->denganPembayaran($this->service->denganStatusApproval($record));
         return ApiResponse::success(new FakturResource($record), 'Invoice diajukan untuk approval');
+    }
+
+    public function outstanding(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->outstanding(
+            (string) $request->user()->id_perusahaan,
+            $request->only(['id_klien', 'kelompok', 'search']),
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+        ));
+    }
+
+    public function exportOutstandingExcel(Request $request): BinaryFileResponse
+    {
+        $laporan = $this->service->outstanding(
+            (string) $request->user()->id_perusahaan,
+            $request->only(['id_klien', 'kelompok', 'search']),
+            null,
+        );
+
+        return Excel::download(new OutstandingFakturExport($laporan), 'piutang-outstanding-' . date('Ymd') . '.xlsx');
+    }
+
+    public function storePembayaran(StorePembayaranFakturRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->catatPembayaran($id, $request->validated(), $request->file('bukti'), (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(new FakturResource($this->detail($record)), $record->status === 'lunas' ? 'Pembayaran dicatat — invoice lunas' : 'Pembayaran dicatat', 201);
+    }
+
+    public function destroyPembayaran(HapusPembayaranFakturRequest $request, string $id, string $idPembayaran): JsonResponse
+    {
+        $record = $this->service->hapusPembayaran($id, $idPembayaran, (string) $request->validated('alasan'), (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(new FakturResource($this->detail($record)), 'Pembayaran dihapus');
+    }
+
+    private function detail(FakturModel $record): FakturModel
+    {
+        $record->riwayat_status = $this->service->riwayatStatus($record);
+        $record = $this->service->denganTripTerkait($this->service->denganReferensi($this->service->denganAudit($record)));
+
+        return $this->service->denganPembayaran($this->service->denganStatusApproval($record));
     }
 
     public function destroy(Request $request, string $id): JsonResponse

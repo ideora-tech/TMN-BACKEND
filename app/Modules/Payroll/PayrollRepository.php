@@ -63,6 +63,15 @@ class PayrollRepository implements PayrollRepositoryInterface
             ->first();
     }
 
+    public function kunciPeriode(string $id): ?object
+    {
+        return DB::table('payroll_periode')
+            ->whereNull('dihapus_pada')
+            ->where('id_periode', $id)
+            ->lockForUpdate()
+            ->first();
+    }
+
     public function adaPeriodeTumpangTindih(string $idPerusahaan, string $mulai, string $selesai, ?string $excludeId = null): bool
     {
         return DB::table('payroll_periode')
@@ -175,6 +184,23 @@ class PayrollRepository implements PayrollRepositoryInterface
             ->where('id_slip', $record->id_slip)
             ->update(RecordHelper::stampUpdate($data));
         return $this->findSlipById($record->id_slip);
+    }
+
+    public function simpanSisaKasbonSlip(array $sisaPerSlip): void
+    {
+        foreach ($sisaPerSlip as $idSlip => $sisa) {
+            DB::table('payroll_slip')
+                ->where('id_slip', $idSlip)
+                ->update(['sisa_kasbon_setelah_potong' => $sisa]);
+        }
+    }
+
+    public function kosongkanSisaKasbonSlip(string $idPeriode): void
+    {
+        DB::table('payroll_slip')
+            ->where('id_periode', $idPeriode)
+            ->whereNotNull('sisa_kasbon_setelah_potong')
+            ->update(['sisa_kasbon_setelah_potong' => null]);
     }
 
     public function hapusSlipByPeriode(string $idPeriode): void

@@ -26,6 +26,7 @@ interface ArusKasRepositoryInterface
     public function findPengajuanByPembelian(string $idPembelian): ?PengajuanPengeluaranModel;
     public function findPengajuanByPermintaanPembelian(string $idPermintaan): ?PengajuanPengeluaranModel;
     public function statusPermintaanPembelian(string $idPermintaan): ?string;
+    public function idPengajuPermintaanPembelian(string $idPermintaan): ?string;
     public function sinkronPermintaanPembelianSelesai(string $idPermintaan, string $tanggalPembayaran): void;
     /** @return PengajuanPengeluaranModel[] */
     public function listPengajuanByPermintaanPembelian(string $idPermintaan): array;
@@ -45,6 +46,8 @@ interface ArusKasRepositoryInterface
     public function createPemasukan(array $data): PemasukanModel;
     public function updatePemasukan(PemasukanModel $model, array $data): PemasukanModel;
     public function deletePemasukan(PemasukanModel $model): void;
+    public function pemasukanTertautKasbon(string $idPemasukan): bool;
+    public function infoKasbonUntukNotifikasi(string $idKasbon): ?object;
     public function nomorPemasukanBerikutnya(string $idPerusahaan): string;
     public function listPemasukanGabungan(string $idPerusahaan, string $dari, string $sampai): Collection;
     public function getPengaturan(string $idPerusahaan, string $kunci): ?string;
@@ -54,6 +57,10 @@ interface ArusKasRepositoryInterface
     public function listApproval(string $idPengajuan): array;
     public function listApprovalBanyak(array $idPengajuanList): array;
     public function findPengajuanForUpdate(string $id): ?PengajuanPengeluaranModel;
+    public function jumlahPengajuanBerstatus(string $idPerusahaan, string $status): int;
+    public function insertRiwayatPengajuan(array $data): void;
+    /** @return object[] */
+    public function listRiwayatPengajuan(string $idPengajuan): array;
     public function unlinkJadwalPengajuan(string $idPengajuan): void;
     public function findPengajuanPeriodeUntukTrip(string $idTrip): ?PengajuanPengeluaranModel;
 

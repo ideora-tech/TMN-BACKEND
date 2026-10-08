@@ -8,11 +8,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Concerns\MenerbitkanPo;
 use Tests\TestCase;
 
 class PermintaanPembelianAsetTest extends TestCase
 {
     use RefreshDatabase;
+    use MenerbitkanPo;
 
     protected function setUp(): void
     {
@@ -324,8 +326,12 @@ class PermintaanPembelianAsetTest extends TestCase
         $pr = $this->buatPrAset('DISPATCHER', $override);
         $this->actingAsRole('PENGADAAN');
         $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/proses")->assertStatus(200);
-        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('po.jpg')]])->assertStatus(200);
         return $pr;
+    }
+
+    private function unggahNota(array $pr)
+    {
+        return $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('po.jpg')]]);
     }
 
     private function payloadDibeli(array $pr, array $override = []): array
@@ -344,7 +350,10 @@ class PermintaanPembelianAsetTest extends TestCase
     private function prAsetSampaiDibeli(): array
     {
         $pr = $this->prAsetSampaiDiproses();
-        return $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $this->payloadDibeli($pr))->assertStatus(200)->json('data');
+        $payload = $this->payloadDibeli($pr);
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->unggahNota($pr)->assertStatus(200);
+        return $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(200)->json('data');
     }
 
     private function transferPengajuan(string $idPengajuan, string $tanggal = '2026-10-05')
@@ -360,19 +369,25 @@ class PermintaanPembelianAsetTest extends TestCase
     {
         $pr = $this->prAsetSampaiDiproses();
         $url = "/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli";
+        $idSupplier = $this->makeSupplier();
+        $this->terbitkanPo($pr['id_permintaan'], $this->payloadDibeli($pr, ['id_supplier' => $idSupplier]))
+            ->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->unggahNota($pr)->assertStatus(200);
 
-        $this->patchJson($url, $this->payloadDibeli($pr, ['termin' => null]))
+        $this->patchJson($url, $this->payloadDibeli($pr, ['id_supplier' => $idSupplier, 'termin' => null]))
             ->assertStatus(422)->assertJsonPath('message', 'Daftar termin pembayaran wajib diisi untuk PR aset');
-        $this->patchJson($url, $this->payloadDibeli($pr, ['termin' => []]))
+        $this->patchJson($url, $this->payloadDibeli($pr, ['id_supplier' => $idSupplier, 'termin' => []]))
             ->assertStatus(422)->assertJsonPath('message', 'Daftar termin pembayaran wajib diisi untuk PR aset');
-        $this->patchJson($url, $this->payloadDibeli($pr, ['termin' => [['nama' => 'DP', 'nominal' => 0]]]))->assertStatus(422);
-        $this->patchJson($url, $this->payloadDibeli($pr, ['termin' => [['nominal' => 700000000]]]))->assertStatus(422);
-        $this->patchJson($url, $this->payloadDibeli($pr, ['termin' => [
+        $this->patchJson($url, $this->payloadDibeli($pr, ['id_supplier' => $idSupplier, 'termin' => [['nama' => 'DP', 'nominal' => 0]]]))
+            ->assertStatus(422)->assertJsonValidationErrors(['termin.0.nominal']);
+        $this->patchJson($url, $this->payloadDibeli($pr, ['id_supplier' => $idSupplier, 'termin' => [['nominal' => 700000000]]]))
+            ->assertStatus(422)->assertJsonValidationErrors(['termin.0.nama']);
+        $this->patchJson($url, $this->payloadDibeli($pr, ['id_supplier' => $idSupplier, 'termin' => [
             ['nama' => 'DP 30%', 'nominal' => 210000000, 'jatuh_tempo' => '2026-10-05'],
             ['nama' => 'Pelunasan', 'nominal' => 400000000],
         ]]))->assertStatus(422)->assertJsonPath('message', 'Total termin harus sama dengan total aktual (Rp 700.000.000)');
 
-        $this->assertSame('diproses', DB::table('permintaan_pembelian')->where('id_permintaan', $pr['id_permintaan'])->value('status'));
+        $this->assertSame('dipesan', DB::table('permintaan_pembelian')->where('id_permintaan', $pr['id_permintaan'])->value('status'));
         $this->assertSame(0, DB::table('permintaan_pembelian_termin')->count());
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
     }
@@ -381,7 +396,13 @@ class PermintaanPembelianAsetTest extends TestCase
     {
         $pr = $this->prAsetSampaiDiproses();
         $idSupplier = $this->makeSupplier('Dealer Hino Jaya');
-        $hasil = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $this->payloadDibeli($pr, ['id_supplier' => $idSupplier]))
+        $payload = $this->payloadDibeli($pr, ['id_supplier' => $idSupplier]);
+        $this->unggahNota($pr)->assertStatus(422)->assertJsonPath('message', 'Nota baru bisa diunggah setelah PO terbit');
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->assertSame(0, DB::table('permintaan_pembelian_termin')->count());
+        $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
+        $this->unggahNota($pr)->assertStatus(200);
+        $hasil = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)
             ->assertStatus(200)->json('data');
 
         $this->assertSame('dibeli', $hasil['status']);
@@ -448,12 +469,14 @@ class PermintaanPembelianAsetTest extends TestCase
         ])->assertStatus(201)->json('data');
         $this->actingAsRole('PENGADAAN');
         $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/proses")->assertStatus(200);
-        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
-        $hasil = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", [
+        $payload = [
             'id_supplier' => $this->makeSupplier(), 'tanggal_pembelian' => now()->toDateString(),
             'items' => [['id_item' => $pr['items'][0]['id_item'], 'harga_aktual' => 350000]],
             'termin' => [['nama' => 'DP', 'nominal' => 1000]],
-        ])->assertStatus(200)->json('data');
+        ];
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
+        $hasil = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(200)->json('data');
         $this->assertSame([], $hasil['termin']);
         $this->assertSame(0, DB::table('permintaan_pembelian_termin')->count());
         $pengajuan = DB::table('pengajuan_pengeluaran')->where('id_permintaan_pembelian', $pr['id_permintaan'])->get();
@@ -560,10 +583,12 @@ class PermintaanPembelianAsetTest extends TestCase
     {
         $pr = $this->prAsetSampaiDiproses();
         $payload = $this->payloadDibeli($pr);
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->unggahNota($pr)->assertStatus(200);
         [, $penggunaLain] = $this->makeTenantLain();
         \Laravel\Sanctum\Sanctum::actingAs($penggunaLain, ['*']);
         $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(404);
-        $this->assertSame('diproses', DB::table('permintaan_pembelian')->where('id_permintaan', $pr['id_permintaan'])->value('status'));
+        $this->assertSame('dipesan', DB::table('permintaan_pembelian')->where('id_permintaan', $pr['id_permintaan'])->value('status'));
 
         $this->actingAsRole('PENGADAAN');
         $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(200);
@@ -582,7 +607,7 @@ class PermintaanPembelianAsetTest extends TestCase
             $this->itemAset(),
             $this->itemAset(['merk' => 'Isuzu', 'model' => 'Elf', 'tahun' => 2025, 'qty' => 1, 'harga_estimasi' => 400000000]),
         ]]);
-        return $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $this->payloadDibeli($pr, [
+        $payload = $this->payloadDibeli($pr, [
             'items'  => [
                 ['id_item' => $pr['items'][0]['id_item'], 'harga_aktual' => 350000000],
                 ['id_item' => $pr['items'][1]['id_item'], 'harga_aktual' => 400000000],
@@ -591,7 +616,10 @@ class PermintaanPembelianAsetTest extends TestCase
                 ['nama' => 'DP', 'nominal' => 300000000, 'jatuh_tempo' => '2026-10-05'],
                 ['nama' => 'Pelunasan', 'nominal' => 800000000, 'jatuh_tempo' => null],
             ],
-        ]))->assertStatus(200)->json('data');
+        ]);
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->unggahNota($pr)->assertStatus(200);
+        return $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(200)->json('data');
     }
 
     private function payloadArmada(?string $idItem, array $override = []): array
@@ -725,6 +753,11 @@ class PermintaanPembelianAsetTest extends TestCase
             ->assertJsonPath('message', 'Unit hanya bisa didaftarkan saat PR berstatus dibeli (status saat ini: diproses)');
         $this->assertSame(0, DB::table('armada')->where('nopol', 'B 2004 XXX')->count());
 
+        $this->terbitkanPo($prDiproses['id_permintaan'], $this->payloadDibeli($prDiproses))->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->daftarkanUnit($prDiproses['items'][0]['id_item'], ['nopol' => 'B 2004 XXX'])->assertStatus(422)
+            ->assertJsonPath('message', 'Unit hanya bisa didaftarkan saat PR berstatus dibeli (status saat ini: dipesan)');
+        $this->assertSame(0, DB::table('armada')->where('nopol', 'B 2004 XXX')->count());
+
         $this->actingAsRole('DISPATCHER');
         $prUmum = $this->postJson('/api/permintaan-pembelian', [
             'judul' => 'Servis', 'tipe' => 'umum', 'alasan' => 'Rutin', 'tanggal_permintaan' => now()->toDateString(),
@@ -732,11 +765,13 @@ class PermintaanPembelianAsetTest extends TestCase
         ])->assertStatus(201)->json('data');
         $this->actingAsRole('PENGADAAN');
         $this->patchJson("/api/permintaan-pembelian/{$prUmum['id_permintaan']}/proses")->assertStatus(200);
-        $this->postJson("/api/permintaan-pembelian/{$prUmum['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
-        $this->patchJson("/api/permintaan-pembelian/{$prUmum['id_permintaan']}/dibeli", [
+        $payloadUmum = [
             'id_supplier' => $this->makeSupplier(), 'tanggal_pembelian' => now()->toDateString(),
             'items' => [['id_item' => $prUmum['items'][0]['id_item'], 'harga_aktual' => 350000]],
-        ])->assertStatus(200);
+        ];
+        $this->terbitkanPo($prUmum['id_permintaan'], $payloadUmum)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->postJson("/api/permintaan-pembelian/{$prUmum['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
+        $this->patchJson("/api/permintaan-pembelian/{$prUmum['id_permintaan']}/dibeli", $payloadUmum)->assertStatus(200);
         $this->daftarkanUnit($prUmum['items'][0]['id_item'], ['nopol' => 'B 2005 XXX'])->assertStatus(422)
             ->assertJsonPath('message', 'Unit hanya bisa didaftarkan saat PR berstatus dibeli');
         $this->assertSame(0, $this->qtyDiterima($prUmum['items'][0]['id_item']));

@@ -10,7 +10,9 @@ interface PermintaanPembelianRepositoryInterface
 {
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, array $filter): LengthAwarePaginator;
     /** @return array<string,int> */
-    public function ringkasanStatus(string $idPerusahaan): array;
+    public function ringkasanStatus(string $idPerusahaan, ?string $idPenglihat = null): array;
+    public function jumlahPembayaranDitolak(string $idPerusahaan, ?string $idPenglihat = null): int;
+    public function penggunaApprover(string $idPermintaan, string $idPengguna): bool;
     public function listMenungguDiproses(string $idPerusahaan, int $limit): array;
     public function findById(string $id): ?object;
     public function findByIdForUpdate(string $id): ?object;
@@ -39,6 +41,10 @@ interface PermintaanPembelianRepositoryInterface
     public function jenisKendaraanMilik(string $idPerusahaan, array $ids): array;
     public function insertTermin(array $data): string;
     /** @return object[] */
+    public function insertPenerimaan(array $header, array $qtyPerItem): void;
+
+    public function listPenerimaan(string $idPermintaan): array;
+
     public function listTermin(string $idPermintaan): array;
     public function setPengajuanTermin(string $idTermin, string $idPengajuan): void;
     public function adaTerminMenunggu(string $idPermintaan): bool;

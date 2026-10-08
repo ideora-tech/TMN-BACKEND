@@ -17,7 +17,7 @@ class ProsesApprovalRequest extends FormRequest
     {
         return [
             'keputusan' => ['required', 'in:setuju,tolak'],
-            'catatan'   => ['nullable', 'string', 'max:255', 'required_if:keputusan,tolak'],
+            'catatan'   => ['nullable', 'string', 'max:500', 'required_if:keputusan,tolak'],
         ];
     }
 }

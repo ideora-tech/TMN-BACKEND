@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 class PermintaanVendorService
 {
     private const MENU_TIM_VENDOR = ['/kontrak-vendor', '/permintaan-vendor'];
+    private const MENU_OPERASIONAL = ['/penugasan'];
 
     public function __construct(
         private readonly PermintaanVendorRepositoryInterface $repo,
@@ -308,13 +309,18 @@ class PermintaanVendorService
                     ->batalkanUntukReferensi(['permintaan_vendor'], $id, $idPerusahaan);
             }
 
+            $penerima = [['menu' => ['/kontrak-vendor']]];
+            if ($terkunci->status !== 'draft') {
+                $penerima[] = ['menu' => self::MENU_OPERASIONAL, 'aksi' => 'tambah'];
+            }
+
             $dibatalkan = $this->repo->update($terkunci, [
                 'status'       => 'dibatalkan',
                 'alasan_batal' => $alasan,
             ]);
 
-            $this->notifikasiService->kirimKePemilikIzinMenu(
-                ['/kontrak-vendor'],
+            $this->notifikasiService->kirimKeGabunganPemilikIzinMenu(
+                $penerima,
                 (string) $dibatalkan->id_perusahaan,
                 "Permintaan vendor {$dibatalkan->nomor_permintaan} dibatalkan",
                 $alasan,
@@ -347,6 +353,25 @@ class PermintaanVendorService
             'link'           => '/permintaan-vendor/' . $record->id_permintaan,
             'dibaca'         => 0,
         ]);
+    }
+
+    public function beritahuOperasionalUnitSiap(PermintaanVendorModel $record, ?string $nomorKontrak): void
+    {
+        $this->notifikasiService->kirimKePemilikIzinMenu(
+            self::MENU_OPERASIONAL,
+            (string) $record->id_perusahaan,
+            "Unit vendor untuk {$record->nomor_permintaan} siap ditugaskan",
+            implode(' - ', array_values(array_filter([
+                $this->ringkasanUnit($record),
+                $nomorKontrak !== null && $nomorKontrak !== '' ? "Kontrak {$nomorKontrak} aktif" : 'Kontrak vendor aktif',
+            ]))),
+            'permintaan_vendor',
+            'permintaan_vendor',
+            (string) $record->id_permintaan,
+            '/penugasan',
+            $record->dibuat_oleh !== null ? (string) $record->dibuat_oleh : null,
+            'tambah',
+        );
     }
 
     public function ringkasanUnit(PermintaanVendorModel $record): string

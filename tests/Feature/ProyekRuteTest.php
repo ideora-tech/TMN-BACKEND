@@ -258,7 +258,7 @@ class ProyekRuteTest extends TestCase
         $this->assertEquals(615000, $res->json('data.estimasi_biaya'));
     }
 
-    public function test_update_mengubah_harga_penawaran(): void
+    public function test_update_harga_penawaran_ditolak_422_dan_ritase_tetap_boleh(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
@@ -268,12 +268,15 @@ class ProyekRuteTest extends TestCase
             'harga_penawaran'    => 500000,
         ])->json('data.id_proyek_rute');
 
-        $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
+        $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
             'harga_penawaran' => 900000,
-        ]);
+        ])->assertStatus(422)->assertJsonPath('message', 'Rute, jenis kendaraan, dan harga penawaran tidak dapat diubah dari sini — ubah lewat penawaran');
 
-        $res->assertStatus(200);
-        $this->assertEquals(900000, $res->json('data.harga_penawaran'));
+        $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
+            'estimasi_ritase' => 5,
+        ])->assertStatus(200);
+
+        $this->assertDatabaseHas('proyek_rute', ['id_proyek_rute' => $id, 'harga_penawaran' => 500000, 'estimasi_ritase' => 5]);
     }
 
     public function test_update_mengubah_uang_jalan_dan_estimasi_ops(): void
@@ -370,7 +373,7 @@ class ProyekRuteTest extends TestCase
         $res->assertStatus(200)->assertJsonPath('data.keterangan', 'Diperbarui');
     }
 
-    public function test_update_id_rute_ke_yang_tidak_ada_ditolak_404(): void
+    public function test_update_id_rute_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
@@ -383,7 +386,7 @@ class ProyekRuteTest extends TestCase
             'id_rute' => (string) Str::uuid(),
         ]);
 
-        $res->assertStatus(404);
+        $res->assertStatus(422);
     }
 
     public function test_destroy_berhasil_soft_delete(): void
@@ -534,7 +537,7 @@ class ProyekRuteTest extends TestCase
         $res->assertStatus(201);
     }
 
-    public function test_update_ke_kombinasi_duplikat_ditolak_409(): void
+    public function test_update_ke_rute_lain_di_proyek_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
@@ -553,24 +556,35 @@ class ProyekRuteTest extends TestCase
             'id_rute' => $idRuteA,
         ]);
 
-        $res->assertStatus(409)
-            ->assertJsonPath('message', 'Rute dengan jenis kendaraan ini sudah terdaftar di proyek');
+        $res->assertStatus(422)
+            ->assertJsonPath('message', 'Rute, jenis kendaraan, dan harga penawaran tidak dapat diubah dari sini — ubah lewat penawaran');
     }
 
-    public function test_update_tanpa_ubah_kombinasi_tidak_ditolak(): void
+    public function test_update_payload_lengkap_tanpa_ubah_rute_dan_harga_tidak_ditolak(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek();
+        $idRute  = $this->makeRute();
+        $idJenis = $this->makeJenisKendaraan();
         $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
-            'id_rute'            => $this->makeRute(),
-            'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+            'id_rute'            => $idRute,
+            'id_jenis_kendaraan' => $idJenis,
+            'harga_penawaran'    => 850000,
+            'estimasi_ritase'    => 3,
         ])->json('data.id_proyek_rute');
 
         $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
-            'harga_penawaran' => 850000,
+            'id_rute'            => $idRute,
+            'id_jenis_kendaraan' => $idJenis,
+            'harga_penawaran'    => 850000,
+            'estimasi_ritase'    => 3,
+            'estimasi_tol'       => 70000,
+            'keterangan'         => 'Lewat tol dalam kota',
         ]);
 
-        $res->assertStatus(200);
+        $res->assertStatus(200)
+            ->assertJsonPath('data.keterangan', 'Lewat tol dalam kota');
+        $this->assertEquals(70000, $res->json('data.estimasi_tol'));
     }
 
     public function test_store_rute_proyek_borongan_dengan_penawaran_disetujui_tetap_boleh_201(): void
@@ -605,7 +619,7 @@ class ProyekRuteTest extends TestCase
             ->assertJsonPath('message', 'Harga terkunci — ubah lewat penawaran revisi');
     }
 
-    public function test_update_harga_rute_proyek_borongan_dengan_penawaran_disetujui_tetap_boleh(): void
+    public function test_update_harga_rute_proyek_borongan_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $idProyek = $this->makeProyek('borongan');
@@ -620,7 +634,7 @@ class ProyekRuteTest extends TestCase
             'harga_penawaran' => 900000,
         ]);
 
-        $res->assertStatus(200)->assertJsonPath('data.harga_penawaran', 900000);
+        $res->assertStatus(422)->assertJsonPath('message', 'Rute, jenis kendaraan, dan harga penawaran tidak dapat diubah dari sini — ubah lewat penawaran');
     }
 
     public function test_update_id_rute_proyek_per_rit_dengan_penawaran_disetujui_ditolak_422(): void
@@ -638,7 +652,7 @@ class ProyekRuteTest extends TestCase
             'id_rute' => $this->makeRute(),
         ]);
 
-        $res->assertStatus(422)->assertJsonPath('message', 'Harga terkunci — ubah lewat penawaran revisi');
+        $res->assertStatus(422)->assertJsonPath('message', 'Rute, jenis kendaraan, dan harga penawaran tidak dapat diubah dari sini — ubah lewat penawaran');
     }
 
     public function test_update_id_jenis_kendaraan_proyek_per_rit_dengan_penawaran_disetujui_ditolak_422(): void
@@ -656,7 +670,7 @@ class ProyekRuteTest extends TestCase
             'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
         ]);
 
-        $res->assertStatus(422)->assertJsonPath('message', 'Harga terkunci — ubah lewat penawaran revisi');
+        $res->assertStatus(422)->assertJsonPath('message', 'Rute, jenis kendaraan, dan harga penawaran tidak dapat diubah dari sini — ubah lewat penawaran');
     }
 
     public function test_update_keterangan_rute_proyek_per_rit_dengan_penawaran_disetujui_tetap_boleh(): void

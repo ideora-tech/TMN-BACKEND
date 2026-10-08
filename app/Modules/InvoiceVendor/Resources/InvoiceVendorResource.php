@@ -42,6 +42,8 @@ class InvoiceVendorResource extends JsonResource
             'diverifikasi_pada'  => $this->diverifikasi_pada?->toIso8601String(),
             'status_pembayaran'  => $this->status_pembayaran,
             'keterangan'         => $this->keterangan,
+            'alasan_batal'       => $this->alasan_batal,
+            'dibatalkan_pada'    => $this->dibatalkan_pada?->toIso8601String(),
             'dibuat_pada'        => $this->dibuat_pada,
             'diubah_pada'        => $this->diubah_pada,
         ];

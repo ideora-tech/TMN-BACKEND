@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\DB;
 
 class ParameterTagihanTripService
 {
+    public const MAKS_ADD_DROP = 20;
+    public const KETERANGAN_ADD_DROP_OTOMATIS = 'Add Drop otomatis dari titik drop penugasan';
+
     public function __construct(
         private readonly ParameterTagihanTripRepositoryInterface $repo,
         private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
@@ -52,11 +55,13 @@ class ParameterTagihanTripService
             'bisa_diatur'     => $berlaku && $mode !== null && !$terkunci,
             'harga_deal'      => $hargaDeal['harga'] ?? null,
             'harga_perkiraan' => $hargaDeal['perkiraan'] ?? false,
+            'jumlah_titik_drop' => $this->repo->jumlahTitikDrop($idTrip),
+            'add_drop_manual' => (int) ($tersimpan->add_drop_manual ?? 0) === 1,
             'tarif'           => $tarif,
             'nilai'           => [
-                'jumlah_overnight' => $mode === 'normal' ? (int) ($tersimpan->jumlah_overnight ?? 0) : 0,
-                'jumlah_add_drop'  => $mode === 'normal' ? (int) ($tersimpan->jumlah_add_drop ?? 0) : 0,
-                'cross_cluster'    => $mode === 'normal' && (int) ($tersimpan->cross_cluster ?? 0) === 1,
+                'jumlah_overnight' => $mode !== 'cancellation' ? (int) ($tersimpan->jumlah_overnight ?? 0) : 0,
+                'jumlah_add_drop'  => $mode !== 'cancellation' ? (int) ($tersimpan->jumlah_add_drop ?? 0) : 0,
+                'cross_cluster'    => $mode !== 'cancellation' && (int) ($tersimpan->cross_cluster ?? 0) === 1,
                 'cancellation'     => $mode === 'cancellation' && (int) ($tersimpan->cancellation ?? 0) === 1,
                 'keterangan'       => $tersimpan->keterangan ?? null,
             ],
@@ -121,10 +126,65 @@ class ParameterTagihanTripService
                 $baris[$def['tarif']] = $tarif;
             }
 
+            $addDropDiubah = $jumlah['add_drop'] !== (int) ($tersimpan->jumlah_add_drop ?? 0);
+            $baris['add_drop_manual'] = ((int) ($tersimpan->add_drop_manual ?? 0) === 1 || $addDropDiubah) ? 1 : 0;
+
             $this->repo->simpan($idTrip, $baris);
         });
 
         return $this->detail($idTrip, $idPerusahaan);
+    }
+
+    public function sinkronAddDropOtomatisPenugasan(string $idPenugasan): void
+    {
+        foreach ($this->repo->idTripBerjalanUntukPenugasan($idPenugasan) as $idTrip) {
+            $this->sinkronAddDropOtomatis($idTrip);
+        }
+    }
+
+    public function sinkronAddDropOtomatis(string $idTrip): void
+    {
+        $konteks = $this->repo->konteksTrip($idTrip, null);
+        if ($konteks === null || !TipeHarga::perRit($konteks->tipe_harga ?? null)) {
+            return;
+        }
+        if (!in_array($konteks->status, ['belum_mulai', 'berjalan'], true) || $this->repo->tripPunyaFakturAktif($idTrip)) {
+            return;
+        }
+
+        $tersimpan = $this->repo->findByTrip($idTrip);
+        if ($tersimpan !== null && (int) ($tersimpan->add_drop_manual ?? 0) === 1) {
+            return;
+        }
+
+        $jumlah = min($this->repo->jumlahTitikDrop($idTrip), self::MAKS_ADD_DROP);
+        if ($jumlah === (int) ($tersimpan->jumlah_add_drop ?? 0)) {
+            return;
+        }
+
+        $def   = ParameterTagihan::DAFTAR['add_drop'];
+        $tarif = null;
+        if ($jumlah > 0) {
+            $tarif = $this->tarifTersimpan($tersimpan, $def) ?? $this->tarifPenawaran((string) $konteks->id_proyek)['add_drop'];
+            if ($tarif === null) {
+                return;
+            }
+        }
+
+        $keterangan = trim((string) ($tersimpan->keterangan ?? ''));
+        if ($jumlah > 0 && $keterangan === '') {
+            $keterangan = self::KETERANGAN_ADD_DROP_OTOMATIS;
+        }
+        if ($jumlah === 0 && $keterangan === self::KETERANGAN_ADD_DROP_OTOMATIS) {
+            $keterangan = '';
+        }
+
+        $this->repo->simpan($idTrip, [
+            $def['jumlah']    => $jumlah,
+            $def['tarif']     => $tarif,
+            'keterangan'      => $keterangan !== '' ? $keterangan : null,
+            'add_drop_manual' => 0,
+        ]);
     }
 
     private function konteksAtau404(string $idTrip, string $idPerusahaan): object

@@ -64,27 +64,73 @@ class PenawaranSumberUnitTest extends TestCase
         return $id;
     }
 
-    public function test_item_penawaran_menyimpan_pembagian_unit_aset_dan_vendor(): void
+    public function test_item_penawaran_menyimpan_jumlah_unit_tanpa_pembagian_aset_dan_vendor(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/penawaran', [
-            'judul'    => 'Penawaran Campuran',
+            'judul'    => 'Penawaran Jumlah Unit',
             'id_klien' => $this->makeKlien(),
             'items'    => [[
                 'id_rute' => $this->makeRute(), 'id_jenis_kendaraan' => $this->makeJenis(),
-                'harga_satuan' => 1000000, 'estimasi_ritase' => 2, 'unit_aset' => 3, 'unit_vendor' => 2,
+                'harga_satuan' => 1000000, 'estimasi_ritase' => 2, 'jumlah_unit' => 5,
             ]],
         ]);
 
-        $res->assertStatus(201)
-            ->assertJsonPath('data.items.0.unit_aset', 3)
-            ->assertJsonPath('data.items.0.unit_vendor', 2);
+        $res->assertStatus(201)->assertJsonPath('data.items.0.jumlah_unit', 5);
+        $this->assertArrayNotHasKey('unit_aset', $res->json('data.items.0'));
+        $this->assertArrayNotHasKey('unit_vendor', $res->json('data.items.0'));
 
-        $this->postJson('/api/penawaran', [
-            'judul' => 'Negatif', 'id_klien' => $this->makeKlien(),
-            'items' => [['id_rute' => $this->makeRute(), 'id_jenis_kendaraan' => $this->makeJenis(), 'harga_satuan' => 1, 'unit_vendor' => -1]],
-        ])->assertStatus(422);
+        $idPenawaran = $res->json('data.id_penawaran');
+        $this->putJson("/api/penawaran/{$idPenawaran}", [
+            'items' => [[
+                'id_rute' => $this->makeRute(), 'id_jenis_kendaraan' => $this->makeJenis(),
+                'harga_satuan' => 1000000, 'jumlah_unit' => 8,
+            ]],
+        ])->assertOk()->assertJsonPath('data.items.0.jumlah_unit', 8);
+
+        $tanpaUnit = $this->postJson('/api/penawaran', [
+            'judul' => 'Tanpa Unit', 'id_klien' => $this->makeKlien(),
+            'items' => [['id_rute' => $this->makeRute(), 'id_jenis_kendaraan' => $this->makeJenis(), 'harga_satuan' => 1]],
+        ]);
+        $tanpaUnit->assertStatus(201)->assertJsonPath('data.items.0.jumlah_unit', null);
+
+        foreach ([0, -1, 10000] as $jumlahSalah) {
+            $this->postJson('/api/penawaran', [
+                'judul' => 'Salah', 'id_klien' => $this->makeKlien(),
+                'items' => [['id_rute' => $this->makeRute(), 'id_jenis_kendaraan' => $this->makeJenis(), 'harga_satuan' => 1, 'jumlah_unit' => $jumlahSalah]],
+            ])->assertStatus(422);
+        }
+    }
+
+    public function test_migrasi_mengisi_jumlah_unit_dari_unit_aset_dan_vendor_lama(): void
+    {
+        $idPenawaran = $this->makePenawaran();
+        $buatItem = function (?int $aset, ?int $vendor, ?int $jumlah = null) use ($idPenawaran): string {
+            $id = (string) Str::uuid();
+            DB::table('penawaran_item')->insert([
+                'id_penawaran_item' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_penawaran' => $idPenawaran,
+                'id_rute' => $this->makeRute(), 'id_jenis_kendaraan' => $this->makeJenis(),
+                'harga_satuan' => 1, 'estimasi_ritase' => 1, 'subtotal' => 1,
+                'unit_aset' => $aset, 'unit_vendor' => $vendor, 'jumlah_unit' => $jumlah, 'dibuat_pada' => now(),
+            ]);
+            return $id;
+        };
+
+        $campuran  = $buatItem(3, 2);
+        $asetSaja  = $buatItem(4, null);
+        $nol       = $buatItem(0, 0);
+        $kosong    = $buatItem(null, null);
+        $sudahAda  = $buatItem(3, 2, 9);
+
+        (require database_path('migrations/2026_10_07_400000_tambah_jumlah_unit_ke_penawaran_item.php'))->up();
+
+        $jumlah = fn (string $id) => DB::table('penawaran_item')->where('id_penawaran_item', $id)->value('jumlah_unit');
+        $this->assertEquals(5, $jumlah($campuran));
+        $this->assertEquals(4, $jumlah($asetSaja));
+        $this->assertNull($jumlah($nol));
+        $this->assertNull($jumlah($kosong));
+        $this->assertEquals(9, $jumlah($sudahAda));
     }
 
     public function test_permintaan_vendor_dari_penawaran_dan_filter(): void

@@ -19,11 +19,16 @@ class PayrollServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:karyawan|kasbon'])
+            ->group(function () {
+                Route::get('payroll/preview-rentang', [PayrollController::class, 'previewRentang']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
             ->group(function () {
                 Route::get('payroll/pengaturan', [PayrollController::class, 'pengaturan']);
                 Route::put('payroll/pengaturan', [PayrollController::class, 'simpanPengaturan']);
-                Route::get('payroll/preview-rentang', [PayrollController::class, 'previewRentang']);
 
                 Route::get('payroll/periode', [PayrollController::class, 'indexPeriode']);
                 Route::post('payroll/periode', [PayrollController::class, 'storePeriode']);

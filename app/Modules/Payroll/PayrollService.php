@@ -6,8 +6,10 @@ namespace App\Modules\Payroll;
 
 use App\Modules\Absensi\AbsensiService;
 use App\Modules\ArusKas\ArusKasService;
+use App\Modules\Kasbon\KasbonService;
 use App\Modules\Payroll\Contracts\PayrollRepositoryInterface;
 use App\Modules\Payroll\Imports\PayrollImport;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +30,7 @@ class PayrollService
         private readonly PayrollRepositoryInterface $repo,
         private readonly AbsensiService $absensiService,
         private readonly ArusKasService $arusKasService,
+        private readonly KasbonService $kasbonService,
     ) {}
 
     // ── Pengaturan ───────────────────────────────────────────────
@@ -116,11 +119,23 @@ class PayrollService
     public function detailPeriode(string $id, string $idPerusahaan): array
     {
         $periode = $this->periodeOrFail($id, $idPerusahaan);
+        $slips   = $this->repo->slipByPeriode($id);
+        $draft   = $periode->status !== 'final';
+
+        $kasbon = $this->kasbonService->rekapPotongan(
+            $idPerusahaan,
+            (string) $periode->tanggal_selesai,
+            array_values(array_unique(array_map(static fn (object $s) => (string) $s->id_karyawan, $slips))),
+        );
+        foreach ($slips as $slip) {
+            $slip->sisa_kasbon    = (float) ($kasbon[$slip->id_karyawan]['sisa'] ?? 0);
+            $slip->rencana_kasbon = $draft ? (float) ($kasbon[$slip->id_karyawan]['rencana'] ?? 0) : null;
+        }
 
         return [
             'periode'   => $periode,
             'ringkasan' => $this->repo->ringkasanPeriode($id),
-            'slips'     => $this->repo->slipByPeriode($id),
+            'slips'     => $slips,
         ];
     }
 
@@ -138,6 +153,7 @@ class PayrollService
         }
 
         DB::transaction(function () use ($periode) {
+            $this->kunciPeriodeDraft((string) $periode->id_periode, 'Periode yang sudah final tidak dapat dihapus');
             $this->repo->hapusSlipByPeriode($periode->id_periode);
             $this->repo->deletePeriode($periode);
         });
@@ -162,9 +178,11 @@ class PayrollService
             null,
             true,
         );
-        $tanggalExit = $this->repo->tanggalExitTerakhir($idPerusahaan);
+        $tanggalExit   = $this->repo->tanggalExitTerakhir($idPerusahaan);
+        $rencanaKasbon = $this->kasbonService->rencanaPotongan($idPerusahaan, (string) $periode->tanggal_selesai);
 
-        return DB::transaction(function () use ($periode, $pengaturan, $rekap, $tanggalExit) {
+        return DB::transaction(function () use ($periode, $pengaturan, $rekap, $tanggalExit, $rencanaKasbon) {
+            $this->kunciPeriodeDraft((string) $periode->id_periode, 'Periode sudah final — tidak dapat generate ulang');
             $this->repo->hapusSlipByPeriode($periode->id_periode);
 
             $mulai     = Carbon::parse($periode->tanggal_mulai);
@@ -221,7 +239,16 @@ class PayrollService
                 $bruto = $gajiPokok + $upahLembur + $tunjangan;
                 $pph21 = $this->hitungPph21Bulanan($bruto, $r['status_ptkp'], $pengaturan['ptkp_dasar'], $pengaturan['ptkp_tambahan']);
 
-                $totalPotongan = $potonganAbsen + $bpjsKes + $bpjsTk + $pph21;
+                $potonganLain  = $potonganAbsen + $bpjsKes + $bpjsTk + $pph21;
+                $rencana       = (float) ($rencanaKasbon[$r['id_karyawan']] ?? 0);
+                $kasbon        = $this->potonganKasbon($rencana, $bruto - $potonganLain);
+                $totalPotongan = $potonganLain + $kasbon;
+
+                if (!$r['aktif'] && $kasbon > 0) {
+                    $catatan = implode(' | ', array_filter([$catatan, $kasbon < $rencana
+                        ? 'Kasbon dipotong sebesar gaji bersih karena karyawan berhenti, masih ada sisa'
+                        : 'Sisa kasbon dipotong sekaligus karena karyawan berhenti']));
+                }
 
                 $this->repo->createSlip([
                     'id_periode'    => $periode->id_periode,
@@ -239,6 +266,7 @@ class PayrollService
                     'persen_bpjs_jht'         => $persenJht,
                     'persen_bpjs_jp'          => $persenJp,
                     'pph21'         => $pph21,
+                    'kasbon'        => $kasbon,
                     'total_bruto'   => $bruto,
                     'total_potongan' => $totalPotongan,
                     'gaji_bersih'   => $bruto - $totalPotongan,
@@ -270,6 +298,12 @@ class PayrollService
         'CATATAN'             => 'catatan',
     ];
 
+    private const PANJANG_TEKS_IMPORT = [
+        'proyek'      => ['PROJECT', 150],
+        'tipe_truck'  => ['TYPE TRUCK', 50],
+        'absen_masuk' => ['ABSEN MASUK', 10],
+    ];
+
     /**
      * Import slip gaji dari file Excel (format lembar "GAJI DRIVER"). Header boleh
      * berada di baris mana pun (dicari baris yang memuat NAMA + GAJI POKOK) dan urutan
@@ -278,8 +312,13 @@ class PayrollService
      * + laporan gagal": slip karyawan yang cocok ditimpa, yang belum ada dibuat baru,
      * sedangkan nilai BPJS/PPh21/lembur/potongan absen hasil generate dipertahankan.
      * JUMLAH GAJI dan TOTAL GAJI dari file diabaikan — total dihitung ulang sistem.
+     * Kolom KASBON juga diabaikan — potongan kasbon diambil dari modul Kasbon.
      *
-     * @return array{berhasil: int, gagal: array<int, array{baris: int, nama: string, alasan: string}>}
+     * @return array{
+     *     berhasil: int,
+     *     gagal: array<int, array{baris: int, nama: string, alasan: string}>,
+     *     selisih_kasbon: array<int, array{baris: int, nama: string, excel: float, sistem: float}>
+     * }
      */
     public function importExcel(string $id, string $idPerusahaan, UploadedFile $file): array
     {
@@ -310,90 +349,140 @@ class PayrollService
             }
         }
 
-        $berhasil = 0;
-        $gagal = [];
+        $rencanaKasbon = $this->kasbonService->rencanaPotongan($idPerusahaan, (string) $periode->tanggal_selesai);
 
-        foreach ($rows as $index => $row) {
-            if ($index <= $barisHeader) continue;
+        return DB::transaction(function () use ($periode, $rows, $barisHeader, $kolom, $frekuensiNama, $petaKaryawan, $rencanaKasbon) {
+            $this->kunciPeriodeDraft((string) $periode->id_periode, 'Periode sudah final — tidak dapat import');
 
-            $baris = $index + 1;
-            $ambil = fn (string $field) => array_key_exists($field, $kolom) ? ($row[$kolom[$field]] ?? null) : null;
+            $berhasil = 0;
+            $gagal = [];
+            $selisihKasbon = [];
 
-            $nama = $this->teksSel($ambil('nama'));
-            if ($nama === null) continue;
+            foreach ($rows as $index => $row) {
+                if ($index <= $barisHeader) continue;
 
-            $kunci = $this->normalisasiNama($nama);
-            if (($frekuensiNama[$kunci] ?? 0) > 1) {
-                $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Nama duplikat di dalam file'];
-                continue;
+                $baris = $index + 1;
+                $ambil = fn (string $field) => array_key_exists($field, $kolom) ? ($row[$kolom[$field]] ?? null) : null;
+
+                $nama = $this->teksSel($ambil('nama'));
+                if ($nama === null) continue;
+
+                $kunci = $this->normalisasiNama($nama);
+                if (($frekuensiNama[$kunci] ?? 0) > 1) {
+                    $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Nama duplikat di dalam file'];
+                    continue;
+                }
+
+                $kandidat = $petaKaryawan[$kunci] ?? [];
+                if ($kandidat === []) {
+                    $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Karyawan tidak ditemukan di master'];
+                    continue;
+                }
+                if (count($kandidat) > 1) {
+                    $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Nama cocok dengan lebih dari satu karyawan — rapikan master dulu'];
+                    continue;
+                }
+                $idKaryawan = $kandidat[0];
+
+                $gajiPokokPenuh = $this->angkaSel($ambil('gaji_pokok'));
+                $gajiProrate    = $this->angkaSel($ambil('gaji_prorate'));
+                $gajiPokok      = $gajiProrate > 0 ? $gajiProrate : $gajiPokokPenuh;
+
+                $catatanParts = array_filter([
+                    $this->teksSel($ambil('keterangan')),
+                    $this->teksSel($ambil('catatan')),
+                    $gajiProrate > 0
+                        ? sprintf('Gaji prorata dari Excel (gaji penuh Rp %s)', number_format($gajiPokokPenuh, 0, ',', '.'))
+                        : null,
+                ]);
+
+                $dataImport = [
+                    'gaji_pokok'          => $gajiPokok,
+                    'uang_makan'          => $this->angkaSel($ambil('uang_makan')),
+                    'tunjangan_lain'      => $this->angkaSel($ambil('tunjangan_lain')),
+                    'uang_makan_mingguan' => $this->angkaSel($ambil('uang_makan_mingguan')),
+                    'uang_jalan_terpakai' => $this->angkaSel($ambil('uang_jalan_terpakai')),
+                    'tilangan'            => $this->angkaSel($ambil('tilangan')),
+                    'proyek'              => $this->teksSel($ambil('proyek')),
+                    'tipe_truck'          => $this->teksSel($ambil('tipe_truck')),
+                    'absen_masuk'         => $this->teksSel($ambil('absen_masuk')),
+                    'catatan'             => $catatanParts !== [] ? implode(' | ', $catatanParts) : null,
+                ];
+
+                $terlaluPanjang = null;
+                foreach (self::PANJANG_TEKS_IMPORT as $field => [$label, $maks]) {
+                    if (mb_strlen((string) $dataImport[$field]) > $maks) {
+                        $terlaluPanjang = "Isi kolom {$label} terlalu panjang (maksimal {$maks} karakter)";
+                        break;
+                    }
+                }
+                if ($terlaluPanjang !== null) {
+                    $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => $terlaluPanjang];
+                    continue;
+                }
+
+                $slipAda = $this->repo->findSlipByPeriodeKaryawan($periode->id_periode, $idKaryawan);
+
+                $bruto = $dataImport['gaji_pokok'] + (float) ($slipAda->upah_lembur ?? 0)
+                    + $dataImport['tunjangan_lain'] + $dataImport['uang_makan'];
+                $potonganLain = (float) ($slipAda->potongan_absen ?? 0)
+                    + (float) ($slipAda->potongan_bpjs_kesehatan ?? 0)
+                    + (float) ($slipAda->potongan_bpjs_tk ?? 0)
+                    + (float) ($slipAda->pph21 ?? 0)
+                    + (float) ($slipAda->potongan_lain ?? 0)
+                    + $dataImport['uang_makan_mingguan']
+                    + $dataImport['uang_jalan_terpakai'] + $dataImport['tilangan'];
+
+                $kasbonManual = $slipAda !== null && (int) ($slipAda->kasbon_manual ?? 0) === 1;
+                $kasbon = $kasbonManual
+                    ? round((float) $slipAda->kasbon, 2)
+                    : $this->potonganKasbon((float) ($rencanaKasbon[$idKaryawan] ?? 0), $bruto - $potonganLain);
+                $totalPotongan = $potonganLain + $kasbon;
+
+                $kasbonExcel = $this->angkaSel($ambil('kasbon'));
+                if (abs($kasbonExcel - $kasbon) > 0.004) {
+                    $selisihKasbon[] = ['baris' => $baris, 'nama' => $nama, 'excel' => $kasbonExcel, 'sistem' => $kasbon];
+                }
+
+                $dataImport['kasbon']         = $kasbon;
+                $dataImport['total_bruto']    = $bruto;
+                $dataImport['total_potongan'] = $totalPotongan;
+                $dataImport['gaji_bersih']    = $bruto - $totalPotongan;
+
+                if ($slipAda !== null) {
+                    $this->repo->updateSlip($slipAda, $dataImport);
+                } else {
+                    $this->repo->createSlip(array_merge($dataImport, [
+                        'id_periode'    => $periode->id_periode,
+                        'id_perusahaan' => $periode->id_perusahaan,
+                        'id_karyawan'   => $idKaryawan,
+                    ]));
+                }
+                $berhasil++;
             }
 
-            $kandidat = $petaKaryawan[$kunci] ?? [];
-            if ($kandidat === []) {
-                $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Karyawan tidak ditemukan di master'];
-                continue;
-            }
-            if (count($kandidat) > 1) {
-                $gagal[] = ['baris' => $baris, 'nama' => $nama, 'alasan' => 'Nama cocok dengan lebih dari satu karyawan — rapikan master dulu'];
-                continue;
-            }
-            $idKaryawan = $kandidat[0];
+            return ['berhasil' => $berhasil, 'gagal' => $gagal, 'selisih_kasbon' => $selisihKasbon];
+        });
+    }
 
-            $gajiPokokPenuh = $this->angkaSel($ambil('gaji_pokok'));
-            $gajiProrate    = $this->angkaSel($ambil('gaji_prorate'));
-            $gajiPokok      = $gajiProrate > 0 ? $gajiProrate : $gajiPokokPenuh;
-
-            $catatanParts = array_filter([
-                $this->teksSel($ambil('keterangan')),
-                $this->teksSel($ambil('catatan')),
-                $gajiProrate > 0
-                    ? sprintf('Gaji prorata dari Excel (gaji penuh Rp %s)', number_format($gajiPokokPenuh, 0, ',', '.'))
-                    : null,
-            ]);
-
-            $dataImport = [
-                'gaji_pokok'          => $gajiPokok,
-                'uang_makan'          => $this->angkaSel($ambil('uang_makan')),
-                'tunjangan_lain'      => $this->angkaSel($ambil('tunjangan_lain')),
-                'uang_makan_mingguan' => $this->angkaSel($ambil('uang_makan_mingguan')),
-                'kasbon'              => $this->angkaSel($ambil('kasbon')),
-                'uang_jalan_terpakai' => $this->angkaSel($ambil('uang_jalan_terpakai')),
-                'tilangan'            => $this->angkaSel($ambil('tilangan')),
-                'proyek'              => $this->teksSel($ambil('proyek')),
-                'tipe_truck'          => $this->teksSel($ambil('tipe_truck')),
-                'absen_masuk'         => $this->teksSel($ambil('absen_masuk')),
-                'catatan'             => $catatanParts !== [] ? implode(' | ', $catatanParts) : null,
-            ];
-
-            $slipAda = $this->repo->findSlipByPeriodeKaryawan($periode->id_periode, $idKaryawan);
-
-            $bruto = $dataImport['gaji_pokok'] + (float) ($slipAda->upah_lembur ?? 0)
-                + $dataImport['tunjangan_lain'] + $dataImport['uang_makan'];
-            $totalPotongan = (float) ($slipAda->potongan_absen ?? 0)
-                + (float) ($slipAda->potongan_bpjs_kesehatan ?? 0)
-                + (float) ($slipAda->potongan_bpjs_tk ?? 0)
-                + (float) ($slipAda->pph21 ?? 0)
-                + (float) ($slipAda->potongan_lain ?? 0)
-                + $dataImport['uang_makan_mingguan'] + $dataImport['kasbon']
-                + $dataImport['uang_jalan_terpakai'] + $dataImport['tilangan'];
-
-            $dataImport['total_bruto']    = $bruto;
-            $dataImport['total_potongan'] = $totalPotongan;
-            $dataImport['gaji_bersih']    = $bruto - $totalPotongan;
-
-            if ($slipAda !== null) {
-                $this->repo->updateSlip($slipAda, $dataImport);
-            } else {
-                $this->repo->createSlip(array_merge($dataImport, [
-                    'id_periode'    => $periode->id_periode,
-                    'id_perusahaan' => $periode->id_perusahaan,
-                    'id_karyawan'   => $idKaryawan,
-                ]));
-            }
-            $berhasil++;
+    private function potonganKasbon(float $kasbon, float $bersihSebelumKasbon): float
+    {
+        $bersih = round($bersihSebelumKasbon, 2);
+        if ($kasbon <= $bersih) {
+            return round(max(0.0, $kasbon), 2);
         }
 
-        return ['berhasil' => $berhasil, 'gagal' => $gagal];
+        return max(0.0, floor($bersih));
+    }
+
+    private function kunciPeriodeDraft(string $idPeriode, string $pesan): object
+    {
+        $terkunci = $this->repo->kunciPeriode($idPeriode);
+        if ($terkunci === null || $terkunci->status === 'final') {
+            abort(422, $pesan);
+        }
+
+        return $terkunci;
     }
 
     /**
@@ -408,6 +497,7 @@ class PayrollService
         $periode = $this->periodeOrFail($id, $idPerusahaan);
 
         $slipMap = collect($this->repo->slipByPeriode($periode->id_periode))->keyBy('id_karyawan');
+        $rencanaKasbon = $this->kasbonService->rencanaPotongan($idPerusahaan, (string) $periode->tanggal_selesai);
 
         $rows = [];
         $no = 1;
@@ -431,7 +521,7 @@ class PayrollService
                 "=J{$r}+K{$r}+L{$r}",
                 0,
                 (float) ($slip->uang_makan_mingguan ?? 0),
-                (float) ($slip->kasbon ?? 0),
+                (float) ($slip->kasbon ?? $rencanaKasbon[$k->id_karyawan] ?? 0),
                 (float) ($slip->uang_jalan_terpakai ?? 0),
                 (float) ($slip->tilangan ?? 0),
                 "=IF(N{$r}>0,N{$r},M{$r})-O{$r}-P{$r}-Q{$r}-R{$r}",
@@ -492,43 +582,72 @@ class PayrollService
             abort(404, 'Slip tidak ditemukan');
         }
 
-        $periode = $this->repo->findPeriodeById($slip->id_periode);
-        if ($periode === null || $periode->status === 'final') {
-            abort(422, 'Slip pada periode final tidak dapat diubah');
-        }
+        $idPeriode = (string) $slip->id_periode;
 
-        $nilai = fn (string $k, $default) => array_key_exists($k, $data) ? (float) $data[$k] : (float) $default;
+        return DB::transaction(function () use ($idSlip, $idPeriode, $idPerusahaan, $data) {
+            $periode = $this->kunciPeriodeDraft($idPeriode, 'Slip pada periode final tidak dapat diubah');
 
-        $tunjangan  = $nilai('tunjangan_lain', $slip->tunjangan_lain);
-        $uangMakan  = $nilai('uang_makan', $slip->uang_makan);
-        $umMingguan = $nilai('uang_makan_mingguan', $slip->uang_makan_mingguan);
-        $kasbon     = $nilai('kasbon', $slip->kasbon);
-        $ujTerpakai = $nilai('uang_jalan_terpakai', $slip->uang_jalan_terpakai);
-        $tilangan   = $nilai('tilangan', $slip->tilangan);
-        $potLain    = $nilai('potongan_lain', $slip->potongan_lain);
-        $pph21      = $nilai('pph21', $slip->pph21);
+            $slip = $this->repo->findSlipById($idSlip);
+            if ($slip === null) {
+                abort(404, 'Slip tidak ditemukan');
+            }
 
-        $bruto = (float) $slip->gaji_pokok + (float) $slip->upah_lembur + $tunjangan + $uangMakan;
-        $totalPotongan = (float) $slip->potongan_absen + (float) $slip->potongan_bpjs_kesehatan
-            + (float) $slip->potongan_bpjs_tk + $pph21 + $potLain
-            + $umMingguan + $kasbon + $ujTerpakai + $tilangan;
+            $nilai = fn (string $k, $default) => array_key_exists($k, $data) ? (float) $data[$k] : (float) $default;
 
-        return $this->repo->updateSlip($slip, [
-            'tunjangan_lain'       => $tunjangan,
-            'keterangan_tunjangan' => $data['keterangan_tunjangan'] ?? $slip->keterangan_tunjangan,
-            'uang_makan'           => $uangMakan,
-            'uang_makan_mingguan'  => $umMingguan,
-            'kasbon'               => $kasbon,
-            'uang_jalan_terpakai'  => $ujTerpakai,
-            'tilangan'             => $tilangan,
-            'potongan_lain'        => $potLain,
-            'keterangan_potongan'  => $data['keterangan_potongan'] ?? $slip->keterangan_potongan,
-            'pph21'                => $pph21,
-            'catatan'              => $data['catatan'] ?? $slip->catatan,
-            'total_bruto'          => $bruto,
-            'total_potongan'       => $totalPotongan,
-            'gaji_bersih'          => $bruto - $totalPotongan,
-        ]);
+            $tunjangan  = $nilai('tunjangan_lain', $slip->tunjangan_lain);
+            $uangMakan  = $nilai('uang_makan', $slip->uang_makan);
+            $umMingguan = $nilai('uang_makan_mingguan', $slip->uang_makan_mingguan);
+            $kasbon     = $nilai('kasbon', $slip->kasbon);
+            $ujTerpakai = $nilai('uang_jalan_terpakai', $slip->uang_jalan_terpakai);
+            $tilangan   = $nilai('tilangan', $slip->tilangan);
+            $potLain    = $nilai('potongan_lain', $slip->potongan_lain);
+            $pph21      = $nilai('pph21', $slip->pph21);
+
+            $bruto = (float) $slip->gaji_pokok + (float) $slip->upah_lembur + $tunjangan + $uangMakan;
+            $potonganLain = (float) $slip->potongan_absen + (float) $slip->potongan_bpjs_kesehatan
+                + (float) $slip->potongan_bpjs_tk + $pph21 + $potLain
+                + $umMingguan + $ujTerpakai + $tilangan;
+            $totalPotongan = $potonganLain + $kasbon;
+
+            $kasbonBerubah = abs($kasbon - (float) $slip->kasbon) > 0.004;
+            $kasbonManual  = 1;
+            if ($kasbonBerubah) {
+                $rekap = $this->kasbonService->rekapPotongan(
+                    $idPerusahaan,
+                    (string) $periode->tanggal_selesai,
+                    [(string) $slip->id_karyawan],
+                )[$slip->id_karyawan] ?? ['sisa' => 0.0, 'rencana' => 0.0];
+
+                if ($kasbon > $rekap['sisa'] + 0.004) {
+                    abort(422, 'Potongan kasbon melebihi sisa kasbon karyawan di menu Kasbon (Rp ' . number_format($rekap['sisa'], 0, ',', '.') . ')');
+                }
+                if (abs($kasbon - $this->potonganKasbon($rekap['rencana'], $bruto - $potonganLain)) < 0.005) {
+                    $kasbonManual = 0;
+                }
+            }
+
+            $perubahan = [
+                'tunjangan_lain'       => $tunjangan,
+                'keterangan_tunjangan' => $data['keterangan_tunjangan'] ?? $slip->keterangan_tunjangan,
+                'uang_makan'           => $uangMakan,
+                'uang_makan_mingguan'  => $umMingguan,
+                'kasbon'               => $kasbon,
+                'uang_jalan_terpakai'  => $ujTerpakai,
+                'tilangan'             => $tilangan,
+                'potongan_lain'        => $potLain,
+                'keterangan_potongan'  => $data['keterangan_potongan'] ?? $slip->keterangan_potongan,
+                'pph21'                => $pph21,
+                'catatan'              => $data['catatan'] ?? $slip->catatan,
+                'total_bruto'          => $bruto,
+                'total_potongan'       => $totalPotongan,
+                'gaji_bersih'          => $bruto - $totalPotongan,
+            ];
+            if ($kasbonBerubah) {
+                $perubahan['kasbon_manual'] = $kasbonManual;
+            }
+
+            return $this->repo->updateSlip($slip, $perubahan);
+        });
     }
 
     public function slipUntukPdf(string $idSlip, string $idPerusahaan): array
@@ -540,10 +659,21 @@ class PayrollService
 
         $periode = $this->repo->findPeriodeById($slip->id_periode);
 
+        $sisaKasbon = null;
+        if ((float) $slip->kasbon > 0) {
+            if ($periode !== null && $periode->status === 'final') {
+                $sisaKasbon = $slip->sisa_kasbon_setelah_potong !== null ? (float) $slip->sisa_kasbon_setelah_potong : null;
+            } else {
+                $sisaSistem = $this->kasbonService->sisaKaryawan($idPerusahaan, (string) $slip->id_karyawan);
+                $sisaKasbon = (float) $slip->kasbon > $sisaSistem + 0.004 ? null : round($sisaSistem - (float) $slip->kasbon, 2);
+            }
+        }
+
         return [
             'slip'       => $slip,
             'periode'    => $periode,
             'perusahaan' => $this->repo->getPerusahaan($idPerusahaan),
+            'sisaKasbon' => $sisaKasbon,
         ];
     }
 
@@ -559,15 +689,31 @@ class PayrollService
             abort(422, 'Belum ada slip — generate dulu sebelum finalisasi');
         }
 
-        return DB::transaction(function () use ($periode) {
-            $updated = $this->repo->updatePeriode($periode, [
+        return $this->transaksiPeriode(function () use ($periode) {
+            $terkunci = $this->kunciPeriodeDraft((string) $periode->id_periode, 'Periode sudah final');
+
+            $updated = $this->repo->updatePeriode($terkunci, [
                 'status'            => 'final',
                 'difinalisasi_pada' => now(),
                 'difinalisasi_oleh' => auth()->id(),
             ]);
+            $sisaKasbon = $this->kasbonService->postingPotonganPayroll($updated, $this->repo->slipByPeriode($updated->id_periode));
+            $this->repo->simpanSisaKasbonSlip($sisaKasbon);
             $this->arusKasService->buatPengajuanPayrollOtomatis($updated);
             return $updated;
         });
+    }
+
+    private function transaksiPeriode(\Closure $aksi): object
+    {
+        try {
+            return DB::transaction($aksi);
+        } catch (QueryException $e) {
+            if (in_array($e->errorInfo[1] ?? null, [1205, 1213], true)) {
+                abort(409, 'Data periode atau kasbon sedang diproses pengguna lain — coba lagi sebentar');
+            }
+            throw $e;
+        }
     }
 
     public function batalFinalisasi(string $id, string $idPerusahaan): object
@@ -577,9 +723,16 @@ class PayrollService
             abort(422, 'Periode belum final');
         }
 
-        return DB::transaction(function () use ($periode) {
+        return $this->transaksiPeriode(function () use ($periode) {
+            $terkunci = $this->repo->kunciPeriode($periode->id_periode);
+            if ($terkunci === null || $terkunci->status !== 'final') {
+                abort(422, 'Periode belum final');
+            }
+
             $this->arusKasService->batalkanPengajuanPayroll($periode->id_periode);
-            return $this->repo->updatePeriode($periode, [
+            $this->kasbonService->batalkanPotonganPayroll($periode->id_periode);
+            $this->repo->kosongkanSisaKasbonSlip($periode->id_periode);
+            return $this->repo->updatePeriode($terkunci, [
                 'status'            => 'draft',
                 'difinalisasi_pada' => null,
                 'difinalisasi_oleh' => null,

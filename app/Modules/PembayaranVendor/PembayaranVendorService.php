@@ -83,6 +83,9 @@ class PembayaranVendorService
         if ($record === null) {
             abort(404, 'Pembayaran vendor tidak ditemukan');
         }
+        if ($this->repo->berasalDariPengajuan($idInvoice, $record->no_referensi)) {
+            abort(422, 'Pembayaran ini hasil transfer dari Proses Pembayaran — tidak bisa dihapus');
+        }
 
         DB::transaction(function () use ($record, $idInvoice) {
             $this->repo->kunciInvoice($idInvoice);

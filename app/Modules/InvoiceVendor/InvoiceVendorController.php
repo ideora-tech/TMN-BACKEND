@@ -44,6 +44,15 @@ class InvoiceVendorController extends Controller
         return ApiResponse::success($this->service->monitoring($idPerusahaan));
     }
 
+    public function ringkasanKontrak(Request $request, string $idKontrak): JsonResponse
+    {
+        return ApiResponse::success($this->service->ringkasanKontrak(
+            $idKontrak,
+            (string) $request->user()->id_perusahaan,
+            $request->filled('kecuali') ? (string) $request->get('kecuali') : null,
+        ));
+    }
+
     public function show(Request $request, string $id): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
@@ -118,6 +127,26 @@ class InvoiceVendorController extends Controller
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $record = $this->service->ajukanApproval($id, (string) $request->user()->id_pengguna, $idPerusahaan);
         return ApiResponse::success(new InvoiceVendorResource($record), 'Invoice diajukan untuk approval');
+    }
+
+    public function batalkan(Request $request, string $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'alasan' => ['required', 'string', 'min:3', 'max:500'],
+        ], [
+            'alasan.required' => 'Alasan pembatalan wajib diisi',
+            'alasan.min'      => 'Alasan pembatalan minimal 3 karakter',
+            'alasan.max'      => 'Alasan pembatalan maksimal 500 karakter',
+        ]);
+
+        $record = $this->service->batalkan(
+            $id,
+            (string) $request->user()->id_perusahaan,
+            $request->user(),
+            trim($validated['alasan']),
+        );
+
+        return ApiResponse::success(new InvoiceVendorResource($record), 'Invoice vendor dibatalkan');
     }
 
     public function destroy(Request $request, string $id): JsonResponse

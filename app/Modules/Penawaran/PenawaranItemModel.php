@@ -22,13 +22,11 @@ class PenawaranItemModel extends BaseModel
         'jumlah_hari',
         'subtotal',
         'keterangan',
-        'unit_aset',
-        'unit_vendor',
+        'jumlah_unit',
     ];
 
     protected $casts = [
-        'unit_aset'       => 'integer',
-        'unit_vendor'     => 'integer',
+        'jumlah_unit'     => 'integer',
         'harga_satuan'    => 'float',
         'estimasi_ritase' => 'integer',
         'jumlah_hari'     => 'integer',

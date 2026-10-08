@@ -74,7 +74,8 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
     {
         $query = InvoiceVendorModel::active()
             ->where('nomor_invoice', $nomor)
-            ->where('id_perusahaan', $idPerusahaan);
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', '!=', 'dibatalkan');
 
         if ($kecualiId !== null) {
             $query->where('id_invoice_vendor', '!=', $kecualiId);
@@ -99,6 +100,25 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
             ->first(['id_kontrak_vendor', 'id_vendor', 'nomor_kontrak', 'termin_pembayaran_hari', 'nilai_kontrak']);
+    }
+
+    public function kunciKontrak(string $idKontrak): ?object
+    {
+        return DB::table('kontrak_vendor')
+            ->where('id_kontrak_vendor', $idKontrak)
+            ->whereNull('dihapus_pada')
+            ->lockForUpdate()
+            ->first(['id_kontrak_vendor', 'nomor_kontrak', 'nilai_kontrak']);
+    }
+
+    public function totalDppKontrak(string $idKontrak, ?string $kecualiIdInvoice = null): float
+    {
+        return (float) DB::table('invoice_vendor')
+            ->where('id_kontrak_vendor', $idKontrak)
+            ->whereNull('dihapus_pada')
+            ->where('status', '!=', 'dibatalkan')
+            ->when($kecualiIdInvoice, fn ($q, $v) => $q->where('id_invoice_vendor', '!=', $v))
+            ->sum('dpp');
     }
 
     public function vendorInfo(string $idVendor): ?object
@@ -173,6 +193,7 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
             ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
             ->leftJoin('armada_vendor as av', 'p.id_armada_vendor', '=', 'av.id_armada_vendor')
             ->leftJoin('supir_vendor as sv', 'p.id_supir_vendor', '=', 'sv.id_supir_vendor')
+            ->leftJoin('supir as s', 'p.id_supir', '=', 's.id_supir')
             ->leftJoin('rute as r', 'jk.id_rute', '=', 'r.id_rute')
             ->where('pr.id_perusahaan', $idPerusahaan)
             ->where('p.id_kontrak_vendor', $idKontrakVendor)
@@ -186,7 +207,8 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
                     ->join('invoice_vendor as iv', 'iv.id_invoice_vendor', '=', 'ivt.id_invoice_vendor')
                     ->whereColumn('ivt.id_trip', 't.id_trip')
                     ->whereNull('ivt.dihapus_pada')
-                    ->whereNull('iv.dihapus_pada');
+                    ->whereNull('iv.dihapus_pada')
+                    ->where('iv.status', '!=', 'dibatalkan');
             })
             ->when($idProyek, fn ($q, $v) => $q->where('p.id_proyek', $v))
             ->when($dari, fn ($q, $v) => $q->whereRaw('DATE(COALESCE(jk.waktu_berangkat, t.dibuat_pada)) >= ?', [$v]))
@@ -200,7 +222,7 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
                 'r.nama_rute',
                 'jk.rute as rute_teks',
                 'av.nopol',
-                'sv.nama as driver_nama',
+                DB::raw('COALESCE(sv.nama, s.nama) as driver_nama'),
                 'pr.id_proyek',
                 'pr.kode_proyek',
                 'pr.nama_proyek',
@@ -227,6 +249,7 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
             ->join('proyek as pr', 'p.id_proyek', '=', 'pr.id_proyek')
             ->leftJoin('armada_vendor as av', 'p.id_armada_vendor', '=', 'av.id_armada_vendor')
             ->leftJoin('supir_vendor as sv', 'p.id_supir_vendor', '=', 'sv.id_supir_vendor')
+            ->leftJoin('supir as s', 'p.id_supir', '=', 's.id_supir')
             ->leftJoin('rute as r', 'jk.id_rute', '=', 'r.id_rute')
             ->where('ivt.id_invoice_vendor', $idInvoiceVendor)
             ->whereNull('ivt.dihapus_pada')
@@ -237,13 +260,22 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
                 'r.nama_rute',
                 'jk.rute as rute_teks',
                 'av.nopol',
-                'sv.nama as driver_nama',
+                DB::raw('COALESCE(sv.nama, s.nama) as driver_nama'),
                 'pr.kode_proyek',
                 'pr.nama_proyek',
                 't.status',
             ])
             ->get()
             ->all();
+    }
+
+    public function namaPengguna(?string $idPengguna): ?string
+    {
+        if ($idPengguna === null || $idPengguna === '') {
+            return null;
+        }
+
+        return DB::table('pengguna')->where('id_pengguna', $idPengguna)->value('username');
     }
 
     public function create(array $data): InvoiceVendorModel

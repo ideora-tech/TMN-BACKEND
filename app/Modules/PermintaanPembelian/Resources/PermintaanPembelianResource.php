@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\PermintaanPembelian\Resources;
 
+use App\Modules\PermintaanPembelian\PermintaanPembelianService;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class PermintaanPembelianResource extends JsonResource
@@ -33,7 +34,7 @@ class PermintaanPembelianResource extends JsonResource
             'harga_estimasi'    => (float) $i->harga_estimasi,
             'harga_aktual'      => $i->harga_aktual !== null ? (float) $i->harga_aktual : null,
             'subtotal_estimasi' => (int) $i->qty * (float) $i->harga_estimasi,
-            'subtotal_aktual'   => $i->harga_aktual !== null ? (int) $i->qty * (float) $i->harga_aktual : null,
+            'subtotal_aktual'   => $i->harga_aktual !== null ? PermintaanPembelianService::qtyBerlaku($this->resource, $i) * (float) $i->harga_aktual : null,
             'qty_diterima'      => $i->qty_diterima !== null ? (int) $i->qty_diterima : null,
             'keterangan'        => $i->keterangan,
         ])->all();
@@ -75,6 +76,7 @@ class PermintaanPembelianResource extends JsonResource
             'tanggal_dibutuhkan' => $this->tanggal_dibutuhkan,
             'tanggal_pembelian'  => $this->tanggal_pembelian,
             'nomor_po'           => $this->nomor_po ?? null,
+            'tanggal_po'         => $this->tanggal_po ?? null,
             'tanggal_diterima'   => $this->tanggal_diterima,
             'keterangan_penerimaan' => $this->keterangan_penerimaan ?? null,
             'tanggal_pembayaran' => $this->tanggal_pembayaran,
@@ -91,12 +93,29 @@ class PermintaanPembelianResource extends JsonResource
             'alasan_batal'       => $this->alasan_batal,
             'diproses_pada'      => $this->diproses_pada,
             'dibeli_pada'        => $this->dibeli_pada,
+            'dibeli_oleh'        => $this->dibeli_oleh ?? null,
             'diterima_pada'      => $this->diterima_pada,
+            'sisa_ditutup_pada'  => $this->sisa_ditutup_pada ?? null,
+            'alasan_tutup_sisa'  => $this->alasan_tutup_sisa ?? null,
+            'penerimaan'         => collect($this->penerimaan ?? [])->map(fn ($t) => [
+                'id_penerimaan'    => $t->id_penerimaan,
+                'tanggal_diterima' => $t->tanggal_diterima,
+                'keterangan'       => $t->keterangan,
+                'diterima_oleh'    => $t->diterima_oleh,
+                'dibuat_pada'      => $t->dibuat_pada,
+                'items'            => collect($t->items ?? [])->map(fn ($i) => [
+                    'id_item'   => $i->id_item,
+                    'nama_item' => $i->nama_item,
+                    'satuan'    => $i->satuan,
+                    'qty'       => (int) $i->qty,
+                ])->all(),
+            ])->all(),
             'items'              => $items,
             'termin'             => $termin,
             'termin_lunas'       => (bool) ($this->termin_lunas ?? false),
             'bukti'              => $this->bukti ?? [],
             'pengajuan_keuangan' => $this->pengajuan_keuangan ?? null,
+            'pembayaran_ditolak' => (bool) ($this->pembayaran_ditolak ?? false),
             'pembelian_sparepart' => $ps !== null ? [
                 'id_pembelian'    => $ps->id_pembelian,
                 'nomor_pengajuan' => $ps->nomor_pengajuan,

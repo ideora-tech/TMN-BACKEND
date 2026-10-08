@@ -67,6 +67,19 @@ class PembayaranVendorRepository implements PembayaranVendorRepositoryInterface
         $model->softDelete();
     }
 
+    public function berasalDariPengajuan(string $idInvoice, ?string $noReferensi): bool
+    {
+        if ($noReferensi === null || $noReferensi === '') {
+            return false;
+        }
+
+        return DB::table('pengajuan_pengeluaran')
+            ->where('id_invoice_vendor', $idInvoice)
+            ->where('nomor_pengajuan', $noReferensi)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
     public function recalcStatusPembayaran(string $idInvoice): void
     {
         $invoice = DB::table('invoice_vendor')

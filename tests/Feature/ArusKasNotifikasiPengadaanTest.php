@@ -10,11 +10,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class ArusKasNotifikasiPengadaanTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     private function setIzin(string $path, string $kodePeran): void
     {
@@ -49,7 +51,7 @@ class ArusKasNotifikasiPengadaanTest extends TestCase
             'id_sparepart' => $idSparepart, 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode' => 'SP-' . Str::random(5),
             'nama' => 'Kampas', 'satuan' => 'pcs', 'harga_standar' => 1000, 'stok' => 0, 'aktif' => 1, 'dibuat_pada' => now(),
         ]);
-        $res = $this->postJson('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'id_supplier' => $idSupplier, 'tanggal_pengajuan' => now()->toDateString(),
             'items' => [['id_sparepart' => $idSparepart, 'qty' => 1, 'harga_estimasi' => 500000]],
             'bukti' => [UploadedFile::fake()->image('nota.jpg')],

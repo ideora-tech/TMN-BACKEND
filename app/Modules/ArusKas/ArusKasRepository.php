@@ -108,6 +108,23 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         $model->softDelete();
     }
 
+    public function infoKasbonUntukNotifikasi(string $idKasbon): ?object
+    {
+        return DB::table('kasbon as k')
+            ->leftJoin('karyawan as kr', 'kr.id_karyawan', '=', 'k.id_karyawan')
+            ->where('k.id_kasbon', $idKasbon)
+            ->whereNull('k.dihapus_pada')
+            ->first(['k.nomor_kasbon', 'k.dibuat_oleh', 'kr.nama_karyawan', 'kr.aktif as karyawan_aktif']);
+    }
+
+    public function pemasukanTertautKasbon(string $idPemasukan): bool
+    {
+        return DB::table('kasbon_pembayaran')
+            ->where('id_pemasukan', $idPemasukan)
+            ->whereNull('dihapus_pada')
+            ->exists();
+    }
+
     public function nomorPemasukanBerikutnya(string $idPerusahaan): string
     {
         $prefix = 'PM-' . now()->format('Ym') . '-';
@@ -217,6 +234,15 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->where('id_permintaan', $idPermintaan)
             ->value('status');
         return $status !== null ? (string) $status : null;
+    }
+
+    public function idPengajuPermintaanPembelian(string $idPermintaan): ?string
+    {
+        $idPengaju = DB::table('permintaan_pembelian')
+            ->whereNull('dihapus_pada')
+            ->where('id_permintaan', $idPermintaan)
+            ->value('id_pengaju');
+        return $idPengaju !== null ? (string) $idPengaju : null;
     }
 
     public function sinkronPermintaanPembelianSelesai(string $idPermintaan, string $tanggalPembayaran): void
@@ -397,7 +423,8 @@ class ArusKasRepository implements ArusKasRepositoryInterface
                 faktur.total as nominal,
                 NULL as sumber_dana,
                 NULL as keterangan,
-                NULL as url_bukti
+                NULL as url_bukti,
+                0 as dari_kasbon
             ");
 
         $manual = DB::table('pemasukan')
@@ -413,7 +440,11 @@ class ArusKasRepository implements ArusKasRepositoryInterface
                 nominal as nominal,
                 sumber_dana as sumber_dana,
                 keterangan as keterangan,
-                url_bukti as url_bukti
+                url_bukti as url_bukti,
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM kasbon_pembayaran kp
+                    WHERE kp.id_pemasukan = pemasukan.id_pemasukan AND kp.dihapus_pada IS NULL
+                ) THEN 1 ELSE 0 END as dari_kasbon
             ");
 
         return $invoice->unionAll($manual)->orderByDesc('tanggal')->orderByDesc('nomor')->get();
@@ -609,7 +640,7 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->whereIn('ap.id_referensi', $idPengajuanList)
             ->whereNull('ak.dihapus_pada')
             ->orderBy('ak.dibuat_pada')
-            ->selectRaw('ak.id_pengguna, ak.status, ak.catatan, ak.waktu_aksi, ap.id_referensi as id_pengajuan, p.username as nama, ae.kode as kode_event')
+            ->selectRaw('ak.id_pengguna, ak.status, ak.catatan, ak.waktu_aksi, ap.id_referensi as id_pengajuan, p.username as nama, ae.kode as kode_event, ap.id_approval, ap.status as status_approval')
             ->get()
             ->map(fn ($row) => (array) $row)
             ->groupBy('id_pengajuan')
@@ -625,6 +656,31 @@ class ArusKasRepository implements ArusKasRepositoryInterface
     public function findPengajuanForUpdate(string $id): ?PengajuanPengeluaranModel
     {
         return PengajuanPengeluaranModel::active()->lockForUpdate()->find($id);
+    }
+
+    public function jumlahPengajuanBerstatus(string $idPerusahaan, string $status): int
+    {
+        return PengajuanPengeluaranModel::active()
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', $status)
+            ->count();
+    }
+
+    public function insertRiwayatPengajuan(array $data): void
+    {
+        $data['urutan'] = (int) DB::table('pengajuan_pengeluaran_riwayat')
+            ->where('id_pengajuan', $data['id_pengajuan'])
+            ->max('urutan') + 1;
+        DB::table('pengajuan_pengeluaran_riwayat')->insert(RecordHelper::stampCreate($data, 'id_riwayat'));
+    }
+
+    public function listRiwayatPengajuan(string $idPengajuan): array
+    {
+        return DB::table('pengajuan_pengeluaran_riwayat')
+            ->whereNull('dihapus_pada')
+            ->where('id_pengajuan', $idPengajuan)
+            ->orderBy('urutan')
+            ->get()->all();
     }
 
     public function unlinkJadwalPengajuan(string $idPengajuan): void

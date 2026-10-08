@@ -109,29 +109,8 @@ class PenagihanTripService
             }
 
             $biayaMap = $this->repo->biayaTagihanUntukTrips(array_map(fn ($b) => (string) $b['id_trip'], $terpilih));
-            $totalBiaya = 0.0;
-            foreach ($biayaMap as $daftarBiaya) {
-                $totalBiaya += array_sum(array_column($daftarBiaya, 'nominal'));
-            }
-            $totalTarif = array_sum(array_map(fn ($b) => (float) $b['harga_dasar'], $terpilih));
-            $totalParameter = array_sum(array_map(fn ($b) => (float) $b['parameter']['total'], $terpilih));
 
-            $deskripsi = trim((string) ($data['keterangan'] ?? ''));
-            if ($deskripsi === '') {
-                $jumlahCancel = count(array_filter($terpilih, fn ($b) => $b['parameter']['cancellation']));
-                $jumlahRit = count($terpilih) - $jumlahCancel;
-                $rincianJumlah = array_filter([
-                    $jumlahRit > 0 ? "{$jumlahRit} rit" : null,
-                    $jumlahCancel > 0 ? "{$jumlahCancel} cancellation" : null,
-                ]);
-                $deskripsi = 'Jasa angkutan ' . $proyek->nama_proyek . ' — ' . implode(' + ', $rincianJumlah);
-            }
-
-            $items = [[
-                'deskripsi'    => $deskripsi,
-                'qty'          => 1,
-                'harga_satuan' => $totalTarif + $totalParameter + $totalBiaya,
-            ]];
+            $items = $this->susunItemFaktur($terpilih, $biayaMap, (string) $proyek->nama_proyek, trim((string) ($data['keterangan'] ?? '')));
 
             $penawaran = $this->penawaranRepo->penawaranDisetujuiTerbaruProyek((string) $proyek->id_proyek);
 
@@ -153,5 +132,69 @@ class PenagihanTripService
 
             return $faktur;
         });
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $terpilih
+     * @param array<string, array<int, array{nama_biaya: string, nominal: float}>> $biayaMap
+     * @return array<int, array{deskripsi: string, qty: int|float, harga_satuan: float}>
+     */
+    private function susunItemFaktur(array $terpilih, array $biayaMap, string $namaProyek, string $deskripsiKustom): array
+    {
+        $jumlahCancel = count(array_filter($terpilih, fn ($b) => $b['parameter']['cancellation']));
+        $jumlahRit    = count($terpilih) - $jumlahCancel;
+
+        $items = [];
+        if ($jumlahRit > 0) {
+            $items[] = [
+                'deskripsi'    => $deskripsiKustom !== '' ? $deskripsiKustom : "Jasa angkutan {$namaProyek} — {$jumlahRit} rit",
+                'qty'          => 1,
+                'harga_satuan' => (float) array_sum(array_map(fn ($b) => (float) $b['harga_dasar'], $terpilih)),
+            ];
+        }
+
+        $kelompok = [];
+        foreach ($terpilih as $baris) {
+            foreach ($baris['parameter']['komponen'] as $k) {
+                $kunci = $k['kode'] . '|' . number_format((float) $k['tarif'], 2, '.', '');
+                $kelompok[$kunci] ??= ['kode' => $k['kode'], 'tarif' => (float) $k['tarif'], 'jumlah' => 0];
+                $kelompok[$kunci]['jumlah'] += (int) $k['jumlah'];
+            }
+        }
+        foreach (array_keys(ParameterTagihan::DAFTAR) as $kode) {
+            foreach ($kelompok as $g) {
+                if ($g['kode'] === $kode) {
+                    $items[] = [
+                        'deskripsi'    => ParameterTagihan::deskripsiInvoice($kode),
+                        'qty'          => $g['jumlah'],
+                        'harga_satuan' => $g['tarif'],
+                    ];
+                }
+            }
+        }
+
+        $biayaPerNama = [];
+        foreach ($biayaMap as $daftarBiaya) {
+            foreach ($daftarBiaya as $biaya) {
+                $nama  = trim((string) ($biaya['nama_biaya'] ?? ''));
+                $nama  = $nama !== '' ? $nama : 'Biaya tambahan';
+                $kunci = mb_strtolower($nama);
+                $biayaPerNama[$kunci] ??= ['nama' => $nama, 'nominal' => 0.0];
+                $biayaPerNama[$kunci]['nominal'] += (float) ($biaya['nominal'] ?? 0);
+            }
+        }
+        foreach ($biayaPerNama as $biaya) {
+            $items[] = [
+                'deskripsi'    => $biaya['nama'],
+                'qty'          => 1,
+                'harga_satuan' => $biaya['nominal'],
+            ];
+        }
+
+        if ($jumlahRit === 0 && $deskripsiKustom !== '' && $items !== []) {
+            $items[0]['deskripsi'] = $deskripsiKustom;
+        }
+
+        return $items;
     }
 }

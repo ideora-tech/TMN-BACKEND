@@ -991,4 +991,155 @@ class InvoiceVendorTest extends TestCase
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['dpp']);
     }
+
+    public function test_pembuat_membatalkan_invoice_draft_trip_lepas_dan_nomor_bisa_dipakai_ulang(): void
+    {
+        $pembuat = $this->actingAsRole('KEUANGAN');
+        $vendor  = $this->makeVendor();
+        $proyek  = $this->makeProyek();
+        $kontrak = $this->makeKontrakLengkap($vendor->id_vendor);
+        $trip    = $this->buatTripSelesaiUntukKontrak($vendor->id_vendor, $kontrak, $proyek);
+
+        $payload = [
+            'id_vendor' => $vendor->id_vendor, 'id_kontrak_vendor' => $kontrak, 'nomor_invoice' => 'INV-BATAL-001',
+            'tanggal_invoice' => '2026-10-06', 'dpp' => 500000, 'trip_ids' => [$trip],
+        ];
+        $idInvoice = $this->postJson('/api/invoice-vendor', $payload)->assertStatus(201)->json('data.id_invoice_vendor');
+
+        $this->getJson("/api/invoice-vendor/{$idInvoice}")->assertOk()->assertJsonPath('data.bisa_dibatalkan', true);
+        $this->postJson("/api/invoice-vendor/{$idInvoice}/batalkan", [])->assertStatus(422);
+
+        $this->postJson("/api/invoice-vendor/{$idInvoice}/batalkan", ['alasan' => 'Salah pilih kontrak'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'dibatalkan')
+            ->assertJsonPath('data.alasan_batal', 'Salah pilih kontrak');
+
+        $this->assertDatabaseHas('invoice_vendor', [
+            'id_invoice_vendor' => $idInvoice, 'status' => 'dibatalkan', 'dibatalkan_oleh' => $pembuat->id_pengguna,
+        ]);
+        $this->getJson("/api/invoice-vendor/{$idInvoice}")
+            ->assertOk()
+            ->assertJsonPath('data.bisa_dibatalkan', false)
+            ->assertJsonPath('data.dibatalkan_oleh_nama', $pembuat->username);
+
+        $this->assertCount(1, $this->getJson("/api/invoice-vendor/trip-siap-tagih?id_kontrak_vendor={$kontrak}")->json('data'));
+        $this->postJson('/api/invoice-vendor', $payload)->assertStatus(201);
+    }
+
+    public function test_hanya_pembuat_atau_superadmin_yang_boleh_membatalkan(): void
+    {
+        $this->actingAsRole('KEUANGAN');
+        $vendor = $this->makeVendor();
+        $idInvoice = $this->postJson('/api/invoice-vendor', [
+            'id_vendor' => $vendor->id_vendor, 'nomor_invoice' => 'INV-BATAL-002', 'tanggal_invoice' => '2026-10-06', 'dpp' => 500000,
+        ])->assertStatus(201)->json('data.id_invoice_vendor');
+
+        $this->actingAsRole('KEUANGAN');
+        $this->getJson("/api/invoice-vendor/{$idInvoice}")->assertOk()->assertJsonPath('data.bisa_dibatalkan', false);
+        $this->postJson("/api/invoice-vendor/{$idInvoice}/batalkan", ['alasan' => 'Bukan punya saya'])
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Hanya pembuat invoice atau Superadmin yang dapat membatalkan invoice ini');
+        $this->assertDatabaseHas('invoice_vendor', ['id_invoice_vendor' => $idInvoice, 'status' => 'draft']);
+
+        $this->actingAsRole('SUPERADMIN');
+        $this->postJson("/api/invoice-vendor/{$idInvoice}/batalkan", ['alasan' => 'Dibatalkan superadmin'])
+            ->assertOk()->assertJsonPath('data.status', 'dibatalkan');
+    }
+
+    public function test_invoice_dibatalkan_terkunci_dan_status_lain_tidak_bisa_dibatalkan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+
+        $diverifikasi = $this->insertInvoice($vendor->id_vendor, ['status' => 'diverifikasi']);
+        $this->postJson("/api/invoice-vendor/{$diverifikasi}/batalkan", ['alasan' => 'Coba batal'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Hanya invoice berstatus draft atau ditolak yang bisa dibatalkan');
+
+        $draft = $this->insertInvoice($vendor->id_vendor);
+        $this->postJson("/api/invoice-vendor/{$draft}/batalkan", ['alasan' => 'Tidak jadi ditagih'])->assertOk();
+
+        $this->putJson("/api/invoice-vendor/{$draft}", ['dpp' => 2000000])->assertStatus(409);
+        $this->postJson("/api/invoice-vendor/{$draft}/ajukan-approval")->assertStatus(422);
+        $this->deleteJson("/api/invoice-vendor/{$draft}")->assertStatus(409);
+        $this->postJson("/api/invoice-vendor/{$draft}/batalkan", ['alasan' => 'Batal lagi'])->assertStatus(422);
+
+        $monitoring = $this->getJson('/api/invoice-vendor/monitoring')->assertOk()->json('data');
+        $this->assertNotContains($draft, array_column($monitoring['outstanding'] ?? [], 'id_invoice_vendor'));
+    }
+
+    public function test_dpp_kumulatif_tidak_boleh_melebihi_nilai_kontrak(): void
+    {
+        $this->actingAsRole('KEUANGAN');
+        $vendor  = $this->makeVendor();
+        $kontrak = $this->makeKontrak($vendor->id_vendor, null, null, 10000000);
+        $payload = fn (string $nomor, float $dpp) => [
+            'id_vendor' => $vendor->id_vendor, 'id_kontrak_vendor' => $kontrak, 'nomor_invoice' => $nomor,
+            'tanggal_invoice' => '2026-10-06', 'dpp' => $dpp,
+        ];
+
+        $pertama = $this->postJson('/api/invoice-vendor', $payload('INV-NK-001', 6000000))
+            ->assertStatus(201)->json('data.id_invoice_vendor');
+
+        $this->getJson("/api/invoice-vendor/ringkasan-kontrak/{$kontrak}")
+            ->assertOk()
+            ->assertJsonPath('data.nilai_kontrak', 10000000)
+            ->assertJsonPath('data.total_ditagih', 6000000)
+            ->assertJsonPath('data.sisa', 4000000);
+        $this->getJson("/api/invoice-vendor/ringkasan-kontrak/{$kontrak}?kecuali={$pertama}")
+            ->assertOk()
+            ->assertJsonPath('data.total_ditagih', 0)
+            ->assertJsonPath('data.sisa', 10000000);
+        $this->getJson("/api/invoice-vendor/{$pertama}")
+            ->assertOk()
+            ->assertJsonPath('data.kontrak.total_ditagih', 6000000)
+            ->assertJsonPath('data.kontrak.sisa', 4000000);
+
+        $res = $this->postJson('/api/invoice-vendor', $payload('INV-NK-002', 4000001))->assertStatus(422);
+        $this->assertStringContainsString('sisa Rp 4.000.000', (string) $res->json('message'));
+        $this->assertDatabaseMissing('invoice_vendor', ['nomor_invoice' => 'INV-NK-002']);
+
+        $kedua = $this->postJson('/api/invoice-vendor', $payload('INV-NK-002', 4000000))
+            ->assertStatus(201)->json('data.id_invoice_vendor');
+
+        $this->putJson("/api/invoice-vendor/{$kedua}", ['dpp' => 4500000])->assertStatus(422);
+        $this->putJson("/api/invoice-vendor/{$kedua}", ['dpp' => 3000000])->assertStatus(200);
+
+        $this->postJson("/api/invoice-vendor/{$pertama}/batalkan", ['alasan' => 'Ganti nominal'])->assertOk();
+        $this->getJson("/api/invoice-vendor/ringkasan-kontrak/{$kontrak}")
+            ->assertOk()
+            ->assertJsonPath('data.total_ditagih', 3000000)
+            ->assertJsonPath('data.sisa', 7000000);
+        $this->postJson('/api/invoice-vendor', $payload('INV-NK-003', 7000000))->assertStatus(201);
+    }
+
+    public function test_kontrak_tanpa_nilai_tidak_membatasi_dpp_dan_invoice_lama_yang_sudah_lewat_tetap_bisa_diedit(): void
+    {
+        $this->actingAsRole('KEUANGAN');
+        $vendor = $this->makeVendor();
+
+        $tanpaNilai = $this->makeKontrak($vendor->id_vendor);
+        $this->postJson('/api/invoice-vendor', [
+            'id_vendor' => $vendor->id_vendor, 'id_kontrak_vendor' => $tanpaNilai, 'nomor_invoice' => 'INV-NK-010',
+            'tanggal_invoice' => '2026-10-06', 'dpp' => 999000000,
+        ])->assertStatus(201);
+        $this->getJson("/api/invoice-vendor/ringkasan-kontrak/{$tanpaNilai}")
+            ->assertOk()
+            ->assertJsonPath('data.sisa', null);
+
+        $kontrak = $this->makeKontrak($vendor->id_vendor, null, null, 5000000);
+        $lama = $this->insertInvoice($vendor->id_vendor, ['id_kontrak_vendor' => $kontrak, 'dpp' => 8000000, 'total' => 8000000]);
+        $this->putJson("/api/invoice-vendor/{$lama}", ['keterangan' => 'Catatan saja'])->assertStatus(200);
+        $this->putJson("/api/invoice-vendor/{$lama}", ['dpp' => 9000000])->assertStatus(422);
+        $this->putJson("/api/invoice-vendor/{$lama}", ['dpp' => 5000000])->assertStatus(200);
+    }
+
+    public function test_ringkasan_kontrak_perusahaan_lain_404(): void
+    {
+        $this->actingAsRole('KEUANGAN');
+        $vendorLain = $this->makeVendorPerusahaanLain();
+        $kontrakLain = $this->makeKontrak($vendorLain->id_vendor, null, (string) $vendorLain->id_perusahaan, 5000000);
+
+        $this->getJson("/api/invoice-vendor/ringkasan-kontrak/{$kontrakLain}")->assertStatus(404);
+    }
 }

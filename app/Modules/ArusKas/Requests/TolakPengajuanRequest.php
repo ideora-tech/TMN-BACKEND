@@ -16,7 +16,7 @@ class TolakPengajuanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'alasan' => ['required', 'string'],
+            'alasan' => ['required', 'string', 'max:500'],
         ];
     }
 }

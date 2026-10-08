@@ -6,13 +6,18 @@ namespace App\Modules\ParameterTagihanTrip\Contracts;
 
 interface ParameterTagihanTripRepositoryInterface
 {
-    public function konteksTrip(string $idTrip, string $idPerusahaan): ?object;
+    public function konteksTrip(string $idTrip, ?string $idPerusahaan): ?object;
 
     public function kunciTrip(string $idTrip): void;
 
     public function tripPunyaFakturAktif(string $idTrip): bool;
 
     public function findByTrip(string $idTrip): ?object;
+
+    public function jumlahTitikDrop(string $idTrip): int;
+
+    /** @return string[] */
+    public function idTripBerjalanUntukPenugasan(string $idPenugasan): array;
 
     public function simpan(string $idTrip, array $data): void;
 

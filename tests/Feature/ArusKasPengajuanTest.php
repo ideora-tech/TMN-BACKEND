@@ -11,11 +11,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class ArusKasPengajuanTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -112,7 +114,7 @@ class ArusKasPengajuanTest extends TestCase
 
     private function buatPengajuanViaPembelian(float $nominal = 500000): string
     {
-        $res = $this->postJson('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [

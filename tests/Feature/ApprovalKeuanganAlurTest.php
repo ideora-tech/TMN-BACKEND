@@ -14,11 +14,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class ApprovalKeuanganAlurTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -197,7 +199,7 @@ class ApprovalKeuanganAlurTest extends TestCase
 
     private function buatPengajuanEngine(float $nominal = 500000): string
     {
-        $res = $this->postJson('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [
@@ -256,7 +258,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->idEventTypePengajuanPengeluaran();
 
-        $this->postJson('/api/pembelian-sparepart', [
+        $this->buatPembelianLangsung([
             'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [
@@ -547,7 +549,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $idApprover = $this->buatPengguna('approver_sparepart');
         $this->tambahApproverPengguna($idApprover);
 
-        $res = $this->postJson('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [
@@ -577,7 +579,7 @@ class ApprovalKeuanganAlurTest extends TestCase
         $this->tambahApproverPengguna($idApproverA);
         $this->tambahApproverPengguna($idApproverB);
 
-        $res = $this->postJson('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [

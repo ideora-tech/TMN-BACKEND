@@ -21,6 +21,7 @@ class TerimaPermintaanPembelianRequest extends FormRequest
             'items'                => ['required', 'array', 'min:1'],
             'items.*.id_item'      => ['required', 'string', 'max:36', 'distinct'],
             'items.*.qty_diterima' => ['required', 'integer', 'min:0'],
+            'items.*.qty_sebelumnya' => ['sometimes', 'nullable', 'integer', 'min:0'],
         ];
     }
 }

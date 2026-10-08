@@ -99,7 +99,7 @@ class KaryawanRepository implements KaryawanRepositoryInterface
 
     public function dipakaiRelasiAktif(string $idKaryawan): bool
     {
-        foreach (['pengguna', 'supir', 'penugasan', 'kontrak_karyawan', 'absensi', 'payroll_slip', 'pengajuan_cuti', 'karyawan_exit'] as $tabel) {
+        foreach (['pengguna', 'supir', 'penugasan', 'kontrak_karyawan', 'absensi', 'payroll_slip', 'pengajuan_cuti', 'karyawan_exit', 'kasbon'] as $tabel) {
             $dipakai = DB::table($tabel)
                 ->whereNull('dihapus_pada')
                 ->where('id_karyawan', $idKaryawan)

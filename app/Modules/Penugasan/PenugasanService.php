@@ -562,7 +562,31 @@ class PenugasanService
             $updated = $this->repo->update($record, $data);
 
             if ($titikDropDikirim) {
+                $tripAktif = $this->tripRepo->idTripAktifUntukPenugasan($id);
+                $lokasiBaru = $this->lokasiSajaTitikDrop($titikDrop ?? []);
+                foreach ($tripAktif as $idTrip) {
+                    $hilang = $this->tripRepo->lokasiBersuratJalanYangAkanHilang($idTrip, $lokasiBaru);
+                    if ($hilang !== []) {
+                        abort(422, 'Titik drop ' . implode(', ', $hilang) . ' sudah punya surat jalan dari supir — tidak bisa dihapus. Hapus dulu surat jalannya di laporan perjalanan.');
+                    }
+                }
+
+                $lokasiLama = $this->repo->titikDropUntukBanyak([$id])[$id] ?? [];
+
                 $this->repo->syncTitikDrop($id, $titikDrop ?? []);
+                foreach ($tripAktif as $idTrip) {
+                    $this->tripRepo->sinkronTitikDropDariPenugasan($id, $idTrip);
+                }
+                try {
+                    app(\App\Modules\ParameterTagihanTrip\ParameterTagihanTripService::class)->sinkronAddDropOtomatisPenugasan($id);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Sinkron Add Drop otomatis gagal: ' . $e->getMessage());
+                }
+
+                $rapikan = fn (array $daftar) => array_values(array_map(fn ($l) => mb_strtolower(trim((string) $l)), $daftar));
+                if ($tripAktif !== [] && $rapikan($lokasiLama) !== $rapikan($lokasiBaru)) {
+                    $this->notifikasiTitikDropBerubah($updated, $lokasiBaru);
+                }
             }
             $updated->titik_drop = $this->repo->titikDropUntukBanyak([$id])[$id] ?? [];
             $updated->titik_drop_detail = $this->repo->titikDropDetailUntukBanyak([$id])[$id] ?? [];
@@ -579,6 +603,49 @@ class PenugasanService
 
             return $updated;
         });
+    }
+
+    private function notifikasiTitikDropBerubah(PenugasanModel $record, array $lokasiBaru): void
+    {
+        try {
+            if (empty($record->id_supir) && empty($record->id_supir_vendor)) {
+                return;
+            }
+            $proyek = $record->proyek;
+            if ($proyek === null) {
+                return;
+            }
+
+            $judul = "Titik drop berubah: {$proyek->nama_proyek}";
+            $isi = $lokasiBaru !== []
+                ? 'Titik drop trip Anda sekarang: ' . implode(', ', $lokasiBaru)
+                : 'Titik drop trip Anda dihapus oleh tim operasional';
+
+            $notif = app(\App\Modules\Notifikasi\NotifikasiService::class);
+            if (!empty($record->id_supir)) {
+                $notif->kirimKeSupir(
+                    (string) $record->id_supir,
+                    (string) $proyek->id_perusahaan,
+                    $judul,
+                    $isi,
+                    'penugasan',
+                    'penugasan',
+                    (string) $record->id_penugasan,
+                );
+            } else {
+                $notif->kirimKeSupirVendor(
+                    (string) $record->id_supir_vendor,
+                    (string) $proyek->id_perusahaan,
+                    $judul,
+                    $isi,
+                    'penugasan',
+                    'penugasan',
+                    (string) $record->id_penugasan,
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi titik drop berubah gagal: ' . $e->getMessage());
+        }
     }
 
     private function notifikasiPenugasan(PenugasanModel $record): void

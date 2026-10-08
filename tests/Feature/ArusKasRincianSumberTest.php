@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 /**
@@ -19,6 +20,7 @@ use Tests\TestCase;
 class ArusKasRincianSumberTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -110,7 +112,7 @@ class ArusKasRincianSumberTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'id_supplier'       => $this->buatSupplier('Toko Sparepart Jaya'),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [

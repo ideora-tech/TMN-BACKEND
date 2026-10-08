@@ -19,6 +19,7 @@ class LinkReferensiApproval
             'pengajuan_pengeluaran', 'uang_jalan', 'legalitas', 'perawatan', 'sparepart',
             'penggajian', 'pembelian_aset', 'pembayaran_pinjaman', 'pengadaan', 'lainnya',
             'persetujuan_transfer', 'pembayaran_vendor' => '/proses-pembayaran',
+            'kasbon'            => '/kasbon',
             default             => '/persetujuan-saya',
         };
     }

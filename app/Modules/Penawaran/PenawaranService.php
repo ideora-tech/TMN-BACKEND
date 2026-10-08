@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Penawaran;
 
 use App\Modules\Klien\Contracts\KlienRepositoryInterface;
+use App\Modules\Notifikasi\NotifikasiService;
 use App\Modules\Penawaran\Contracts\PenawaranItemRepositoryInterface;
 use App\Modules\Penawaran\Contracts\PenawaranRepositoryInterface;
 use App\Modules\Penawaran\Mail\PenawaranDikirimMail;
@@ -39,6 +40,7 @@ class PenawaranService
         private readonly ProyekRepositoryInterface $proyekRepo,
         private readonly ProyekRuteRepositoryInterface $proyekRuteRepo,
         private readonly KlienRepositoryInterface $klienRepo,
+        private readonly NotifikasiService $notifikasiService,
     ) {}
 
     public function list(
@@ -281,7 +283,7 @@ class PenawaranService
             abort(422, 'Penawaran belum punya item rute — tambahkan minimal 1 rute sebelum diajukan approval');
         }
 
-        return DB::transaction(function () use ($id, $idPerusahaan, $idPengguna) {
+        $diajukan = DB::transaction(function () use ($id, $idPerusahaan, $idPengguna) {
             $terkunci = $this->repo->findForUpdate($id);
             if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
                 abort(404, 'Penawaran tidak ditemukan');
@@ -318,6 +320,55 @@ class PenawaranService
                 'alasan_ditolak_internal'  => null,
             ]);
         });
+
+        $this->beritahuOperasionalPenawaranDiajukan($diajukan, $idPengguna);
+
+        return $diajukan;
+    }
+
+    private function beritahuOperasionalPenawaranDiajukan(PenawaranModel $penawaran, string $idPengaju): void
+    {
+        if ($penawaran->id_penawaran_induk !== null) {
+            return;
+        }
+
+        try {
+            $klien = $penawaran->id_klien !== null ? $this->klienRepo->findById((string) $penawaran->id_klien) : null;
+            $items = $this->itemRepo->listByPenawaran((string) $penawaran->id_penawaran);
+
+            $unit = $items
+                ->groupBy(fn ($item) => (string) ($item->nama_jenis ?? 'Semua jenis'))
+                ->map(function ($baris, $jenis) {
+                    $jumlah = (int) $baris->sum('jumlah_unit');
+
+                    return $jumlah > 0 ? "{$jenis} {$jumlah} unit" : (string) $jenis;
+                })
+                ->implode(', ');
+
+            $jumlahRute = $items->pluck('id_rute')->filter()->unique()->count();
+
+            $rincian = array_values(array_filter([
+                ($klien->nama_klien ?? null) !== null ? "Klien {$klien->nama_klien}" : null,
+                $unit !== '' ? $unit : null,
+                $jumlahRute > 0 ? "{$jumlahRute} rute" : null,
+                $penawaran->jumlah_hari !== null ? "{$penawaran->jumlah_hari} hari" : null,
+            ]));
+
+            $this->notifikasiService->kirimKePemilikIzinMenu(
+                ['/penugasan'],
+                (string) $penawaran->id_perusahaan,
+                "Penawaran baru {$penawaran->nomor_penawaran} dari Sales",
+                $rincian !== [] ? implode(' - ', $rincian) : 'Cek ketersediaan unit untuk penawaran ini',
+                'penawaran_diajukan',
+                'penawaran',
+                (string) $penawaran->id_penawaran,
+                '/ketersediaan-vendor',
+                $idPengaju,
+                'tambah',
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi penawaran diajukan gagal: ' . $e->getMessage());
+        }
     }
 
     public function terapkanKeputusanApproval(string $idPenawaran, string $idPerusahaan, string $idPengguna, string $keputusan, ?string $alasanDitolak): void
@@ -480,8 +531,7 @@ class PenawaranService
             'jumlah_hari'        => $item['jumlah_hari'] ?? null,
             'subtotal'           => $hargaSatuan !== null ? (float) $hargaSatuan * $ritase : 0,
             'keterangan'         => $item['keterangan'] ?? null,
-            'unit_aset'          => $item['unit_aset'] ?? null,
-            'unit_vendor'        => $item['unit_vendor'] ?? null,
+            'jumlah_unit'        => $item['jumlah_unit'] ?? null,
         ]);
     }
 }

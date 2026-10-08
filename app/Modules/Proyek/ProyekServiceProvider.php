@@ -24,12 +24,17 @@ class ProyekServiceProvider extends ServiceProvider
         Event::listen(ApprovalDiputuskan::class, [ProyekApprovalListener::class, 'handle']);
 
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:faktur'])
+            ->group(function () {
+                Route::post('proyek/{id}/faktur-borongan', [ProyekController::class, 'buatFakturBorongan']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:project'])
             ->group(function () {
                 Route::get('proyek/{id}/pdf', [ProyekController::class, 'exportPdf']);
                 Route::post('proyek/{id}/ajukan-approval', [ProyekController::class, 'ajukanApproval']);
                 Route::post('proyek/{id}/penawaran-revisi', [ProyekController::class, 'buatPenawaranRevisi']);
-                Route::post('proyek/{id}/faktur-borongan', [ProyekController::class, 'buatFakturBorongan']);
 
                 Route::apiResource('proyek', ProyekController::class)
                     ->parameters(['proyek' => 'id']);

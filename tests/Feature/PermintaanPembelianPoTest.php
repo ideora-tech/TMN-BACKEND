@@ -11,11 +11,13 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\Feature\Concerns\MenerbitkanPo;
 use Tests\TestCase;
 
 class PermintaanPembelianPoTest extends TestCase
 {
     use RefreshDatabase;
+    use MenerbitkanPo;
 
     protected function setUp(): void
     {
@@ -79,11 +81,15 @@ class PermintaanPembelianPoTest extends TestCase
         ]);
     }
 
-    private function prosesDanUnggahNota(array $pr): void
+    private function prosesPr(array $pr): void
     {
         $this->actingAsRole('PENGADAAN');
         $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/proses")->assertStatus(200);
-        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
+    }
+
+    private function unggahNota(array $pr): TestResponse
+    {
+        return $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]]);
     }
 
     private function prUmumDiproses(?array $items = null): array
@@ -96,7 +102,7 @@ class PermintaanPembelianPoTest extends TestCase
                 ['jenis' => 'jasa', 'nama_item' => 'Servis AC', 'qty' => 1, 'satuan' => 'unit', 'harga_estimasi' => 300000],
             ],
         ])->assertStatus(201)->json('data');
-        $this->prosesDanUnggahNota($pr);
+        $this->prosesPr($pr);
         return $pr;
     }
 
@@ -110,30 +116,51 @@ class PermintaanPembelianPoTest extends TestCase
                 'tahun' => 2026, 'qty' => 2, 'harga_estimasi' => 350000000,
             ]],
         ])->assertStatus(201)->json('data');
-        $this->prosesDanUnggahNota($pr);
+        $this->prosesPr($pr);
         return $pr;
     }
 
-    private function dibeliUmum(array $pr, array $tambahan = []): TestResponse
+    private function payloadUmum(array $pr, array $tambahan = []): array
     {
-        return $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", array_merge([
+        return array_merge([
             'id_supplier'       => $this->makeSupplier(),
             'tanggal_pembelian' => '2026-09-28',
             'items'             => array_map(fn ($i) => [
                 'id_item'      => $i['id_item'],
                 'harga_aktual' => $i['jenis'] === 'barang' ? 52000 : 350000,
             ], $pr['items']),
-        ], $tambahan));
+        ], $tambahan);
     }
 
-    private function dibeliAset(array $pr, array $termin, array $tambahan = []): TestResponse
+    private function payloadAset(array $pr, array $termin, array $tambahan = []): array
     {
-        return $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", array_merge([
+        return array_merge([
             'id_supplier'       => $this->makeSupplier('Dealer Hino Jaya'),
             'tanggal_pembelian' => '2026-09-28',
             'items'             => [['id_item' => $pr['items'][0]['id_item'], 'harga_aktual' => 350000000]],
             'termin'            => $termin,
-        ], $tambahan));
+        ], $tambahan);
+    }
+
+    private function tandaiDibeli(array $pr, array $payload): TestResponse
+    {
+        return $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload);
+    }
+
+    private function dibeliUmum(array $pr, array $tambahan = []): TestResponse
+    {
+        $payload = $this->payloadUmum($pr, $tambahan);
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->unggahNota($pr)->assertStatus(200);
+        return $this->tandaiDibeli($pr, $payload);
+    }
+
+    private function dibeliAset(array $pr, array $termin, array $tambahan = []): TestResponse
+    {
+        $payload = $this->payloadAset($pr, $termin, $tambahan);
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->unggahNota($pr)->assertStatus(200);
+        return $this->tandaiDibeli($pr, $payload);
     }
 
     private function header(string $idPermintaan): object
@@ -232,8 +259,10 @@ class PermintaanPembelianPoTest extends TestCase
     public function test_diskon_melebihi_subtotal_ditolak_tanpa_memakan_nomor_po(): void
     {
         $pr = $this->prUmumDiproses();
+        $berlebih = $this->payloadUmum($pr, ['diskon' => 870001, 'ppn_persen' => 11]);
+        $wajar = array_merge($berlebih, ['diskon' => 870000, 'ongkir' => 15000]);
 
-        $this->dibeliUmum($pr, ['diskon' => 870001, 'ppn_persen' => 11])
+        $this->terbitkanPo($pr['id_permintaan'], $berlebih)
             ->assertStatus(422)->assertJsonPath('message', 'Diskon tidak boleh melebihi subtotal (Rp 870.000)');
 
         $header = $this->header($pr['id_permintaan']);
@@ -248,7 +277,20 @@ class PermintaanPembelianPoTest extends TestCase
         $this->assertArrayHasKey('subtotal_aktual', $detail);
         $this->assertNull($detail['subtotal_aktual']);
 
-        $res = $this->dibeliUmum($pr, ['diskon' => 870000, 'ppn_persen' => 11, 'ongkir' => 15000])->assertStatus(200);
+        $this->terbitkanPo($pr['id_permintaan'], $wajar)
+            ->assertStatus(200)->assertJsonPath('data.status', 'dipesan')->assertJsonPath('data.nomor_po', 'PO-202609-0001');
+
+        $this->tandaiDibeli($pr, $berlebih)
+            ->assertStatus(422)->assertJsonPath('message', 'Diskon tidak boleh melebihi subtotal (Rp 870.000)');
+
+        $header = $this->header($pr['id_permintaan']);
+        $this->assertSame('dipesan', $header->status);
+        $this->assertSame('PO-202609-0001', $header->nomor_po);
+        $this->assertSame(15000.0, (float) $header->total_aktual);
+        $this->assertSame(0, DB::table('pengajuan_pengeluaran')->where('id_permintaan_pembelian', $pr['id_permintaan'])->count());
+
+        $this->unggahNota($pr)->assertStatus(200);
+        $res = $this->tandaiDibeli($pr, $wajar)->assertStatus(200);
         $res->assertJsonPath('data.nomor_po', 'PO-202609-0001');
         $this->assertAngka(0, $res->json('data.ppn'));
         $this->assertAngka(15000, $res->json('data.total_aktual'));
@@ -259,11 +301,11 @@ class PermintaanPembelianPoTest extends TestCase
     {
         $pr = $this->prUmumDiproses();
 
-        $this->dibeliUmum($pr, ['ppn_persen' => 100.01])->assertStatus(422)->assertJsonValidationErrors(['ppn_persen']);
-        $this->dibeliUmum($pr, ['ppn_persen' => -1])->assertStatus(422)->assertJsonValidationErrors(['ppn_persen']);
-        $this->dibeliUmum($pr, ['diskon' => -1])->assertStatus(422)->assertJsonValidationErrors(['diskon']);
-        $this->dibeliUmum($pr, ['ongkir' => -0.01])->assertStatus(422)->assertJsonValidationErrors(['ongkir']);
-        $this->dibeliUmum($pr, ['diskon' => 'abc'])->assertStatus(422)->assertJsonValidationErrors(['diskon']);
+        foreach ([['ppn_persen' => 100.01], ['ppn_persen' => -1], ['diskon' => -1], ['ongkir' => -0.01], ['diskon' => 'abc']] as $salah) {
+            $payload = $this->payloadUmum($pr, $salah);
+            $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(422)->assertJsonValidationErrors(array_keys($salah));
+            $this->tandaiDibeli($pr, $payload)->assertStatus(422)->assertJsonValidationErrors(array_keys($salah));
+        }
 
         $header = $this->header($pr['id_permintaan']);
         $this->assertSame('diproses', $header->status);
@@ -279,11 +321,11 @@ class PermintaanPembelianPoTest extends TestCase
     {
         $pr = $this->prUmumDiproses();
 
-        $this->dibeliUmum($pr, ['ppn_persen' => 11.125])->assertStatus(422)->assertJsonValidationErrors(['ppn_persen']);
-        $this->dibeliUmum($pr, ['diskon' => 1000.555])->assertStatus(422)->assertJsonValidationErrors(['diskon']);
-        $this->dibeliUmum($pr, ['ongkir' => 10.001])->assertStatus(422)->assertJsonValidationErrors(['ongkir']);
-        $this->dibeliUmum($pr, ['diskon' => 10000000000000])->assertStatus(422)->assertJsonValidationErrors(['diskon']);
-        $this->dibeliUmum($pr, ['ongkir' => 10000000000000])->assertStatus(422)->assertJsonValidationErrors(['ongkir']);
+        foreach ([['ppn_persen' => 11.125], ['diskon' => 1000.555], ['ongkir' => 10.001], ['diskon' => 10000000000000], ['ongkir' => 10000000000000]] as $salah) {
+            $payload = $this->payloadUmum($pr, $salah);
+            $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(422)->assertJsonValidationErrors(array_keys($salah));
+            $this->tandaiDibeli($pr, $payload)->assertStatus(422)->assertJsonValidationErrors(array_keys($salah));
+        }
 
         $header = $this->header($pr['id_permintaan']);
         $this->assertSame('diproses', $header->status);
@@ -298,21 +340,31 @@ class PermintaanPembelianPoTest extends TestCase
     public function test_ppn_dibulatkan_ke_rupiah_penuh(): void
     {
         $prSetengah = $this->prUmumDiproses([['jenis' => 'jasa', 'nama_item' => 'Servis AC', 'qty' => 1, 'satuan' => 'unit', 'harga_estimasi' => 12000]]);
-        $resSetengah = $this->patchJson("/api/permintaan-pembelian/{$prSetengah['id_permintaan']}/dibeli", [
+        $payloadSetengah = [
             'id_supplier' => $this->makeSupplier(), 'tanggal_pembelian' => '2026-09-28',
             'items' => [['id_item' => $prSetengah['items'][0]['id_item'], 'harga_aktual' => 12345]],
             'ppn_persen' => 10,
-        ])->assertStatus(200);
+        ];
+        $poSetengah = $this->terbitkanPo($prSetengah['id_permintaan'], $payloadSetengah)->assertStatus(200);
+        $this->assertAngka(1235, $poSetengah->json('data.ppn'));
+        $this->assertAngka(13580, $poSetengah->json('data.total_aktual'));
+        $this->unggahNota($prSetengah)->assertStatus(200);
+        $resSetengah = $this->tandaiDibeli($prSetengah, $payloadSetengah)->assertStatus(200);
         $this->assertAngka(1235, $resSetengah->json('data.ppn'));
         $this->assertAngka(13580, $resSetengah->json('data.total_aktual'));
         $this->assertSame(1235.0, (float) $this->header($prSetengah['id_permintaan'])->ppn);
 
         $prBawah = $this->prUmumDiproses([['jenis' => 'jasa', 'nama_item' => 'Servis Genset', 'qty' => 1, 'satuan' => 'unit', 'harga_estimasi' => 120000]]);
-        $resBawah = $this->patchJson("/api/permintaan-pembelian/{$prBawah['id_permintaan']}/dibeli", [
+        $payloadBawah = [
             'id_supplier' => $this->makeSupplier(), 'tanggal_pembelian' => '2026-09-28',
             'items' => [['id_item' => $prBawah['items'][0]['id_item'], 'harga_aktual' => 123457]],
             'ppn_persen' => 11,
-        ])->assertStatus(200);
+        ];
+        $poBawah = $this->terbitkanPo($prBawah['id_permintaan'], $payloadBawah)->assertStatus(200);
+        $this->assertAngka(13580, $poBawah->json('data.ppn'));
+        $this->assertAngka(137037, $poBawah->json('data.total_aktual'));
+        $this->unggahNota($prBawah)->assertStatus(200);
+        $resBawah = $this->tandaiDibeli($prBawah, $payloadBawah)->assertStatus(200);
         $this->assertAngka(13580, $resBawah->json('data.ppn'));
         $this->assertAngka(137037, $resBawah->json('data.total_aktual'));
         $this->assertSame(137037.0, (float) DB::table('pengajuan_pengeluaran')->where('id_permintaan_pembelian', $prBawah['id_permintaan'])->value('nominal'));
@@ -322,22 +374,29 @@ class PermintaanPembelianPoTest extends TestCase
     {
         $pr = $this->prAsetDiproses();
         $komponen = ['diskon' => 20000000, 'ppn_persen' => 11, 'ongkir' => 5000000];
-
-        $this->dibeliAset($pr, [
+        $terminKurang = $this->payloadAset($pr, [
             ['nama' => 'DP 30%', 'nominal' => 210000000, 'jatuh_tempo' => '2026-10-05'],
             ['nama' => 'Pelunasan', 'nominal' => 490000000],
-        ], $komponen)->assertStatus(422)->assertJsonPath('message', 'Total termin harus sama dengan total aktual (Rp 759.800.000)');
+        ], $komponen);
+
+        $po = $this->terbitkanPo($pr['id_permintaan'], $terminKurang)->assertStatus(200);
+        $po->assertJsonPath('data.status', 'dipesan')->assertJsonPath('data.nomor_po', 'PO-202609-0001');
+        $this->assertAngka(759800000, $po->json('data.total_aktual'));
+        $this->unggahNota($pr)->assertStatus(200);
+
+        $this->tandaiDibeli($pr, $terminKurang)
+            ->assertStatus(422)->assertJsonPath('message', 'Total termin harus sama dengan total aktual (Rp 759.800.000)');
 
         $header = $this->header($pr['id_permintaan']);
-        $this->assertSame('diproses', $header->status);
-        $this->assertNull($header->nomor_po);
+        $this->assertSame('dipesan', $header->status);
+        $this->assertSame('PO-202609-0001', $header->nomor_po);
         $this->assertSame(0, DB::table('permintaan_pembelian_termin')->count());
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
 
-        $res = $this->dibeliAset($pr, [
+        $res = $this->tandaiDibeli($pr, array_merge($terminKurang, ['termin' => [
             ['nama' => 'DP 30%', 'nominal' => 227940000, 'jatuh_tempo' => '2026-10-05'],
             ['nama' => 'Pelunasan', 'nominal' => 531860000],
-        ], $komponen)->assertStatus(200);
+        ]]))->assertStatus(200);
 
         $res->assertJsonPath('data.status', 'dibeli')->assertJsonPath('data.nomor_po', 'PO-202609-0001');
         $this->assertAngka(700000000, $res->json('data.subtotal_aktual'));
@@ -352,7 +411,7 @@ class PermintaanPembelianPoTest extends TestCase
         $this->assertSame(531860000.0, (float) $pengajuan[1]->nominal);
     }
 
-    public function test_cetak_po_pdf_setelah_dibeli_ditolak_sebelum_dibeli_dan_404_untuk_perusahaan_lain(): void
+    public function test_cetak_po_pdf_ditolak_sebelum_po_terbit_tersedia_sejak_dipesan_dan_404_untuk_perusahaan_lain(): void
     {
         $pr = $this->prUmumDiproses();
         $url = "/api/permintaan-pembelian/{$pr['id_permintaan']}/po/pdf";
@@ -360,7 +419,8 @@ class PermintaanPembelianPoTest extends TestCase
         $this->get($url)->assertStatus(422)->assertJsonPath('message', 'PO belum tersedia untuk permintaan ini');
 
         $pembeli = $this->actingAsRole('PENGADAAN');
-        $this->dibeliUmum($pr, ['tanggal_pembelian' => '2026-09-27', 'diskon' => 70000, 'ppn_persen' => 11, 'ongkir' => 25000])->assertStatus(200);
+        $payload = $this->payloadUmum($pr, ['tanggal_po' => '2026-09-27', 'diskon' => 70000, 'ppn_persen' => 11, 'ongkir' => 25000]);
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
 
         $htmlPo = $this->tangkapTampilanPo();
         $res = $this->get($url);
@@ -378,6 +438,13 @@ class PermintaanPembelianPoTest extends TestCase
         ] as $teks) {
             $this->assertStringContainsString($teks, $html);
         }
+
+        $this->unggahNota($pr)->assertStatus(200);
+        $this->tandaiDibeli($pr, $payload)->assertStatus(200)->assertJsonPath('data.status', 'dibeli');
+        $this->get($url)->assertStatus(200);
+        $htmlSetelahDibeli = $htmlPo();
+        $this->assertStringContainsString('PO-202609-0001', $htmlSetelahDibeli);
+        $this->assertStringContainsString('27/09/2026', $htmlSetelahDibeli);
 
         $this->actingAsRole('KEUANGAN');
         $this->get($url)->assertStatus(200);

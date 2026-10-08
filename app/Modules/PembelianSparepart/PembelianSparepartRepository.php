@@ -177,6 +177,26 @@ class PembelianSparepartRepository implements PembelianSparepartRepositoryInterf
         }
     }
 
+    public function idMutasiMasukPembelian(string $idPembelian, string $idSparepart, float $harga): array
+    {
+        return DB::table('sparepart_mutasi')
+            ->whereNull('dihapus_pada')
+            ->where('id_pembelian', $idPembelian)
+            ->where('id_sparepart', $idSparepart)
+            ->where('jenis', 'masuk')
+            ->where('harga', $harga)
+            ->pluck('id_mutasi')
+            ->all();
+    }
+
+    public function setHargaMutasi(array $idMutasi, float $harga): void
+    {
+        if ($idMutasi === []) {
+            return;
+        }
+        DB::table('sparepart_mutasi')->whereIn('id_mutasi', $idMutasi)->update(RecordHelper::stampUpdate(['harga' => $harga]));
+    }
+
     public function tambahStokDanMutasi(object $header, array $items): void
     {
         foreach ($items as $item) {

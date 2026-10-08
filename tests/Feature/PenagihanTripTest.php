@@ -571,8 +571,11 @@ class PenagihanTripTest extends TestCase
         $this->assertIsBool($update->json('data.approval_aktif'));
 
         DB::table('faktur')->where('id_faktur', $idFaktur)->update(['status' => 'terkirim']);
-        $ubahStatus = $this->patchJson("/api/faktur/{$idFaktur}/status", ['status' => 'lunas']);
-        $ubahStatus->assertStatus(200)
+        $this->patchJson("/api/faktur/{$idFaktur}/status", ['status' => 'lunas'])->assertStatus(422);
+        $ubahStatus = $this->postJson("/api/faktur/{$idFaktur}/pembayaran", [
+            'tanggal_bayar' => now()->toDateString(), 'nominal' => 2800000,
+        ]);
+        $ubahStatus->assertStatus(201)
             ->assertJsonPath('data.status', 'lunas')
             ->assertJsonCount(2, 'data.trip_terkait');
         $this->assertIsBool($ubahStatus->json('data.approval_aktif'));
@@ -632,10 +635,14 @@ class PenagihanTripTest extends TestCase
         $res->assertStatus(201)->assertJsonPath('data.total', 1050000);
 
         $idFaktur = $res->json('data.id_faktur');
-        $this->assertSame(1, DB::table('faktur_item')->where('id_faktur', $idFaktur)->count());
-        $item = DB::table('faktur_item')->where('id_faktur', $idFaktur)->first();
-        $this->assertSame(1050000.0, (float) $item->harga_satuan);
-        $this->assertSame('Jasa Angkutan Unit Dedicated Project Astro Cibitung Periode Juli 2026', $item->deskripsi);
+        $items = DB::table('faktur_item')->where('id_faktur', $idFaktur)->orderBy('urutan')->get();
+        $this->assertCount(2, $items);
+        $this->assertSame('Jasa Angkutan Unit Dedicated Project Astro Cibitung Periode Juli 2026', $items[0]->deskripsi);
+        $this->assertSame(900000.0, (float) $items[0]->harga_satuan);
+        $this->assertSame('Multidrop', $items[1]->deskripsi);
+        $this->assertSame(150000.0, (float) $items[1]->subtotal);
+        $this->assertSame([1, 2], $items->pluck('urutan')->map(fn ($u) => (int) $u)->all());
+        $this->assertSame(['Jasa Angkutan Unit Dedicated Project Astro Cibitung Periode Juli 2026', 'Multidrop'], array_column($res->json('data.items'), 'deskripsi'));
     }
 
     public function test_proyek_tipe_harga_baru_trip_tidak_bisa_ditagih_dan_ditolak_saat_generate_faktur(): void

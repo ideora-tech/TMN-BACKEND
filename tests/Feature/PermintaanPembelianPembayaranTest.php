@@ -8,11 +8,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Concerns\MenerbitkanPo;
 use Tests\TestCase;
 
 class PermintaanPembelianPembayaranTest extends TestCase
 {
     use RefreshDatabase;
+    use MenerbitkanPo;
 
     protected function setUp(): void
     {
@@ -61,14 +63,16 @@ class PermintaanPembelianPembayaranTest extends TestCase
         $pr = $this->buatPr();
         $this->actingAsRole('PENGADAAN');
         $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/proses")->assertStatus(200);
-        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
-        $res = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", [
+        $payload = [
             'id_supplier' => $this->makeSupplier(), 'tanggal_pembelian' => now()->toDateString(),
             'items' => [
                 ['id_item' => $pr['items'][0]['id_item'], 'harga_aktual' => 52000],
                 ['id_item' => $pr['items'][1]['id_item'], 'harga_aktual' => 350000],
             ],
-        ])->assertStatus(200);
+        ];
+        $this->terbitkanPo($pr['id_permintaan'], $payload)->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", ['tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')]])->assertStatus(200);
+        $res = $this->patchJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/dibeli", $payload)->assertStatus(200);
         return $res->json('data');
     }
 

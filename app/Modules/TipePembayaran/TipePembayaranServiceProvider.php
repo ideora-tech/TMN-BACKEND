@@ -19,11 +19,20 @@ class TipePembayaranServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:tipe-pembayaran'])
+            ->middleware(['api', 'auth:sanctum', 'izin:tipe-pembayaran|invoice-vendor'])
             ->group(function () {
                 Route::get('tipe-pembayaran/opsi-aktif', [TipePembayaranController::class, 'opsiAktif']);
                 Route::apiResource('tipe-pembayaran', TipePembayaranController::class)
-                    ->parameters(['tipe-pembayaran' => 'id']);
+                    ->parameters(['tipe-pembayaran' => 'id'])
+                    ->only(['index']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:tipe-pembayaran'])
+            ->group(function () {
+                Route::apiResource('tipe-pembayaran', TipePembayaranController::class)
+                    ->parameters(['tipe-pembayaran' => 'id'])
+                    ->except(['index']);
             });
     }
 }

@@ -11,11 +11,15 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
+use Tests\Feature\Concerns\MenerbitkanPo;
 use Tests\TestCase;
 
 class PengadaanSatuPintuTest extends TestCase
 {
     use RefreshDatabase;
+    use MenerbitkanPo;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -158,6 +162,7 @@ class PengadaanSatuPintuTest extends TestCase
         $prDb = DB::table('permintaan_pembelian')->where('id_permintaan', $pr['id_permintaan'])->first();
         $this->assertSame('diterima', $prDb->status);
         $this->assertSame($pr['id_pengaju'], $prDb->diproses_oleh);
+        $this->assertNull($prDb->nomor_po);
 
         $ps = DB::table('pembelian_sparepart')->where('id_permintaan_pembelian', $pr['id_permintaan'])->first();
         $this->assertNotNull($ps);
@@ -178,20 +183,46 @@ class PengadaanSatuPintuTest extends TestCase
         $pr = $this->buatPrSparepart('DISPATCHER');
         $this->assertFalse($pr['boleh_realisasi_mandiri']);
 
-        $this->unggahNotaPembelian($pr);
-
         $this->actingAsPengaju($pr);
+        $this->postJson("/api/permintaan-pembelian/{$pr['id_permintaan']}/bukti", [
+            'tahap' => 'pembelian', 'bukti' => [UploadedFile::fake()->image('nota.jpg')],
+        ])->assertStatus(422)->assertJsonPath('message', 'Nota baru bisa diunggah setelah PO terbit');
         $this->realisasiSparepart($pr, [
             $pr['items'][0]['id_item'] => 90000,
             $pr['items'][1]['id_item'] => 210000,
         ])->assertStatus(422)->assertJsonPath('message', 'PR di atas Rp 100.000 direalisasi oleh tim Pengadaan');
         $this->assertSame('disetujui', DB::table('permintaan_pembelian')->where('id_permintaan', $pr['id_permintaan'])->value('status'));
 
-        $this->actingAsRole('PENGADAAN');
-        $this->realisasiSparepart($pr, [
+        $harga = [
             $pr['items'][0]['id_item'] => 90000,
             $pr['items'][1]['id_item'] => 210000,
-        ])->assertStatus(200);
+        ];
+        $this->actingAsRole('PENGADAAN');
+        $this->realisasiSparepart($pr, $harga)
+            ->assertStatus(422)->assertJsonPath('message', 'Terbitkan PO lebih dulu sebelum mencatat realisasi (status saat ini: disetujui)');
+
+        $this->prosesPr($pr['id_permintaan']);
+        $this->realisasiSparepart($pr, $harga)
+            ->assertStatus(422)->assertJsonPath('message', 'Terbitkan PO lebih dulu sebelum mencatat realisasi (status saat ini: diproses)');
+        $this->assertSame('diproses', DB::table('permintaan_pembelian')->where('id_permintaan', $pr['id_permintaan'])->value('status'));
+
+        $idSupplier = $this->makeSupplier();
+        $this->terbitkanPo($pr['id_permintaan'], [
+            'id_supplier'       => $idSupplier,
+            'tanggal_pembelian' => now()->toDateString(),
+            'items'             => array_map(fn ($i) => ['id_item' => $i['id_item'], 'harga_aktual' => $harga[$i['id_item']]], $pr['items']),
+        ])->assertStatus(200)->assertJsonPath('data.status', 'dipesan');
+
+        $this->unggahNotaPembelian($pr);
+        $this->realisasiSparepart($pr, $harga)
+            ->assertStatus(422)->assertJsonPath('message', 'PR di atas Rp 100.000 direalisasi oleh tim Pengadaan');
+
+        $this->actingAsRole('PENGADAAN');
+        $this->realisasiSparepart($pr, $harga)
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'diterima')
+            ->assertJsonPath('data.id_supplier', $idSupplier)
+            ->assertJsonPath('data.total_aktual', 390000);
     }
 
     public function test_pengaju_mandiri_realisasi_dengan_total_aktual_di_atas_batas_ditolak(): void
@@ -336,15 +367,16 @@ class PengadaanSatuPintuTest extends TestCase
         $psDariPr = DB::table('pembelian_sparepart')->where('id_permintaan_pembelian', $pr['id_permintaan'])->first();
 
         $this->actingAsRole('SUPERADMIN');
-        $this->postJson('/api/pembelian-sparepart', [
+        $idLangsung = $this->buatPembelianLangsung([
             'id_supplier'       => $this->makeSupplier(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [['id_sparepart' => $this->makeSparepart('Aki', 300000), 'qty' => 1, 'harga_estimasi' => 300000]],
             'bukti'             => [UploadedFile::fake()->image('nota-langsung.jpg')],
-        ])->assertStatus(201);
+        ])->assertStatus(201)->json('data.id_pembelian');
 
         $res = $this->getJson('/api/pembelian-sparepart?sumber=langsung&limit=50')->assertStatus(200);
         $ids = collect($res->json('data'))->pluck('id_pembelian')->all();
+        $this->assertContains($idLangsung, $ids);
         $this->assertNotContains($psDariPr->id_pembelian, $ids);
 
         $resPr = $this->getJson('/api/pembelian-sparepart?sumber=pr&limit=50')->assertStatus(200);

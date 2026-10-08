@@ -21,7 +21,7 @@ class PemasukanGabunganResource extends JsonResource
             'sumber_dana'  => $this->sumber_dana,
             'keterangan'   => $this->keterangan,
             'url_bukti'    => PenyimpananBerkas::url($this->url_bukti),
-            'dapat_diubah' => $this->jenis === 'manual',
+            'dapat_diubah' => $this->jenis === 'manual' && (int) ($this->dari_kasbon ?? 0) === 0,
         ];
     }
 }

@@ -11,11 +11,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class IzinMobilePembelianDokumenTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     private const PERAN = 'MAINTENANCE';
 
@@ -74,6 +76,7 @@ class IzinMobilePembelianDokumenTest extends TestCase
 
         $this->getJson('/api/sparepart')->assertStatus(403);
         $this->getJson('/api/supplier')->assertStatus(403);
+        $this->postJson('/api/pembelian-sparepart', [])->assertStatus(403);
     }
 
     public function test_izin_dokumen_armada_saja_bisa_upload_dan_perpanjang_dokumen(): void
@@ -106,20 +109,29 @@ class IzinMobilePembelianDokumenTest extends TestCase
             'id_sparepart' => $idSparepart, 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode' => 'SP-' . Str::random(5),
             'nama' => 'Kampas Rem', 'satuan' => 'pcs', 'harga_standar' => 50000, 'stok' => 0, 'aktif' => 1, 'dibuat_pada' => now(),
         ]);
-        $res = $this->post('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [['id_sparepart' => $idSparepart, 'qty' => 2, 'harga_estimasi' => 50000]],
             'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
-        ], ['Accept' => 'application/json'])->assertStatus(201);
+        ])->assertStatus(201);
         $idPembelian = (string) $res->json('data.id_pembelian');
         DB::table('pembelian_sparepart')->where('id_pembelian', $idPembelian)->update(['status' => 'disetujui_finance']);
         return [$idPembelian, (string) $res->json('data.items.0.id_item'), $idSparepart];
     }
 
-    public function test_role_maintenance_dengan_izin_pembelian_bisa_mengajukan_dan_realisasi(): void
+    public function test_role_maintenance_dengan_izin_pembelian_ditolak_mengajukan_langsung_tetapi_bisa_realisasi(): void
     {
         $this->login(['/pembelian-sparepart']);
         [$idPembelian, $idItem, $idSparepart] = $this->pembelianDisetujuiFinance();
+
+        $this->post('/api/pembelian-sparepart', [
+            'tanggal_pengajuan' => now()->toDateString(),
+            'items'             => [['id_sparepart' => $idSparepart, 'qty' => 2, 'harga_estimasi' => 50000]],
+            'bukti'             => [UploadedFile::fake()->image('nota.jpg')],
+        ], ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Pembelian langsung sudah ditutup — ajukan lewat Permintaan Pembelian (PR). Perbarui aplikasi bila masih memakai versi lama.');
+        $this->assertSame(1, DB::table('pembelian_sparepart')->count());
 
         $this->patchJson("/api/pembelian-sparepart/{$idPembelian}/realisasi", [
             'tanggal_pembelian' => now()->toDateString(),

@@ -22,6 +22,8 @@ interface PembayaranVendorRepositoryInterface
 
     public function delete(PembayaranVendorModel $model): void;
 
+    public function berasalDariPengajuan(string $idInvoice, ?string $noReferensi): bool;
+
     public function recalcStatusPembayaran(string $idInvoice): void;
 
     public function getPerusahaan(string $idPerusahaan): ?object;

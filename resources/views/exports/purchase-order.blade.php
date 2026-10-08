@@ -122,7 +122,7 @@
             </tr>
             <tr>
                 <td class="label">Tanggal PO</td><td class="titik">:</td>
-                <td>{{ $tgl($pr->tanggal_pembelian) }}</td>
+                <td>{{ $tgl($pr->tanggal_po ?? $pr->tanggal_pembelian) }}</td>
                 <td class="label">Departemen</td><td class="titik">:</td>
                 <td>{{ $pr->nama_departemen ?? '-' }}</td>
             </tr>
@@ -173,11 +173,14 @@
                             @if ($item->spesifikasi ?? null)
                                 <div class="spesifikasi">{{ $item->spesifikasi }}</div>
                             @endif
+                            @if (($pr->sisa_ditutup_pada ?? null) && (int) ($item->qty_diterima ?? 0) < (int) $item->qty)
+                                <div class="spesifikasi">Diterima {{ (int) ($item->qty_diterima ?? 0) }} dari {{ (int) $item->qty }} yang dipesan</div>
+                            @endif
                         </td>
-                        <td class="tengah">{{ (int) $item->qty }}</td>
+                        <td class="tengah">{{ \App\Modules\PermintaanPembelian\PermintaanPembelianService::qtyBerlaku($pr, $item) }}</td>
                         <td>{{ $item->satuan }}</td>
                         <td class="angka">{{ $rp($item->harga_aktual) }}</td>
-                        <td class="angka">{{ $rp((int) $item->qty * (float) $item->harga_aktual) }}</td>
+                        <td class="angka">{{ $rp(\App\Modules\PermintaanPembelian\PermintaanPembelianService::qtyBerlaku($pr, $item) * (float) $item->harga_aktual) }}</td>
                     </tr>
                 @endforeach
                 <tr class="ringkasan">
@@ -210,6 +213,9 @@
         </table>
 
         <p class="terbilang">Terbilang: <em>{{ \App\Support\Terbilang::rupiah((float) $pr->total_aktual) }}</em></p>
+        @if ($pr->sisa_ditutup_pada ?? null)
+            <p class="terbilang">Sisa pesanan ditutup pada {{ $tgl($pr->sisa_ditutup_pada) }} — jumlah di atas adalah yang diterima. Alasan: {{ $pr->alasan_tutup_sisa }}</p>
+        @endif
 
         @if (count($termin) > 0)
             <p class="subjudul">Termin Pembayaran</p>

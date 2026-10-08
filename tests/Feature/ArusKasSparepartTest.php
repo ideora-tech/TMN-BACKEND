@@ -10,11 +10,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class ArusKasSparepartTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -114,7 +116,7 @@ class ArusKasSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
 
-        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian());
+        $res = $this->buatPembelianLangsung($this->payloadPembelian());
         $res->assertStatus(201);
         $idPembelian = $res->json('data.id_pembelian');
 
@@ -136,7 +138,7 @@ class ArusKasSparepartTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
 
-        $res = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian(['id_perawatan' => $idPerawatan]));
+        $res = $this->buatPembelianLangsung($this->payloadPembelian(['id_perawatan' => $idPerawatan]));
         $res->assertStatus(201)->assertJsonPath('data.status', 'diajukan');
         $idPembelian = $res->json('data.id_pembelian');
 
@@ -155,7 +157,7 @@ class ArusKasSparepartTest extends TestCase
     public function test_dedup_pengajuan_pembelian_per_id_pembelian(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->buatPembelianLangsung($this->payloadPembelian())->json('data.id_pembelian');
         $this->assertSame(1, DB::table('pengajuan_pengeluaran')->where('id_pembelian', $idPembelian)->count());
 
         app(ArusKasService::class)->buatPengajuanPembelianOtomatis((object) ['id_pembelian' => $idPembelian], 200000);
@@ -166,7 +168,7 @@ class ArusKasSparepartTest extends TestCase
     public function test_update_total_estimasi_sinkron_ke_nominal_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->buatPembelianLangsung($this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $idSparepartBaru = $this->makeSparepart('Kampas Rem');
@@ -182,7 +184,7 @@ class ArusKasSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
-        $create = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian(['id_perawatan' => $idPerawatan]));
+        $create = $this->buatPembelianLangsung($this->payloadPembelian(['id_perawatan' => $idPerawatan]));
         $idPembelian = $create->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
@@ -201,7 +203,7 @@ class ArusKasSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $idPerawatan = $this->makePerawatan();
-        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->buatPembelianLangsung($this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $this->putJson("/api/pembelian-sparepart/{$idPembelian}", $this->payloadPembelian(['id_perawatan' => $idPerawatan]))
@@ -219,7 +221,7 @@ class ArusKasSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
-        $create = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian());
+        $create = $this->buatPembelianLangsung($this->payloadPembelian());
         $idPembelian = $create->json('data.id_pembelian');
         $items = $create->json('data.items');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
@@ -291,7 +293,7 @@ class ArusKasSparepartTest extends TestCase
     {
         $this->actingAsRole('SUPERADMIN');
         $this->putJson('/api/arus-kas/pengaturan-approval', ['batas' => 999999999])->assertStatus(200);
-        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->buatPembelianLangsung($this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
         $this->assertSame('disetujui', $this->pengajuanUntukPembelian($idPembelian)->status);
 
@@ -392,7 +394,7 @@ class ArusKasSparepartTest extends TestCase
     public function test_hapus_pembelian_saat_diajukan_ikut_soft_delete_pengajuan(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        $idPembelian = $this->postJson('/api/pembelian-sparepart', $this->payloadPembelian())->json('data.id_pembelian');
+        $idPembelian = $this->buatPembelianLangsung($this->payloadPembelian())->json('data.id_pembelian');
         $idPengajuan = $this->pengajuanUntukPembelian($idPembelian)->id_pengajuan;
 
         $this->deleteJson("/api/pembelian-sparepart/{$idPembelian}")->assertStatus(200);

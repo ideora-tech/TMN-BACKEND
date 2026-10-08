@@ -29,4 +29,15 @@ interface FakturRepositoryInterface
     public function pajakUntukSatu(string $idFaktur): array;
     public function pajakUntukBanyak(array $idFakturList): array;
     public function replacePajak(string $idFaktur, array $pajakRows): void;
+    /** @return object[] */
+    public function listPembayaran(string $idFaktur): array;
+    public function insertPembayaran(array $data): string;
+    public function findPembayaran(string $idFaktur, string $idPembayaran): ?object;
+    public function softDeletePembayaran(string $idPembayaran): void;
+    public function totalPembayaran(string $idFaktur): float;
+    public function tanggalBayarTerakhir(string $idFaktur): ?string;
+    public function pembayaranUntukBanyak(array $idFakturList): array;
+    /** @return object[] */
+    public function outstanding(string $idPerusahaan): array;
+    public function diterimaAntara(string $idPerusahaan, string $dari, string $sampai): float;
 }

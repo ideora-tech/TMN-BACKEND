@@ -122,6 +122,27 @@ class NotifikasiService
         return $this->kirimKeDaftarPengguna($penerima, $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna);
     }
 
+    /** @param array<int, array{menu: string[], aksi?: string}> $kelompok */
+    public function kirimKeGabunganPemilikIzinMenu(
+        array $kelompok,
+        string $idPerusahaan,
+        string $judul,
+        string $isi,
+        string $tipe,
+        string $referensiTipe,
+        string $referensiId,
+        ?string $link = null,
+        ?string $kecualiIdPengguna = null,
+    ): int {
+        $penerima = [];
+        foreach ($kelompok as $k) {
+            $penerima = array_merge($penerima, $this->repo->idPenggunaDenganIzinMenu($k['menu'], $idPerusahaan, $k['aksi'] ?? 'lihat'));
+        }
+        $penerima = array_values(array_unique($penerima));
+
+        return $this->kirimKeDaftarPengguna($penerima, $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna);
+    }
+
     /** @param string[] $kodePeran */
     public function kirimKePeran(
         array $kodePeran,
@@ -136,6 +157,50 @@ class NotifikasiService
     ): int {
         $penerima = $this->repo->idPenggunaDenganPeran($kodePeran, $idPerusahaan);
         return $this->kirimKeDaftarPengguna($penerima, $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna);
+    }
+
+    /** @param string[] $kodePeran */
+    public function kirimKePeranBeruntun(
+        array $kodePeran,
+        string $idPerusahaan,
+        array $baru,
+        array $gabungan,
+        ?string $kecualiIdPengguna = null,
+        int $jendelaMenit = 10,
+    ): int {
+        $sejak = now()->subMinutes($jendelaMenit);
+        $terkirim = 0;
+
+        foreach ($this->repo->idPenggunaDenganPeran($kodePeran, $idPerusahaan) as $idPengguna) {
+            if ($kecualiIdPengguna !== null && $idPengguna === $kecualiIdPengguna) {
+                continue;
+            }
+            $berjalan = $this->repo->belumDibacaTerbaru($idPengguna, $idPerusahaan, (string) $baru['tipe'], $sejak);
+            if ($berjalan !== null) {
+                $this->repo->perbaruiIsi($berjalan, [
+                    'judul'        => $gabungan['judul'],
+                    'isi'          => $gabungan['isi'],
+                    'referensi_id' => $baru['referensi_id'],
+                    'link'         => $baru['link'] ?? null,
+                ]);
+                $terkirim++;
+                continue;
+            }
+            $this->buatDanKirim([
+                'id_perusahaan'  => $idPerusahaan,
+                'id_pengguna'    => $idPengguna,
+                'judul'          => $baru['judul'],
+                'isi'            => $baru['isi'],
+                'tipe'           => $baru['tipe'],
+                'referensi_id'   => $baru['referensi_id'],
+                'referensi_tipe' => $baru['referensi_tipe'],
+                'link'           => $baru['link'] ?? null,
+                'dibaca'         => 0,
+            ]);
+            $terkirim++;
+        }
+
+        return $terkirim;
     }
 
     /** @param string[] $penerima */

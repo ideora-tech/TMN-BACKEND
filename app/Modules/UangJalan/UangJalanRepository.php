@@ -21,6 +21,7 @@ class UangJalanRepository implements UangJalanRepositoryInterface
         ?string $status = null,
         ?string $dari = null,
         ?string $sampai = null,
+        ?string $idProyek = null,
     ): LengthAwarePaginator {
         $query = $this->dasar()->where('uj.id_perusahaan', $idPerusahaan);
 
@@ -30,7 +31,9 @@ class UangJalanRepository implements UangJalanRepositoryInterface
                     ->orWhere('uj.nama_driver', 'like', "%{$search}%")
                     ->orWhere('uj.nama_vendor', 'like', "%{$search}%")
                     ->orWhere('uj.nopol', 'like', "%{$search}%")
-                    ->orWhere('uj.rute', 'like', "%{$search}%");
+                    ->orWhere('uj.rute', 'like', "%{$search}%")
+                    ->orWhere('uj.kode_proyek', 'like', "%{$search}%")
+                    ->orWhere('uj.nama_proyek', 'like', "%{$search}%");
             });
         }
 
@@ -44,6 +47,10 @@ class UangJalanRepository implements UangJalanRepositoryInterface
 
         if ($sampai !== null && $sampai !== '') {
             $query->where('uj.tanggal', '<=', $sampai);
+        }
+
+        if ($idProyek !== null && $idProyek !== '') {
+            $query->where('uj.id_proyek', $idProyek);
         }
 
         return $query
@@ -112,6 +119,36 @@ class UangJalanRepository implements UangJalanRepositoryInterface
             ->first(['id_rute', 'nama_rute']);
     }
 
+    public function findProyek(string $id, string $idPerusahaan): ?object
+    {
+        return DB::table('proyek')
+            ->where('id_proyek', $id)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->first(['id_proyek', 'kode_proyek', 'nama_proyek']);
+    }
+
+    public function findRuteProyek(string $id, string $idProyek): ?object
+    {
+        return DB::table('proyek_rute as pru')
+            ->join('rute as r', function (JoinClause $join) {
+                $join->on('r.id_rute', '=', 'pru.id_rute')->whereNull('r.dihapus_pada');
+            })
+            ->where('pru.id_proyek', $idProyek)
+            ->where('pru.id_rute', $id)
+            ->whereNull('pru.dihapus_pada')
+            ->first(['r.id_rute', 'r.nama_rute']);
+    }
+
+    public function findPenugasan(string $id, string $idProyek): ?object
+    {
+        return DB::table('penugasan')
+            ->where('id_penugasan', $id)
+            ->where('id_proyek', $idProyek)
+            ->whereNull('dihapus_pada')
+            ->first(['id_penugasan']);
+    }
+
     public function opsiInternal(string $idPerusahaan): array
     {
         $supir = DB::table('supir as s')
@@ -124,7 +161,7 @@ class UangJalanRepository implements UangJalanRepositoryInterface
             ->where('s.status', 'aktif')
             ->whereNull('s.dihapus_pada')
             ->orderBy('s.nama')
-            ->get(['s.id_supir', 's.nama', 'k.nama_bank', 'k.nomor_rekening'])
+            ->get(['s.id_supir', 's.nama', 's.id_armada_default', 'k.nama_bank', 'k.nomor_rekening'])
             ->all();
 
         $armada = DB::table('armada')
@@ -170,7 +207,7 @@ class UangJalanRepository implements UangJalanRepositoryInterface
             ->where('aktif', 1)
             ->whereNull('dihapus_pada')
             ->orderBy('nopol')
-            ->get(['id_armada_vendor', 'nopol', 'merk'])
+            ->get(['id_armada_vendor', 'nopol', 'merk', 'id_supir_vendor_default'])
             ->all();
 
         $rekening = DB::table('rekening_vendor')
@@ -181,6 +218,112 @@ class UangJalanRepository implements UangJalanRepositoryInterface
             ->all();
 
         return ['supir_vendor' => $supirVendor, 'armada_vendor' => $armadaVendor, 'rekening' => $rekening];
+    }
+
+    public function opsiProyek(string $idPerusahaan): array
+    {
+        return DB::table('proyek')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->orderBy('nama_proyek')
+            ->get(['id_proyek', 'kode_proyek', 'nama_proyek'])
+            ->all();
+    }
+
+    public function jenisKendaraanArmada(string $id, string $idPerusahaan): ?string
+    {
+        $jenis = DB::table('armada')
+            ->where('id_armada', $id)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->value('id_jenis_kendaraan');
+
+        return $jenis !== null ? (string) $jenis : null;
+    }
+
+    public function jenisKendaraanArmadaVendor(string $id, string $idPerusahaan): ?string
+    {
+        $jenis = DB::table('armada_vendor as av')
+            ->join('vendor as v', function (JoinClause $join) use ($idPerusahaan) {
+                $join->on('v.id_vendor', '=', 'av.id_vendor')
+                    ->where('v.id_perusahaan', $idPerusahaan)
+                    ->whereNull('v.dihapus_pada');
+            })
+            ->where('av.id_armada_vendor', $id)
+            ->whereNull('av.dihapus_pada')
+            ->value('av.id_jenis_kendaraan');
+
+        return $jenis !== null ? (string) $jenis : null;
+    }
+
+    /**
+     * Rate card proyek + rute. Baris dengan jenis kendaraan yang sama diutamakan,
+     * kalau tidak ada dipakai baris pertama yang punya nilai — aturan yang sama
+     * dengan ProyekRuteRepository::tarifUangJalanRute() dipakai Penugasan.
+     */
+    public function rateCardRute(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?object
+    {
+        $kolom = ['estimasi_tol', 'estimasi_bbm', 'estimasi_biaya_lain', 'uang_jalan'];
+        $dasar = fn () => DB::table('proyek_rute')
+            ->where('id_proyek', $idProyek)
+            ->where('id_rute', $idRute)
+            ->whereNull('dihapus_pada')
+            ->whereNotNull('uang_jalan');
+
+        if ($idJenisKendaraan !== null) {
+            $baris = $dasar()->where('id_jenis_kendaraan', $idJenisKendaraan)->orderBy('dibuat_pada')->first($kolom);
+            if ($baris !== null) {
+                return $baris;
+            }
+        }
+
+        return $dasar()->orderBy('dibuat_pada')->first($kolom);
+    }
+
+    public function opsiRuteProyek(string $idProyek): array
+    {
+        return DB::table('proyek_rute as pru')
+            ->join('rute as r', function (JoinClause $join) {
+                $join->on('r.id_rute', '=', 'pru.id_rute')->whereNull('r.dihapus_pada');
+            })
+            ->where('pru.id_proyek', $idProyek)
+            ->whereNull('pru.dihapus_pada')
+            ->orderBy('r.nama_rute')
+            ->get(['r.id_rute', 'r.nama_rute'])
+            ->unique('id_rute')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Daftar penugasan terjadwal (non-batal) dalam satu proyek — dipakai form
+     * Uang Jalan untuk auto-isi driver/unit/rute/tanggal secara opsional.
+     * `sumber` dipakai FE untuk menyaring sesuai tipe driver yang dipilih
+     * ('internal'/'vendor') tanpa perlu request ulang per toggle.
+     */
+    public function opsiPenugasan(string $idProyek): array
+    {
+        return DB::table('penugasan as p')
+            ->leftJoin('supir as s', 's.id_supir', '=', 'p.id_supir')
+            ->leftJoin('supir_vendor as sv', 'sv.id_supir_vendor', '=', 'p.id_supir_vendor')
+            ->leftJoin('armada as a', 'a.id_armada', '=', 'p.id_armada')
+            ->leftJoin('armada_vendor as av', 'av.id_armada_vendor', '=', 'p.id_armada_vendor')
+            ->leftJoin('rute as r', 'r.id_rute', '=', 'p.id_rute')
+            ->where('p.id_proyek', $idProyek)
+            ->where('p.status', '!=', 'batal')
+            ->whereNull('p.dihapus_pada')
+            ->orderByDesc('p.tanggal_tugas')
+            ->orderByDesc('p.dibuat_pada')
+            ->limit(500)
+            ->get([
+                'p.id_penugasan', 'p.tanggal_tugas', 'p.status', 'p.sumber',
+                'p.id_supir', 'p.id_supir_vendor', 'p.id_armada', 'p.id_armada_vendor', 'p.id_rute',
+                DB::raw('COALESCE(s.nama, sv.nama) as nama_driver'),
+                DB::raw('COALESCE(a.nopol, av.nopol) as nopol'),
+                DB::raw('COALESCE(sv.id_vendor, av.id_vendor) as id_vendor'),
+                'r.nama_rute',
+            ])
+            ->all();
     }
 
     public function nomorBerikutnya(string $idPerusahaan): string

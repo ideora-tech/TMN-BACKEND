@@ -13,11 +13,13 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class PembelianSparepartBatasBuatTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     private const PESAN_BATAS_DEFAULT = 'Pembelian di atas Rp 500.000 wajib diajukan lewat Permintaan Pembelian (PR)';
 
@@ -61,7 +63,7 @@ class PembelianSparepartBatasBuatTest extends TestCase
 
     private function postPs(array $items, array $override = []): TestResponse
     {
-        return $this->postJson('/api/pembelian-sparepart', $this->payload($items, $override));
+        return $this->buatPembelianLangsung($this->payload($items, $override));
     }
 
     private function berikanIzinUbahPembelianSparepart(string $kodePeran): void
@@ -290,22 +292,30 @@ class PembelianSparepartBatasBuatTest extends TestCase
         $ps = app(PembelianSparepartService::class)->buatDariPermintaan($pr, (string) $pengguna->id_pengguna);
         $items = array_map(fn ($i) => ['id_item' => $i->id_item, 'harga_estimasi' => (float) $i->harga_estimasi], $ps->items);
 
-        $this->realisasi($ps->id_pembelian, $items, 'DISPATCHER')
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Realisasi pembelian dari PR hanya bisa dilakukan tim Pengadaan');
-
-        Event::fake([PembelianSparepartDirealisasi::class]);
-        $this->berikanIzinUbahPembelianSparepart('PENGADAAN');
         $idSupplier = $this->makeSupplier('Toko Pengadaan');
         $stokAwal = (int) DB::table('sparepart')->where('id_sparepart', $ps->items[0]->id_sparepart)->value('stok');
 
-        $this->realisasi($ps->id_pembelian, $items, 'PENGADAAN', ['id_supplier' => $idSupplier])
-            ->assertStatus(200)
-            ->assertJsonPath('data.status', 'dibeli')
-            ->assertJsonPath('data.id_supplier', $idSupplier)
-            ->assertJsonPath('data.nama_supplier', 'Toko Pengadaan')
-            ->assertJsonPath('data.total_aktual', 200000);
+        $this->berikanIzinUbahPembelianSparepart('PENGADAAN');
+        foreach (['DISPATCHER', 'PENGADAAN', 'SUPERADMIN'] as $peran) {
+            $pesan = (string) $this->realisasi($ps->id_pembelian, $items, $peran, ['id_supplier' => $idSupplier])
+                ->assertStatus(422)
+                ->json('message');
+            $this->assertStringContainsString('catat realisasinya dari halaman PR', $pesan);
+        }
+        $this->assertSame('disetujui_finance', DB::table('pembelian_sparepart')->where('id_pembelian', $ps->id_pembelian)->value('status'));
+        $this->assertSame($stokAwal, (int) DB::table('sparepart')->where('id_sparepart', $ps->items[0]->id_sparepart)->value('stok'));
 
+        Event::fake([PembelianSparepartDirealisasi::class]);
+        $hasil = app(PembelianSparepartService::class)->realisasiDariPermintaan($ps->id_pembelian, [
+            'tanggal_pembelian'         => now()->toDateString(),
+            'id_supplier'               => $idSupplier,
+            'harga_per_item_permintaan' => collect($ps->items)->mapWithKeys(fn ($i) => [$i->id_item_permintaan => (float) $i->harga_estimasi])->all(),
+        ], self::PERUSAHAAN_ID, (string) $pengguna->id_pengguna);
+
+        $this->assertSame('dibeli', $hasil->status);
+        $this->assertSame($idSupplier, $hasil->id_supplier);
+        $this->assertSame('Toko Pengadaan', $hasil->nama_supplier);
+        $this->assertSame(200000.0, (float) $hasil->total_aktual);
         $this->assertSame($stokAwal + 1, (int) DB::table('sparepart')->where('id_sparepart', $ps->items[0]->id_sparepart)->value('stok'));
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->where('id_pembelian', $ps->id_pembelian)->count());
 
@@ -342,8 +352,11 @@ class PembelianSparepartBatasBuatTest extends TestCase
 
         $ps2 = $service->buatDariPermintaan($this->buatPrStub(200_000), (string) $pengguna->id_pengguna);
         Event::fake([PembelianSparepartDirealisasi::class]);
-        $items = array_map(fn ($i) => ['id_item' => $i->id_item, 'harga_estimasi' => (float) $i->harga_estimasi], $ps2->items);
-        $this->realisasi($ps2->id_pembelian, $items, 'SUPERADMIN')->assertStatus(200);
+        $service->realisasiDariPermintaan($ps2->id_pembelian, [
+            'tanggal_pembelian'         => now()->toDateString(),
+            'id_supplier'               => null,
+            'harga_per_item_permintaan' => collect($ps2->items)->mapWithKeys(fn ($i) => [$i->id_item_permintaan => (float) $i->harga_estimasi])->all(),
+        ], self::PERUSAHAAN_ID, (string) $pengguna->id_pengguna);
 
         try {
             $service->batalkanDariPermintaan($ps2->id_pembelian, 'Terlambat', self::PERUSAHAAN_ID);

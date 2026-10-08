@@ -6,7 +6,6 @@ namespace App\Modules\PembelianSparepart;
 use App\Helpers\ApiResponse;
 use App\Modules\PembelianSparepart\Exports\LaporanPembelianExport;
 use App\Modules\PembelianSparepart\Requests\RealisasiPembelianRequest;
-use App\Modules\PembelianSparepart\Requests\StorePembelianSparepartRequest;
 use App\Modules\PembelianSparepart\Requests\UpdatePembelianSparepartRequest;
 use App\Modules\PembelianSparepart\Requests\UploadBuktiPembelianRequest;
 use App\Modules\PembelianSparepart\Resources\PembelianSparepartResource;
@@ -40,10 +39,9 @@ class PembelianSparepartController extends Controller
         return ApiResponse::success(new PembelianSparepartResource($record));
     }
 
-    public function store(StorePembelianSparepartRequest $request): JsonResponse
+    public function store(): JsonResponse
     {
-        $record = $this->service->create($request->validated(), $request->file('bukti', []), (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(new PembelianSparepartResource($record), 'Pengajuan pembelian berhasil dibuat', 201);
+        abort(422, 'Pembelian langsung sudah ditutup — ajukan lewat Permintaan Pembelian (PR). Perbarui aplikasi bila masih memakai versi lama.');
     }
 
     public function update(UpdatePembelianSparepartRequest $request, string $id): JsonResponse

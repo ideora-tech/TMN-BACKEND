@@ -26,6 +26,7 @@ class UangJalanController extends Controller
             $this->teks($request, 'status'),
             $this->teks($request, 'dari'),
             $this->teks($request, 'sampai'),
+            $this->teks($request, 'id_proyek'),
         );
 
         return ApiResponse::paginated(UangJalanResource::collection($result['data']), $result['meta']);
@@ -39,6 +40,38 @@ class UangJalanController extends Controller
     public function opsiVendor(Request $request, string $idVendor): JsonResponse
     {
         return ApiResponse::success($this->service->opsiVendor($idVendor, (string) $request->user()->id_perusahaan));
+    }
+
+    public function opsiProyek(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->opsiProyek((string) $request->user()->id_perusahaan));
+    }
+
+    public function opsiRuteProyek(Request $request, string $idProyek): JsonResponse
+    {
+        return ApiResponse::success($this->service->opsiRuteProyek($idProyek, (string) $request->user()->id_perusahaan));
+    }
+
+    public function tarifRateCard(Request $request): JsonResponse
+    {
+        $idProyek = $this->teks($request, 'id_proyek');
+        $idRute   = $this->teks($request, 'id_rute');
+        if ($idProyek === null || $idRute === null) {
+            return ApiResponse::success(null);
+        }
+
+        return ApiResponse::success($this->service->tarifRateCard(
+            $idProyek,
+            $idRute,
+            $this->teks($request, 'id_armada'),
+            $this->teks($request, 'id_armada_vendor'),
+            (string) $request->user()->id_perusahaan,
+        ));
+    }
+
+    public function opsiPenugasan(Request $request, string $idProyek): JsonResponse
+    {
+        return ApiResponse::success($this->service->opsiPenugasan($idProyek, (string) $request->user()->id_perusahaan));
     }
 
     private function teks(Request $request, string $kunci): ?string

@@ -12,11 +12,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class ArusKasApprovalWiringTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -100,7 +102,7 @@ class ArusKasApprovalWiringTest extends TestCase
     private function buatPengajuanEngine(float $nominal = 5000000): string
     {
         $this->actingAsRole('SUPERADMIN');
-        $res = $this->postJson('/api/pembelian-sparepart', [
+        $res = $this->buatPembelianLangsung([
             'id_supplier'       => $this->makeSupplierPembelian(),
             'tanggal_pengajuan' => now()->toDateString(),
             'items'             => [

@@ -105,6 +105,74 @@ class PermintaanVendorPengadaanTest extends TestCase
             ->all();
     }
 
+    private function beriIzin(string $path, string $kodePeran, string $aksi): void
+    {
+        $idMenu = DB::table('menu')->where('path', $path)->value('id_menu');
+        if ($idMenu === null) {
+            $idMenu = (string) Str::uuid();
+            DB::table('menu')->insert([
+                'id_menu' => $idMenu, 'nama_menu' => trim($path, '/'), 'path' => $path, 'aktif' => 1, 'dibuat_pada' => now(),
+            ]);
+        }
+        DB::table('izin_peran')->updateOrInsert(
+            ['id_perusahaan' => null, 'kode_peran' => $kodePeran, 'id_menu' => $idMenu, 'aksi' => $aksi],
+            ['id_izin' => (string) Str::uuid(), 'diizinkan' => 1, 'dihapus_pada' => null, 'dibuat_pada' => now()],
+        );
+    }
+
+    public function test_kontrak_aktif_memberi_tahu_operasional_unit_siap_ditugaskan(): void
+    {
+        $this->beriIzin('/penugasan', 'DISPATCHER', 'tambah');
+        $this->beriIzin('/penugasan', 'SALES', 'tambah');
+        $ops   = $this->buatPengguna('DISPATCHER');
+        $sales = $this->buatPengguna('SALES');
+        $permintaan = $this->makePermintaan([], (string) $sales->id_pengguna);
+        $this->actingAsRole('SUPERADMIN');
+        $idKontrak = $this->buatKontrakDariPermintaan($permintaan, 'KV-PGD-OPS-1');
+
+        $this->assertCount(0, $this->notifikasiUntuk((string) $ops->id_pengguna));
+
+        $this->postJson("/api/kontrak-vendor/{$idKontrak}/ajukan-approval")
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'aktif');
+
+        $judulSiap = "Unit vendor untuk {$permintaan->nomor_permintaan} siap ditugaskan";
+        $notif = $this->notifikasiUntuk((string) $ops->id_pengguna);
+        $this->assertCount(1, $notif);
+        $this->assertSame($judulSiap, $notif[0]->judul);
+        $this->assertStringContainsString('Kontrak KV-PGD-OPS-1 aktif', $notif[0]->isi);
+        $this->assertSame('/penugasan', $notif[0]->link);
+
+        $judulSales = array_map(fn ($n) => $n->judul, $this->notifikasiUntuk((string) $sales->id_pengguna));
+        $this->assertNotContains($judulSiap, $judulSales);
+    }
+
+    public function test_batal_memberi_tahu_operasional_sekali_kecuali_masih_draft(): void
+    {
+        $this->beriIzin('/penugasan', 'DISPATCHER', 'tambah');
+        $this->beriIzin('/penugasan', 'MANAGER', 'tambah');
+        $this->beriIzin('/kontrak-vendor', 'MANAGER', 'lihat');
+        $ops     = $this->buatPengguna('DISPATCHER');
+        $manager = $this->buatPengguna('MANAGER');
+        $this->actingAsRole('SUPERADMIN');
+
+        $draft = $this->makePermintaan(['status' => 'draft']);
+        $this->patchJson("/api/permintaan-vendor/{$draft->id_permintaan}/batal", ['alasan' => 'Salah input'])
+            ->assertStatus(200);
+        $this->assertCount(0, $this->notifikasiUntuk((string) $ops->id_pengguna));
+        $this->assertCount(1, $this->notifikasiUntuk((string) $manager->id_pengguna));
+
+        $disetujui = $this->makePermintaan(['status' => 'disetujui']);
+        $this->patchJson("/api/permintaan-vendor/{$disetujui->id_permintaan}/batal", ['alasan' => 'Proyek ditunda klien'])
+            ->assertStatus(200);
+
+        $notifOps = $this->notifikasiUntuk((string) $ops->id_pengguna);
+        $this->assertCount(1, $notifOps);
+        $this->assertSame("Permintaan vendor {$disetujui->nomor_permintaan} dibatalkan", $notifOps[0]->judul);
+        $this->assertSame('Proyek ditunda klien', $notifOps[0]->isi);
+        $this->assertCount(2, $this->notifikasiUntuk((string) $manager->id_pengguna));
+    }
+
     public function test_pengadaan_menolak_permintaan_dengan_alasan_dan_pengaju_diberitahu(): void
     {
         $sales = $this->buatPengguna('SALES');

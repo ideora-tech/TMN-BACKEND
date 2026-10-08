@@ -13,6 +13,7 @@ interface PayrollRepositoryInterface
 
     public function paginatePeriode(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $status = null): LengthAwarePaginator;
     public function findPeriodeById(string $id): ?object;
+    public function kunciPeriode(string $id): ?object;
     public function adaPeriodeTumpangTindih(string $idPerusahaan, string $mulai, string $selesai, ?string $excludeId = null): bool;
     public function createPeriode(array $data): object;
     public function updatePeriode(object $record, array $data): object;
@@ -30,6 +31,10 @@ interface PayrollRepositoryInterface
     public function createSlip(array $data): object;
     public function updateSlip(object $record, array $data): object;
     public function hapusSlipByPeriode(string $idPeriode): void;
+
+    /** @param array<string, float> $sisaPerSlip */
+    public function simpanSisaKasbonSlip(array $sisaPerSlip): void;
+    public function kosongkanSisaKasbonSlip(string $idPeriode): void;
     public function ringkasanPeriode(string $idPeriode): object;
 
     /** @return array<string, string> map id_karyawan => tanggal_efektif exit terakhir */

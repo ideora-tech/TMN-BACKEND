@@ -8,11 +8,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Tests\Feature\Concerns\MembuatPembelianLangsung;
 use Tests\TestCase;
 
 class PembelianLaporanTest extends TestCase
 {
     use RefreshDatabase;
+    use MembuatPembelianLangsung;
 
     protected function setUp(): void
     {
@@ -97,7 +99,7 @@ class PembelianLaporanTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
         $this->pembelianDibeli(100000);
         $this->pembelianDibeli(50000);
-        $this->postJson('/api/pembelian-sparepart', $this->payloadPengajuan());
+        $this->buatPembelianLangsung($this->payloadPengajuan());
 
         $res = $this->getJson('/api/pembelian-sparepart/laporan');
         $res->assertStatus(200);

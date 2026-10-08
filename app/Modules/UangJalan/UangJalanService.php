@@ -30,8 +30,9 @@ class UangJalanService
         ?string $status = null,
         ?string $dari = null,
         ?string $sampai = null,
+        ?string $idProyek = null,
     ): array {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status, $dari, $sampai);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status, $dari, $sampai, $idProyek);
 
         return [
             'data' => $result->items(),
@@ -66,6 +67,63 @@ class UangJalanService
         }
 
         return $this->repo->opsiVendor($idVendor);
+    }
+
+    public function opsiProyek(string $idPerusahaan): array
+    {
+        return $this->repo->opsiProyek($idPerusahaan);
+    }
+
+    public function opsiRuteProyek(string $idProyek, string $idPerusahaan): array
+    {
+        if ($this->repo->findProyek($idProyek, $idPerusahaan) === null) {
+            abort(404, 'Proyek tidak ditemukan');
+        }
+
+        return $this->repo->opsiRuteProyek($idProyek);
+    }
+
+    public function tarifRateCard(string $idProyek, string $idRute, ?string $idArmada, ?string $idArmadaVendor, string $idPerusahaan): ?array
+    {
+        if ($this->repo->findProyek($idProyek, $idPerusahaan) === null) {
+            abort(404, 'Proyek tidak ditemukan');
+        }
+
+        $jenis = null;
+        if ($idArmada !== null) {
+            $jenis = $this->repo->jenisKendaraanArmada($idArmada, $idPerusahaan);
+        } elseif ($idArmadaVendor !== null) {
+            $jenis = $this->repo->jenisKendaraanArmadaVendor($idArmadaVendor, $idPerusahaan);
+        }
+
+        $baris = $this->repo->rateCardRute($idProyek, $idRute, $jenis);
+        if ($baris === null) {
+            return null;
+        }
+
+        $tol   = round((float) ($baris->estimasi_tol ?? 0), 2);
+        $bbm   = round((float) ($baris->estimasi_bbm ?? 0), 2);
+        $lain  = round((float) ($baris->estimasi_biaya_lain ?? 0), 2);
+
+        if ($tol + $bbm + $lain <= 0) {
+            return null;
+        }
+
+        return [
+            'tol_per_trip'        => $tol,
+            'bbm_per_trip'        => $bbm,
+            'biaya_lain_per_trip' => $lain,
+            'uang_jalan_per_trip' => round($tol + $bbm + $lain, 2),
+        ];
+    }
+
+    public function opsiPenugasan(string $idProyek, string $idPerusahaan): array
+    {
+        if ($this->repo->findProyek($idProyek, $idPerusahaan) === null) {
+            abort(404, 'Proyek tidak ditemukan');
+        }
+
+        return $this->repo->opsiPenugasan($idProyek);
     }
 
     public function riwayat(string $id, string $idPerusahaan): array
@@ -138,18 +196,54 @@ class UangJalanService
 
     private function rapikan(array $data, string $idPerusahaan): array
     {
-        $tarif   = round((float) $data['uang_jalan_per_trip'], 2);
+        $tol     = round((float) ($data['tol_per_trip'] ?? 0), 2);
+        $bbm     = round((float) ($data['bbm_per_trip'] ?? 0), 2);
+        $lain    = round((float) ($data['biaya_lain_per_trip'] ?? 0), 2);
+        $tarif   = round($tol + $bbm + $lain, 2);
         $trip    = (int) $data['jumlah_trip'];
         $catatan = isset($data['catatan']) ? trim((string) $data['catatan']) : '';
 
-        $rute = $this->repo->findRute((string) $data['id_rute'], $idPerusahaan)
-            ?? $this->tolak('id_rute', 'Rute tidak ditemukan');
+        if ($tarif < 1) {
+            $this->tolak('tol_per_trip', 'Isi minimal salah satu rincian biaya per trip (tol, BBM, atau biaya lain)');
+        }
+        if ($tarif > 100000000) {
+            $this->tolak('tol_per_trip', 'Total uang jalan per trip maksimal Rp 100.000.000');
+        }
+
+        $proyek = null;
+        if (!empty($data['id_proyek'])) {
+            $proyek = $this->repo->findProyek((string) $data['id_proyek'], $idPerusahaan)
+                ?? $this->tolak('id_proyek', 'Proyek tidak ditemukan');
+        }
+
+        $idPenugasan = null;
+        if (!empty($data['id_penugasan'])) {
+            if ($proyek === null) {
+                $this->tolak('id_penugasan', 'Pilih proyek terlebih dahulu');
+            }
+            $penugasan = $this->repo->findPenugasan((string) $data['id_penugasan'], $proyek->id_proyek)
+                ?? $this->tolak('id_penugasan', 'Penugasan tidak ditemukan pada proyek ini');
+            $idPenugasan = $penugasan->id_penugasan;
+        }
+
+        $rute = $proyek !== null
+            ? ($this->repo->findRuteProyek((string) $data['id_rute'], $proyek->id_proyek)
+                ?? $this->tolak('id_rute', 'Rute tidak terdaftar pada proyek ini'))
+            : ($this->repo->findRute((string) $data['id_rute'], $idPerusahaan)
+                ?? $this->tolak('id_rute', 'Rute tidak ditemukan'));
 
         return array_merge($this->resolusiDriver($data, $idPerusahaan), [
             'tanggal'             => $data['tanggal'],
             'tipe_driver'         => $data['tipe_driver'],
             'id_rute'             => $rute->id_rute,
             'rute'                => $rute->nama_rute,
+            'id_proyek'           => $proyek?->id_proyek,
+            'kode_proyek'         => $proyek?->kode_proyek,
+            'nama_proyek'         => $proyek?->nama_proyek,
+            'id_penugasan'        => $idPenugasan,
+            'tol_per_trip'        => $tol,
+            'bbm_per_trip'        => $bbm,
+            'biaya_lain_per_trip' => $lain,
             'uang_jalan_per_trip' => $tarif,
             'jumlah_trip'         => $trip,
             'nominal'             => round($tarif * $trip, 2),

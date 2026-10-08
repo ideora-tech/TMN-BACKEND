@@ -6,9 +6,16 @@ namespace App\Modules\Faktur;
 
 use App\Modules\Faktur\Contracts\FakturItemRepositoryInterface;
 use App\Modules\Faktur\Contracts\FakturRepositoryInterface;
+use App\Support\PenyimpananBerkas;
+use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class FakturService
 {
+    private const BATAS_POTONGAN_PERSEN = 10;
+
     private const VALID_TRANSITIONS = [
         'draft'             => ['batal'],
         'menunggu_approval' => ['batal'],
@@ -27,6 +34,7 @@ class FakturService
         $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status);
         $this->attachDibuatOlehNama($result->items());
         $this->attachPajak($result->items());
+        $this->attachPembayaran($result->items());
 
         return [
             'data' => $result->items(),
@@ -44,6 +52,7 @@ class FakturService
         $result = $this->repo->paginateByKlien($idKlien, $idPerusahaan, $page, $limit);
         $this->attachDibuatOlehNama($result->items());
         $this->attachPajak($result->items());
+        $this->attachPembayaran($result->items());
 
         return [
             'data' => $result->items(),
@@ -212,9 +221,10 @@ class FakturService
 
         $faktur = $this->repo->create($data);
 
-        foreach ($items as $item) {
+        foreach (array_values($items) as $i => $item) {
             $item['id_faktur'] = $faktur->id_faktur;
             $item['subtotal']  = $item['qty'] * $item['harga_satuan'];
+            $item['urutan']    = $i + 1;
             $this->itemRepo->create($item);
         }
 
@@ -259,9 +269,10 @@ class FakturService
 
             $this->itemRepo->deleteByFaktur($record->id_faktur);
 
-            foreach ($items as $item) {
+            foreach (array_values($items) as $i => $item) {
                 $item['id_faktur'] = $record->id_faktur;
                 $item['subtotal']  = $item['qty'] * $item['harga_satuan'];
+                $item['urutan']    = $i + 1;
                 $this->itemRepo->create($item);
             }
         }
@@ -275,7 +286,7 @@ class FakturService
         if ($itemsBerubah || $pajakBerubah) {
             $subtotal = $itemsBerubah
                 ? collect($items)->sum(fn ($i) => $i['qty'] * $i['harga_satuan'])
-                : (float) $record->items()->sum('subtotal');
+                : (float) $record->items()->reorder()->sum('subtotal');
             $pajakUntukHitung = $pajakBerubah ? $pajakBaru : $this->pajakEfektif($record);
             $data['total'] = $subtotal + $this->totalPajak($subtotal, $pajakUntukHitung);
         }
@@ -316,25 +327,44 @@ class FakturService
 
     public function updateStatus(string $id, string $status, ?string $idPerusahaan = null): FakturModel
     {
-        $record = $this->findOrFail($id, $idPerusahaan);
-        $allowed = self::VALID_TRANSITIONS[$record->status] ?? [];
+        $this->findOrFail($id, $idPerusahaan);
 
-        if (!in_array($status, $allowed, true)) {
-            abort(422, 'Transisi status tidak valid');
-        }
+        return DB::transaction(function () use ($id, $status) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null) {
+                abort(404, 'Invoice tidak ditemukan');
+            }
+            $allowed = self::VALID_TRANSITIONS[$terkunci->status] ?? [];
+            if (!in_array($status, $allowed, true)) {
+                abort(422, 'Transisi status tidak valid');
+            }
 
-        if ($record->status === 'menunggu_approval') {
-            app(\App\Modules\Approval\ApprovalService::class)->batalkanUntukReferensi(
-                ['faktur'],
-                (string) $record->id_faktur,
-                (string) $record->id_perusahaan,
-            );
-        }
+            $terbayar = $this->repo->totalPembayaran($id);
+            if ($status === 'batal' && $terbayar > 0) {
+                abort(422, 'Invoice ini sudah menerima pembayaran — hapus pembayarannya dulu sebelum membatalkan');
+            }
 
-        $updated = $this->repo->update($record, ['status' => $status]);
-        $this->repo->insertStatusLog((string) $record->id_faktur, $status);
+            $perubahan = ['status' => $status];
+            if ($status === 'lunas') {
+                if (round((float) $terkunci->total - $terbayar, 2) >= 1) {
+                    abort(422, 'Invoice lunas otomatis saat tagihannya habis — catat pembayarannya lewat Catat Pembayaran');
+                }
+                $perubahan['tanggal_lunas'] = $this->repo->tanggalBayarTerakhir($id) ?? now()->toDateString();
+            }
 
-        return $updated;
+            if ($terkunci->status === 'menunggu_approval') {
+                app(\App\Modules\Approval\ApprovalService::class)->batalkanUntukReferensi(
+                    ['faktur'],
+                    $id,
+                    (string) $terkunci->id_perusahaan,
+                );
+            }
+
+            $this->repo->update($terkunci, $perubahan);
+            $this->repo->insertStatusLog($id, $status);
+
+            return $this->repo->findById($id);
+        });
     }
 
     public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): FakturModel
@@ -444,5 +474,313 @@ class FakturService
         $this->itemRepo->deleteByFaktur($record->id_faktur);
         $this->repo->replacePajak((string) $record->id_faktur, []);
         $this->repo->delete($record);
+    }
+
+    /** @param FakturModel[] $items */
+    private function attachPembayaran(array $items): void
+    {
+        $idFakturList = array_values(array_unique(array_map(fn (FakturModel $item) => (string) $item->id_faktur, $items)));
+        $peta = $this->repo->pembayaranUntukBanyak($idFakturList);
+
+        foreach ($items as $item) {
+            $this->setRingkasanPembayaran($item, $peta[(string) $item->id_faktur] ?? ['diterima' => 0.0, 'potongan' => 0.0]);
+        }
+    }
+
+    private function setRingkasanPembayaran(FakturModel $record, array $bayar): void
+    {
+        $terbayar = round($bayar['diterima'] + $bayar['potongan'], 2);
+        $nilai = [
+            'diterima'       => round($bayar['diterima'], 2),
+            'potongan_bayar' => round($bayar['potongan'], 2),
+            'terbayar'       => $terbayar,
+            'sisa'           => $record->status === 'lunas' ? 0.0 : round(max(0, (float) $record->total - $terbayar), 2),
+        ];
+        foreach ($nilai as $kunci => $angka) {
+            $record->setAttribute($kunci, $angka);
+            $record->syncOriginalAttribute($kunci);
+        }
+    }
+
+    public function denganPembayaran(FakturModel $record): FakturModel
+    {
+        $baris = $this->repo->listPembayaran((string) $record->id_faktur);
+
+        $record->setAttribute('pembayaran', array_map(fn ($b) => [
+            'id_pembayaran_faktur' => $b->id_pembayaran_faktur,
+            'tanggal_bayar'        => substr((string) $b->tanggal_bayar, 0, 10),
+            'nominal'              => (float) $b->nominal,
+            'potongan'             => (float) $b->potongan,
+            'keterangan_potongan'  => $b->keterangan_potongan,
+            'no_referensi'         => $b->no_referensi,
+            'url_bukti'            => PenyimpananBerkas::url($b->url_bukti),
+            'catatan'              => $b->catatan,
+            'dicatat_oleh'         => $b->dicatat_oleh,
+            'dibuat_pada'          => $b->dibuat_pada,
+        ], $baris));
+        $record->syncOriginalAttribute('pembayaran');
+
+        $this->setRingkasanPembayaran($record, [
+            'diterima' => array_sum(array_map(fn ($b) => (float) $b->nominal, $baris)),
+            'potongan' => array_sum(array_map(fn ($b) => (float) $b->potongan, $baris)),
+        ]);
+
+        return $record;
+    }
+
+    public function catatPembayaran(string $id, array $data, ?UploadedFile $bukti, string $idPerusahaan): FakturModel
+    {
+        $nominal = round((float) $data['nominal'], 2);
+        $potongan = round((float) ($data['potongan'] ?? 0), 2);
+        if ($nominal + $potongan <= 0) {
+            abort(422, 'Isi nominal yang diterima atau potongannya');
+        }
+        $keteranganPotongan = trim((string) ($data['keterangan_potongan'] ?? ''));
+        if ($potongan > 0 && $keteranganPotongan === '') {
+            abort(422, 'Isi keterangan potongan, misalnya PPh 23 atau biaya transfer');
+        }
+
+        return DB::transaction(function () use ($id, $data, $bukti, $idPerusahaan, $nominal, $potongan, $keteranganPotongan) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || (string) $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Invoice tidak ditemukan');
+            }
+            if ($terkunci->status !== 'terkirim') {
+                abort(422, 'Pembayaran hanya bisa dicatat untuk invoice berstatus terkirim');
+            }
+
+            $total = round((float) $terkunci->total, 2);
+            $sudah = $this->repo->pembayaranUntukBanyak([$id])[$id] ?? ['diterima' => 0.0, 'potongan' => 0.0];
+            $sisa = round($total - $sudah['diterima'] - $sudah['potongan'], 2);
+            $masuk = round($nominal + $potongan, 2);
+            $batas = (float) ceil($sisa);
+            if ($masuk > $batas) {
+                abort(422, 'Pembayaran melebihi sisa tagihan (Rp ' . number_format($batas, 0, ',', '.') . ')');
+            }
+            if ($potongan > 0) {
+                $batasPotongan = round($total * self::BATAS_POTONGAN_PERSEN / 100, 2);
+                if (round($sudah['potongan'] + $potongan, 2) > $batasPotongan) {
+                    abort(422, 'Total potongan melebihi ' . self::BATAS_POTONGAN_PERSEN . '% nilai invoice (maksimal Rp '
+                        . number_format($batasPotongan, 0, ',', '.') . ') — selisih sebesar itu perlu koreksi invoice, bukan potongan');
+                }
+            }
+
+            $noReferensi = trim((string) ($data['no_referensi'] ?? ''));
+            $catatan = trim((string) ($data['catatan'] ?? ''));
+            $this->repo->insertPembayaran([
+                'id_faktur'           => $id,
+                'tanggal_bayar'       => $data['tanggal_bayar'],
+                'nominal'             => $nominal,
+                'potongan'            => $potongan,
+                'keterangan_potongan' => $potongan > 0 ? $keteranganPotongan : null,
+                'no_referensi'        => $noReferensi !== '' ? $noReferensi : null,
+                'url_bukti'           => $bukti !== null ? PenyimpananBerkas::simpan($bukti, 'bukti-pembayaran-klien') : null,
+                'catatan'             => $catatan !== '' ? $catatan : null,
+            ]);
+
+            $sisaBaru = round($sisa - $masuk, 2);
+            $this->repo->insertStatusLog($id, 'pembayaran', $this->keteranganPembayaran($nominal, $potongan, $keteranganPotongan, $sisaBaru));
+
+            if ($sisaBaru < 1) {
+                $this->repo->update($terkunci, [
+                    'status'        => 'lunas',
+                    'tanggal_lunas' => $this->repo->tanggalBayarTerakhir($id) ?? $data['tanggal_bayar'],
+                ]);
+                $this->repo->insertStatusLog($id, 'lunas', 'Lunas — seluruh tagihan sudah dibayar');
+            }
+
+            return $this->repo->findById($id);
+        });
+    }
+
+    private function keteranganPembayaran(float $nominal, float $potongan, string $keteranganPotongan, float $sisa): string
+    {
+        $rupiah = fn (float $angka) => 'Rp ' . number_format($angka, 0, ',', '.');
+        $teks = 'Diterima ' . $rupiah($nominal);
+        if ($potongan > 0) {
+            $teks .= ', potongan ' . $rupiah($potongan) . ($keteranganPotongan !== '' ? " ({$keteranganPotongan})" : '');
+        }
+        $teks .= $sisa >= 1 ? ' — sisa ' . $rupiah($sisa) : ' — tagihan lunas';
+
+        return Str::limit($teks, 250, '…');
+    }
+
+    public function hapusPembayaran(string $id, string $idPembayaran, string $alasan, string $idPerusahaan): FakturModel
+    {
+        return DB::transaction(function () use ($id, $idPembayaran, $alasan, $idPerusahaan) {
+            $terkunci = $this->repo->findForUpdate($id);
+            if ($terkunci === null || (string) $terkunci->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Invoice tidak ditemukan');
+            }
+            if (!in_array($terkunci->status, ['terkirim', 'lunas'], true)) {
+                abort(422, 'Pembayaran invoice ini tidak bisa diubah pada status sekarang');
+            }
+            $bayar = $this->repo->findPembayaran($id, $idPembayaran);
+            if ($bayar === null) {
+                abort(404, 'Pembayaran tidak ditemukan');
+            }
+
+            $this->repo->softDeletePembayaran($idPembayaran);
+            $this->repo->insertStatusLog($id, 'pembayaran_dihapus', Str::limit(sprintf(
+                'Pembayaran Rp %s tanggal %s dihapus: %s',
+                number_format((float) $bayar->nominal + (float) $bayar->potongan, 0, ',', '.'),
+                date('d/m/Y', strtotime((string) $bayar->tanggal_bayar)),
+                trim($alasan),
+            ), 250, '…'));
+
+            $sisa = round((float) $terkunci->total - $this->repo->totalPembayaran($id), 2);
+            if ($terkunci->status === 'lunas' && $sisa >= 1) {
+                $this->repo->update($terkunci, ['status' => 'terkirim', 'tanggal_lunas' => null]);
+                $this->repo->insertStatusLog($id, 'terkirim', 'Kembali ke terkirim — pembayaran dihapus');
+            }
+
+            return $this->repo->findById($id);
+        });
+    }
+
+    public function outstanding(string $idPerusahaan, array $filter = [], ?int $page = 1, int $limit = 10): array
+    {
+        $hariIni = Carbon::today();
+        $aging = [
+            'belum_jatuh_tempo' => ['jumlah' => 0, 'nominal' => 0.0],
+            'hari_1_30'         => ['jumlah' => 0, 'nominal' => 0.0],
+            'hari_31_60'        => ['jumlah' => 0, 'nominal' => 0.0],
+            'di_atas_60'        => ['jumlah' => 0, 'nominal' => 0.0],
+        ];
+        $lewat = ['jumlah' => 0, 'nominal' => 0.0];
+        $segera = ['jumlah' => 0, 'nominal' => 0.0];
+        $totalTagihan = 0.0;
+        $totalTerbayar = 0.0;
+        $totalSisa = 0.0;
+        $perKlien = [];
+        $rows = [];
+
+        foreach ($this->repo->outstanding($idPerusahaan) as $row) {
+            $total = round((float) $row->total, 2);
+            $terbayar = round((float) $row->terbayar, 2);
+            $sisa = round(max(0, $total - $terbayar), 2);
+            if ($sisa <= 0) {
+                continue;
+            }
+
+            $hariTerlambat = 0;
+            $hariMenuju = null;
+            if ($row->jatuh_tempo !== null) {
+                $jatuhTempo = Carbon::parse((string) $row->jatuh_tempo)->startOfDay();
+                $selisih = (int) round($hariIni->diffInDays($jatuhTempo, false));
+                if ($selisih < 0) {
+                    $hariTerlambat = -$selisih;
+                } else {
+                    $hariMenuju = $selisih;
+                }
+            }
+            $kelompok = match (true) {
+                $hariTerlambat <= 0  => 'belum_jatuh_tempo',
+                $hariTerlambat <= 30 => 'hari_1_30',
+                $hariTerlambat <= 60 => 'hari_31_60',
+                default              => 'di_atas_60',
+            };
+
+            $aging[$kelompok]['jumlah']++;
+            $aging[$kelompok]['nominal'] = round($aging[$kelompok]['nominal'] + $sisa, 2);
+            if ($hariTerlambat > 0) {
+                $lewat['jumlah']++;
+                $lewat['nominal'] = round($lewat['nominal'] + $sisa, 2);
+            } elseif ($hariMenuju !== null && $hariMenuju <= 7) {
+                $segera['jumlah']++;
+                $segera['nominal'] = round($segera['nominal'] + $sisa, 2);
+            }
+            $totalTagihan = round($totalTagihan + $total, 2);
+            $totalTerbayar = round($totalTerbayar + $terbayar, 2);
+            $totalSisa = round($totalSisa + $sisa, 2);
+
+            $kunciKlien = (string) ($row->id_klien ?? '');
+            $perKlien[$kunciKlien] ??= [
+                'id_klien'    => $row->id_klien,
+                'nama_klien'  => $row->nama_klien ?? 'Tanpa klien',
+                'jumlah'      => 0,
+                'outstanding' => 0.0,
+                'terlambat'   => 0.0,
+            ];
+            $perKlien[$kunciKlien]['jumlah']++;
+            $perKlien[$kunciKlien]['outstanding'] = round($perKlien[$kunciKlien]['outstanding'] + $sisa, 2);
+            if ($hariTerlambat > 0) {
+                $perKlien[$kunciKlien]['terlambat'] = round($perKlien[$kunciKlien]['terlambat'] + $sisa, 2);
+            }
+
+            $rows[] = [
+                'id_faktur'      => $row->id_faktur,
+                'nomor_faktur'   => $row->nomor_faktur,
+                'id_klien'       => $row->id_klien,
+                'nama_klien'     => $row->nama_klien,
+                'nama_proyek'    => $row->nama_proyek,
+                'tanggal_faktur' => $row->tanggal_faktur !== null ? substr((string) $row->tanggal_faktur, 0, 10) : null,
+                'jatuh_tempo'    => $row->jatuh_tempo !== null ? substr((string) $row->jatuh_tempo, 0, 10) : null,
+                'hari_terlambat' => $hariTerlambat,
+                'kelompok'       => $kelompok,
+                'total'          => $total,
+                'terbayar'       => $terbayar,
+                'sisa'           => $sisa,
+            ];
+        }
+
+        usort($perKlien, fn (array $a, array $b) => $b['outstanding'] <=> $a['outstanding']);
+        usort($rows, function (array $a, array $b) {
+            if ($a['hari_terlambat'] !== $b['hari_terlambat']) {
+                return $b['hari_terlambat'] <=> $a['hari_terlambat'];
+            }
+            return strcmp($a['jatuh_tempo'] ?? '9999-12-31', $b['jatuh_tempo'] ?? '9999-12-31')
+                ?: strcmp((string) $a['nomor_faktur'], (string) $b['nomor_faktur']);
+        });
+
+        $idKlien = (string) ($filter['id_klien'] ?? '');
+        $kelompokDipilih = (string) ($filter['kelompok'] ?? '');
+        $cari = mb_strtolower(trim((string) ($filter['search'] ?? '')));
+        $tersaring = array_values(array_filter($rows, function (array $r) use ($idKlien, $kelompokDipilih, $cari) {
+            if ($idKlien !== '' && (string) $r['id_klien'] !== $idKlien) {
+                return false;
+            }
+            if ($kelompokDipilih === 'terlambat' && $r['hari_terlambat'] <= 0) {
+                return false;
+            }
+            if ($kelompokDipilih !== '' && $kelompokDipilih !== 'terlambat' && $r['kelompok'] !== $kelompokDipilih) {
+                return false;
+            }
+            if ($cari !== '' && !str_contains(mb_strtolower($r['nomor_faktur'] . ' ' . ($r['nama_klien'] ?? '')), $cari)) {
+                return false;
+            }
+            return true;
+        }));
+
+        $jumlahTersaring = count($tersaring);
+        if ($page !== null) {
+            $limit = max(1, $limit);
+            $page = max(1, $page);
+            $data = array_slice($tersaring, ($page - 1) * $limit, $limit);
+            $meta = ['page' => $page, 'limit' => $limit, 'total' => $jumlahTersaring, 'totalPages' => max(1, (int) ceil($jumlahTersaring / $limit))];
+        } else {
+            $data = $tersaring;
+            $meta = ['page' => 1, 'limit' => $jumlahTersaring, 'total' => $jumlahTersaring, 'totalPages' => 1];
+        }
+
+        return [
+            'ringkasan' => [
+                'jumlah_invoice'     => count($rows),
+                'total_tagihan'      => $totalTagihan,
+                'total_terbayar'     => $totalTerbayar,
+                'total_outstanding'  => $totalSisa,
+                'lewat_jatuh_tempo'  => $lewat,
+                'jatuh_tempo_7_hari' => $segera,
+                'diterima_bulan_ini' => $this->repo->diterimaAntara(
+                    $idPerusahaan,
+                    $hariIni->copy()->startOfMonth()->toDateString(),
+                    $hariIni->copy()->endOfMonth()->toDateString(),
+                ),
+                'aging'              => $aging,
+            ],
+            'per_klien' => array_values($perKlien),
+            'data'      => $data,
+            'meta'      => $meta,
+        ];
     }
 }

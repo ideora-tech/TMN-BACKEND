@@ -23,7 +23,9 @@ class PermintaanPembelianService
     public const STATUS_DISETUJUI         = 'disetujui';
     public const STATUS_DITOLAK           = 'ditolak';
     public const STATUS_DIPROSES          = 'diproses';
+    public const STATUS_DIPESAN           = 'dipesan';
     public const STATUS_DIBELI            = 'dibeli';
+    public const STATUS_DITERIMA_SEBAGIAN = 'diterima_sebagian';
     public const STATUS_DITERIMA          = 'diterima';
     public const STATUS_SELESAI           = 'selesai';
     public const STATUS_DIBATALKAN        = 'dibatalkan';
@@ -39,6 +41,7 @@ class PermintaanPembelianService
     public const PERAN_PENGADAAN = ['PENGADAAN', 'SUPERADMIN'];
     public const PERAN_KELOLA    = ['PENGADAAN', 'SUPERADMIN', 'ADMIN'];
     public const PERAN_LAPORAN   = ['SUPERADMIN', 'ADMIN', 'MANAGER', 'PENGADAAN', 'KEUANGAN'];
+    public const PERAN_LIHAT_SEMUA = ['SUPERADMIN', 'ADMIN', 'MANAGER', 'PENGADAAN', 'KEUANGAN'];
 
     public const LABEL_TIPE = ['umum' => 'Umum', 'sparepart' => 'Spare Part', 'aset' => 'Aset'];
 
@@ -53,8 +56,12 @@ class PermintaanPembelianService
         private readonly PembelianSparepartService $pembelianSparepartService,
     ) {}
 
-    public function list(string $idPerusahaan, int $page, int $limit, array $filter): array
+    public function list(string $idPerusahaan, int $page, int $limit, array $filter, string $idPengguna, string $kodePeran): array
     {
+        $idPenglihat = self::bolehLihatSemua($kodePeran) ? null : $idPengguna;
+        if ($idPenglihat !== null) {
+            $filter['terlihat_oleh'] = $idPenglihat;
+        }
         $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $filter);
         return [
             'data' => $result->items(),
@@ -63,9 +70,25 @@ class PermintaanPembelianService
                 'limit'      => $result->perPage(),
                 'total'      => $result->total(),
                 'totalPages' => $result->lastPage(),
-                'ringkasan'  => $this->repo->ringkasanStatus($idPerusahaan),
+                'ringkasan'  => $this->repo->ringkasanStatus($idPerusahaan, $idPenglihat),
+                'pembayaran_ditolak' => $this->repo->jumlahPembayaranDitolak($idPerusahaan, $idPenglihat),
+                'lihat_semua' => $idPenglihat === null,
             ],
         ];
+    }
+
+    public static function bolehLihatSemua(string $kodePeran): bool
+    {
+        return in_array(strtoupper($kodePeran), self::PERAN_LIHAT_SEMUA, true);
+    }
+
+    public function findUntukDilihat(string $id, string $idPerusahaan, string $idPengguna, string $kodePeran): object
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        if (self::bolehLihatSemua($kodePeran) || $record->id_pengaju === $idPengguna || $this->repo->penggunaApprover($id, $idPengguna)) {
+            return $record;
+        }
+        abort(403, 'Anda hanya bisa melihat permintaan pembelian yang Anda ajukan atau perlu Anda setujui');
     }
 
     public function findOrFail(string $id, string $idPerusahaan): object
@@ -83,6 +106,7 @@ class PermintaanPembelianService
         ], $this->repo->listBukti($id));
         $record->pengajuan_keuangan = self::tipeAset($record) ? null : $this->arusKasService->infoPengajuanPermintaanPembelian($id);
         $record->pembelian_sparepart = $this->repo->pembelianSparepartDariPermintaan($id);
+        $record->penerimaan = $this->repo->listPenerimaan($id);
         $record->termin = $this->repo->listTermin($id);
         foreach ($record->termin as $termin) {
             $termin->pengajuan = $termin->id_pengajuan !== null
@@ -201,20 +225,47 @@ class PermintaanPembelianService
         return $this->pembelianSparepartService->buatDariPermintaan($hasil, $idPengguna);
     }
 
-    public function dibeli(string $id, array $data, string $idPerusahaan, string $idPengguna, string $kodePeran): object
+    public function pesan(string $id, array $data, string $idPerusahaan, string $idPengguna, string $kodePeran): object
     {
         $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanBukanSparepart($record);
         $this->pastikanPengadaan($kodePeran);
-        $pesanStatus = 'Tandai Dibeli hanya bisa dilakukan saat permintaan sedang diproses';
-        $this->pastikanStatus($record, [self::STATUS_DIPROSES], $pesanStatus);
+        $bolehStatus = [self::STATUS_DIPROSES, self::STATUS_DIPESAN];
+        $pesanStatus = 'PO hanya bisa diterbitkan saat permintaan sedang diproses Pengadaan';
+        $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
 
+        $rincian = $this->susunRincianPembelian($record, $data, $idPerusahaan);
+
+        return DB::transaction(function () use ($record, $data, $rincian, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
+            $terkunci = $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
+            $poBaru = (string) ($terkunci->nomor_po ?? '') === '';
+            $nomorPo = $poBaru ? KodeOtomatis::berikutnya($idPerusahaan, 'purchase_order') : (string) $terkunci->nomor_po;
+            $this->terapkanHargaItem($rincian, false);
+            $this->repo->updateHeader($record, [
+                'status'       => self::STATUS_DIPESAN,
+                'id_supplier'  => $rincian['supplier']->id_supplier,
+                'nomor_po'     => $nomorPo,
+                'tanggal_po'   => $data['tanggal_po'],
+                'diskon'       => $rincian['biaya']['diskon'],
+                'ppn_persen'   => $rincian['biaya']['ppn_persen'],
+                'ppn'          => $rincian['biaya']['ppn'],
+                'ongkir'       => $rincian['biaya']['ongkir'],
+                'total_aktual' => $rincian['biaya']['total_aktual'],
+                'dipesan_oleh' => $idPengguna,
+                'dipesan_pada' => now(),
+            ]);
+            $hasil = $this->findOrFail($record->id_permintaan, $idPerusahaan);
+            if ($poBaru) {
+                $this->notifikasiKePengaju($hasil, "PO {$nomorPo} terbit untuk PR {$hasil->nomor_permintaan}", 'Dipesan ke ' . (string) $rincian['supplier']->nama);
+            }
+            return $hasil;
+        });
+    }
+
+    private function susunRincianPembelian(object $record, array $data, string $idPerusahaan): array
+    {
         $supplier = $this->repo->supplierMilik($idPerusahaan, (string) $data['id_supplier']);
         if ($supplier === null) {
             abort(422, 'Supplier tidak ditemukan');
-        }
-        if (count(array_filter($record->bukti, fn ($b) => $b['tahap'] === 'pembelian')) === 0) {
-            abort(422, 'Unggah minimal 1 nota/PO supplier (tahap pembelian) sebelum menandai dibeli');
         }
 
         $itemTercatat = [];
@@ -242,26 +293,59 @@ class PermintaanPembelianService
                 $idBarangDipakai[] = $idBarang;
             }
         }
-        $barangMap = $this->barangService->pastikanMilik($idBarangDipakai, $idPerusahaan);
 
-        $biaya = $this->hitungBiayaPembelian($itemTercatat, $masuk, $data);
+        return [
+            'supplier'     => $supplier,
+            'itemTercatat' => $itemTercatat,
+            'masuk'        => $masuk,
+            'barangMap'    => $this->barangService->pastikanMilik($idBarangDipakai, $idPerusahaan),
+            'biaya'        => $this->hitungBiayaPembelian($itemTercatat, $masuk, $data),
+        ];
+    }
+
+    private function terapkanHargaItem(array $rincian, bool $perbaruiHargaStandar): void
+    {
+        foreach ($rincian['itemTercatat'] as $idItem => $item) {
+            $harga = (float) $rincian['masuk'][$idItem]['harga_aktual'];
+            $idBarang = $item->jenis === 'barang' ? ($rincian['masuk'][$idItem]['id_barang'] ?? $item->id_barang) : null;
+            $ubah = ['harga_aktual' => $harga];
+            if ($idBarang !== null) {
+                $ubah['id_barang'] = $idBarang;
+                $ubah['nama_item'] = $rincian['barangMap'][$idBarang]->nama;
+                if ($perbaruiHargaStandar) {
+                    $this->barangService->perbaruiHargaStandar($idBarang, $harga);
+                }
+            }
+            $this->repo->updateItem($idItem, $ubah);
+        }
+    }
+
+    public function dibeli(string $id, array $data, string $idPerusahaan, string $idPengguna, string $kodePeran): object
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        $this->pastikanBukanSparepart($record);
+        $this->pastikanPengadaan($kodePeran);
+        $pesanStatus = 'Tandai Dibeli hanya bisa dilakukan setelah PO diterbitkan';
+        $this->pastikanStatus($record, [self::STATUS_DIPESAN], $pesanStatus);
+
+        $rincian = $this->susunRincianPembelian($record, $data, $idPerusahaan);
+        $supplier = $rincian['supplier'];
+        if ((string) $record->id_supplier !== (string) $supplier->id_supplier) {
+            abort(422, 'Supplier berbeda dengan PO — revisi PO lebih dulu bila supplier berganti');
+        }
+        if (count(array_filter($record->bukti, fn ($b) => $b['tahap'] === 'pembelian')) === 0) {
+            abort(422, 'Unggah minimal 1 nota/PO supplier (tahap pembelian) sebelum menandai dibeli');
+        }
+
+        $biaya = $rincian['biaya'];
         $totalAktual = $biaya['total_aktual'];
         $termin = self::tipeAset($record) ? $this->susunTermin($data['termin'] ?? [], $totalAktual) : [];
 
-        return DB::transaction(function () use ($record, $data, $itemTercatat, $masuk, $barangMap, $idPerusahaan, $idPengguna, $supplier, $pesanStatus, $biaya, $totalAktual, $termin) {
-            $this->kunciDanPastikanStatus($record->id_permintaan, [self::STATUS_DIPROSES], $pesanStatus);
-            $nomorPo = KodeOtomatis::berikutnya($idPerusahaan, 'purchase_order');
-            foreach ($itemTercatat as $idItem => $item) {
-                $harga = (float) $masuk[$idItem]['harga_aktual'];
-                $idBarang = $item->jenis === 'barang' ? ($masuk[$idItem]['id_barang'] ?? $item->id_barang) : null;
-                $ubah = ['harga_aktual' => $harga];
-                if ($idBarang !== null) {
-                    $ubah['id_barang'] = $idBarang;
-                    $ubah['nama_item'] = $barangMap[$idBarang]->nama;
-                    $this->barangService->perbaruiHargaStandar($idBarang, $harga);
-                }
-                $this->repo->updateItem($idItem, $ubah);
-            }
+        return DB::transaction(function () use ($record, $data, $rincian, $idPerusahaan, $idPengguna, $supplier, $pesanStatus, $biaya, $totalAktual, $termin) {
+            $terkunci = $this->kunciDanPastikanStatus($record->id_permintaan, [self::STATUS_DIPESAN], $pesanStatus);
+            $this->pastikanPoBelumBerubah($record, $terkunci);
+            $nomorPo = (string) ($terkunci->nomor_po ?? '') !== '' ? (string) $terkunci->nomor_po : KodeOtomatis::berikutnya($idPerusahaan, 'purchase_order');
+            $this->terapkanHargaItem($rincian, true);
             $this->repo->updateHeader($record, [
                 'status'            => self::STATUS_DIBELI,
                 'id_supplier'       => $supplier->id_supplier,
@@ -329,13 +413,17 @@ class PermintaanPembelianService
         $ppnPersen = (float) ($data['ppn_persen'] ?? 0);
         $ongkir = (float) ($data['ongkir'] ?? 0);
         $ppn = round(($subtotal - $diskon) * $ppnPersen / 100);
+        $total = $subtotal - $diskon + $ppn + $ongkir;
+        if (round($total, 2) <= 0) {
+            abort(422, 'Total pembelian tidak boleh Rp 0');
+        }
 
         return [
             'diskon'       => $diskon,
             'ppn_persen'   => $ppnPersen,
             'ppn'          => $ppn,
             'ongkir'       => $ongkir,
-            'total_aktual' => $subtotal - $diskon + $ppn + $ongkir,
+            'total_aktual' => $total,
         ];
     }
 
@@ -372,55 +460,344 @@ class PermintaanPembelianService
         if (self::tipeAset($record)) {
             abort(422, 'PR aset diterima per unit lewat tombol Daftarkan Unit');
         }
+        $bolehStatus = [self::STATUS_DIBELI, self::STATUS_DITERIMA_SEBAGIAN];
         $pesanStatus = 'Penerimaan hanya bisa dikonfirmasi setelah ditandai dibeli';
-        $this->pastikanStatus($record, [self::STATUS_DIBELI], $pesanStatus);
+        $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
         $this->pastikanPengajuAtauPengadaan($record, $idPengguna, $kodePeran);
 
-        $itemTercatat = [];
-        foreach ($record->items as $item) {
-            $itemTercatat[$item->id_item] = $item;
-        }
+        $idItemTercatat = array_map(fn ($i) => (string) $i->id_item, $record->items);
         $masuk = [];
+        $dilihat = [];
         foreach ($data['items'] as $baris) {
-            $item = $itemTercatat[$baris['id_item']] ?? null;
-            if ($item === null) {
+            if (!in_array((string) $baris['id_item'], $idItemTercatat, true)) {
                 abort(422, 'Item tidak ditemukan pada permintaan ini');
             }
-            if ((int) $baris['qty_diterima'] > (int) $item->qty) {
-                abort(422, "Qty diterima \"{$item->nama_item}\" melebihi qty permintaan");
+            $masuk[(string) $baris['id_item']] = (int) $baris['qty_diterima'];
+            if (isset($baris['qty_sebelumnya'])) {
+                $dilihat[(string) $baris['id_item']] = (int) $baris['qty_sebelumnya'];
             }
-            $masuk[$baris['id_item']] = (int) $baris['qty_diterima'];
         }
-        if (count($masuk) !== count($itemTercatat)) {
+        if (count($masuk) !== count($idItemTercatat)) {
             abort(422, 'Qty diterima semua item wajib diisi');
         }
+        if (array_sum($masuk) <= 0) {
+            abort(422, 'Isi jumlah yang diterima minimal untuk satu item');
+        }
 
-        return DB::transaction(function () use ($record, $data, $itemTercatat, $masuk, $idPerusahaan, $idPengguna, $pesanStatus) {
-            $this->kunciDanPastikanStatus($record->id_permintaan, [self::STATUS_DIBELI], $pesanStatus);
-            foreach ($itemTercatat as $idItem => $item) {
-                $qty = $masuk[$idItem];
-                $this->repo->updateItem($idItem, ['qty_diterima' => $qty]);
-                if ($item->jenis === 'barang' && $qty > 0) {
-                    $this->barangService->tambahStokDariPenerimaan(
-                        (string) $item->id_barang, $qty, (float) $item->harga_aktual,
-                        $record->id_permintaan, $record->nomor_permintaan, $data['tanggal_diterima'],
-                    );
+        return DB::transaction(function () use ($record, $data, $masuk, $dilihat, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
+            $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
+            $lengkap = true;
+            $rincian = [];
+            foreach ($this->repo->listItems($record->id_permintaan) as $item) {
+                $qty = $masuk[(string) $item->id_item] ?? 0;
+                $sudah = (int) ($item->qty_diterima ?? 0);
+                if (array_key_exists((string) $item->id_item, $dilihat) && $dilihat[(string) $item->id_item] !== $sudah) {
+                    abort(409, 'Penerimaan PR ini baru saja dicatat pengguna lain — muat ulang halaman lalu periksa sisanya');
+                }
+                $sisa = (int) $item->qty - $sudah;
+                if ($qty > $sisa) {
+                    abort(422, $sudah === 0
+                        ? "Qty diterima \"{$item->nama_item}\" melebihi qty permintaan"
+                        : "Qty diterima \"{$item->nama_item}\" melebihi sisa yang belum diterima ({$sisa})");
+                }
+                $this->repo->updateItem($item->id_item, ['qty_diterima' => $sudah + $qty]);
+                if ($qty > 0) {
+                    $rincian[(string) $item->id_item] = $qty;
+                    if ($item->jenis === 'barang') {
+                        $this->barangService->tambahStokDariPenerimaan(
+                            (string) $item->id_barang, $qty, (float) $item->harga_aktual,
+                            $record->id_permintaan, $record->nomor_permintaan, $data['tanggal_diterima'],
+                        );
+                    }
+                }
+                if ($sudah + $qty < (int) $item->qty) {
+                    $lengkap = false;
                 }
             }
             $keterangan = trim((string) ($data['keterangan'] ?? ''));
+            $this->repo->insertPenerimaan([
+                'id_permintaan'    => $record->id_permintaan,
+                'tanggal_diterima' => $data['tanggal_diterima'],
+                'keterangan'       => $keterangan !== '' ? $keterangan : null,
+            ], $rincian);
             $this->repo->updateHeader($record, [
-                'status'                => self::STATUS_DITERIMA,
+                'status'                => $lengkap ? self::STATUS_DITERIMA : self::STATUS_DITERIMA_SEBAGIAN,
                 'tanggal_diterima'      => $data['tanggal_diterima'],
                 'keterangan_penerimaan' => $keterangan !== '' ? $keterangan : null,
                 'diterima_oleh'         => $idPengguna,
                 'diterima_pada'         => now(),
             ]);
             $hasil = $this->findOrFail($record->id_permintaan, $idPerusahaan);
+            if (!$lengkap) {
+                if ($hasil->id_pengaju !== $idPengguna) {
+                    $this->notifikasiKePengaju($hasil, "PR {$hasil->nomor_permintaan} diterima sebagian", 'Sisa barang/jasa masih ditunggu dari supplier');
+                }
+                $this->notifikasiKePengadaan($hasil, "PR {$hasil->nomor_permintaan} diterima sebagian", 'Catat penerimaan berikutnya, atau tutup sisanya bila tidak jadi dikirim', $idPengguna);
+                return $hasil;
+            }
             if ($hasil->id_pengaju !== $idPengguna) {
                 $this->notifikasiKePengaju($hasil, "PR {$hasil->nomor_permintaan} sudah diterima", 'Penerimaan barang/jasa telah dikonfirmasi Pengadaan');
             }
             $this->notifikasiKePengadaan($hasil, "PR {$hasil->nomor_permintaan} sudah diterima", 'Transfer pembayaran kini bisa diproses Keuangan', $idPengguna);
+            $this->arusKasService->beritahuKeuanganBarangDiterima($hasil->id_permintaan, "Barang {$hasil->nomor_permintaan} sudah diterima. ");
             return $hasil;
+        });
+    }
+
+    public function tutupSisa(string $id, array $data, string $idPerusahaan, string $idPengguna, string $kodePeran): object
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        $this->pastikanPengadaan($kodePeran);
+        $bolehStatus = [self::STATUS_DITERIMA_SEBAGIAN];
+        $pesanStatus = 'Sisa hanya bisa ditutup saat permintaan berstatus diterima sebagian';
+        $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
+
+        return DB::transaction(function () use ($record, $data, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
+            $terkunci = $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
+            $subtotalPesan = 0.0;
+            $subtotalDiterima = 0.0;
+            $jumlahDiterima = 0;
+            foreach ($this->repo->listItems($record->id_permintaan) as $item) {
+                $subtotalPesan += (int) $item->qty * (float) $item->harga_aktual;
+                $subtotalDiterima += (int) ($item->qty_diterima ?? 0) * (float) $item->harga_aktual;
+                $jumlahDiterima += (int) ($item->qty_diterima ?? 0);
+            }
+            if (isset($data['jumlah_diterima']) && (int) $data['jumlah_diterima'] !== $jumlahDiterima) {
+                abort(409, 'Penerimaan PR ini baru saja dicatat pengguna lain — muat ulang halaman lalu periksa sisanya');
+            }
+            $diskon = isset($data['diskon'])
+                ? (float) $data['diskon']
+                : ($subtotalPesan > 0 ? round((float) $terkunci->diskon * $subtotalDiterima / $subtotalPesan) : 0.0);
+            if (round($diskon, 2) > round($subtotalDiterima, 2)) {
+                abort(422, 'Diskon tidak boleh melebihi nilai barang yang diterima (Rp ' . number_format($subtotalDiterima, 0, ',', '.') . ')');
+            }
+            $ppnPersen = (float) $terkunci->ppn_persen;
+            $ongkir = isset($data['ongkir']) ? (float) $data['ongkir'] : (float) $terkunci->ongkir;
+            $ppn = round(($subtotalDiterima - $diskon) * $ppnPersen / 100);
+            $total = $subtotalDiterima - $diskon + $ppn + $ongkir;
+            if (round($total, 2) <= 0) {
+                abort(422, 'Total pembelian tidak boleh Rp 0');
+            }
+
+            $this->repo->updateHeader($record, [
+                'status'            => self::STATUS_DITERIMA,
+                'diskon'            => $diskon,
+                'ppn'               => $ppn,
+                'ongkir'            => $ongkir,
+                'total_aktual'      => $total,
+                'sisa_ditutup_pada' => now(),
+                'sisa_ditutup_oleh' => $idPengguna,
+                'alasan_tutup_sisa' => trim((string) $data['alasan']),
+            ]);
+            $this->arusKasService->sinkronNominalPengajuanPermintaanPembelian($record->id_permintaan, $total);
+            $this->arusKasService->buatPengajuanPermintaanPembelianOtomatis(
+                $record->id_permintaan,
+                $idPerusahaan,
+                $record->nomor_permintaan,
+                $total,
+                (string) ($record->nama_supplier ?? ''),
+            );
+
+            $hasil = $this->findOrFail($record->id_permintaan, $idPerusahaan);
+            $nominal = number_format($total, 0, ',', '.');
+            $this->notifikasiKePengaju($hasil, "Sisa PR {$hasil->nomor_permintaan} ditutup", trim((string) $data['alasan']));
+            $pengajuanDitolak = ($hasil->pengajuan_keuangan['status'] ?? null) === ArusKasService::STATUS_DITOLAK;
+            $this->notifikasiKePengadaan($hasil, "Sisa PR {$hasil->nomor_permintaan} ditutup", $pengajuanDitolak
+                ? "Nilai pembelian menjadi Rp {$nominal}, tetapi pengajuan pembayarannya berstatus ditolak — ajukan ulang pembayarannya dari halaman PR"
+                : "Pembayaran disesuaikan menjadi Rp {$nominal} dan kini bisa diproses Keuangan", $idPengguna);
+            $this->arusKasService->beritahuKeuanganBarangDiterima($hasil->id_permintaan, "Sisa pesanan {$hasil->nomor_permintaan} ditutup, nilai disesuaikan. ");
+            return $hasil;
+        });
+    }
+
+    public function ajukanUlangPembayaran(string $id, array $data, string $idPerusahaan, string $idPengguna, string $kodePeran): object
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        $pengadaan = in_array(strtoupper($kodePeran), self::PERAN_PENGADAAN, true);
+        $pelakuPembelian = self::tipeSparepart($record) && (string) ($record->dibeli_oleh ?? '') === $idPengguna;
+        if (!$pengadaan && !$pelakuPembelian) {
+            abort(422, 'Pembayaran diajukan ulang oleh tim Pengadaan atau pelaku pembeliannya');
+        }
+        $catatan = trim((string) $data['catatan']);
+        $versi = isset($data['versi_pengajuan']) ? (string) $data['versi_pengajuan'] : null;
+        $adaKoreksi = isset($data['items']) || isset($data['diskon']) || isset($data['ppn_persen']) || isset($data['ongkir']);
+
+        if (self::tipeAset($record)) {
+            return $this->ajukanUlangTermin($record, $data, $catatan, $versi, $adaKoreksi, $idPerusahaan, $idPengguna);
+        }
+
+        $bolehStatus = [self::STATUS_DIBELI, self::STATUS_DITERIMA_SEBAGIAN, self::STATUS_DITERIMA];
+        $pesanStatus = 'Pembayaran hanya bisa diajukan ulang setelah PR dibeli dan sebelum lunas';
+        $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
+        $this->pengajuanUntukDiajukanUlang($record);
+
+        return DB::transaction(function () use ($record, $data, $catatan, $versi, $adaKoreksi, $pengadaan, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
+            $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
+            $segar = $this->findOrFail($record->id_permintaan, $idPerusahaan);
+            $pengajuan = $this->pengajuanUntukDiajukanUlang($segar);
+
+            $hargaBaru = $this->hargaKoreksi($segar, $data);
+            $biaya = $adaKoreksi ? $this->hitungBiayaKoreksi($segar, $hargaBaru, $data) : null;
+            $total = $biaya !== null ? $biaya['total_aktual'] : (float) $segar->total_aktual;
+            if ($biaya !== null && !$pengadaan) {
+                $batas = $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
+                if ($total > $batas) {
+                    abort(422, 'Total Rp ' . number_format($total, 0, ',', '.') . ' melebihi batas mandiri Rp ' . number_format($batas, 0, ',', '.') . ', koreksi harus oleh tim Pengadaan');
+                }
+            }
+
+            if ($biaya !== null) {
+                $barisBarang = [];
+                foreach ($segar->items as $item) {
+                    $idItem = (string) $item->id_item;
+                    $lama = (float) $item->harga_aktual;
+                    $baru = $hargaBaru[$idItem] ?? $lama;
+                    if ($item->jenis === 'barang' && $item->id_barang !== null) {
+                        $barisBarang[] = ['id_barang' => (string) $item->id_barang, 'lama' => $lama, 'baru' => $baru];
+                    }
+                    if (round($lama, 2) !== round($baru, 2)) {
+                        $this->repo->updateItem($idItem, ['harga_aktual' => $baru]);
+                    }
+                }
+                $this->barangService->koreksiHargaPenerimaan($segar->id_permintaan, $barisBarang);
+                $this->repo->updateHeader($segar, $biaya);
+            }
+
+            $idPembelian = null;
+            if (self::tipeSparepart($segar)) {
+                $ps = $this->repo->pembelianSparepartDariPermintaan($segar->id_permintaan);
+                if ($ps !== null) {
+                    $idPembelian = (string) $ps->id_pembelian;
+                    $buktiPembelian = array_values(array_filter(
+                        $this->repo->listBukti($segar->id_permintaan),
+                        fn ($b) => $b->tahap === 'pembelian'
+                    ));
+                    $this->pembelianSparepartService->salinBuktiDariPermintaan(
+                        $idPembelian,
+                        array_map(fn ($b) => ['url_file' => (string) $b->url_file, 'nama_asli' => (string) $b->nama_asli], $buktiPembelian),
+                    );
+                    if ($biaya !== null) {
+                        $this->pembelianSparepartService->koreksiRealisasiDariPermintaan($idPembelian, $hargaBaru, $biaya, $idPerusahaan);
+                    }
+                }
+            }
+
+            if ($pengajuan === null) {
+                $this->arusKasService->buatPengajuanPermintaanPembelianOtomatis(
+                    $segar->id_permintaan,
+                    $idPerusahaan,
+                    $segar->nomor_permintaan,
+                    $total,
+                    (string) ($segar->nama_supplier ?? ''),
+                    $idPembelian,
+                    $catatan,
+                );
+            } else {
+                $this->arusKasService->ajukanUlangPengajuanPermintaanPembelian(
+                    (string) $pengajuan['id_pengajuan'],
+                    $segar->id_permintaan,
+                    $idPerusahaan,
+                    $idPengguna,
+                    $catatan,
+                    $total,
+                    $versi,
+                );
+            }
+
+            return $this->findOrFail($segar->id_permintaan, $idPerusahaan);
+        });
+    }
+
+    private function pengajuanUntukDiajukanUlang(object $record): ?array
+    {
+        $pengajuan = $record->pengajuan_keuangan;
+        if ($pengajuan !== null && $pengajuan['status'] !== ArusKasService::STATUS_DITOLAK) {
+            abort(422, 'Pembayaran hanya bisa diajukan ulang saat pengajuannya ditolak');
+        }
+        if (count(array_filter($record->bukti, fn ($b) => $b['tahap'] === 'pembelian')) === 0) {
+            abort(422, 'Unggah minimal 1 nota pembelian sebelum mengajukan ulang');
+        }
+
+        return $pengajuan;
+    }
+
+    private function hargaKoreksi(object $record, array $data): array
+    {
+        if (!isset($data['items'])) {
+            return [];
+        }
+        $idTercatat = array_map(fn ($i) => (string) $i->id_item, $record->items);
+        $hargaBaru = [];
+        foreach ($data['items'] as $baris) {
+            if (!in_array((string) $baris['id_item'], $idTercatat, true)) {
+                abort(422, 'Item tidak ditemukan pada permintaan ini');
+            }
+            $hargaBaru[(string) $baris['id_item']] = (float) $baris['harga_aktual'];
+        }
+        if (count($hargaBaru) !== count($idTercatat)) {
+            abort(422, 'Harga aktual semua item wajib diisi');
+        }
+
+        return $hargaBaru;
+    }
+
+    private function hitungBiayaKoreksi(object $record, array $hargaBaru, array $data): array
+    {
+        $subtotal = 0.0;
+        foreach ($record->items as $item) {
+            $harga = $hargaBaru[(string) $item->id_item] ?? (float) $item->harga_aktual;
+            $subtotal += self::qtyBerlaku($record, $item) * $harga;
+        }
+        $diskon = isset($data['diskon']) ? (float) $data['diskon'] : (float) ($record->diskon ?? 0);
+        if (round($diskon, 2) > round($subtotal, 2)) {
+            abort(422, 'Diskon tidak boleh melebihi subtotal (Rp ' . number_format($subtotal, 0, ',', '.') . ')');
+        }
+        $ppnPersen = isset($data['ppn_persen']) ? (float) $data['ppn_persen'] : (float) ($record->ppn_persen ?? 0);
+        $ongkir = isset($data['ongkir']) ? (float) $data['ongkir'] : (float) ($record->ongkir ?? 0);
+        $ppn = round(($subtotal - $diskon) * $ppnPersen / 100);
+        $total = $subtotal - $diskon + $ppn + $ongkir;
+        if (round($total, 2) <= 0) {
+            abort(422, 'Total pembelian tidak boleh Rp 0');
+        }
+
+        return ['diskon' => $diskon, 'ppn_persen' => $ppnPersen, 'ppn' => $ppn, 'ongkir' => $ongkir, 'total_aktual' => $total];
+    }
+
+    private function ajukanUlangTermin(object $record, array $data, string $catatan, ?string $versi, bool $adaKoreksi, string $idPerusahaan, string $idPengguna): object
+    {
+        $bolehStatus = [self::STATUS_DIBELI, self::STATUS_DITERIMA];
+        $pesanStatus = 'Termin hanya bisa diajukan ulang setelah PR dibeli dan sebelum lunas';
+        $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
+        if ($adaKoreksi) {
+            abort(422, 'Nominal termin PR aset tidak bisa dikoreksi lewat pengajuan ulang');
+        }
+        $idTermin = (string) ($data['id_termin'] ?? '');
+        $termin = null;
+        foreach ($record->termin as $baris) {
+            if ((string) $baris->id_termin === $idTermin) {
+                $termin = $baris;
+            }
+        }
+        if ($termin === null) {
+            abort(422, 'Pilih termin yang pembayarannya ditolak');
+        }
+        if (($termin->pengajuan['status'] ?? null) !== ArusKasService::STATUS_DITOLAK) {
+            abort(422, 'Termin hanya bisa diajukan ulang saat pengajuannya ditolak');
+        }
+
+        return DB::transaction(function () use ($record, $termin, $catatan, $versi, $idPerusahaan, $idPengguna, $bolehStatus, $pesanStatus) {
+            $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
+            $this->arusKasService->ajukanUlangPengajuanPermintaanPembelian(
+                (string) $termin->id_pengajuan,
+                $record->id_permintaan,
+                $idPerusahaan,
+                $idPengguna,
+                $catatan,
+                (float) $termin->nominal,
+                $versi,
+            );
+
+            return $this->findOrFail($record->id_permintaan, $idPerusahaan);
         });
     }
 
@@ -430,12 +807,10 @@ class PermintaanPembelianService
         if (!self::tipeSparepart($record)) {
             abort(422, 'Realisasi spare part hanya untuk PR tipe spare part');
         }
-        $pesanStatus = 'Realisasi hanya bisa dicatat setelah PR disetujui';
-        $this->pastikanStatus($record, [self::STATUS_DISETUJUI, self::STATUS_DIPROSES], $pesanStatus);
-
         $batas = $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
         $pengadaan = in_array(strtoupper($kodePeran), self::PERAN_PENGADAAN, true);
         $mandiri = (float) $record->total_estimasi <= $batas;
+        $pelakuMandiri = $mandiri && $record->id_pengaju === $idPengguna;
         if (!$pengadaan) {
             if (!$mandiri) {
                 abort(422, 'PR di atas Rp ' . number_format($batas, 0, ',', '.') . ' direalisasi oleh tim Pengadaan');
@@ -444,6 +819,22 @@ class PermintaanPembelianService
                 abort(422, 'Hanya pengaju atau tim Pengadaan yang bisa mencatat realisasi PR ini');
             }
         }
+
+        $lewatPo = $record->status === self::STATUS_DIPESAN;
+        if ($lewatPo) {
+            $pesanStatus = 'Realisasi hanya bisa dicatat setelah PO diterbitkan';
+            $bolehStatus = [self::STATUS_DIPESAN];
+            if (!$pengadaan) {
+                abort(422, 'PR ini sudah dipesan lewat PO — realisasi dicatat oleh tim Pengadaan');
+            }
+        } elseif ($pelakuMandiri) {
+            $pesanStatus = 'Realisasi hanya bisa dicatat setelah PR disetujui';
+            $bolehStatus = [self::STATUS_DISETUJUI, self::STATUS_DIPROSES];
+        } else {
+            $pesanStatus = 'Terbitkan PO lebih dulu sebelum mencatat realisasi';
+            $bolehStatus = [self::STATUS_DIPESAN];
+        }
+        $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
 
         $itemTercatat = [];
         foreach ($record->items as $item) {
@@ -459,12 +850,20 @@ class PermintaanPembelianService
         if (count($masuk) !== count($itemTercatat)) {
             abort(422, 'Harga aktual semua item wajib diisi');
         }
-        $totalAktual = 0.0;
-        foreach ($itemTercatat as $idItem => $item) {
-            $totalAktual += (int) $item->qty * $masuk[$idItem];
-        }
-        if (!$pengadaan && $totalAktual > $batas) {
-            abort(422, 'Total aktual Rp ' . number_format($totalAktual, 0, ',', '.') . ' melebihi batas mandiri Rp ' . number_format($batas, 0, ',', '.') . ', realisasi harus oleh tim Pengadaan');
+
+        $biaya = $this->hitungBiayaPembelian(
+            $itemTercatat,
+            array_map(fn (float $harga) => ['harga_aktual' => $harga], $masuk),
+            [
+                'diskon'     => isset($data['diskon']) ? $data['diskon'] : ($lewatPo ? $record->diskon : 0),
+                'ppn_persen' => isset($data['ppn_persen']) ? $data['ppn_persen'] : ($lewatPo ? $record->ppn_persen : 0),
+                'ongkir'     => isset($data['ongkir']) ? $data['ongkir'] : ($lewatPo ? $record->ongkir : 0),
+            ],
+        );
+        $totalAktual = $biaya['total_aktual'];
+        if (!$lewatPo && $totalAktual > $batas) {
+            abort(422, 'Total aktual Rp ' . number_format($totalAktual, 0, ',', '.') . ' melebihi batas mandiri Rp ' . number_format($batas, 0, ',', '.')
+                . ($pengadaan ? ', terbitkan PO lebih dulu' : ', realisasi harus oleh tim Pengadaan'));
         }
 
         if (count(array_filter($record->bukti, fn ($b) => $b['tahap'] === 'pembelian')) === 0) {
@@ -472,12 +871,20 @@ class PermintaanPembelianService
         }
 
         $idSupplier = !empty($data['id_supplier']) ? (string) $data['id_supplier'] : null;
-        if ($idSupplier !== null && $this->repo->supplierMilik($idPerusahaan, $idSupplier) === null) {
+        if ($lewatPo) {
+            if ($idSupplier !== null && $idSupplier !== (string) $record->id_supplier) {
+                abort(422, 'Supplier berbeda dengan PO — revisi PO lebih dulu bila supplier berganti');
+            }
+            $idSupplier = (string) $record->id_supplier;
+        } elseif ($idSupplier !== null && $this->repo->supplierMilik($idPerusahaan, $idSupplier) === null) {
             abort(422, 'Supplier tidak ditemukan');
         }
 
-        return DB::transaction(function () use ($record, $idPerusahaan, $idPengguna, $pesanStatus, $masuk, $data, $idSupplier) {
-            $terkunci = $this->kunciDanPastikanStatus($record->id_permintaan, [self::STATUS_DISETUJUI, self::STATUS_DIPROSES], $pesanStatus);
+        return DB::transaction(function () use ($record, $idPerusahaan, $idPengguna, $pesanStatus, $bolehStatus, $masuk, $data, $idSupplier, $biaya) {
+            $terkunci = $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
+            if ($terkunci->status === self::STATUS_DIPESAN) {
+                $this->pastikanPoBelumBerubah($record, $terkunci);
+            }
             if ($terkunci->status === self::STATUS_DISETUJUI) {
                 $this->mulaiProsesSparepart($terkunci, $idPerusahaan, $idPengguna);
             }
@@ -496,6 +903,7 @@ class PermintaanPembelianService
                 'tanggal_pembelian'         => $data['tanggal_pembelian'],
                 'id_supplier'               => $idSupplier,
                 'harga_per_item_permintaan' => $masuk,
+                'biaya'                     => $biaya,
             ], $idPerusahaan, $idPengguna);
 
             return $this->findOrFail($record->id_permintaan, $idPerusahaan);
@@ -507,7 +915,7 @@ class PermintaanPembelianService
         $record = $this->findOrFail($id, $idPerusahaan);
         $pengadaan = in_array(strtoupper($kodePeran), self::PERAN_PENGADAAN, true);
         $bolehStatus = $pengadaan
-            ? [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DISETUJUI, self::STATUS_DIPROSES]
+            ? [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DISETUJUI, self::STATUS_DIPROSES, self::STATUS_DIPESAN]
             : [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DISETUJUI];
         if (!$pengadaan && $record->id_pengaju !== $idPengguna) {
             abort(422, 'Hanya pengaju atau tim Pengadaan yang bisa membatalkan permintaan ini');
@@ -538,16 +946,14 @@ class PermintaanPembelianService
         $record = $this->findOrFail($id, $idPerusahaan);
         $this->pastikanStatus($record, [
             self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DISETUJUI, self::STATUS_DITOLAK,
-            self::STATUS_DIPROSES, self::STATUS_DIBELI, self::STATUS_DITERIMA,
+            self::STATUS_DIPROSES, self::STATUS_DIPESAN, self::STATUS_DIBELI, self::STATUS_DITERIMA_SEBAGIAN, self::STATUS_DITERIMA,
         ], 'Lampiran tidak bisa ditambahkan pada status ini');
         $this->pastikanPengajuAtauKelola($record, $idPengguna, $kodePeran);
-        if (self::tipeSparepart($record)) {
-            if ($tahap === 'penerimaan') {
-                abort(422, 'PR spare part diterima otomatis saat realisasi');
-            }
-            if ($tahap === 'pembelian' && !in_array($record->status, [self::STATUS_DISETUJUI, self::STATUS_DIPROSES], true)) {
-                abort(422, 'Nota pembelian hanya bisa diunggah sebelum realisasi');
-            }
+        if (self::tipeSparepart($record) && $tahap === 'penerimaan') {
+            abort(422, 'PR spare part diterima otomatis saat realisasi');
+        }
+        if ($tahap === 'pembelian') {
+            $this->pastikanBolehUnggahNota($record, $idPerusahaan);
         }
         $this->simpanBukti($id, $files, $tahap);
         return $this->findOrFail($id, $idPerusahaan);
@@ -575,11 +981,22 @@ class PermintaanPembelianService
             abort(422, "Pembelian Sparepart {$ps->nomor_pengajuan} tidak tertaut ke PR {$record->nomor_permintaan}");
         }
         $pesanStatus = 'PR spare part hanya bisa ditutup otomatis saat sedang diproses';
-        $this->pastikanStatus($record, [self::STATUS_DIPROSES], $pesanStatus);
+        $bolehStatus = [self::STATUS_DIPROSES, self::STATUS_DIPESAN];
+        $this->pastikanStatus($record, $bolehStatus, $pesanStatus);
+        $pelakuMandiri = $this->mandiriSparepart($record, $idPerusahaan) && $record->id_pengaju === $idPengguna;
+        if ($record->status === self::STATUS_DIPROSES) {
+            $batas = $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
+            if (!$pelakuMandiri || (float) $ps->total_aktual > $batas) {
+                abort(422, "Terbitkan PO lebih dulu sebelum mencatat realisasi PR {$record->nomor_permintaan}");
+            }
+        }
+        if (count(array_filter($record->bukti, fn ($b) => $b['tahap'] === 'pembelian')) === 0) {
+            abort(422, "Unggah minimal 1 nota pembelian di PR {$record->nomor_permintaan} sebelum mencatat realisasi");
+        }
         $pelaku = $idPengguna !== '' ? $idPengguna : null;
 
-        DB::transaction(function () use ($record, $ps, $idPerusahaan, $pelaku, $pesanStatus) {
-            $this->kunciDanPastikanStatus($record->id_permintaan, [self::STATUS_DIPROSES], $pesanStatus);
+        DB::transaction(function () use ($record, $ps, $idPerusahaan, $pelaku, $pesanStatus, $bolehStatus) {
+            $this->kunciDanPastikanStatus($record->id_permintaan, $bolehStatus, $pesanStatus);
             $hargaAktualPs = [];
             foreach ($ps->items as $itemPs) {
                 if (($itemPs->id_item_permintaan ?? null) !== null && $itemPs->harga_aktual !== null) {
@@ -601,6 +1018,10 @@ class PermintaanPembelianService
                 'status'                => self::STATUS_DITERIMA,
                 'id_supplier'           => $ps->id_supplier,
                 'total_aktual'          => $totalAktual,
+                'diskon'                => (float) ($ps->diskon ?? 0),
+                'ppn_persen'            => (float) ($ps->ppn_persen ?? 0),
+                'ppn'                   => (float) ($ps->ppn ?? 0),
+                'ongkir'                => (float) ($ps->ongkir ?? 0),
                 'tanggal_pembelian'     => $ps->tanggal_pembelian,
                 'tanggal_diterima'      => $ps->tanggal_pembelian,
                 'dibeli_oleh'           => $pelaku,
@@ -644,12 +1065,17 @@ class PermintaanPembelianService
         if ((string) ($record->nomor_po ?? '') === '') {
             abort(422, 'PO belum tersedia untuk permintaan ini');
         }
+        if ($record->status === self::STATUS_DIBATALKAN) {
+            abort(422, 'PO ini sudah batal bersama permintaannya');
+        }
 
         return [
             'pr'         => $record,
-            'subtotal'   => (float) collect($record->items)->sum(fn ($i) => (int) $i->qty * (float) $i->harga_aktual),
+            'subtotal'   => (float) collect($record->items)->sum(fn ($i) => self::qtyBerlaku($record, $i) * (float) $i->harga_aktual),
             'supplier'   => $record->id_supplier !== null ? $this->repo->supplierMilik($idPerusahaan, (string) $record->id_supplier) : null,
-            'pembuat'    => $record->dibeli_oleh !== null ? $this->repo->usernamePengguna((string) $record->dibeli_oleh) : null,
+            'pembuat'    => ($record->dipesan_oleh ?? $record->dibeli_oleh) !== null
+                ? $this->repo->usernamePengguna((string) ($record->dipesan_oleh ?? $record->dibeli_oleh))
+                : null,
             'perusahaan' => $this->repo->getPerusahaan($idPerusahaan),
         ];
     }
@@ -714,7 +1140,7 @@ class PermintaanPembelianService
             ])->sortByDesc('total_aktual')->values()->all();
 
         $kategoriGabungan = $prItems->map(fn ($i) => (object) [
-            'jenis' => $i->jenis, 'qty' => (int) $i->qty, 'harga_aktual' => $i->harga_aktual,
+            'jenis' => $i->jenis, 'qty' => self::qtyBerlaku($i, $i), 'harga_aktual' => $i->harga_aktual,
             'kategori_barang' => $i->kategori_barang, 'kategori_sparepart' => $i->kategori_sparepart,
             'nama_jenis_kendaraan' => $i->nama_jenis_kendaraan,
         ])->concat($psItems->map(fn ($i) => (object) [
@@ -1124,6 +1550,45 @@ class PermintaanPembelianService
     private static function tipeAset(object $record): bool
     {
         return ($record->tipe ?? self::TIPE_UMUM) === self::TIPE_ASET;
+    }
+
+    private function pastikanBolehUnggahNota(object $record, string $idPerusahaan): void
+    {
+        $sebelumPo = in_array($record->status, [self::STATUS_MENUNGGU_APPROVAL, self::STATUS_DISETUJUI, self::STATUS_DITOLAK, self::STATUS_DIPROSES], true);
+        if (!self::tipeSparepart($record)) {
+            if ($sebelumPo) {
+                abort(422, 'Nota baru bisa diunggah setelah PO terbit');
+            }
+            return;
+        }
+
+        if ($record->status === self::STATUS_DITERIMA && ($record->pengajuan_keuangan['status'] ?? null) === ArusKasService::STATUS_DITOLAK) {
+            return;
+        }
+
+        $mandiri = $this->mandiriSparepart($record, $idPerusahaan);
+        $boleh = $mandiri
+            ? [self::STATUS_DISETUJUI, self::STATUS_DIPROSES, self::STATUS_DIPESAN]
+            : [self::STATUS_DIPESAN];
+        if (!in_array($record->status, $boleh, true)) {
+            abort(422, match (true) {
+                !$sebelumPo => 'Nota pembelian hanya bisa diunggah sebelum realisasi',
+                $mandiri    => 'Nota baru bisa diunggah setelah PR disetujui',
+                default     => 'Nota baru bisa diunggah setelah PO terbit',
+            });
+        }
+    }
+
+    private function pastikanPoBelumBerubah(object $dibaca, object $terkunci): void
+    {
+        if ((string) ($dibaca->diubah_pada ?? '') !== (string) ($terkunci->diubah_pada ?? '')) {
+            abort(409, 'Data PO baru saja diubah pengguna lain — muat ulang halaman lalu coba lagi');
+        }
+    }
+
+    public static function qtyBerlaku(object $record, object $item): int
+    {
+        return ($record->sisa_ditutup_pada ?? null) !== null ? (int) ($item->qty_diterima ?? 0) : (int) $item->qty;
     }
 
     private function pastikanBukanSparepart(object $record): void

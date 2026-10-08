@@ -6,12 +6,15 @@ namespace App\Modules\PermintaanPembelian;
 
 use App\Helpers\ApiResponse;
 use App\Modules\PermintaanPembelian\Exports\LaporanPengadaanExport;
+use App\Modules\PermintaanPembelian\Requests\AjukanUlangPembayaranPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\BatalPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\DibeliPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\LaporanPengadaanRequest;
+use App\Modules\PermintaanPembelian\Requests\PesanPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\RealisasiSparepartPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\StorePermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\TerimaPermintaanPembelianRequest;
+use App\Modules\PermintaanPembelian\Requests\TutupSisaPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\UpdatePermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Requests\UploadBuktiPermintaanPembelianRequest;
 use App\Modules\PermintaanPembelian\Resources\PermintaanPembelianResource;
@@ -33,13 +36,23 @@ class PermintaanPembelianController extends Controller
         if ($request->boolean('milik_saya')) {
             $filter['id_pengaju'] = (string) $request->user()->id_pengguna;
         }
-        $result = $this->service->list((string) $request->user()->id_perusahaan, (int) $request->get('page', 1), (int) $request->get('limit', 10), $filter);
+        if ($request->boolean('pembayaran_ditolak')) {
+            $filter['pembayaran_ditolak'] = true;
+        }
+        $result = $this->service->list(
+            (string) $request->user()->id_perusahaan,
+            (int) $request->get('page', 1),
+            (int) $request->get('limit', 10),
+            $filter,
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->kode_peran,
+        );
         return ApiResponse::paginated(PermintaanPembelianResource::collection($result['data']), $result['meta']);
     }
 
     public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new PermintaanPembelianResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));
+        return ApiResponse::success(new PermintaanPembelianResource($this->service->findUntukDilihat($id, ...$this->aktor($request))));
     }
 
     public function store(StorePermintaanPembelianRequest $request): JsonResponse
@@ -66,6 +79,12 @@ class PermintaanPembelianController extends Controller
         return ApiResponse::success(new PermintaanPembelianResource($record), 'Permintaan mulai diproses Pengadaan');
     }
 
+    public function pesan(PesanPermintaanPembelianRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->pesan($id, $request->validated(), ...$this->aktor($request));
+        return ApiResponse::success(new PermintaanPembelianResource($record), 'PO diterbitkan');
+    }
+
     public function dibeli(DibeliPermintaanPembelianRequest $request, string $id): JsonResponse
     {
         $record = $this->service->dibeli($id, $request->validated(), ...$this->aktor($request));
@@ -75,7 +94,25 @@ class PermintaanPembelianController extends Controller
     public function terima(TerimaPermintaanPembelianRequest $request, string $id): JsonResponse
     {
         $record = $this->service->terima($id, $request->validated(), ...$this->aktor($request));
-        return ApiResponse::success(new PermintaanPembelianResource($record), 'Penerimaan dikonfirmasi, stok diperbarui');
+        $pesan = $record->status === PermintaanPembelianService::STATUS_DITERIMA_SEBAGIAN
+            ? 'Penerimaan sebagian dicatat, stok diperbarui'
+            : 'Penerimaan dikonfirmasi, stok diperbarui';
+        return ApiResponse::success(new PermintaanPembelianResource($record), $pesan);
+    }
+
+    public function tutupSisa(TutupSisaPermintaanPembelianRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->tutupSisa($id, $request->validated(), ...$this->aktor($request));
+        $pengajuanDitolak = ($record->pengajuan_keuangan['status'] ?? null) === 'ditolak';
+        return ApiResponse::success(new PermintaanPembelianResource($record), $pengajuanDitolak
+            ? 'Sisa ditutup — pengajuan pembayarannya berstatus ditolak, ajukan ulang pembayarannya'
+            : 'Sisa ditutup, pembayaran disesuaikan');
+    }
+
+    public function ajukanUlangPembayaran(AjukanUlangPembayaranPermintaanPembelianRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->ajukanUlangPembayaran($id, $request->validated(), ...$this->aktor($request));
+        return ApiResponse::success(new PermintaanPembelianResource($record), 'Pembayaran diajukan ulang');
     }
 
     public function realisasiSparepart(RealisasiSparepartPermintaanPembelianRequest $request, string $id): JsonResponse
@@ -128,6 +165,7 @@ class PermintaanPembelianController extends Controller
 
     public function cetakPo(Request $request, string $id): Response
     {
+        $this->service->findUntukDilihat($id, ...$this->aktor($request));
         $data = $this->service->dataPurchaseOrder($id, (string) $request->user()->id_perusahaan);
 
         $pdf = Pdf::loadView('exports.purchase-order', $data + ['logoBase64' => $this->logoBase64()]);
@@ -170,6 +208,7 @@ class PermintaanPembelianController extends Controller
 
     public function infoPengajuan(Request $request, string $id): JsonResponse
     {
+        $this->service->findUntukDilihat($id, ...$this->aktor($request));
         return ApiResponse::success($this->service->infoPengajuanKeuangan($id, (string) $request->user()->id_perusahaan));
     }
 

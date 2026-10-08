@@ -58,16 +58,12 @@ class ProyekRuteService
             abort(404, 'Rute proyek tidak ditemukan');
         }
 
-        if ($this->adaPerubahanTerkunci($record, $data) && $this->hargaTerkunci($idProyek)) {
-            abort(422, 'Harga terkunci — ubah lewat penawaran revisi');
+        if ($this->adaPerubahanRuteHarga($record, $data)) {
+            abort(422, 'Rute, jenis kendaraan, dan harga penawaran tidak dapat diubah dari sini — ubah lewat penawaran');
         }
 
-        $this->pastikanRuteJenisValid($data, $idPerusahaan);
-
-        $idRute = $data['id_rute'] ?? $record->id_rute;
-        $idJenisKendaraan = array_key_exists('id_jenis_kendaraan', $data) ? $data['id_jenis_kendaraan'] : $record->id_jenis_kendaraan;
-        if ($this->repo->existsDuplikat($idProyek, $idRute, $idJenisKendaraan, $id)) {
-            abort(409, 'Rute dengan jenis kendaraan ini sudah terdaftar di proyek');
+        if ($this->adaPerubahanRitase($record, $data) && $this->hargaTerkunci($idProyek)) {
+            abort(422, 'Harga terkunci — ubah lewat penawaran revisi');
         }
 
         $this->repo->update($record, $data);
@@ -97,7 +93,12 @@ class ProyekRuteService
         return TipeHarga::perRit($tipeHarga) && $this->repo->adaPenawaranDisetujui($idProyek);
     }
 
-    private function adaPerubahanTerkunci(ProyekRuteModel $record, array $data): bool
+    private function adaPerubahanRitase(ProyekRuteModel $record, array $data): bool
+    {
+        return array_key_exists('estimasi_ritase', $data) && (int) $data['estimasi_ritase'] !== (int) $record->estimasi_ritase;
+    }
+
+    private function adaPerubahanRuteHarga(ProyekRuteModel $record, array $data): bool
     {
         if (array_key_exists('harga_penawaran', $data)) {
             $baru = $data['harga_penawaran'];
@@ -108,10 +109,6 @@ class ProyekRuteService
             if ($baru !== null && (float) $baru !== (float) $lama) {
                 return true;
             }
-        }
-
-        if (array_key_exists('estimasi_ritase', $data) && (int) $data['estimasi_ritase'] !== (int) $record->estimasi_ritase) {
-            return true;
         }
 
         if (array_key_exists('id_rute', $data) && $data['id_rute'] !== $record->id_rute) {

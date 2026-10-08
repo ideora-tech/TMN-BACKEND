@@ -24,6 +24,9 @@ interface PembelianSparepartRepositoryInterface
     public function findBukti(string $idPembelian, string $idBukti): ?object;
     public function softDeleteBukti(string $idBukti): void;
     public function gantiHargaAktualItems(string $idPembelian, array $hargaPerItem): void;
+    /** @return string[] */
+    public function idMutasiMasukPembelian(string $idPembelian, string $idSparepart, float $harga): array;
+    public function setHargaMutasi(array $idMutasi, float $harga): void;
     public function tambahStokDanMutasi(object $header, array $items): void;
     public function laporan(string $idPerusahaan, ?string $dari, ?string $sampai): array;
     public function getPerusahaan(string $idPerusahaan): ?object;

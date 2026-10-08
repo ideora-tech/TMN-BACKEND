@@ -22,6 +22,7 @@ class PengajuanPengeluaranModel extends BaseModel
         'id_permintaan_pembelian',
         'id_termin_pembelian',
         'id_uang_jalan',
+        'id_kasbon',
         'id_supir',
         'id_proyek',
         'periode_dari',

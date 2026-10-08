@@ -28,6 +28,7 @@ class InvoiceVendorServiceProvider extends ServiceProvider
             ->group(function () {
                 Route::get('invoice-vendor/monitoring', [InvoiceVendorController::class, 'monitoring']);
                 Route::get('invoice-vendor/trip-siap-tagih', [InvoiceVendorController::class, 'tripSiapTagih']);
+                Route::get('invoice-vendor/ringkasan-kontrak/{idKontrak}', [InvoiceVendorController::class, 'ringkasanKontrak']);
                 Route::get('invoice-vendor', [InvoiceVendorController::class, 'index']);
                 Route::get('invoice-vendor/{id}/export/pdf', [InvoiceVendorController::class, 'exportPdf']);
                 Route::get('invoice-vendor/{id}', [InvoiceVendorController::class, 'show']);
@@ -36,6 +37,7 @@ class InvoiceVendorServiceProvider extends ServiceProvider
                     Route::post('invoice-vendor', [InvoiceVendorController::class, 'store']);
                     Route::put('invoice-vendor/{id}', [InvoiceVendorController::class, 'update']);
                     Route::post('invoice-vendor/{id}/ajukan-approval', [InvoiceVendorController::class, 'ajukanApproval']);
+                    Route::post('invoice-vendor/{id}/batalkan', [InvoiceVendorController::class, 'batalkan']);
                     Route::delete('invoice-vendor/{id}', [InvoiceVendorController::class, 'destroy']);
                 });
             });

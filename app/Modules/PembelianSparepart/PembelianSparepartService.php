@@ -271,15 +271,14 @@ class PembelianSparepartService
     public function realisasi(string $id, array $data, string $idPerusahaan, string $kodePeran, string $idPengguna = ''): object
     {
         $record = $this->findOrFail($id, $idPerusahaan);
-        $this->pastikanStatus($record, [self::STATUS_DISETUJUI_FINANCE], 'Realisasi hanya bisa dilakukan setelah disetujui finance');
+        if (self::dariPermintaan($record)) {
+            abort(422, 'Pembelian ini berasal dari PR ' . ($record->nomor_permintaan ?? '') . ' — catat realisasinya dari halaman PR tersebut');
+        }
+        $this->pastikanStatus($record, [self::STATUS_DISETUJUI_FINANCE], 'Realisasi hanya bisa dilakukan setelah disetujui');
         if (count($record->bukti) === 0) {
             abort(422, 'Unggah minimal 1 bukti nota sebelum realisasi');
         }
         $peranPengadaan = in_array(strtoupper($kodePeran), ['PENGADAAN', 'SUPERADMIN'], true);
-        $dariPermintaan = self::dariPermintaan($record);
-        if ($dariPermintaan && !$peranPengadaan) {
-            abort(422, 'Realisasi pembelian dari PR hanya bisa dilakukan tim Pengadaan');
-        }
         if ($record->wajib_pengadaan && !$peranPengadaan) {
             $batas = $this->arusKasService->batasRealisasiMandiri($idPerusahaan);
             abort(422, 'Pembelian senilai Rp ' . number_format($batas, 0, ',', '.') . ' — pembelian di atas nilai ini wajib diproses oleh tim Pengadaan');
@@ -298,7 +297,7 @@ class PembelianSparepartService
             abort(422, 'Harga aktual semua item wajib diisi');
         }
 
-        return $this->realisasiInti($record, $hargaPerItem, (string) $data['tanggal_pembelian'], $idSupplier, $idPerusahaan, $dariPermintaan, $idPengguna);
+        return $this->realisasiInti($record, $hargaPerItem, (string) $data['tanggal_pembelian'], $idSupplier, $idPerusahaan, false, $idPengguna);
     }
 
     public function salinBuktiDariPermintaan(string $idPembelian, array $bukti): void
@@ -324,7 +323,7 @@ class PembelianSparepartService
         if (!self::dariPermintaan($record)) {
             abort(422, 'Pembelian Sparepart ini tidak tertaut ke Permintaan Pembelian manapun');
         }
-        $this->pastikanStatus($record, [self::STATUS_DISETUJUI_FINANCE], 'Realisasi hanya bisa dilakukan setelah disetujui finance');
+        $this->pastikanStatus($record, [self::STATUS_DISETUJUI_FINANCE], 'Realisasi hanya bisa dilakukan setelah disetujui');
         if (count($record->bukti) === 0) {
             abort(422, 'Unggah minimal 1 bukti nota sebelum realisasi');
         }
@@ -343,25 +342,80 @@ class PembelianSparepartService
             $hargaPerItem[$item->id_item] = (float) $petaHarga[$idItemPermintaan];
         }
 
-        return $this->realisasiInti($record, $hargaPerItem, (string) $data['tanggal_pembelian'], $idSupplier, $idPerusahaan, true, $idPengguna);
+        return $this->realisasiInti($record, $hargaPerItem, (string) $data['tanggal_pembelian'], $idSupplier, $idPerusahaan, true, $idPengguna, $data['biaya'] ?? []);
     }
 
-    private function realisasiInti(object $record, array $hargaPerItem, string $tanggalPembelian, ?string $idSupplier, string $idPerusahaan, bool $dariPermintaan, string $idPengguna): object
+    public function koreksiRealisasiDariPermintaan(string $idPembelian, array $hargaPerItemPermintaan, array $biaya, string $idPerusahaan): void
     {
-        return DB::transaction(function () use ($record, $hargaPerItem, $tanggalPembelian, $idSupplier, $idPerusahaan, $dariPermintaan, $idPengguna) {
+        $terkunci = $this->repo->findByIdForUpdate($idPembelian);
+        if ($terkunci === null || (string) $terkunci->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Pengajuan pembelian tidak ditemukan');
+        }
+        $this->pastikanStatus($terkunci, [self::STATUS_DIBELI], 'Realisasi hanya bisa dikoreksi sebelum pembayarannya ditransfer');
+
+        $rencana = [];
+        foreach ($this->repo->listItems($idPembelian) as $item) {
+            $idItemPermintaan = (string) ($item->id_item_permintaan ?? '');
+            $lama = (float) $item->harga_aktual;
+            $baru = $idItemPermintaan !== '' && array_key_exists($idItemPermintaan, $hargaPerItemPermintaan)
+                ? (float) $hargaPerItemPermintaan[$idItemPermintaan]
+                : $lama;
+            $kunci = $item->id_sparepart . '|' . number_format($lama, 2, '.', '');
+            if (isset($rencana[$kunci]) && round($rencana[$kunci]['baru'], 2) !== round($baru, 2)) {
+                abort(422, 'Spare part yang sama muncul di dua baris dengan harga lama yang sama — isi harga baru yang sama untuk keduanya');
+            }
+            $rencana[$kunci] ??= ['id_sparepart' => (string) $item->id_sparepart, 'lama' => $lama, 'baru' => $baru, 'id_item' => []];
+            $rencana[$kunci]['id_item'][] = $item->id_item;
+        }
+        $rencana = array_filter($rencana, fn ($r) => round($r['lama'], 2) !== round($r['baru'], 2));
+        foreach ($rencana as $kunci => $r) {
+            $rencana[$kunci]['id_mutasi'] = $this->repo->idMutasiMasukPembelian($idPembelian, $r['id_sparepart'], $r['lama']);
+        }
+        foreach ($rencana as $r) {
+            $this->repo->gantiHargaAktualItems($idPembelian, array_fill_keys($r['id_item'], $r['baru']));
+            $this->repo->setHargaMutasi($r['id_mutasi'], $r['baru']);
+        }
+
+        $this->repo->updateHeader($terkunci, [
+            'total_aktual' => (float) $biaya['total_aktual'],
+            'diskon'       => (float) $biaya['diskon'],
+            'ppn_persen'   => (float) $biaya['ppn_persen'],
+            'ppn'          => (float) $biaya['ppn'],
+            'ongkir'       => (float) $biaya['ongkir'],
+        ]);
+    }
+
+    private function realisasiInti(object $record, array $hargaPerItem, string $tanggalPembelian, ?string $idSupplier, string $idPerusahaan, bool $dariPermintaan, string $idPengguna, array $biaya = []): object
+    {
+        return DB::transaction(function () use ($record, $hargaPerItem, $tanggalPembelian, $idSupplier, $idPerusahaan, $dariPermintaan, $idPengguna, $biaya) {
             $terkunci = $this->repo->findByIdForUpdate($record->id_pembelian);
             if ($terkunci === null) {
                 abort(404, 'Pengajuan pembelian tidak ditemukan');
             }
-            $this->pastikanStatus($terkunci, [self::STATUS_DISETUJUI_FINANCE], 'Realisasi hanya bisa dilakukan setelah disetujui finance');
+            $this->pastikanStatus($terkunci, [self::STATUS_DISETUJUI_FINANCE], 'Realisasi hanya bisa dilakukan setelah disetujui');
             $this->repo->gantiHargaAktualItems($record->id_pembelian, $hargaPerItem);
             $items = $this->repo->listItems($record->id_pembelian);
-            $totalAktual = array_sum(array_map(fn ($i) => ((int) $i->qty) * (float) $i->harga_aktual, $items));
+            $subtotal = array_sum(array_map(fn ($i) => ((int) $i->qty) * (float) $i->harga_aktual, $items));
+            $diskon = (float) ($biaya['diskon'] ?? 0);
+            if (round($diskon, 2) > round($subtotal, 2)) {
+                abort(422, 'Diskon tidak boleh melebihi subtotal (Rp ' . number_format($subtotal, 0, ',', '.') . ')');
+            }
+            $ppnPersen = (float) ($biaya['ppn_persen'] ?? 0);
+            $ongkir = (float) ($biaya['ongkir'] ?? 0);
+            $ppn = round(($subtotal - $diskon) * $ppnPersen / 100);
+            $totalAktual = $subtotal - $diskon + $ppn + $ongkir;
+            if ($dariPermintaan && round($totalAktual, 2) <= 0) {
+                abort(422, 'Total pembelian tidak boleh Rp 0');
+            }
             $statusRealisasi = $record->tanggal_pembayaran !== null ? self::STATUS_LUNAS : self::STATUS_DIBELI;
             $perubahan = [
                 'status'            => $statusRealisasi,
                 'tanggal_pembelian' => $tanggalPembelian,
                 'total_aktual'      => $totalAktual,
+                'diskon'            => $diskon,
+                'ppn_persen'        => $ppnPersen,
+                'ppn'               => $ppn,
+                'ongkir'            => $ongkir,
             ];
             if ($idSupplier !== null) {
                 $perubahan['id_supplier'] = $idSupplier;

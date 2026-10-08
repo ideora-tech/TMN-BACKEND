@@ -67,7 +67,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('id_pengajuan', $idPengajuan)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['nomor_pengajuan', 'kategori', 'penerima', 'nominal', 'tanggal_pengajuan', 'keterangan', 'id_perawatan', 'id_pembelian', 'id_uang_jalan']);
+            ->first(['nomor_pengajuan', 'kategori', 'penerima', 'nominal', 'tanggal_pengajuan', 'keterangan', 'id_perawatan', 'id_pembelian', 'id_uang_jalan', 'id_kasbon']);
         if ($pengajuan === null) {
             return null;
         }
@@ -79,6 +79,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             $kategori === 'perawatan' && $pengajuan->id_perawatan !== null => $this->sumberPerawatan((string) $pengajuan->id_perawatan, $idPerusahaan),
             $kategori === 'sparepart' && $pengajuan->id_pembelian !== null => $this->sumberPembelianSparepart((string) $pengajuan->id_pembelian, $idPerusahaan),
             $kategori === 'uang_jalan' && $pengajuan->id_uang_jalan !== null => $this->sumberUangJalan((string) $pengajuan->id_uang_jalan, $idPerusahaan),
+            $kategori === 'kasbon' && $pengajuan->id_kasbon !== null       => $this->sumberKasbon((string) $pengajuan->id_kasbon, $idPerusahaan),
             default                                                        => null,
         };
 
@@ -161,7 +162,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('id_uang_jalan', $idUangJalan)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['nomor_uang_jalan', 'tanggal', 'nama_driver', 'tipe_driver', 'nama_vendor', 'nopol', 'rute', 'uang_jalan_per_trip', 'jumlah_trip', 'nomor_rekening', 'nama_bank', 'catatan']);
+            ->first(['nomor_uang_jalan', 'tanggal', 'nama_driver', 'tipe_driver', 'nama_vendor', 'nopol', 'rute', 'kode_proyek', 'nama_proyek', 'tol_per_trip', 'bbm_per_trip', 'biaya_lain_per_trip', 'uang_jalan_per_trip', 'jumlah_trip', 'nomor_rekening', 'nama_bank', 'catatan']);
         if ($uangJalan === null) {
             return null;
         }
@@ -178,11 +179,75 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->teks('Status', $statusDriver),
                 $this->teks('No. Polisi', $uangJalan->nopol),
                 $this->teks('Rute', $uangJalan->rute),
+                $this->teks('Proyek', $this->gabungJudul($uangJalan->kode_proyek, $uangJalan->nama_proyek)),
+                $this->rupiah('Estimasi Tol per Trip', $uangJalan->tol_per_trip),
+                $this->rupiah('Estimasi BBM per Trip', $uangJalan->bbm_per_trip),
+                $this->rupiah('Estimasi Biaya Lain per Trip', $uangJalan->biaya_lain_per_trip),
                 $this->rupiah('UJ per Trip', $uangJalan->uang_jalan_per_trip),
                 $this->angka('Jumlah Trip', $uangJalan->jumlah_trip),
                 $this->teks('Nomor Rekening', $uangJalan->nomor_rekening),
                 $this->teks('Bank', $uangJalan->nama_bank),
                 $this->teks('Catatan', $uangJalan->catatan),
+            ],
+            'bagian' => [],
+        ];
+    }
+
+    private function sumberKasbon(string $idKasbon, string $idPerusahaan): ?array
+    {
+        $kasbon = DB::table('kasbon as k')
+            ->leftJoin('karyawan as kr', $this->milik('kr', 'kr.id_karyawan', 'k.id_karyawan', $idPerusahaan))
+            ->leftJoin('jabatan as j', $this->milik('j', 'j.id_jabatan', 'kr.id_jabatan', $idPerusahaan))
+            ->where('k.id_kasbon', $idKasbon)
+            ->where('k.id_perusahaan', $idPerusahaan)
+            ->whereNull('k.dihapus_pada')
+            ->first([
+                'k.id_karyawan', 'k.nomor_kasbon', 'k.tanggal', 'k.nominal', 'k.cicilan_per_periode', 'k.mulai_potong',
+                'k.keperluan', 'k.nama_bank', 'k.nomor_rekening', 'kr.nama_karyawan', 'kr.nik', 'j.nama_jabatan',
+            ]);
+        if ($kasbon === null) {
+            return null;
+        }
+
+        $cicilan = (float) $kasbon->cicilan_per_periode;
+        $kaliPotong = $cicilan > 0 ? (int) ceil((float) $kasbon->nominal / $cicilan) : null;
+
+        $lain = DB::table('kasbon as k')
+            ->leftJoin('pengajuan_pengeluaran as pp', function (JoinClause $join) {
+                $join->on('pp.id_pengajuan', '=', 'k.id_pengajuan')->whereNull('pp.dihapus_pada');
+            })
+            ->where('k.id_perusahaan', $idPerusahaan)
+            ->where('k.id_karyawan', $kasbon->id_karyawan)
+            ->where('k.id_kasbon', '!=', $idKasbon)
+            ->whereNull('k.dihapus_pada')
+            ->where(fn ($q) => $q->where('k.saldo_awal', 1)->orWhere('pp.status', 'ditransfer'))
+            ->get(['k.id_kasbon', 'k.nominal']);
+
+        $terbayarLain = $lain->isEmpty() ? collect() : DB::table('kasbon_pembayaran')
+            ->whereIn('id_kasbon', $lain->pluck('id_kasbon')->all())
+            ->whereNull('dihapus_pada')
+            ->groupBy('id_kasbon')
+            ->selectRaw('id_kasbon, SUM(nominal) as total')
+            ->pluck('total', 'id_kasbon');
+
+        $sisaLain = 0.0;
+        foreach ($lain as $satu) {
+            $sisaLain += max(0.0, (float) $satu->nominal - (float) ($terbayarLain[$satu->id_kasbon] ?? 0));
+        }
+
+        return [
+            'info'   => [
+                $this->teks('No. Kasbon', $kasbon->nomor_kasbon),
+                $this->tanggal('Tanggal', $kasbon->tanggal),
+                $this->teks('Karyawan', $this->gabungJudul($kasbon->nama_karyawan, $kasbon->nik)),
+                $this->teks('Jabatan', $kasbon->nama_jabatan),
+                $this->teks('Keperluan', $kasbon->keperluan),
+                $this->rupiah('Cicilan per Periode Gaji', $kasbon->cicilan_per_periode),
+                $this->angka('Perkiraan Jumlah Potongan', $kaliPotong),
+                $this->teks('Mulai Dipotong', \Illuminate\Support\Carbon::parse($kasbon->mulai_potong)->locale('id')->translatedFormat('F Y')),
+                $this->rupiah('Sisa Kasbon Lain yang Berjalan', $sisaLain),
+                $this->teks('Nomor Rekening', $kasbon->nomor_rekening),
+                $this->teks('Bank', $kasbon->nama_bank),
             ],
             'bagian' => [],
         ];
@@ -376,6 +441,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
         $item = DB::table('faktur_item')
             ->where('id_faktur', $idFaktur)
             ->whereNull('dihapus_pada')
+            ->orderBy('urutan')
             ->orderBy('dibuat_pada')
             ->get(['deskripsi', 'qty', 'harga_satuan', 'subtotal']);
 

@@ -29,6 +29,10 @@ interface InvoiceVendorRepositoryInterface
 
     public function findKontrakMilikPerusahaan(string $idKontrak, string $idPerusahaan): ?object;
 
+    public function kunciKontrak(string $idKontrak): ?object;
+
+    public function totalDppKontrak(string $idKontrak, ?string $kecualiIdInvoice = null): float;
+
     public function vendorInfo(string $idVendor): ?object;
 
     public function getPerusahaan(string $idPerusahaan): ?object;
@@ -47,6 +51,8 @@ interface InvoiceVendorRepositoryInterface
     public function insertInvoiceVendorTrip(string $idInvoiceVendor, string $idTrip): void;
 
     public function tripTerkaitUntukInvoice(string $idInvoiceVendor): array;
+
+    public function namaPengguna(?string $idPengguna): ?string;
 
     public function create(array $data): InvoiceVendorModel;
 

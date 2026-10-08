@@ -537,6 +537,8 @@ class KonsolidasiKlienTest extends TestCase
         $this->assertSame($this->idKlien, $data[$proyekA->id_proyek]['id_klien']);
         $this->assertFalse($data[$proyekA->id_proyek]['borongan']);
         $this->assertTrue($data[$proyekB->id_proyek]['borongan']);
+        $this->assertNull($data[$proyekA->id_proyek]['sisa_kontrak']);
+        $this->assertNull($data[$proyekB->id_proyek]['nilai_kontrak']);
         $this->assertNotNull($data[$proyekA->id_proyek]['tanggal_pertama']);
 
         $this->postJson('/api/penagihan-trip/faktur', [
@@ -547,6 +549,42 @@ class KonsolidasiKlienTest extends TestCase
 
         $setelah = collect($this->getJson('/api/konsolidasi-klien/siap-tagih')->json('data'))->keyBy('id_proyek');
         $this->assertSame(1, $setelah[$proyekA->id_proyek]['jumlah_trip']);
+    }
+
+    public function test_siap_tagih_proyek_nilai_tetap_menampilkan_sisa_kontrak_dan_hilang_saat_habis_ditagih(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $this->siapkanMaster();
+
+        $proyek = $this->buatProyek('borongan');
+        DB::table('proyek')->where('id_proyek', $proyek->id_proyek)->update(['harga_penawaran' => 50000000]);
+        $this->buatTrip($proyek->id_proyek);
+
+        $proyekTanpaNilai = $this->buatProyek('all_in');
+        $this->buatTrip($proyekTanpaNilai->id_proyek);
+
+        $ambil = fn () => collect($this->getJson('/api/konsolidasi-klien/siap-tagih')->assertStatus(200)->json('data'))->keyBy('id_proyek');
+        $termin = fn (float $nominal, string $uraian) => $this->postJson("/api/proyek/{$proyek->id_proyek}/faktur-borongan", [
+            'nominal' => $nominal, 'uraian' => $uraian, 'tanggal_faktur' => now()->toDateString(),
+        ])->assertStatus(201);
+
+        $awal = $ambil();
+        $this->assertSame('borongan', $awal[$proyek->id_proyek]['tipe_harga']);
+        $this->assertSame(50000000.0, (float) $awal[$proyek->id_proyek]['nilai_kontrak']);
+        $this->assertSame(50000000.0, (float) $awal[$proyek->id_proyek]['sisa_kontrak']);
+        $this->assertNull($awal[$proyekTanpaNilai->id_proyek]['nilai_kontrak']);
+        $this->assertNull($awal[$proyekTanpaNilai->id_proyek]['sisa_kontrak']);
+
+        $terminPertama = $termin(20000000, 'Termin 1');
+        $this->assertSame(30000000.0, (float) $ambil()[$proyek->id_proyek]['sisa_kontrak']);
+
+        $termin(30000000, 'Termin 2');
+        $habis = $ambil();
+        $this->assertFalse($habis->has($proyek->id_proyek));
+        $this->assertTrue($habis->has($proyekTanpaNilai->id_proyek));
+
+        DB::table('faktur')->where('id_faktur', $terminPertama->json('data.id_faktur'))->update(['status' => 'batal']);
+        $this->assertSame(20000000.0, (float) $ambil()[$proyek->id_proyek]['sisa_kontrak']);
     }
 
     public function test_siap_tagih_tidak_menampilkan_data_perusahaan_lain(): void

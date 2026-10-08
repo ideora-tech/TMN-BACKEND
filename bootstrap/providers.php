@@ -25,6 +25,7 @@ return [
     App\Modules\JenisPerawatan\JenisPerawatanServiceProvider::class,
     App\Modules\Karyawan\KaryawanServiceProvider::class,
     App\Modules\KaryawanExit\KaryawanExitServiceProvider::class,
+    App\Modules\Kasbon\KasbonServiceProvider::class,
     App\Modules\KategoriSparepart\KategoriSparepartServiceProvider::class,
     App\Modules\KetersediaanVendor\KetersediaanVendorServiceProvider::class,
     App\Modules\Klien\KlienServiceProvider::class,

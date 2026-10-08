@@ -26,6 +26,7 @@ class FakturModel extends BaseModel
         'alasan_ditolak_internal',
         'tanggal_faktur',
         'jatuh_tempo',
+        'tanggal_lunas',
     ];
 
     protected $casts = [
@@ -33,11 +34,15 @@ class FakturModel extends BaseModel
         'persen_pajak' => 'float',
         'tanggal_faktur' => 'date',
         'jatuh_tempo'    => 'date',
+        'tanggal_lunas'  => 'date',
     ];
 
     public function items(): HasMany
     {
         return $this->hasMany(FakturItemModel::class, 'id_faktur', 'id_faktur')
-            ->whereNull('dihapus_pada');
+            ->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->orderBy('dibuat_pada')
+            ->orderBy('id_faktur_item');
     }
 }

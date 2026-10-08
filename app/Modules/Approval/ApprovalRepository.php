@@ -23,6 +23,7 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         'pembayaran_pinjaman',
         'pembayaran_vendor',
         'pengadaan',
+        'kasbon',
         'lainnya',
         'persetujuan_transfer',
     ];
@@ -93,7 +94,7 @@ class ApprovalRepository implements ApprovalRepositoryInterface
 
     public function listConfigApprover(string $idEventType, string $idPerusahaan): array
     {
-        return DB::table('approval_config_approver as ac')
+        $rows = DB::table('approval_config_approver as ac')
             ->leftJoin('jabatan as j', function ($join) use ($idPerusahaan) {
                 $join->on('j.id_jabatan', '=', 'ac.id_jabatan')
                     ->where('j.id_perusahaan', $idPerusahaan);
@@ -106,8 +107,62 @@ class ApprovalRepository implements ApprovalRepositoryInterface
             ->whereNull('ac.dihapus_pada')
             ->orderBy('ac.dibuat_pada')
             ->selectRaw('ac.*, COALESCE(j.nama_jabatan, p.username) as nama')
+            ->get();
+
+        $pemegangJabatan = $this->pemegangJabatan(
+            $rows->where('tipe', 'jabatan')->pluck('id_jabatan')->filter()->unique()->values()->all(),
+            $idPerusahaan,
+        );
+        $namaPengguna = DB::table('pengguna as p')
+            ->leftJoin('karyawan as k', function ($join) {
+                $join->on('k.id_karyawan', '=', 'p.id_karyawan')->whereNull('k.dihapus_pada');
+            })
+            ->whereIn('p.id_pengguna', $rows->where('tipe', 'pengguna')->pluck('id_pengguna')->filter()->unique()->values()->all())
+            ->where('p.id_perusahaan', $idPerusahaan)
+            ->whereNull('p.dihapus_pada')
+            ->get(['p.id_pengguna', 'p.aktif', DB::raw('COALESCE(k.nama_karyawan, p.username) as nama')])
+            ->keyBy('id_pengguna');
+
+        return $rows->map(function ($row) use ($pemegangJabatan, $namaPengguna) {
+            $data = (array) $row;
+            if ($row->tipe === 'jabatan') {
+                $data['pemegang'] = $pemegangJabatan[$row->id_jabatan] ?? [];
+            } else {
+                $pengguna = $namaPengguna->get($row->id_pengguna);
+                $data['pemegang'] = $pengguna !== null
+                    ? [['nama' => $pengguna->nama, 'punya_akun' => (int) $pengguna->aktif === 1]]
+                    : [];
+            }
+            return $data;
+        })->all();
+    }
+
+    /** @return array<string, array<int, array{nama: string, punya_akun: bool}>> */
+    private function pemegangJabatan(array $idJabatan, string $idPerusahaan): array
+    {
+        if ($idJabatan === []) {
+            return [];
+        }
+
+        return DB::table('karyawan as k')
+            ->whereIn('k.id_jabatan', $idJabatan)
+            ->where('k.id_perusahaan', $idPerusahaan)
+            ->where('k.aktif', 1)
+            ->whereNull('k.dihapus_pada')
+            ->orderBy('k.nama_karyawan')
+            ->selectRaw('k.id_jabatan, k.nama_karyawan, (case when exists (
+                select 1 from pengguna p
+                where p.id_karyawan = k.id_karyawan
+                  and p.id_perusahaan = ?
+                  and p.aktif = 1
+                  and p.dihapus_pada is null
+            ) then 1 else 0 end) as punya_akun', [$idPerusahaan])
             ->get()
-            ->map(fn ($row) => (array) $row)
+            ->groupBy('id_jabatan')
+            ->map(fn ($g) => $g->map(fn ($k) => [
+                'nama'       => (string) $k->nama_karyawan,
+                'punya_akun' => (int) $k->punya_akun === 1,
+            ])->values()->all())
             ->all();
     }
 
