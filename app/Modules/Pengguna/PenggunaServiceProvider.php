@@ -21,6 +21,8 @@ class PenggunaServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN'])
             ->group(function () {
+                Route::get('pengguna/opsi-supir', [PenggunaController::class, 'opsiSupir']);
+
                 Route::apiResource('pengguna', PenggunaController::class)
                     ->parameters(['pengguna' => 'id']);
 

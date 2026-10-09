@@ -32,7 +32,10 @@ class SupirRepository implements SupirRepositoryInterface
                 $join->on('armada.id_armada', '=', 'supir.id_armada_default')
                      ->whereNull('armada.dihapus_pada');
             })
-            ->leftJoin('pengguna', 'pengguna.id_pengguna', '=', 'supir.id_pengguna')
+            ->leftJoin('pengguna', function ($join) {
+                $join->on('pengguna.id_pengguna', '=', 'supir.id_pengguna')
+                     ->whereNull('pengguna.dihapus_pada');
+            })
             ->whereNull('supir.dihapus_pada')
             ->where('supir.id_perusahaan', $idPerusahaan)
             ->orderBy('supir.nama', 'asc');
@@ -63,7 +66,10 @@ class SupirRepository implements SupirRepositoryInterface
     public function findById(string $id): ?object
     {
         return DB::table('supir')
-            ->leftJoin('pengguna', 'pengguna.id_pengguna', '=', 'supir.id_pengguna')
+            ->leftJoin('pengguna', function ($join) {
+                $join->on('pengguna.id_pengguna', '=', 'supir.id_pengguna')
+                     ->whereNull('pengguna.dihapus_pada');
+            })
             ->select(array_merge(
                 array_map(fn ($c) => 'supir.' . $c, self::COLUMNS),
                 ['pengguna.username as username_pengguna'],
@@ -86,6 +92,7 @@ class SupirRepository implements SupirRepositoryInterface
     public function findPenggunaMilikPerusahaan(string $idPengguna, string $idPerusahaan): ?object
     {
         return DB::table('pengguna')
+            ->whereNull('dihapus_pada')
             ->where('id_pengguna', $idPengguna)
             ->where('id_perusahaan', $idPerusahaan)
             ->first();
@@ -98,6 +105,7 @@ class SupirRepository implements SupirRepositoryInterface
                 $join->on('supir.id_pengguna', '=', 'pengguna.id_pengguna')
                      ->whereNull('supir.dihapus_pada');
             })
+            ->whereNull('pengguna.dihapus_pada')
             ->where('pengguna.id_perusahaan', $idPerusahaan)
             ->where('pengguna.kode_peran', 'SUPIR')
             ->where('pengguna.aktif', 1)

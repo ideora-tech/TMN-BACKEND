@@ -228,4 +228,26 @@ class CutiRepository implements CutiRepositoryInterface
             ->get()
             ->all();
     }
+
+    public function opsiKaryawan(string $idPerusahaan): array
+    {
+        return DB::table('karyawan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('aktif', 1)
+            ->orderBy('nama_karyawan')
+            ->get(['id_karyawan', 'nik', 'nama_karyawan'])
+            ->all();
+    }
+
+    public function opsiSupir(string $idPerusahaan): array
+    {
+        return DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', 'aktif')
+            ->orderBy('nama')
+            ->get(['id_supir', 'nama'])
+            ->all();
+    }
 }

@@ -19,20 +19,31 @@ class CutiServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
+            ->middleware(['api', 'auth:sanctum'])
             ->group(function () {
                 Route::get('jenis-cuti', [CutiController::class, 'indexJenis']);
-                Route::post('jenis-cuti', [CutiController::class, 'storeJenis']);
-                Route::put('jenis-cuti/{id}', [CutiController::class, 'updateJenis']);
-                Route::delete('jenis-cuti/{id}', [CutiController::class, 'destroyJenis']);
 
                 Route::get('pengajuan-cuti/saya', [CutiController::class, 'indexPengajuanSaya']);
                 Route::post('pengajuan-cuti/saya', [CutiController::class, 'storePengajuanSaya']);
                 Route::post('pengajuan-cuti/saya/{id}/batalkan', [CutiController::class, 'batalkanSaya']);
                 Route::get('saldo-cuti/saya', [CutiController::class, 'saldoSaya']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:cuti|karyawan|trip|penugasan'])
+            ->group(function () {
+                Route::get('pengajuan-cuti/aktif', [CutiController::class, 'cutiAktif']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:cuti'])
+            ->group(function () {
+                Route::post('jenis-cuti', [CutiController::class, 'storeJenis']);
+                Route::put('jenis-cuti/{id}', [CutiController::class, 'updateJenis']);
+                Route::delete('jenis-cuti/{id}', [CutiController::class, 'destroyJenis']);
 
                 Route::get('pengajuan-cuti', [CutiController::class, 'indexPengajuan']);
-                Route::get('pengajuan-cuti/aktif', [CutiController::class, 'cutiAktif']);
+                Route::get('pengajuan-cuti/opsi-pemohon', [CutiController::class, 'opsiPemohon']);
                 Route::post('pengajuan-cuti', [CutiController::class, 'storePengajuan']);
                 Route::post('pengajuan-cuti/{id}/setujui', [CutiController::class, 'setujui']);
                 Route::post('pengajuan-cuti/{id}/tolak', [CutiController::class, 'tolak']);

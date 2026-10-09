@@ -21,6 +21,8 @@ class UpdatePenggunaRequest extends FormRequest
             'email'       => ['sometimes', 'email', 'max:150'],
             'password'    => ['sometimes', 'string', 'min:8'],
             'id_karyawan' => ['nullable', 'string', 'size:36'],
+            'id_supir'    => ['sometimes', 'nullable', 'string', 'max:36'],
+            'id_supir_vendor' => ['sometimes', 'nullable', 'string', 'max:36'],
             'aktif'       => ['sometimes', 'boolean'],
         ];
     }

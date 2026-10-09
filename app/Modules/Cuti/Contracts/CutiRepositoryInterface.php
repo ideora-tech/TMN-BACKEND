@@ -32,4 +32,6 @@ interface CutiRepositoryInterface
 
     public function supirSedangCuti(string $idSupir, string $tanggal): bool;
     public function orangCutiPadaTanggal(string $idPerusahaan, string $tanggal): array;
+    public function opsiKaryawan(string $idPerusahaan): array;
+    public function opsiSupir(string $idPerusahaan): array;
 }

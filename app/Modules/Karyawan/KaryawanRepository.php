@@ -121,31 +121,51 @@ class KaryawanRepository implements KaryawanRepositoryInterface
             ->all();
     }
 
-    public function insertRiwayatJabatan(string $idPerusahaan, string $idKaryawan, ?string $idJabatanLama, ?string $idJabatanBaru): void
+    public function kunci(string $idKaryawan): void
     {
-        DB::table('riwayat_jabatan')->insert(RecordHelper::stampCreate([
-            'id_perusahaan'   => $idPerusahaan,
-            'id_karyawan'     => $idKaryawan,
-            'id_jabatan_lama' => $idJabatanLama,
-            'id_jabatan_baru' => $idJabatanBaru,
-        ], 'id_riwayat'));
+        DB::table('karyawan')->where('id_karyawan', $idKaryawan)->lockForUpdate()->value('id_karyawan');
+    }
+
+    public function insertRiwayatJabatan(array $data): void
+    {
+        $data['urutan'] = (int) DB::table('riwayat_jabatan')
+            ->where('id_karyawan', $data['id_karyawan'])
+            ->max('urutan') + 1;
+
+        DB::table('riwayat_jabatan')->insert(RecordHelper::stampCreate($data, 'id_riwayat'));
+    }
+
+    public function updateRiwayatJabatan(string $idRiwayat, array $data): void
+    {
+        DB::table('riwayat_jabatan')
+            ->where('id_riwayat', $idRiwayat)
+            ->update(RecordHelper::stampUpdate($data));
     }
 
     public function riwayatJabatan(string $idKaryawan): array
     {
         return DB::table('riwayat_jabatan as r')
-            ->leftJoin('jabatan as jl', 'r.id_jabatan_lama', '=', 'jl.id_jabatan')
-            ->leftJoin('jabatan as jb', 'r.id_jabatan_baru', '=', 'jb.id_jabatan')
+            ->leftJoin('pengguna as p', 'p.id_pengguna', '=', 'r.dibuat_oleh')
             ->whereNull('r.dihapus_pada')
             ->where('r.id_karyawan', $idKaryawan)
-            ->orderByDesc('r.dibuat_pada')
-            ->select(
-                'r.id_riwayat', 'r.id_jabatan_lama', 'r.id_jabatan_baru', 'r.dibuat_pada',
-                'jl.nama_jabatan as jabatan_lama',
-                'jb.nama_jabatan as jabatan_baru',
-            )
-            ->get()
+            ->orderByRaw('CASE WHEN r.urutan = 0 THEN 1 ELSE 0 END')
+            ->orderBy('r.urutan')
+            ->orderBy('r.dibuat_pada')
+            ->get([
+                'r.id_riwayat', 'r.id_jabatan_lama', 'r.id_jabatan_baru',
+                'r.nama_jabatan_lama', 'r.nama_jabatan_baru', 'r.nama_departemen_lama', 'r.nama_departemen_baru',
+                'r.tanggal_efektif', 'r.jenis', 'r.nomor_sk', 'r.keterangan', 'r.dibuat_pada',
+                'p.username as dicatat_oleh',
+            ])
             ->all();
+    }
+
+    public function infoJabatan(string $idJabatan): ?object
+    {
+        return DB::table('jabatan as j')
+            ->leftJoin('departemen as d', 'd.id_departemen', '=', 'j.id_departemen')
+            ->where('j.id_jabatan', $idJabatan)
+            ->first(['j.id_jabatan', 'j.nama_jabatan', 'd.nama_departemen']);
     }
 
     /**

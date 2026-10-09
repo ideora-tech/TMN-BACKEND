@@ -37,6 +37,11 @@ class PenggunaController extends Controller
         );
     }
 
+    public function opsiSupir(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->opsiSupir((string) $request->user()->id_perusahaan));
+    }
+
     public function show(Request $request, string $id): JsonResponse
     {
         return ApiResponse::success(new PenggunaResource($this->service->findOrFail($id, (string) $request->user()->id_perusahaan)));

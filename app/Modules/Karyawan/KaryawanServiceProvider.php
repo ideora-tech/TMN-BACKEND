@@ -23,6 +23,8 @@ class KaryawanServiceProvider extends ServiceProvider
             ->group(function () {
                 Route::get('karyawan/{id}/exit-history', [KaryawanController::class, 'exitHistory']);
                 Route::get('karyawan/{id}/riwayat-jabatan', [KaryawanController::class, 'riwayatJabatan']);
+                Route::patch('karyawan/{id}/riwayat-jabatan/{idRiwayat}', [KaryawanController::class, 'koreksiRiwayatJabatan']);
+                Route::patch('karyawan/{id}/jabatan', [KaryawanController::class, 'ubahJabatan']);
                 Route::apiResource('karyawan', KaryawanController::class)
                     ->parameters(['karyawan' => 'id']);
             });

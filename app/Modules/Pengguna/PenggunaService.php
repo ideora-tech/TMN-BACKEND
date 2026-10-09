@@ -6,11 +6,23 @@ namespace App\Modules\Pengguna;
 
 use App\Models\Pengguna;
 use App\Modules\Pengguna\Contracts\PenggunaRepositoryInterface;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class PenggunaService
 {
+    private const PERAN_SUPIR        = 'SUPIR';
+    private const PERAN_SUPIR_VENDOR = 'SUPIR_VENDOR';
+
     public function __construct(private readonly PenggunaRepositoryInterface $repo) {}
+
+    public function opsiSupir(string $idPerusahaan): array
+    {
+        return [
+            'supir'        => $this->repo->opsiSupir($idPerusahaan),
+            'supir_vendor' => $this->repo->opsiSupirVendor($idPerusahaan),
+        ];
+    }
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $aktif = null): array
     {
@@ -52,7 +64,13 @@ class PenggunaService
             $data['id_karyawan'] = null;
         }
 
-        return $this->repo->create($data);
+        $tautan = $this->ambilTautan($data);
+
+        return DB::transaction(function () use ($data, $tautan) {
+            $record = $this->repo->create($data);
+            $this->terapkanTautan($record, $tautan);
+            return $record;
+        });
     }
 
     public function update(string $id, array $data, ?string $idPerusahaan = null): Pengguna
@@ -87,7 +105,75 @@ class PenggunaService
             $data['id_karyawan'] = null;
         }
 
-        return $this->repo->update($record, $data);
+        $tautan = $this->ambilTautan($data);
+
+        return DB::transaction(function () use ($record, $data, $tautan) {
+            $hasil = $this->repo->update($record, $data);
+            $this->terapkanTautan($hasil, $tautan);
+            return $hasil;
+        });
+    }
+
+    private function ambilTautan(array &$data): array
+    {
+        $tautan = array_intersect_key($data, ['id_supir' => true, 'id_supir_vendor' => true]);
+        unset($data['id_supir'], $data['id_supir_vendor']);
+
+        return array_map(
+            static fn ($nilai) => $nilai !== null && trim((string) $nilai) !== '' ? trim((string) $nilai) : null,
+            $tautan,
+        );
+    }
+
+    private function terapkanTautan(Pengguna $record, array $tautan): void
+    {
+        $idPengguna   = (string) $record->id_pengguna;
+        $idPerusahaan = (string) $record->id_perusahaan;
+        $peran        = $record->kode_peran !== null ? (string) $record->kode_peran : null;
+
+        if ($peran !== self::PERAN_SUPIR && ($tautan['id_supir'] ?? null) !== null) {
+            abort(422, 'Supir hanya bisa ditautkan ke akun berperan Supir');
+        }
+        if ($peran !== self::PERAN_SUPIR_VENDOR && ($tautan['id_supir_vendor'] ?? null) !== null) {
+            abort(422, 'Supir vendor hanya bisa ditautkan ke akun berperan Supir Vendor');
+        }
+
+        if ($peran === self::PERAN_SUPIR) {
+            if (array_key_exists('id_supir', $tautan)) {
+                if ($tautan['id_supir'] !== null) {
+                    $supir = $this->repo->supirUntukTautan($tautan['id_supir'], $idPerusahaan);
+                    if ($supir === null) {
+                        abort(404, 'Supir tidak ditemukan');
+                    }
+                    $this->tolakBilaSudahBerakun('Supir', $supir, $idPengguna);
+                }
+                $this->repo->gantiTautanSupir($idPengguna, $tautan['id_supir']);
+            }
+        } else {
+            $this->repo->gantiTautanSupir($idPengguna, null);
+        }
+
+        if ($peran === self::PERAN_SUPIR_VENDOR) {
+            if (array_key_exists('id_supir_vendor', $tautan)) {
+                if ($tautan['id_supir_vendor'] !== null) {
+                    $supirVendor = $this->repo->supirVendorUntukTautan($tautan['id_supir_vendor'], $idPerusahaan);
+                    if ($supirVendor === null) {
+                        abort(404, 'Supir vendor tidak ditemukan');
+                    }
+                    $this->tolakBilaSudahBerakun('Supir vendor', $supirVendor, $idPengguna);
+                }
+                $this->repo->gantiTautanSupirVendor($idPengguna, $tautan['id_supir_vendor']);
+            }
+        } else {
+            $this->repo->gantiTautanSupirVendor($idPengguna, null);
+        }
+    }
+
+    private function tolakBilaSudahBerakun(string $sebutan, object $supir, string $idPengguna): void
+    {
+        if ($supir->id_pengguna !== null && (string) $supir->id_pengguna !== $idPengguna) {
+            abort(422, "{$sebutan} {$supir->nama} sudah memakai akun {$supir->username_pengguna} — lepas dulu tautannya dari akun itu");
+        }
     }
 
     public function delete(string $id, ?string $idPerusahaan = null): void

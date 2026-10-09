@@ -18,4 +18,10 @@ interface PenggunaRepositoryInterface
     public function delete(Pengguna $model): void;
     public function terdaftarSebagaiApprover(string $idPengguna): bool;
     public function jadiApproverLewatJabatan(string $idPengguna): bool;
+    public function opsiSupir(string $idPerusahaan): array;
+    public function opsiSupirVendor(string $idPerusahaan): array;
+    public function supirUntukTautan(string $idSupir, string $idPerusahaan): ?object;
+    public function supirVendorUntukTautan(string $idSupirVendor, string $idPerusahaan): ?object;
+    public function gantiTautanSupir(string $idPengguna, ?string $idSupir): void;
+    public function gantiTautanSupirVendor(string $idPengguna, ?string $idSupirVendor): void;
 }

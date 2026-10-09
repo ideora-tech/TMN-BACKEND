@@ -314,6 +314,14 @@ class CutiService
         return $this->repo->orangCutiPadaTanggal($idPerusahaan, $tanggal);
     }
 
+    public function opsiPemohon(string $idPerusahaan): array
+    {
+        return [
+            'karyawan' => $this->repo->opsiKaryawan($idPerusahaan),
+            'supir'    => $this->repo->opsiSupir($idPerusahaan),
+        ];
+    }
+
     // ── Helpers ──────────────────────────────────────────────────
 
     private function hitungSisaSaldo(?string $idKaryawan, ?string $idSupir, int $tahun): int

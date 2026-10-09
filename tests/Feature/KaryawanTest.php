@@ -160,10 +160,13 @@ class KaryawanTest extends TestCase
         $res->assertStatus(200);
         $data = $res->json('data');
         $this->assertCount(2, $data);
-        $this->assertSame('Supervisor Operasional', $data[0]['jabatan_baru']);
-        $this->assertSame('Staff Operasional', $data[0]['jabatan_lama']);
-        $this->assertNull($data[1]['jabatan_lama']);
-        $this->assertSame('Staff Operasional', $data[1]['jabatan_baru']);
+        $this->assertSame('Supervisor Operasional', $data[0]['nama_jabatan']);
+        $this->assertTrue($data[0]['sedang_dijabat']);
+        $this->assertNull($data[0]['jenis']);
+        $this->assertSame(now()->toDateString(), $data[0]['tanggal_mulai']);
+        $this->assertSame('Staff Operasional', $data[1]['nama_jabatan']);
+        $this->assertFalse($data[1]['sedang_dijabat']);
+        $this->assertSame('awal', $data[1]['jenis']);
     }
 
     public function test_menolak_nik_duplikat(): void

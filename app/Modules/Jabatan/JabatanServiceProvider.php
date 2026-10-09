@@ -23,6 +23,15 @@ class JabatanServiceProvider extends ServiceProvider
             ->group(function () {
                 Route::get('jabatan/struktur-organisasi', [JabatanController::class, 'strukturOrganisasi']);
                 Route::apiResource('jabatan', JabatanController::class)
+                    ->only(['store', 'update', 'destroy'])
+                    ->parameters(['jabatan' => 'id']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:jabatan|karyawan'])
+            ->group(function () {
+                Route::apiResource('jabatan', JabatanController::class)
+                    ->only(['index', 'show'])
                     ->parameters(['jabatan' => 'id']);
             });
     }

@@ -21,6 +21,8 @@ class StorePenggunaRequest extends FormRequest
             'email'                => ['required', 'email', 'max:150'],
             'password'             => ['required', 'string', 'min:8'],
             'id_karyawan'          => ['sometimes', 'nullable', 'string', 'size:36'],
+            'id_supir'             => ['sometimes', 'nullable', 'string', 'max:36'],
+            'id_supir_vendor'      => ['sometimes', 'nullable', 'string', 'max:36'],
             'aktif'                => ['sometimes', 'boolean'],
             'harus_ganti_password' => ['sometimes', 'boolean'],
         ];

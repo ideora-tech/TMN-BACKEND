@@ -146,6 +146,11 @@ class CutiController extends Controller
         return ApiResponse::success($this->service->orangCutiPadaTanggal($idPerusahaan, $tanggal));
     }
 
+    public function opsiPemohon(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->opsiPemohon((string) $request->user()->id_perusahaan));
+    }
+
     public function saldo(Request $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\Karyawan;
 
 use App\Helpers\ApiResponse;
+use App\Modules\Karyawan\Requests\KoreksiRiwayatJabatanRequest;
 use App\Modules\Karyawan\Requests\StoreKaryawanRequest;
+use App\Modules\Karyawan\Requests\UbahJabatanRequest;
 use App\Modules\Karyawan\Requests\UpdateKaryawanRequest;
 use App\Modules\Karyawan\Resources\KaryawanResource;
 use App\Modules\KaryawanExit\Resources\KaryawanExitResource;
@@ -64,14 +66,26 @@ class KaryawanController extends Controller
         return ApiResponse::success(null, 'Karyawan berhasil dihapus');
     }
 
-    public function exitHistory(string $id): JsonResponse
+    public function exitHistory(Request $request, string $id): JsonResponse
     {
-        $history = $this->service->exitHistory($id);
+        $history = $this->service->exitHistory($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(KaryawanExitResource::collection($history));
     }
 
-    public function riwayatJabatan(string $id): JsonResponse
+    public function riwayatJabatan(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success($this->service->riwayatJabatan($id));
+        return ApiResponse::success($this->service->riwayatJabatan($id, (string) $request->user()->id_perusahaan));
+    }
+
+    public function ubahJabatan(UbahJabatanRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->ubahJabatan($id, $request->validated(), (string) $request->user()->id_perusahaan);
+        return ApiResponse::success(new KaryawanResource($record), 'Perubahan jabatan berhasil dicatat');
+    }
+
+    public function koreksiRiwayatJabatan(KoreksiRiwayatJabatanRequest $request, string $id, string $idRiwayat): JsonResponse
+    {
+        $riwayat = $this->service->koreksiRiwayatJabatan($id, $idRiwayat, $request->validated(), (string) $request->user()->id_perusahaan);
+        return ApiResponse::success($riwayat, 'Catatan jabatan berhasil diperbarui');
     }
 }
