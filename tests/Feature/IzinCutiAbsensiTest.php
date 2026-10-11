@@ -16,7 +16,7 @@ class IzinCutiAbsensiTest extends TestCase
 
     private const AKSI = ['lihat', 'tambah', 'ubah', 'hapus'];
 
-    private const MENU = ['/karyawan', '/cuti', '/absensi', '/trip', '/penugasan', '/supir'];
+    private const MENU = ['/karyawan', '/cuti', '/absensi', '/trip', '/penugasan', '/supir', '/payroll'];
 
     private function idMenu(string $path): string
     {
@@ -206,18 +206,63 @@ class IzinCutiAbsensiTest extends TestCase
         $this->postJson('/api/jenis-cuti', ['nama_jenis' => 'Cuti Khusus'])->assertStatus(403);
     }
 
-    public function test_daftar_orang_cuti_hari_ini_terbaca_dari_izin_trip_penugasan_karyawan_atau_cuti(): void
+    public function test_daftar_orang_cuti_hari_ini_terbaca_dari_izin_penugasan_karyawan_atau_cuti(): void
     {
-        foreach (['/trip', '/penugasan', '/karyawan', '/cuti'] as $path) {
+        foreach (['/penugasan', '/karyawan', '/cuti'] as $path) {
             $this->hanyaIzin([$path => ['lihat']]);
             $this->loginKeuangan();
 
             $this->getJson('/api/pengajuan-cuti/aktif')->assertStatus(200);
         }
 
-        $this->hanyaIzin(['/absensi' => self::AKSI, '/supir' => self::AKSI]);
+        $this->hanyaIzin(['/absensi' => self::AKSI, '/supir' => self::AKSI, '/trip' => self::AKSI]);
         $this->loginKeuangan();
 
         $this->getJson('/api/pengajuan-cuti/aktif')->assertStatus(403);
+    }
+
+    public function test_rekap_absensi_tidak_memuat_data_gaji_dan_upah_lembur_hanya_untuk_pemilik_izin_gaji(): void
+    {
+        $idKaryawan = $this->makeKaryawan();
+        DB::table('karyawan')->where('id_karyawan', $idKaryawan)->update(['gaji_pokok' => 7500000, 'status_ptkp' => 'K/1']);
+
+        $this->hanyaIzin(['/absensi' => self::AKSI]);
+        $this->loginKeuangan();
+        $baris = $this->getJson('/api/absensi/rekap?bulan=2026-10')->assertStatus(200)->json('data.0');
+
+        $this->assertSame($idKaryawan, $baris['id_karyawan']);
+        foreach (['gaji_pokok', 'status_ptkp', 'tunjangan_jabatan', 'ikut_bpjs_kesehatan', 'override_persen_bpjs_kesehatan', 'tanggal_masuk'] as $kolom) {
+            $this->assertArrayNotHasKey($kolom, $baris);
+        }
+        $this->assertArrayHasKey('hadir', $baris);
+        $this->assertArrayHasKey('lembur_menit', $baris);
+        $this->assertNull($baris['lembur_rupiah']);
+        $this->get('/api/absensi/rekap/export/excel?bulan=2026-10')->assertStatus(200);
+
+        $this->hanyaIzin(['/absensi' => self::AKSI, '/karyawan' => ['lihat']]);
+        $this->loginKeuangan();
+        $baris = $this->getJson('/api/absensi/rekap?bulan=2026-10')->assertStatus(200)->json('data.0');
+
+        $this->assertArrayNotHasKey('gaji_pokok', $baris);
+        $this->assertSame(0, $baris['lembur_rupiah']);
+    }
+
+    public function test_saldo_cuti_karyawan_perusahaan_lain_tidak_bisa_dibaca_atau_disesuaikan(): void
+    {
+        $idLain = 'b8f3c1a2-0000-4000-8000-000000000099';
+        DB::table('perusahaan')->insertOrIgnore(['id_perusahaan' => $idLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
+        $idKaryawanLain = (string) Str::uuid();
+        DB::table('karyawan')->insert([
+            'id_karyawan' => $idKaryawanLain, 'id_perusahaan' => $idLain,
+            'nik' => 'NIK-' . Str::random(8), 'nama_karyawan' => 'Orang Lain', 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $this->hanyaIzin(['/cuti' => self::AKSI]);
+        $this->loginKeuangan();
+
+        $this->getJson("/api/saldo-cuti?id_karyawan={$idKaryawanLain}")->assertStatus(404);
+        $this->postJson('/api/saldo-cuti/penyesuaian', [
+            'id_karyawan' => $idKaryawanLain, 'tahun' => 2026, 'jumlah_hari' => 2, 'keterangan' => 'Uji',
+        ])->assertStatus(404);
+        $this->assertSame(0, DB::table('saldo_cuti')->where('id_karyawan', $idKaryawanLain)->count());
     }
 }

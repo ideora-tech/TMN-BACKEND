@@ -476,6 +476,15 @@ class TripRepository implements TripRepositoryInterface
             ->first();
     }
 
+    public function namaSupir(string $idSupir, bool $vendor): ?string
+    {
+        $nama = $vendor
+            ? DB::table('supir_vendor')->where('id_supir_vendor', $idSupir)->value('nama')
+            : DB::table('supir')->where('id_supir', $idSupir)->value('nama');
+
+        return $nama !== null ? (string) $nama : null;
+    }
+
     public function namaKlienPerProyek(array $idProyekList): array
     {
         if ($idProyekList === []) {

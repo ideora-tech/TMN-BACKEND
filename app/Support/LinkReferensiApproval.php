@@ -20,6 +20,7 @@ class LinkReferensiApproval
             'penggajian', 'pembelian_aset', 'pembayaran_pinjaman', 'pengadaan', 'lainnya',
             'persetujuan_transfer', 'pembayaran_vendor' => '/proses-pembayaran',
             'kasbon'            => '/kasbon',
+            'pengisian_kas_kecil' => '/kas-kecil?tab=pengisian',
             default             => '/persetujuan-saya',
         };
     }

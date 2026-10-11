@@ -18,6 +18,8 @@ use App\Modules\ArusKas\Resources\PemasukanResource;
 use App\Modules\ArusKas\Resources\PengajuanPengeluaranResource;
 use App\Modules\ArusKas\Resources\TransaksiArusKasResource;
 use App\Modules\InvoiceVendor\InvoiceVendorService;
+use App\Modules\KasKecil\KasKecilService;
+use App\Modules\KasKecil\Resources\KasKecilPengisianResource;
 use App\Modules\Kasbon\KasbonService;
 use App\Modules\Kasbon\Resources\KasbonResource;
 use App\Modules\Payroll\PayrollService;
@@ -29,6 +31,8 @@ use App\Modules\PermintaanPembelian\PermintaanPembelianService;
 use App\Modules\PermintaanPembelian\Resources\PermintaanPembelianResource;
 use App\Modules\UangJalan\Resources\UangJalanResource;
 use App\Modules\UangJalan\UangJalanService;
+use App\Support\AsalFrontend;
+use App\Support\Exports\SheetTabelTautan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -61,11 +65,20 @@ class ArusKasController extends Controller
         $dari   = $request->get('dari') ?: now()->startOfMonth()->toDateString();
         $sampai = $request->get('sampai') ?: now()->endOfMonth()->toDateString();
 
-        $hasil   = $this->service->rekap($idPerusahaan, $dari, $sampai, $request->get('arah'), $request->get('sumber'));
+        $hasil = $this->service->rekap($idPerusahaan, $dari, $sampai, $request->get('arah'), $request->get('sumber'));
+        SheetTabelTautan::pastikanBisaDiexport($hasil['transaksi']->count());
+
         $laporan = $this->service->laporanPsak($idPerusahaan, $dari, $sampai);
 
         return Excel::download(
-            new ArusKasWorkbookExport($laporan, $hasil['transaksi'], $this->service->namaPerusahaan($idPerusahaan), $dari, $sampai),
+            new ArusKasWorkbookExport(
+                $laporan,
+                $hasil['transaksi'],
+                $this->service->namaPerusahaan($idPerusahaan),
+                $dari,
+                $sampai,
+                AsalFrontend::dari($request),
+            ),
             'arus-kas-' . date('Ymd') . '.xlsx'
         );
     }
@@ -114,6 +127,7 @@ class ArusKasController extends Controller
         PermintaanPembelianService $permintaanService,
         UangJalanService $uangJalanService,
         KasbonService $kasbonService,
+        KasKecilService $kasKecilService,
         string $id
     ): JsonResponse {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
@@ -133,6 +147,15 @@ class ArusKasController extends Controller
                 'tipe' => 'kasbon',
                 'data' => new KasbonResource(
                     $kasbonService->detail((string) $pengajuan->id_kasbon, $idPerusahaan)
+                ),
+            ]);
+        }
+
+        if ($pengajuan->id_pengisian_kas_kecil !== null) {
+            return ApiResponse::success([
+                'tipe' => 'pengisian_kas_kecil',
+                'data' => new KasKecilPengisianResource(
+                    $kasKecilService->findPengisianOrFail((string) $pengajuan->id_pengisian_kas_kecil, $idPerusahaan)
                 ),
             ]);
         }

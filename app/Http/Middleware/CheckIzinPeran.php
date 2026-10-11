@@ -16,11 +16,19 @@ class CheckIzinPeran
 
     public function handle(Request $request, Closure $next, string $menuKey): Response
     {
-        $user = $request->user();
-        $kodePeran = $user?->kode_peran;
-        if ($kodePeran === 'SUPERADMIN') return $next($request);
-
         $aksi = self::AKSI[$request->method()] ?? 'lihat';
+
+        if (!self::diizinkan($request->user(), $menuKey, $aksi)) {
+            return ApiResponse::error('Anda tidak memiliki izin untuk aksi ini', null, 403);
+        }
+        return $next($request);
+    }
+
+    public static function diizinkan(?object $user, string $menuKey, string $aksi): bool
+    {
+        $kodePeran = $user?->kode_peran;
+        if ($kodePeran === 'SUPERADMIN') return true;
+
         $idPerusahaanUser = $user?->id_perusahaan;
 
         // Beberapa kunci menu boleh dipisah '|' — dipakai endpoint data referensi yang
@@ -54,9 +62,6 @@ class CheckIzinPeran
             }
         }
 
-        if (!$diizinkan) {
-            return ApiResponse::error('Anda tidak memiliki izin untuk aksi ini', null, 403);
-        }
-        return $next($request);
+        return $diizinkan;
     }
 }

@@ -8,10 +8,25 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 interface UangJalanRepositoryInterface
 {
+    public const TANPA_PROYEK = 'tanpa';
+
     public function paginateByPerusahaan(
         string $idPerusahaan,
         int $page,
         int $limit,
+        ?string $search = null,
+        ?string $status = null,
+        ?string $dari = null,
+        ?string $sampai = null,
+        ?string $idProyek = null,
+        ?array $kelompok = null,
+    ): LengthAwarePaginator;
+
+    public function paginateKelompok(
+        string $idPerusahaan,
+        int $page,
+        int $limit,
+        array $daftarStatus,
         ?string $search = null,
         ?string $status = null,
         ?string $dari = null,

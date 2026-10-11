@@ -157,6 +157,13 @@ class ApprovalService
         });
     }
 
+    public function approverTersedia(string $kodeEventType, string $idPenggunaPengaju, string $idPerusahaan): bool
+    {
+        $eventType = $this->repo->findEventTypeAktifByKode($kodeEventType, $idPerusahaan);
+
+        return $eventType !== null && $this->resolver->resolve($eventType, $idPenggunaPengaju) !== [];
+    }
+
     public function statusUntuk(string $kodeEventType, string $idReferensi, string $idPerusahaan): ?array
     {
         $eventType = $this->repo->findEventTypeAktifByKode($kodeEventType, $idPerusahaan);

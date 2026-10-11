@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class UangJalanRepository implements UangJalanRepositoryInterface
 {
+    private const KUNCI_DRIVER = 'COALESCE(uj.id_supir, uj.id_supir_vendor, uj.nama_driver)';
+
     public function paginateByPerusahaan(
         string $idPerusahaan,
         int $page,
@@ -22,41 +24,95 @@ class UangJalanRepository implements UangJalanRepositoryInterface
         ?string $dari = null,
         ?string $sampai = null,
         ?string $idProyek = null,
+        ?array $kelompok = null,
     ): LengthAwarePaginator {
-        $query = $this->dasar()->where('uj.id_perusahaan', $idPerusahaan);
+        $query = $this->saring($this->dasar()->where('uj.id_perusahaan', $idPerusahaan), $search, $status, $dari, $sampai, $idProyek);
 
-        if ($search !== null && $search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('uj.nomor_uang_jalan', 'like', "%{$search}%")
-                    ->orWhere('uj.nama_driver', 'like', "%{$search}%")
-                    ->orWhere('uj.nama_vendor', 'like', "%{$search}%")
-                    ->orWhere('uj.nopol', 'like', "%{$search}%")
-                    ->orWhere('uj.rute', 'like', "%{$search}%")
-                    ->orWhere('uj.kode_proyek', 'like', "%{$search}%")
-                    ->orWhere('uj.nama_proyek', 'like', "%{$search}%");
-            });
-        }
+        if ($kelompok !== null) {
+            $query->where('uj.tipe_driver', $kelompok['tipe'])
+                ->whereRaw(self::KUNCI_DRIVER . ' = ?', [$kelompok['driver']]);
 
-        if ($status !== null && $status !== '') {
-            $query->where('pp.status', $status);
-        }
-
-        if ($dari !== null && $dari !== '') {
-            $query->where('uj.tanggal', '>=', $dari);
-        }
-
-        if ($sampai !== null && $sampai !== '') {
-            $query->where('uj.tanggal', '<=', $sampai);
-        }
-
-        if ($idProyek !== null && $idProyek !== '') {
-            $query->where('uj.id_proyek', $idProyek);
+            if (($kelompok['proyek'] ?? '') === '') {
+                $query->whereNull('uj.id_proyek');
+            } else {
+                $query->where('uj.id_proyek', $kelompok['proyek']);
+            }
         }
 
         return $query
             ->orderByDesc('uj.tanggal')
             ->orderByDesc('uj.nomor_uang_jalan')
             ->paginate($limit, ['*'], 'page', $page);
+    }
+
+    public function paginateKelompok(
+        string $idPerusahaan,
+        int $page,
+        int $limit,
+        array $daftarStatus,
+        ?string $search = null,
+        ?string $status = null,
+        ?string $dari = null,
+        ?string $sampai = null,
+        ?string $idProyek = null,
+    ): LengthAwarePaginator {
+        $daftarStatus = array_values($daftarStatus);
+
+        $query = $this->saring($this->dasar()->where('uj.id_perusahaan', $idPerusahaan), $search, $status, $dari, $sampai, $idProyek)
+            ->select(['uj.tipe_driver'])
+            ->selectRaw(self::KUNCI_DRIVER . ' as kunci_driver')
+            ->selectRaw("COALESCE(uj.id_proyek, '') as kunci_proyek")
+            ->selectRaw('COUNT(*) as jumlah')
+            ->selectRaw('SUM(uj.jumlah_trip) as total_trip')
+            ->selectRaw('SUM(uj.nominal) as total_nominal')
+            ->selectRaw('MIN(uj.tanggal) as tanggal_awal')
+            ->selectRaw('MAX(uj.tanggal) as tanggal_akhir')
+            ->selectRaw('MAX(uj.nomor_uang_jalan) as nomor_terakhir')
+            ->selectRaw('MAX(uj.id_uang_jalan) as id_contoh')
+            ->selectRaw('MAX(uj.nama_driver) as nama_driver')
+            ->selectRaw('MAX(uj.nama_vendor) as nama_vendor')
+            ->selectRaw('MAX(uj.kode_proyek) as kode_proyek')
+            ->selectRaw('MAX(uj.nama_proyek) as nama_proyek')
+            ->selectRaw('COUNT(DISTINCT uj.nopol) as jumlah_nopol')
+            ->selectRaw('MIN(uj.nopol) as nopol')
+            ->selectRaw('COUNT(DISTINCT uj.rute) as jumlah_rute')
+            ->selectRaw('MIN(uj.rute) as rute');
+
+        foreach ($daftarStatus as $i => $kode) {
+            $query->selectRaw("SUM(CASE WHEN pp.status = ? THEN 1 ELSE 0 END) as jumlah_status_{$i}", [$kode]);
+        }
+
+        $paginator = $query
+            ->groupByRaw('uj.tipe_driver, kunci_driver, kunci_proyek')
+            ->orderByDesc('tanggal_akhir')
+            ->orderByDesc('nomor_terakhir')
+            ->orderBy('kunci_driver')
+            ->orderBy('kunci_proyek')
+            ->paginate($limit, ['*'], 'page', $page);
+
+        $idTunggal = [];
+        foreach ($paginator->items() as $baris) {
+            if ((int) $baris->jumlah === 1) {
+                $idTunggal[] = $baris->id_contoh;
+            }
+        }
+
+        $tunggal = $idTunggal === []
+            ? collect()
+            : $this->dasar()->whereIn('uj.id_uang_jalan', $idTunggal)->get()->keyBy('id_uang_jalan');
+
+        foreach ($paginator->items() as $baris) {
+            $baris->status = [];
+            foreach ($daftarStatus as $i => $kode) {
+                $jumlah = (int) $baris->{"jumlah_status_{$i}"};
+                if ($jumlah > 0) {
+                    $baris->status[$kode] = $jumlah;
+                }
+            }
+            $baris->tunggal = (int) $baris->jumlah === 1 ? ($tunggal[$baris->id_contoh] ?? null) : null;
+        }
+
+        return $paginator;
     }
 
     public function findById(string $id): ?object
@@ -361,6 +417,41 @@ class UangJalanRepository implements UangJalanRepositoryInterface
         DB::table('uang_jalan')
             ->where('id_uang_jalan', $record->id_uang_jalan)
             ->update(RecordHelper::stampDelete());
+    }
+
+    private function saring(Builder $query, ?string $search, ?string $status, ?string $dari, ?string $sampai, ?string $idProyek): Builder
+    {
+        if ($search !== null && $search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('uj.nomor_uang_jalan', 'like', "%{$search}%")
+                    ->orWhere('uj.nama_driver', 'like', "%{$search}%")
+                    ->orWhere('uj.nama_vendor', 'like', "%{$search}%")
+                    ->orWhere('uj.nopol', 'like', "%{$search}%")
+                    ->orWhere('uj.rute', 'like', "%{$search}%")
+                    ->orWhere('uj.kode_proyek', 'like', "%{$search}%")
+                    ->orWhere('uj.nama_proyek', 'like', "%{$search}%");
+            });
+        }
+
+        if ($status !== null && $status !== '') {
+            $query->where('pp.status', $status);
+        }
+
+        if ($dari !== null && $dari !== '') {
+            $query->where('uj.tanggal', '>=', $dari);
+        }
+
+        if ($sampai !== null && $sampai !== '') {
+            $query->where('uj.tanggal', '<=', $sampai);
+        }
+
+        if ($idProyek === self::TANPA_PROYEK) {
+            $query->whereNull('uj.id_proyek');
+        } elseif ($idProyek !== null && $idProyek !== '') {
+            $query->where('uj.id_proyek', $idProyek);
+        }
+
+        return $query;
     }
 
     private function dasar(): Builder

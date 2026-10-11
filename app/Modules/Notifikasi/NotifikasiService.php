@@ -105,7 +105,10 @@ class NotifikasiService
         ]);
     }
 
-    /** @param string[] $menu */
+    /**
+     * @param string[] $menu
+     * @param array{menu: string[], link: string}|null $linkBilaBolehLihat
+     */
     public function kirimKePemilikIzinMenu(
         array $menu,
         string $idPerusahaan,
@@ -117,9 +120,56 @@ class NotifikasiService
         ?string $link = null,
         ?string $kecualiIdPengguna = null,
         string $aksi = 'lihat',
+        ?array $linkBilaBolehLihat = null,
     ): int {
         $penerima = $this->repo->idPenggunaDenganIzinMenu($menu, $idPerusahaan, $aksi);
+        if ($linkBilaBolehLihat === null) {
+            return $this->kirimKeDaftarPengguna($penerima, $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna);
+        }
+
+        $bolehLihat = $this->repo->idPenggunaDenganIzinMenu($linkBilaBolehLihat['menu'], $idPerusahaan, 'lihat');
+
+        return $this->kirimKeDaftarPengguna(
+            array_values(array_intersect($penerima, $bolehLihat)),
+            $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $linkBilaBolehLihat['link'], $kecualiIdPengguna,
+        ) + $this->kirimKeDaftarPengguna(
+            array_values(array_diff($penerima, $bolehLihat)),
+            $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna,
+        );
+    }
+
+    /** @param string[] $idPengguna */
+    public function kirimKePengguna(
+        array $idPengguna,
+        string $idPerusahaan,
+        string $judul,
+        string $isi,
+        string $tipe,
+        string $referensiTipe,
+        string $referensiId,
+        ?string $link = null,
+        ?string $kecualiIdPengguna = null,
+    ): int {
+        $penerima = array_values(array_unique(array_filter($idPengguna, static fn ($id) => $id !== null && $id !== '')));
+
         return $this->kirimKeDaftarPengguna($penerima, $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna);
+    }
+
+    public function kirimKeKaryawan(
+        string $idKaryawan,
+        string $idPerusahaan,
+        string $judul,
+        string $isi,
+        string $tipe,
+        string $referensiTipe,
+        string $referensiId,
+        ?string $link = null,
+        ?string $kecualiIdPengguna = null,
+    ): int {
+        return $this->kirimKePengguna(
+            $this->repo->idPenggunaUntukKaryawan($idKaryawan),
+            $idPerusahaan, $judul, $isi, $tipe, $referensiTipe, $referensiId, $link, $kecualiIdPengguna,
+        );
     }
 
     /** @param array<int, array{menu: string[], aksi?: string}> $kelompok */

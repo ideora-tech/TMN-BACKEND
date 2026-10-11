@@ -328,12 +328,14 @@ class FakturService
     public function updateStatus(string $id, string $status, ?string $idPerusahaan = null): FakturModel
     {
         $this->findOrFail($id, $idPerusahaan);
+        $statusSebelum = null;
 
-        return DB::transaction(function () use ($id, $status) {
+        $hasil = DB::transaction(function () use ($id, $status, &$statusSebelum) {
             $terkunci = $this->repo->findForUpdate($id);
             if ($terkunci === null) {
                 abort(404, 'Invoice tidak ditemukan');
             }
+            $statusSebelum = (string) $terkunci->status;
             $allowed = self::VALID_TRANSITIONS[$terkunci->status] ?? [];
             if (!in_array($status, $allowed, true)) {
                 abort(422, 'Transisi status tidak valid');
@@ -365,6 +367,34 @@ class FakturService
 
             return $this->repo->findById($id);
         });
+
+        if ($status === 'batal' && $statusSebelum !== 'draft') {
+            $this->beritahuInvoiceDibatalkan($hasil);
+        }
+
+        return $hasil;
+    }
+
+    private function beritahuInvoiceDibatalkan(FakturModel $faktur): void
+    {
+        try {
+            $klien = trim((string) ($faktur->nama_klien ?? ''));
+            $total = number_format((float) $faktur->total, 0, ',', '.');
+
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKePemilikIzinMenu(
+                ['/faktur'],
+                (string) $faktur->id_perusahaan,
+                "Invoice {$faktur->nomor_faktur} dibatalkan",
+                'Invoice ' . $faktur->nomor_faktur . ($klien !== '' ? " untuk {$klien}" : '') . " senilai Rp {$total} dibatalkan.",
+                'faktur_dibatalkan',
+                'faktur',
+                (string) $faktur->id_faktur,
+                '/faktur/' . $faktur->id_faktur,
+                auth()->check() ? (string) auth()->id() : null,
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi invoice dibatalkan gagal: ' . $e->getMessage());
+        }
     }
 
     public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): FakturModel

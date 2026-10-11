@@ -26,6 +26,7 @@ class UangJalanResource extends JsonResource
             'id_proyek'           => $this->id_proyek,
             'kode_proyek'         => $this->kode_proyek,
             'nama_proyek'         => $this->nama_proyek,
+            'alasan_tanpa_proyek' => $this->alasan_tanpa_proyek ?? null,
             'id_penugasan'        => $this->id_penugasan,
             'nama_vendor'         => $this->nama_vendor,
             'nopol'               => $this->nopol,

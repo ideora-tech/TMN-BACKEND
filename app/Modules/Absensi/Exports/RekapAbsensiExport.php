@@ -24,6 +24,7 @@ class RekapAbsensiExport implements FromCollection, WithHeadings, WithMapping, W
     public function __construct(
         private readonly Collection $data,
         private readonly string $bulan,
+        private readonly bool $denganUpah = true,
     ) {}
 
     public function title(): string
@@ -45,7 +46,7 @@ class RekapAbsensiExport implements FromCollection, WithHeadings, WithMapping, W
     {
         $total = ['is_total' => true];
         foreach ([...self::KOLOM_ANGKA, 'lembur_menit', 'lembur_rupiah'] as $kolom) {
-            $total[$kolom] = $this->data->sum(fn ($r) => (int) $r[$kolom]);
+            $total[$kolom] = $this->data->sum(fn ($r) => (int) ($r[$kolom] ?? 0));
         }
 
         return $this->data->values()->push($total);
@@ -53,25 +54,28 @@ class RekapAbsensiExport implements FromCollection, WithHeadings, WithMapping, W
 
     public function headings(): array
     {
-        return ['NIK', 'Nama Karyawan', 'Hadir', 'Terlambat', 'Izin', 'Sakit', 'Cuti', 'Alpha', 'Lembur', 'Upah Lembur (Rp)'];
+        $kolom = ['NIK', 'Nama Karyawan', 'Hadir', 'Terlambat', 'Izin', 'Sakit', 'Cuti', 'Alpha', 'Lembur'];
+
+        return $this->denganUpah ? [...$kolom, 'Upah Lembur (Rp)'] : $kolom;
     }
 
     public function map($row): array
     {
         $angka = array_map(fn ($kolom) => (int) $row[$kolom], self::KOLOM_ANGKA);
 
-        return [
+        $baris = [
             isset($row['is_total']) ? '' : (string) $row['nik'],
             isset($row['is_total']) ? 'TOTAL' : (string) $row['nama'],
             ...$angka,
             $this->labelLembur((int) $row['lembur_menit']),
-            (int) $row['lembur_rupiah'],
         ];
+
+        return $this->denganUpah ? [...$baris, (int) ($row['lembur_rupiah'] ?? 0)] : $baris;
     }
 
     public function columnFormats(): array
     {
-        return ['J' => '#,##0'];
+        return $this->denganUpah ? ['J' => '#,##0'] : [];
     }
 
     private function labelLembur(int $menit): string

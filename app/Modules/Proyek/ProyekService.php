@@ -166,6 +166,7 @@ class ProyekService
             '/penugasan',
             null,
             'tambah',
+            ['menu' => ['/project'], 'link' => "/project/{$proyek->id_proyek}"],
         );
     }
 
@@ -443,8 +444,32 @@ class ProyekService
         if ($status === 'aktif' && $statusSebelum !== 'aktif') {
             $this->beritahuOperasionalProyekAktif($diperbarui);
         }
+        if ($status === 'batal' && $statusSebelum === 'aktif') {
+            $this->beritahuOperasionalProyekDibatalkan($diperbarui);
+        }
 
         return $diperbarui;
+    }
+
+    private function beritahuOperasionalProyekDibatalkan(ProyekModel $proyek): void
+    {
+        try {
+            $this->notifikasiService->kirimKePemilikIzinMenu(
+                ['/penugasan'],
+                (string) $proyek->id_perusahaan,
+                "Proyek {$proyek->kode_proyek} dibatalkan",
+                "Proyek {$proyek->nama_proyek} dibatalkan. Periksa penugasan armada dan supir yang sudah disiapkan untuk proyek ini.",
+                'proyek_dibatalkan',
+                'proyek',
+                (string) $proyek->id_proyek,
+                '/penugasan',
+                auth()->check() ? (string) auth()->id() : null,
+                'tambah',
+                ['menu' => ['/project'], 'link' => "/project/{$proyek->id_proyek}"],
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi proyek dibatalkan gagal: ' . $e->getMessage());
+        }
     }
 
     public function ajukanApproval(string $id, string $idPengguna, string $idPerusahaan): ProyekModel

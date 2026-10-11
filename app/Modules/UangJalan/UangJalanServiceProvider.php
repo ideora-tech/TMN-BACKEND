@@ -21,6 +21,7 @@ class UangJalanServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:uang-jalan'])
             ->group(function () {
+                Route::get('uang-jalan/kelompok', [UangJalanController::class, 'kelompok']);
                 Route::get('uang-jalan/opsi', [UangJalanController::class, 'opsi']);
                 Route::get('uang-jalan/opsi/vendor/{idVendor}', [UangJalanController::class, 'opsiVendor']);
                 Route::get('uang-jalan/tarif-rate-card', [UangJalanController::class, 'tarifRateCard']);

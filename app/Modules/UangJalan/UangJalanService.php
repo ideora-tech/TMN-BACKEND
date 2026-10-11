@@ -6,6 +6,7 @@ namespace App\Modules\UangJalan;
 
 use App\Modules\ArusKas\ArusKasService;
 use App\Modules\UangJalan\Contracts\UangJalanRepositoryInterface;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,16 @@ class UangJalanService
     public const STATUS_BISA_DIUBAH = [
         ArusKasService::STATUS_MENUNGGU_APPROVAL,
         ArusKasService::STATUS_DITOLAK,
+    ];
+
+    public const STATUS_PENGAJUAN = [
+        ArusKasService::STATUS_MENUNGGU_APPROVAL,
+        ArusKasService::STATUS_DISETUJUI,
+        ArusKasService::STATUS_DIAJUKAN,
+        ArusKasService::STATUS_DICEK,
+        ArusKasService::STATUS_SIAP_TRANSFER,
+        ArusKasService::STATUS_DITOLAK,
+        ArusKasService::STATUS_DITRANSFER,
     ];
 
     public function __construct(
@@ -31,9 +42,30 @@ class UangJalanService
         ?string $dari = null,
         ?string $sampai = null,
         ?string $idProyek = null,
+        ?array $kelompok = null,
     ): array {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status, $dari, $sampai, $idProyek);
+        return $this->halaman(
+            $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status, $dari, $sampai, $idProyek, $kelompok),
+        );
+    }
 
+    public function listKelompok(
+        string $idPerusahaan,
+        int $page = 1,
+        int $limit = 10,
+        ?string $search = null,
+        ?string $status = null,
+        ?string $dari = null,
+        ?string $sampai = null,
+        ?string $idProyek = null,
+    ): array {
+        return $this->halaman(
+            $this->repo->paginateKelompok($idPerusahaan, $page, $limit, self::STATUS_PENGAJUAN, $search, $status, $dari, $sampai, $idProyek),
+        );
+    }
+
+    private function halaman(LengthAwarePaginator $result): array
+    {
         return [
             'data' => $result->items(),
             'meta' => [
@@ -216,6 +248,14 @@ class UangJalanService
                 ?? $this->tolak('id_proyek', 'Proyek tidak ditemukan');
         }
 
+        $alasanTanpaProyek = null;
+        if ($proyek === null) {
+            $alasanTanpaProyek = trim((string) ($data['alasan_tanpa_proyek'] ?? ''));
+            if ($alasanTanpaProyek === '') {
+                $this->tolak('alasan_tanpa_proyek', 'Alasan di luar proyek wajib diisi');
+            }
+        }
+
         $idPenugasan = null;
         if (!empty($data['id_penugasan'])) {
             if ($proyek === null) {
@@ -240,6 +280,7 @@ class UangJalanService
             'id_proyek'           => $proyek?->id_proyek,
             'kode_proyek'         => $proyek?->kode_proyek,
             'nama_proyek'         => $proyek?->nama_proyek,
+            'alasan_tanpa_proyek' => $alasanTanpaProyek,
             'id_penugasan'        => $idPenugasan,
             'tol_per_trip'        => $tol,
             'bbm_per_trip'        => $bbm,

@@ -78,17 +78,7 @@ class CutiService
             abort(422, 'Pilih tepat satu: karyawan atau supir');
         }
 
-        if ($idKaryawan !== null) {
-            $karyawan = $this->karyawanRepo->findById($idKaryawan);
-            if ($karyawan === null || $karyawan->id_perusahaan !== $idPerusahaan) {
-                abort(404, 'Karyawan tidak ditemukan');
-            }
-        } else {
-            $supir = $this->supirRepo->findById($idSupir);
-            if ($supir === null || $supir->id_perusahaan !== $idPerusahaan) {
-                abort(404, 'Supir tidak ditemukan');
-            }
-        }
+        $this->pastikanPemohonMilikPerusahaan($idPerusahaan, $idKaryawan, $idSupir);
 
         $this->jenisOrFail($data['id_jenis_cuti'], $idPerusahaan);
 
@@ -98,7 +88,7 @@ class CutiService
 
         $jumlahHari = Carbon::parse($data['tanggal_mulai'])->diffInDays(Carbon::parse($data['tanggal_selesai'])) + 1;
 
-        return $this->repo->createPengajuan([
+        $pengajuan = $this->repo->createPengajuan([
             'id_perusahaan'   => $idPerusahaan,
             'id_karyawan'     => $idKaryawan,
             'id_supir'        => $idSupir,
@@ -109,6 +99,16 @@ class CutiService
             'alasan'          => $data['alasan'] ?? null,
             'status'          => 'menunggu',
         ]);
+
+        $this->beritahuPengelolaCuti(
+            $pengajuan,
+            'cuti_diajukan',
+            'Pengajuan cuti baru: ' . $this->namaPemohon($pengajuan),
+            $this->namaPemohon($pengajuan) . ' mengajukan ' . $this->namaJenis($pengajuan) . ' tanggal ' . $this->rentangCuti($pengajuan)
+                . ' (' . (int) $jumlahHari . ' hari) dan menunggu persetujuan.',
+        );
+
+        return $pengajuan;
     }
 
     public function listPengajuanSaya(string $idPerusahaan, ?string $idKaryawan): array
@@ -146,6 +146,13 @@ class CutiService
             abort(422, 'Hanya pengajuan berstatus menunggu yang dapat dibatalkan');
         }
 
+        $this->beritahuPengelolaCuti(
+            $pengajuan,
+            'cuti_dibatalkan',
+            'Pengajuan cuti dibatalkan: ' . $this->namaPemohon($pengajuan),
+            $this->namaPemohon($pengajuan) . ' membatalkan pengajuan ' . $this->namaJenis($pengajuan) . ' tanggal ' . $this->rentangCuti($pengajuan) . '.',
+        );
+
         return $this->repo->findPengajuanById($pengajuan->id_pengajuan);
     }
 
@@ -165,7 +172,7 @@ class CutiService
 
         $tahun = (int) Carbon::parse($pengajuan->tanggal_mulai)->format('Y');
 
-        return DB::transaction(function () use ($pengajuan, $tahun) {
+        $disetujui = DB::transaction(function () use ($pengajuan, $tahun) {
             if ((bool) $pengajuan->mengurangi_saldo) {
                 $saldo = $this->hitungSisaSaldo($pengajuan->id_karyawan, $pengajuan->id_supir, $tahun);
                 if ($saldo < $pengajuan->jumlah_hari) {
@@ -190,6 +197,15 @@ class CutiService
                 'diproses_pada' => now(),
             ]);
         });
+
+        $this->beritahuPemohonCuti(
+            $pengajuan,
+            'cuti_disetujui',
+            'Pengajuan cuti Anda disetujui',
+            'Pengajuan ' . $this->namaJenis($pengajuan) . ' tanggal ' . $this->rentangCuti($pengajuan) . ' disetujui.',
+        );
+
+        return $disetujui;
     }
 
     public function tolak(string $id, string $idPerusahaan, ?string $catatan = null): object
@@ -200,12 +216,23 @@ class CutiService
             abort(422, 'Hanya pengajuan berstatus menunggu yang dapat ditolak');
         }
 
-        return $this->repo->updatePengajuan($pengajuan, [
+        $ditolak = $this->repo->updatePengajuan($pengajuan, [
             'status'         => 'ditolak',
             'diproses_oleh'  => auth()->id(),
             'diproses_pada'  => now(),
             'catatan_proses' => $catatan,
         ]);
+
+        $alasan = trim((string) ($catatan ?? ''));
+        $this->beritahuPemohonCuti(
+            $pengajuan,
+            'cuti_ditolak',
+            'Pengajuan cuti Anda ditolak',
+            'Pengajuan ' . $this->namaJenis($pengajuan) . ' tanggal ' . $this->rentangCuti($pengajuan) . ' ditolak.'
+                . ($alasan !== '' ? " Catatan: {$alasan}" : ''),
+        );
+
+        return $ditolak;
     }
 
     public function batalkan(string $id, string $idPerusahaan): object
@@ -216,7 +243,7 @@ class CutiService
             abort(422, 'Pengajuan ini tidak dapat dibatalkan');
         }
 
-        return DB::transaction(function () use ($pengajuan) {
+        $dibatalkan = DB::transaction(function () use ($pengajuan) {
             if ($pengajuan->status === 'disetujui') {
                 $this->repo->softDeleteDebitByReferensi($pengajuan->id_pengajuan);
             }
@@ -227,6 +254,70 @@ class CutiService
                 'diproses_pada' => now(),
             ]);
         });
+
+        $this->beritahuPemohonCuti(
+            $pengajuan,
+            'cuti_dibatalkan',
+            'Pengajuan cuti Anda dibatalkan',
+            'Pengajuan ' . $this->namaJenis($pengajuan) . ' tanggal ' . $this->rentangCuti($pengajuan) . ' dibatalkan oleh HR.',
+        );
+
+        return $dibatalkan;
+    }
+
+    private function rentangCuti(object $pengajuan): string
+    {
+        return Carbon::parse($pengajuan->tanggal_mulai)->format('d/m/Y') . ' s/d ' . Carbon::parse($pengajuan->tanggal_selesai)->format('d/m/Y');
+    }
+
+    private function beritahuPengelolaCuti(object $pengajuan, string $tipe, string $judul, string $isi): void
+    {
+        try {
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKePemilikIzinMenu(
+                ['/cuti'],
+                (string) $pengajuan->id_perusahaan,
+                $judul,
+                $isi,
+                $tipe,
+                'pengajuan_cuti',
+                (string) $pengajuan->id_pengajuan,
+                '/cuti',
+                auth()->check() ? (string) auth()->id() : null,
+                'tambah',
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Notifikasi {$tipe} gagal: " . $e->getMessage());
+        }
+    }
+
+    private function beritahuPemohonCuti(object $pengajuan, string $tipe, string $judul, string $isi): void
+    {
+        try {
+            $notif        = app(\App\Modules\Notifikasi\NotifikasiService::class);
+            $idPerusahaan = (string) $pengajuan->id_perusahaan;
+            $idPengajuan  = (string) $pengajuan->id_pengajuan;
+
+            if ($pengajuan->id_karyawan !== null) {
+                $notif->kirimKeKaryawan(
+                    (string) $pengajuan->id_karyawan, $idPerusahaan, $judul, $isi, $tipe, 'pengajuan_cuti', $idPengajuan,
+                    null, auth()->check() ? (string) auth()->id() : null,
+                );
+            } elseif ($pengajuan->id_supir !== null) {
+                $notif->kirimKeSupir((string) $pengajuan->id_supir, $idPerusahaan, $judul, $isi, $tipe, 'pengajuan_cuti', $idPengajuan);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Notifikasi {$tipe} gagal: " . $e->getMessage());
+        }
+    }
+
+    private function namaPemohon(object $pengajuan): string
+    {
+        return (string) ($pengajuan->nama_orang ?? 'Karyawan');
+    }
+
+    private function namaJenis(object $pengajuan): string
+    {
+        return (string) ($pengajuan->nama_jenis ?? 'cuti');
     }
 
     // ── Saldo ────────────────────────────────────────────────────
@@ -236,6 +327,7 @@ class CutiService
         if (($idKaryawan === null) === ($idSupir === null)) {
             abort(422, 'Pilih tepat satu: karyawan atau supir');
         }
+        $this->pastikanPemohonMilikPerusahaan($idPerusahaan, $idKaryawan, $idSupir);
 
         $sum = $this->repo->sumLedger($idKaryawan, $idSupir, $tahun);
 
@@ -297,6 +389,7 @@ class CutiService
         if (($idKaryawan === null) === ($idSupir === null)) {
             abort(422, 'Pilih tepat satu: karyawan atau supir');
         }
+        $this->pastikanPemohonMilikPerusahaan($idPerusahaan, $idKaryawan, $idSupir);
 
         return $this->repo->insertLedger([
             'id_perusahaan' => $idPerusahaan,
@@ -344,6 +437,22 @@ class CutiService
             'terpakai'    => (int) $terpakai,
             'sisa'        => self::JATAH_TAHUNAN + (int) $penyesuaian - (int) $terpakai,
         ];
+    }
+
+    private function pastikanPemohonMilikPerusahaan(string $idPerusahaan, ?string $idKaryawan, ?string $idSupir): void
+    {
+        if ($idKaryawan !== null) {
+            $karyawan = $this->karyawanRepo->findById($idKaryawan);
+            if ($karyawan === null || (string) $karyawan->id_perusahaan !== $idPerusahaan) {
+                abort(404, 'Karyawan tidak ditemukan');
+            }
+            return;
+        }
+
+        $supir = $idSupir !== null ? $this->supirRepo->findById($idSupir) : null;
+        if ($supir === null || (string) $supir->id_perusahaan !== $idPerusahaan) {
+            abort(404, 'Supir tidak ditemukan');
+        }
     }
 
     private function pastikanKaryawan(?string $idKaryawan): void

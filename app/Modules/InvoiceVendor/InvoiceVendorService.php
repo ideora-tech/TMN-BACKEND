@@ -457,7 +457,7 @@ class InvoiceVendorService
     {
         $this->findOrFail($id, $idPerusahaan);
 
-        return \Illuminate\Support\Facades\DB::transaction(function () use ($id, $idPerusahaan, $pengguna, $alasan) {
+        $dibatalkan = \Illuminate\Support\Facades\DB::transaction(function () use ($id, $idPerusahaan, $pengguna, $alasan) {
             $terkunci = $this->repo->findForUpdate($id);
             if ($terkunci === null || $terkunci->id_perusahaan !== $idPerusahaan) {
                 abort(404, 'Invoice vendor tidak ditemukan');
@@ -476,6 +476,33 @@ class InvoiceVendorService
                 'dibatalkan_pada' => now(),
             ]);
         });
+
+        $this->beritahuPembuatInvoiceDibatalkan($dibatalkan, $pengguna, $alasan);
+
+        return $dibatalkan;
+    }
+
+    private function beritahuPembuatInvoiceDibatalkan(InvoiceVendorModel $invoice, object $pengguna, string $alasan): void
+    {
+        try {
+            if ($invoice->dibuat_oleh === null) {
+                return;
+            }
+
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKePengguna(
+                [(string) $invoice->dibuat_oleh],
+                (string) $invoice->id_perusahaan,
+                "Invoice vendor {$invoice->nomor_invoice} dibatalkan",
+                'Invoice vendor ' . $invoice->nomor_invoice . ' dibatalkan oleh ' . ($pengguna->username ?? 'pengguna lain') . ". Alasan: {$alasan}",
+                'invoice_vendor_dibatalkan',
+                'invoice_vendor',
+                (string) $invoice->id_invoice_vendor,
+                '/invoice-vendor/' . $invoice->id_invoice_vendor,
+                (string) $pengguna->id_pengguna,
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi invoice vendor dibatalkan gagal: ' . $e->getMessage());
+        }
     }
 
     private function bolehMembatalkan(InvoiceVendorModel $record, ?object $pengguna): bool

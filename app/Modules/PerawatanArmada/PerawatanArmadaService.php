@@ -724,7 +724,7 @@ class PerawatanArmadaService
             abort(422, 'Perawatan tidak bisa dibatalkan karena biayanya sudah ditransfer oleh Keuangan');
         }
 
-        return DB::transaction(function () use ($record, $alasan) {
+        $dibatalkan = DB::transaction(function () use ($record, $alasan) {
             if (self::stokDipotong($record->status)) {
                 $this->kembalikanStok($record->id_perawatan);
             }
@@ -732,6 +732,35 @@ class PerawatanArmadaService
             $this->arusKasService->hapusPengajuanPerawatan($record->id_perawatan);
             return $this->findOrFail($record->id_perawatan);
         });
+
+        $this->beritahuPerawatanDibatalkan($dibatalkan, $alasan);
+
+        return $dibatalkan;
+    }
+
+    private function beritahuPerawatanDibatalkan(object $perawatan, string $alasan): void
+    {
+        try {
+            $armada = $this->armadaRepo->findById((string) $perawatan->id_armada);
+            if ($armada === null) {
+                return;
+            }
+            $tanggal = $perawatan->tanggal !== null ? ' tanggal ' . \Illuminate\Support\Carbon::parse($perawatan->tanggal)->format('d/m/Y') : '';
+
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKePemilikIzinMenu(
+                ['/perawatan-armada'],
+                (string) $armada->id_perusahaan,
+                "Perawatan {$armada->nopol} dibatalkan",
+                "Perawatan unit {$armada->nopol}{$tanggal} dibatalkan. Alasan: {$alasan}",
+                'perawatan_dibatalkan',
+                'perawatan',
+                (string) $perawatan->id_perawatan,
+                '/perawatan-armada/' . $perawatan->id_perawatan,
+                auth()->check() ? (string) auth()->id() : null,
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi perawatan dibatalkan gagal: ' . $e->getMessage());
+        }
     }
 
     /** Stok yang sudah dipotong saat servis dicatat dikembalikan + jejak mutasi masuk. Baris 'bengkel' tidak pernah memotong stok, jadi dilewati. */

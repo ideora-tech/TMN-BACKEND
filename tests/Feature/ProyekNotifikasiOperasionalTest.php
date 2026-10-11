@@ -19,13 +19,13 @@ class ProyekNotifikasiOperasionalTest extends TestCase
     private const PERAN_OPERASIONAL = 'OPS_TEST';
     private const PERAN_PENGAMAT    = 'PENGAMAT_TEST';
 
-    private function setIzin(string $kodePeran, string $aksi, int $diizinkan): void
+    private function setIzin(string $kodePeran, string $aksi, int $diizinkan, string $path = '/penugasan'): void
     {
-        $idMenu = DB::table('menu')->where('path', '/penugasan')->value('id_menu');
+        $idMenu = DB::table('menu')->where('path', $path)->value('id_menu');
         if ($idMenu === null) {
             $idMenu = (string) Str::uuid();
             DB::table('menu')->insert([
-                'id_menu' => $idMenu, 'nama_menu' => 'penugasan', 'path' => '/penugasan', 'aktif' => 1, 'dibuat_pada' => now(),
+                'id_menu' => $idMenu, 'nama_menu' => trim($path, '/'), 'path' => $path, 'aktif' => 1, 'dibuat_pada' => now(),
             ]);
         }
         DB::table('izin_peran')->insert([
@@ -84,7 +84,26 @@ class ProyekNotifikasiOperasionalTest extends TestCase
 
         $this->assertTrue($notif->contains('id_pengguna', $operasional->id_pengguna));
         $this->assertFalse($notif->contains('id_pengguna', $pengamat->id_pengguna));
-        $this->assertSame('/penugasan', $notif->first()->link);
+        $this->assertSame('/penugasan', $notif->firstWhere('id_pengguna', $operasional->id_pengguna)->link);
+    }
+
+    public function test_notifikasi_proyek_aktif_membuka_halaman_proyek_bila_penerima_boleh_melihat_proyek(): void
+    {
+        [$operasional] = $this->siapkanPenerima();
+        $this->setIzin(self::PERAN_OPERASIONAL, 'lihat', 1, '/project');
+        $pembuat = $this->actingAsRole('SUPERADMIN');
+
+        $idProyek = $this->postJson('/api/proyek', [
+            'id_klien'    => $this->makeKlien(),
+            'nama_proyek' => 'Proyek Notif Tautan',
+            'status'      => 'aktif',
+        ])->assertStatus(201)->json('data.id_proyek');
+
+        $notif = NotifikasiModel::where('tipe', 'proyek_aktif')->where('referensi_id', $idProyek)->get();
+
+        $this->assertSame("/project/{$idProyek}", $notif->firstWhere('id_pengguna', $operasional->id_pengguna)->link);
+        $this->assertSame("/project/{$idProyek}", $notif->firstWhere('id_pengguna', $pembuat->id_pengguna)->link);
+        $this->assertSame(1, $notif->where('id_pengguna', $operasional->id_pengguna)->count());
     }
 
     public function test_proyek_draft_tidak_memberi_notifikasi(): void

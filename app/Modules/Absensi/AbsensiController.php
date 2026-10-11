@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Absensi;
 
 use App\Helpers\ApiResponse;
+use App\Http\Middleware\CheckIzinPeran;
 use App\Modules\Absensi\Exports\RekapAbsensiExport;
 use App\Modules\Absensi\Requests\SimpanAbsensiHarianRequest;
 use Illuminate\Http\JsonResponse;
@@ -108,9 +109,15 @@ class AbsensiController extends Controller
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
             $request->get('search'),
+            $this->bolehLihatUpah($request),
         );
 
         return ApiResponse::paginated($result['data'], $result['meta']);
+    }
+
+    private function bolehLihatUpah(Request $request): bool
+    {
+        return CheckIzinPeran::diizinkan($request->user(), 'payroll|karyawan', 'lihat');
     }
 
     public function exportRekapExcel(Request $request): BinaryFileResponse
@@ -123,14 +130,16 @@ class AbsensiController extends Controller
         ]);
 
         $bulan = $validated['bulan'] ?? now()->format('Y-m');
+        $denganUpah = $this->bolehLihatUpah($request);
         $result = $this->service->rekapBulanan(
             (string) $request->user()->id_perusahaan,
             $bulan,
             1,
             self::MAKS_BARIS_EXPORT,
             $validated['search'] ?? null,
+            $denganUpah,
         );
 
-        return Excel::download(new RekapAbsensiExport(collect($result['data']), $bulan), "rekap-absensi-{$bulan}.xlsx");
+        return Excel::download(new RekapAbsensiExport(collect($result['data']), $bulan, $denganUpah), "rekap-absensi-{$bulan}.xlsx");
     }
 }

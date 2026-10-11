@@ -67,7 +67,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('id_pengajuan', $idPengajuan)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['nomor_pengajuan', 'kategori', 'penerima', 'nominal', 'tanggal_pengajuan', 'keterangan', 'id_perawatan', 'id_pembelian', 'id_uang_jalan', 'id_kasbon']);
+            ->first(['nomor_pengajuan', 'kategori', 'penerima', 'nominal', 'tanggal_pengajuan', 'keterangan', 'id_perawatan', 'id_pembelian', 'id_uang_jalan', 'id_kasbon', 'id_pengisian_kas_kecil']);
         if ($pengajuan === null) {
             return null;
         }
@@ -80,6 +80,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             $kategori === 'sparepart' && $pengajuan->id_pembelian !== null => $this->sumberPembelianSparepart((string) $pengajuan->id_pembelian, $idPerusahaan),
             $kategori === 'uang_jalan' && $pengajuan->id_uang_jalan !== null => $this->sumberUangJalan((string) $pengajuan->id_uang_jalan, $idPerusahaan),
             $kategori === 'kasbon' && $pengajuan->id_kasbon !== null       => $this->sumberKasbon((string) $pengajuan->id_kasbon, $idPerusahaan),
+            $pengajuan->id_pengisian_kas_kecil !== null                    => $this->sumberPengisianKasKecil((string) $pengajuan->id_pengisian_kas_kecil, (float) $pengajuan->nominal, $idPerusahaan),
             default                                                        => null,
         };
 
@@ -162,7 +163,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('id_uang_jalan', $idUangJalan)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['nomor_uang_jalan', 'tanggal', 'nama_driver', 'tipe_driver', 'nama_vendor', 'nopol', 'rute', 'kode_proyek', 'nama_proyek', 'tol_per_trip', 'bbm_per_trip', 'biaya_lain_per_trip', 'uang_jalan_per_trip', 'jumlah_trip', 'nomor_rekening', 'nama_bank', 'catatan']);
+            ->first(['nomor_uang_jalan', 'tanggal', 'nama_driver', 'tipe_driver', 'nama_vendor', 'nopol', 'rute', 'id_proyek', 'kode_proyek', 'nama_proyek', 'alasan_tanpa_proyek', 'tol_per_trip', 'bbm_per_trip', 'biaya_lain_per_trip', 'uang_jalan_per_trip', 'jumlah_trip', 'nomor_rekening', 'nama_bank', 'catatan']);
         if ($uangJalan === null) {
             return null;
         }
@@ -170,6 +171,13 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
         $statusDriver = $uangJalan->tipe_driver === 'vendor'
             ? trim('Driver Vendor ' . (string) $uangJalan->nama_vendor)
             : 'Driver Internal';
+
+        $proyek = $uangJalan->id_proyek !== null
+            ? [$this->teks('Proyek', $this->gabungJudul($uangJalan->kode_proyek, $uangJalan->nama_proyek))]
+            : [
+                $this->teks('Proyek', 'Di luar proyek'),
+                $this->teks('Alasan di Luar Proyek', $uangJalan->alasan_tanpa_proyek),
+            ];
 
         return [
             'info'   => [
@@ -179,7 +187,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->teks('Status', $statusDriver),
                 $this->teks('No. Polisi', $uangJalan->nopol),
                 $this->teks('Rute', $uangJalan->rute),
-                $this->teks('Proyek', $this->gabungJudul($uangJalan->kode_proyek, $uangJalan->nama_proyek)),
+                ...$proyek,
                 $this->rupiah('Estimasi Tol per Trip', $uangJalan->tol_per_trip),
                 $this->rupiah('Estimasi BBM per Trip', $uangJalan->bbm_per_trip),
                 $this->rupiah('Estimasi Biaya Lain per Trip', $uangJalan->biaya_lain_per_trip),
@@ -250,6 +258,66 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->teks('Bank', $kasbon->nama_bank),
             ],
             'bagian' => [],
+        ];
+    }
+
+    private function sumberPengisianKasKecil(string $idPengisian, float $nominal, string $idPerusahaan): ?array
+    {
+        $pengisian = DB::table('kas_kecil_pengisian')
+            ->where('id_pengisian', $idPengisian)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada')
+            ->first(['nomor_pengisian', 'tanggal', 'keterangan', 'nama_bank', 'nomor_rekening', 'atas_nama_rekening']);
+        if ($pengisian === null) {
+            return null;
+        }
+
+        $transaksi = fn () => DB::table('kas_kecil_transaksi')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereNull('dihapus_pada');
+
+        $saldo = round((float) $transaksi()->sum(DB::raw("CASE WHEN arah = 'masuk' THEN nominal ELSE -nominal END")), 2);
+
+        $sudahDiterima = $transaksi()->where('id_pengisian', $idPengisian)->exists();
+
+        $masukTerakhir = $transaksi()
+            ->where('arah', 'masuk')
+            ->orderByDesc('tanggal')
+            ->orderByDesc('dibuat_pada')
+            ->first(['tanggal', 'nominal']);
+
+        $pengeluaran = $transaksi()
+            ->where('arah', 'keluar')
+            ->when($masukTerakhir !== null, fn ($q) => $q->where('tanggal', '>=', $masukTerakhir->tanggal))
+            ->groupBy('kategori')
+            ->orderByRaw('SUM(nominal) DESC')
+            ->selectRaw('kategori, COUNT(*) as jumlah, SUM(nominal) as total')
+            ->get();
+
+        $baris = [];
+        foreach ($pengeluaran as $satu) {
+            $baris[] = [
+                'kategori' => \App\Modules\KasKecil\KasKecilService::labelKategori($satu->kategori) ?? 'Tanpa kategori',
+                'jumlah'   => (int) $satu->jumlah,
+                'total'    => round((float) $satu->total, 2),
+            ];
+        }
+
+        return [
+            'info'   => [
+                $this->teks('No. Pengisian', $pengisian->nomor_pengisian),
+                $this->tanggal('Tanggal Pengisian', $pengisian->tanggal),
+                $this->teks('Rekening Sumber', $this->gabungJudul($pengisian->nama_bank, $pengisian->nomor_rekening, $pengisian->atas_nama_rekening)),
+                $this->rupiah('Saldo Kas Kecil Saat Ini', $saldo),
+                ...($sudahDiterima ? [] : [$this->rupiah('Saldo Setelah Pengisian', $saldo + $nominal)]),
+                $this->tanggal('Penerimaan Kas Kecil Terakhir', $masukTerakhir->tanggal ?? null),
+                $this->rupiah('Nominal Penerimaan Terakhir', $masukTerakhir->nominal ?? null),
+            ],
+            'bagian' => $this->bagian('Pengeluaran Kas Kecil Sejak Penerimaan Terakhir', [
+                $this->kolom('kategori', 'Kategori'),
+                $this->kolom('jumlah', 'Transaksi', 'angka'),
+                $this->kolom('total', 'Total', 'rupiah'),
+            ], $baris, (float) $pengeluaran->sum('total')),
         ];
     }
 

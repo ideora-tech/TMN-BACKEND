@@ -15,6 +15,8 @@ class AbsensiService
 {
     public const STATUS_VALID = ['hadir', 'terlambat', 'izin', 'sakit', 'alpha'];
 
+    private const KOLOM_REKAP_TAMPIL = ['id_karyawan', 'nik', 'nama', 'cuti', 'lembur_menit', 'lembur_rupiah', ...self::STATUS_VALID];
+
     public function __construct(
         private readonly AbsensiRepositoryInterface $repo,
         private readonly KaryawanRepositoryInterface $karyawanRepo,
@@ -272,12 +274,23 @@ class AbsensiService
         return (int) round($total);
     }
 
-    public function rekapBulanan(string $idPerusahaan, string $bulan, int $page = 1, int $limit = 10, ?string $search = null): array
+    public function rekapBulanan(string $idPerusahaan, string $bulan, int $page = 1, int $limit = 10, ?string $search = null, bool $denganUpahLembur = true): array
     {
         $awal  = Carbon::parse($bulan . '-01')->startOfMonth();
         $akhir = $awal->copy()->endOfMonth();
 
-        return $this->rekapRentang($idPerusahaan, $awal->toDateString(), $akhir->toDateString(), $page, $limit, $search);
+        $hasil = $this->rekapRentang($idPerusahaan, $awal->toDateString(), $akhir->toDateString(), $page, $limit, $search);
+        $kolom = array_flip(self::KOLOM_REKAP_TAMPIL);
+
+        $hasil['data'] = array_map(static function (array $baris) use ($kolom, $denganUpahLembur) {
+            $baris = array_intersect_key($baris, $kolom);
+            if (!$denganUpahLembur) {
+                $baris['lembur_rupiah'] = null;
+            }
+            return $baris;
+        }, $hasil['data']);
+
+        return $hasil;
     }
 
     public function rekapRentang(string $idPerusahaan, string $awalStr, string $akhirStr, int $page = 1, int $limit = 10, ?string $search = null, bool $termasukNonAktif = false): array

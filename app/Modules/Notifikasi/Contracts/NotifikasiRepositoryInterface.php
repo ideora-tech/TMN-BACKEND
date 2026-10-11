@@ -19,6 +19,9 @@ interface NotifikasiRepositoryInterface
     public function markAllRead(string $idPengguna, string $idPerusahaan, bool $termasukBroadcast = true): int;
     public function idPenggunaUntukSupir(string $idSupir): ?string;
 
+    /** @return string[] */
+    public function idPenggunaUntukKaryawan(string $idKaryawan): array;
+
     /** @param string[] $paths @return string[] */
     public function idPenggunaDenganIzinMenu(array $paths, string $idPerusahaan, string $aksi = 'lihat'): array;
 

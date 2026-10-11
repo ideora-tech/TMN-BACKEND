@@ -1024,11 +1024,12 @@ class InvoiceVendorTest extends TestCase
 
         $this->assertCount(1, $this->getJson("/api/invoice-vendor/trip-siap-tagih?id_kontrak_vendor={$kontrak}")->json('data'));
         $this->postJson('/api/invoice-vendor', $payload)->assertStatus(201);
+        $this->assertSame(0, DB::table('notifikasi')->where('tipe', 'invoice_vendor_dibatalkan')->count());
     }
 
     public function test_hanya_pembuat_atau_superadmin_yang_boleh_membatalkan(): void
     {
-        $this->actingAsRole('KEUANGAN');
+        $pembuat = $this->actingAsRole('KEUANGAN');
         $vendor = $this->makeVendor();
         $idInvoice = $this->postJson('/api/invoice-vendor', [
             'id_vendor' => $vendor->id_vendor, 'nomor_invoice' => 'INV-BATAL-002', 'tanggal_invoice' => '2026-10-06', 'dpp' => 500000,
@@ -1041,9 +1042,16 @@ class InvoiceVendorTest extends TestCase
             ->assertJsonPath('message', 'Hanya pembuat invoice atau Superadmin yang dapat membatalkan invoice ini');
         $this->assertDatabaseHas('invoice_vendor', ['id_invoice_vendor' => $idInvoice, 'status' => 'draft']);
 
-        $this->actingAsRole('SUPERADMIN');
+        $superadmin = $this->actingAsRole('SUPERADMIN');
         $this->postJson("/api/invoice-vendor/{$idInvoice}/batalkan", ['alasan' => 'Dibatalkan superadmin'])
             ->assertOk()->assertJsonPath('data.status', 'dibatalkan');
+
+        $notif = DB::table('notifikasi')->where('tipe', 'invoice_vendor_dibatalkan')->where('referensi_id', $idInvoice)->get();
+        $this->assertCount(1, $notif);
+        $this->assertSame($pembuat->id_pengguna, $notif->first()->id_pengguna);
+        $this->assertSame("/invoice-vendor/{$idInvoice}", $notif->first()->link);
+        $this->assertStringContainsString($superadmin->username, $notif->first()->isi);
+        $this->assertStringContainsString('Dibatalkan superadmin', $notif->first()->isi);
     }
 
     public function test_invoice_dibatalkan_terkunci_dan_status_lain_tidak_bisa_dibatalkan(): void

@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\ArusKas\Exports;
 
-use App\Support\Exports\DenganGayaLaporan;
+use App\Modules\ArusKas\ArusKasService;
+use App\Support\AsalFrontend;
+use App\Support\Exports\SheetTabelTautan;
+use App\Support\PenyimpananBerkas;
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithTitle;
 
-class ArusKasExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize, WithEvents, WithTitle
+class ArusKasExport extends SheetTabelTautan
 {
-    use DenganGayaLaporan;
+    private const KOLOM_DOKUMEN = 9;
+    private const KOLOM_BUKTI   = 10;
 
     private const LABEL_SUMBER = [
         'faktur'                => 'Invoice',
@@ -26,20 +24,55 @@ class ArusKasExport implements FromCollection, WithHeadings, WithMapping, Should
         'pembelian_sparepart'   => 'Pembelian Sparepart',
     ];
 
-    public function __construct(
-        private readonly Collection $data,
-        private readonly ?string $dari = null,
-        private readonly ?string $sampai = null,
-    ) {}
-
-    public function title(): string
+    public function __construct(Collection $data, ?string $dari = null, ?string $sampai = null, ?string $asalFrontend = null)
     {
-        return 'Rincian Transaksi';
-    }
+        $rows        = collect();
+        $dokumen     = [];
+        $bukti       = [];
+        $pemasukan   = 0.0;
+        $pengeluaran = 0.0;
 
-    public function judulLaporan(): string
-    {
-        return 'REKAP ARUS KAS';
+        foreach ($data->values() as $i => $row) {
+            $masuk   = $row->arah === 'masuk';
+            $nominal = (float) $row->nominal;
+            if ($masuk) {
+                $pemasukan += $nominal;
+            } else {
+                $pengeluaran += $nominal;
+            }
+
+            [$labelDokumen, $pathDokumen] = self::dokumen($row);
+            $urlBukti = PenyimpananBerkas::url($row->url_bukti ?? null);
+
+            $rows->push([
+                $i + 1,
+                date('d/m/Y', strtotime((string) $row->tanggal)),
+                self::LABEL_SUMBER[$row->sumber] ?? ucfirst(str_replace('_', ' ', (string) $row->sumber)),
+                self::kategori($row),
+                (string) ($row->label ?? '-'),
+                (string) ($row->keterangan ?? '-'),
+                $masuk ? $nominal : '',
+                $masuk ? '' : $nominal,
+                $labelDokumen,
+                $urlBukti !== null ? 'Lihat bukti' : '',
+            ]);
+            $dokumen[$i] = AsalFrontend::tautan($asalFrontend, $pathDokumen);
+            $bukti[$i]   = $urlBukti;
+        }
+
+        $rows->push(['', '', '', '', '', 'TOTAL PEMASUKAN', round($pemasukan, 2), '', '', '']);
+        $rows->push(['', '', '', '', '', 'TOTAL PENGELUARAN', '', round($pengeluaran, 2), '', '']);
+        $rows->push(['', '', '', '', '', 'NETTO', round($pemasukan - $pengeluaran, 2), '', '', '']);
+
+        parent::__construct(
+            'Rincian Transaksi',
+            'REKAP ARUS KAS',
+            self::labelPeriode($dari, $sampai),
+            ['No', 'Tanggal', 'Sumber', 'Kategori', 'Referensi', 'Keterangan', 'Masuk', 'Keluar', 'Dokumen', 'Bukti'],
+            $rows,
+            [7, 8],
+            [self::KOLOM_DOKUMEN => $dokumen, self::KOLOM_BUKTI => $bukti],
+        );
     }
 
     public static function labelPeriode(?string $dari, ?string $sampai): string
@@ -56,46 +89,28 @@ class ArusKasExport implements FromCollection, WithHeadings, WithMapping, Should
         return 'Semua Periode';
     }
 
-    public function subjudulLaporan(): string
+    private static function kategori(object $row): string
     {
-        return self::labelPeriode($this->dari, $this->sampai);
+        return match ($row->sumber) {
+            'faktur'                => 'Invoice Klien',
+            'pembayaran_vendor'     => 'Pembayaran Vendor',
+            'pengajuan_pengeluaran' => ArusKasService::labelKategori($row->kategori ?? null),
+            'pemasukan_manual'      => ArusKasService::labelKategoriPemasukan($row->kategori ?? null),
+            default                 => (string) ($row->kategori ?? ''),
+        };
     }
 
-    public function collection(): Collection
+    /** @return array{0: string, 1: string|null} */
+    private static function dokumen(object $row): array
     {
-        $rows = $this->data;
+        $id = trim((string) ($row->id_referensi ?? ''));
 
-        $pemasukan   = (float) $rows->where('arah', 'masuk')->sum(fn ($r) => (float) $r->nominal);
-        $pengeluaran = (float) $rows->where('arah', 'keluar')->sum(fn ($r) => (float) $r->nominal);
-
-        return $rows
-            ->push((object) ['is_total' => 'pemasukan', 'nominal' => $pemasukan])
-            ->push((object) ['is_total' => 'pengeluaran', 'nominal' => $pengeluaran])
-            ->push((object) ['is_total' => 'netto', 'nominal' => $pemasukan - $pengeluaran]);
-    }
-
-    public function headings(): array
-    {
-        return ['Tanggal', 'Sumber', 'Referensi', 'Keterangan', 'Arah', 'Nominal'];
-    }
-
-    public function map($row): array
-    {
-        if (isset($row->is_total)) {
-            return match ($row->is_total) {
-                'pemasukan'   => ['', '', '', 'TOTAL PEMASUKAN', 'Masuk', (float) $row->nominal],
-                'pengeluaran' => ['', '', '', 'TOTAL PENGELUARAN', 'Keluar', (float) $row->nominal],
-                default       => ['', '', '', 'NETTO', '-', (float) $row->nominal],
-            };
-        }
-
-        return [
-            date('d/m/Y', strtotime($row->tanggal)),
-            self::LABEL_SUMBER[$row->sumber] ?? ucfirst(str_replace('_', ' ', (string) $row->sumber)),
-            $row->label ?? '-',
-            $row->keterangan ?? '-',
-            $row->arah === 'masuk' ? 'Masuk' : 'Keluar',
-            (float) $row->nominal,
-        ];
+        return match ($row->sumber) {
+            'faktur'                => $id !== '' ? ['Invoice', '/faktur/' . rawurlencode($id)] : ['', null],
+            'pembayaran_vendor'     => $id !== '' ? ['Invoice Vendor', '/invoice-vendor/' . rawurlencode($id)] : ['', null],
+            'pengajuan_pengeluaran' => ['Proses Pembayaran', '/proses-pembayaran?tab=ditransfer'],
+            'pemasukan_manual'      => ['Pemasukan Manual', '/arus-kas?tab=pemasukan'],
+            default                 => ['', null],
+        };
     }
 }

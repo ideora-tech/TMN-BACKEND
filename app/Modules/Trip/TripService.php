@@ -386,7 +386,7 @@ class TripService
 
         $sedangBerjalan = $trip->status === 'berjalan';
 
-        return DB::transaction(function () use ($trip, $sedangBerjalan, $alasan) {
+        $dibatalkan = DB::transaction(function () use ($trip, $sedangBerjalan, $alasan) {
             $updated = $this->repo->update($trip, [
                 'status' => 'dibatalkan',
             ]);
@@ -399,6 +399,42 @@ class TripService
 
             return $updated;
         });
+
+        $this->beritahuOperasionalTripDibatalkanSupir((string) $trip->id_trip, $idSupir, $tipe === 'vendor', $alasan);
+
+        return $dibatalkan;
+    }
+
+    private function beritahuOperasionalTripDibatalkanSupir(string $idTrip, string $idSupir, bool $vendor, string $alasan): void
+    {
+        try {
+            $penugasan = $this->repo->findPenugasanDariTrip($idTrip);
+            if ($penugasan === null) {
+                return;
+            }
+
+            $proyek = $this->repo->infoProyek((string) $penugasan->id_proyek);
+            if ($proyek === null) {
+                return;
+            }
+
+            $namaSupir = $this->repo->namaSupir($idSupir, $vendor) ?? 'Supir';
+
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKePemilikIzinMenu(
+                ['/penugasan'],
+                (string) $proyek->id_perusahaan,
+                "Trip dibatalkan supir: {$proyek->nama_proyek}",
+                "{$namaSupir} membatalkan trip pada proyek {$proyek->nama_proyek}. Alasan: {$alasan}",
+                'trip_dibatalkan_supir',
+                'trip',
+                $idTrip,
+                '/penugasan/' . $penugasan->id_penugasan,
+                null,
+                'tambah',
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi trip dibatalkan supir gagal: ' . $e->getMessage());
+        }
     }
 
     public function create(array $data, string $idPerusahaan): TripModel

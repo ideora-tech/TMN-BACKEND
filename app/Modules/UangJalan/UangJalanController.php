@@ -7,6 +7,7 @@ namespace App\Modules\UangJalan;
 use App\Helpers\ApiResponse;
 use App\Modules\UangJalan\Requests\StoreUangJalanRequest;
 use App\Modules\UangJalan\Requests\UpdateUangJalanRequest;
+use App\Modules\UangJalan\Resources\UangJalanKelompokResource;
 use App\Modules\UangJalan\Resources\UangJalanResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,9 +28,26 @@ class UangJalanController extends Controller
             $this->teks($request, 'dari'),
             $this->teks($request, 'sampai'),
             $this->teks($request, 'id_proyek'),
+            $this->kelompokDari($request),
         );
 
         return ApiResponse::paginated(UangJalanResource::collection($result['data']), $result['meta']);
+    }
+
+    public function kelompok(Request $request): JsonResponse
+    {
+        $result = $this->service->listKelompok(
+            (string) $request->user()->id_perusahaan,
+            max(1, (int) $request->get('page', 1)),
+            min(100, max(1, (int) $request->get('limit', 10))),
+            $this->teks($request, 'search'),
+            $this->teks($request, 'status'),
+            $this->teks($request, 'dari'),
+            $this->teks($request, 'sampai'),
+            $this->teks($request, 'id_proyek'),
+        );
+
+        return ApiResponse::paginated(UangJalanKelompokResource::collection($result['data']), $result['meta']);
     }
 
     public function opsi(Request $request): JsonResponse
@@ -79,6 +97,17 @@ class UangJalanController extends Controller
         $nilai = $request->query($kunci);
 
         return is_string($nilai) ? $nilai : null;
+    }
+
+    private function kelompokDari(Request $request): ?array
+    {
+        $tipe   = $this->teks($request, 'kelompok_tipe');
+        $driver = $this->teks($request, 'kelompok_driver');
+        if ($tipe === null || $tipe === '' || $driver === null || $driver === '') {
+            return null;
+        }
+
+        return ['tipe' => $tipe, 'driver' => $driver, 'proyek' => $this->teks($request, 'kelompok_proyek')];
     }
 
     public function show(Request $request, string $id): JsonResponse

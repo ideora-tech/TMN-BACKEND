@@ -147,6 +147,17 @@ class NotifikasiRepository implements NotifikasiRepositoryInterface
             ->value('id_pengguna');
     }
 
+    public function idPenggunaUntukKaryawan(string $idKaryawan): array
+    {
+        return DB::table('pengguna')
+            ->whereNull('dihapus_pada')
+            ->where('aktif', 1)
+            ->where('id_karyawan', $idKaryawan)
+            ->pluck('id_pengguna')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
     public function idPenggunaUntukSupirVendor(string $idSupirVendor): ?string
     {
         return DB::table('supir_vendor')

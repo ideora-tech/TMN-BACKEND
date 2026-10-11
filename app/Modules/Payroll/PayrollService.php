@@ -723,7 +723,7 @@ class PayrollService
             abort(422, 'Periode belum final');
         }
 
-        return $this->transaksiPeriode(function () use ($periode) {
+        $hasil = $this->transaksiPeriode(function () use ($periode) {
             $terkunci = $this->repo->kunciPeriode($periode->id_periode);
             if ($terkunci === null || $terkunci->status !== 'final') {
                 abort(422, 'Periode belum final');
@@ -738,6 +738,31 @@ class PayrollService
                 'difinalisasi_oleh' => null,
             ]);
         });
+
+        $this->beritahuFinalisasiDibatalkan($periode);
+
+        return $hasil;
+    }
+
+    private function beritahuFinalisasiDibatalkan(object $periode): void
+    {
+        try {
+            app(\App\Modules\Notifikasi\NotifikasiService::class)->kirimKePemilikIzinMenu(
+                ['/payroll', '/proses-pembayaran'],
+                (string) $periode->id_perusahaan,
+                "Finalisasi payroll {$periode->nama} dibatalkan",
+                "Periode payroll {$periode->nama} dikembalikan ke draft. Pengajuan pembayaran gajinya ditarik dari Proses Pembayaran.",
+                'payroll_batal_finalisasi',
+                'payroll_periode',
+                (string) $periode->id_periode,
+                '/proses-pembayaran',
+                auth()->check() ? (string) auth()->id() : null,
+                'lihat',
+                ['menu' => ['/payroll'], 'link' => '/payroll/' . $periode->id_periode],
+            );
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notifikasi batal finalisasi payroll gagal: ' . $e->getMessage());
+        }
     }
 
     // ── PPh21 (metode disetahunkan, tarif progresif UU HPP) ──────

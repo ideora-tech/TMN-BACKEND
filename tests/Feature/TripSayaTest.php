@@ -898,6 +898,51 @@ class TripSayaTest extends TestCase
             ->assertJsonPath('data.alasan_dibatalkan', 'Dibatalkan supir: Armada mogok di jalan');
     }
 
+    public function test_pembatalan_trip_oleh_supir_memberi_notifikasi_ke_operasional(): void
+    {
+        $idMenu = DB::table('menu')->where('path', '/penugasan')->value('id_menu');
+        if ($idMenu === null) {
+            $idMenu = (string) Str::uuid();
+            DB::table('menu')->insert([
+                'id_menu' => $idMenu, 'nama_menu' => 'penugasan', 'path' => '/penugasan', 'aktif' => 1, 'dibuat_pada' => now(),
+            ]);
+        }
+        foreach ([['OPS_TEST', 'tambah'], ['PENGAMAT_TEST', 'lihat']] as [$kodePeran, $aksi]) {
+            DB::table('izin_peran')->insert([
+                'id_izin' => (string) Str::uuid(), 'id_perusahaan' => null, 'kode_peran' => $kodePeran,
+                'id_menu' => $idMenu, 'aksi' => $aksi, 'diizinkan' => 1, 'dibuat_pada' => now(),
+            ]);
+        }
+        $this->ensurePerusahaan();
+        $buatPengguna = fn (string $kodePeran) => Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_peran' => $kodePeran, 'username' => 'u_' . Str::random(8),
+            'email' => Str::random(8) . '@test.id', 'kata_sandi' => bcrypt('Password123!'), 'aktif' => 1,
+        ]);
+        $operasional = $buatPengguna('OPS_TEST');
+        $pengamat = $buatPengguna('PENGAMAT_TEST');
+
+        $ctx = $this->actingAsSupir();
+        $proyek = $this->makeProyek();
+        $penugasan = $this->makePenugasan($ctx->id_supir, $proyek->id_proyek);
+        $this->absenHadir($ctx->id_supir);
+        $idTrip = $this->postJson('/api/trip/mulai-saya', [
+            'id_penugasan' => $penugasan->id_penugasan,
+        ])->assertStatus(201)->json('data.id_trip');
+
+        $this->postJson("/api/trip/{$idTrip}/batalkan-saya", ['alasan' => 'Armada mogok di jalan'])->assertStatus(200);
+        $this->postJson("/api/trip/{$idTrip}/batalkan-saya", ['alasan' => 'Armada mogok di jalan'])->assertStatus(200);
+
+        $notif = DB::table('notifikasi')->where('tipe', 'trip_dibatalkan_supir')->where('referensi_id', $idTrip)->get();
+
+        $this->assertSame(1, $notif->where('id_pengguna', $operasional->id_pengguna)->count());
+        $this->assertSame(0, $notif->where('id_pengguna', $pengamat->id_pengguna)->count());
+        $milikOps = $notif->firstWhere('id_pengguna', $operasional->id_pengguna);
+        $this->assertSame('/penugasan/' . $penugasan->id_penugasan, $milikOps->link);
+        $this->assertStringContainsString('Supir Test', $milikOps->isi);
+        $this->assertStringContainsString('Armada mogok di jalan', $milikOps->isi);
+    }
+
     public function test_batalkan_trip_tanpa_alasan_ditolak_422(): void
     {
         $ctx = $this->actingAsSupir();

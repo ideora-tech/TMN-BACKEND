@@ -39,6 +39,10 @@ class ArusKasService
 
     public const PERAN_KEUANGAN = ['SUPERADMIN', 'KEUANGAN'];
 
+    public const KATEGORI_PENGISIAN_KAS_KECIL = 'pengisian_kas_kecil';
+
+    private const KATEGORI_SELALU_APPROVAL = [self::KATEGORI_PENGISIAN_KAS_KECIL];
+
     private const LABEL_KATEGORI = [
         'uang_jalan'          => 'Uang Jalan',
         'legalitas'           => 'Legalitas',
@@ -50,7 +54,16 @@ class ArusKasService
         'pembayaran_vendor'   => 'Pembayaran Vendor',
         'pengadaan'           => 'Pengadaan',
         'kasbon'              => 'Kasbon',
+        self::KATEGORI_PENGISIAN_KAS_KECIL => 'Pengisian Kas Kecil',
         'lainnya'             => 'Lainnya',
+    ];
+
+    private const LABEL_KATEGORI_PEMASUKAN = [
+        'pendapatan_jasa'   => 'Pendapatan Jasa',
+        'penjualan_aset'    => 'Penjualan Aset',
+        'pengembalian_dana' => 'Pengembalian Dana',
+        'modal_pinjaman'    => 'Modal/Pinjaman',
+        'lainnya'           => 'Lainnya',
     ];
 
     private const URUTAN_RIWAYAT = [
@@ -72,6 +85,7 @@ class ArusKasService
         'pembayaran_vendor',
         'pengadaan',
         'kasbon',
+        self::KATEGORI_PENGISIAN_KAS_KECIL,
         'lainnya',
     ];
 
@@ -80,7 +94,34 @@ class ArusKasService
         private readonly NotifikasiService $notifikasiService,
         private readonly \App\Modules\Approval\ApprovalService $approvalService,
         private readonly \App\Modules\PembayaranVendor\Contracts\PembayaranVendorRepositoryInterface $pembayaranVendorRepo,
+        private readonly \App\Modules\KasKecil\Contracts\KasKecilRepositoryInterface $kasKecilRepo,
     ) {}
+
+    public static function labelKategori(?string $kategori): string
+    {
+        $kategori = (string) $kategori;
+
+        return self::LABEL_KATEGORI[$kategori] ?? ucwords(str_replace('_', ' ', $kategori));
+    }
+
+    /** @return array<string, string> */
+    public static function daftarLabelKategori(): array
+    {
+        return self::LABEL_KATEGORI;
+    }
+
+    public static function labelKategoriPemasukan(?string $kategori): string
+    {
+        $kategori = (string) $kategori;
+
+        return self::LABEL_KATEGORI_PEMASUKAN[$kategori] ?? ucwords(str_replace('_', ' ', $kategori));
+    }
+
+    /** @return array<string, string> */
+    public static function daftarLabelKategoriPemasukan(): array
+    {
+        return self::LABEL_KATEGORI_PEMASUKAN;
+    }
 
     public function infoPengajuanTrip(string $idTrip): ?array
     {
@@ -430,6 +471,9 @@ class ArusKasService
         if ($record->id_kasbon !== null) {
             abort(422, 'Pengajuan kasbon diubah lewat menu Kasbon');
         }
+        if ($record->id_pengisian_kas_kecil !== null) {
+            abort(422, 'Pengajuan pengisian kas kecil diubah lewat menu Kas Kecil');
+        }
         if ($record->id_permintaan_pembelian !== null) {
             abort(422, 'Pengajuan pembayaran PR diubah lewat halaman Permintaan Pembelian (Ajukan Ulang Pembayaran)');
         }
@@ -467,6 +511,9 @@ class ArusKasService
         }
         if ($record->id_kasbon !== null) {
             abort(422, 'Pengajuan kasbon dihapus lewat menu Kasbon');
+        }
+        if ($record->id_pengisian_kas_kecil !== null) {
+            abort(422, 'Pengajuan pengisian kas kecil dihapus lewat menu Kas Kecil');
         }
         if ($record->id_permintaan_pembelian !== null) {
             abort(422, 'Pengajuan pembayaran PR tidak bisa dihapus — bila ditolak, ajukan ulang dari halaman Permintaan Pembelian');
@@ -523,7 +570,7 @@ class ArusKasService
     private function masukTahapApproval(PengajuanPengeluaranModel $record, ?string $aktorId = null): PengajuanPengeluaranModel
     {
         $aktor = $aktorId ?? auth()->id() ?? $record->dibuat_oleh;
-        $batas = $this->batasApproval((string) $record->id_perusahaan);
+        $batas = $this->batasApprovalUntuk($record);
         if ((float) $record->nominal < $batas) {
             $updated = $this->repo->updatePengajuan($record, [
                 'status'          => self::STATUS_DISETUJUI,
@@ -556,6 +603,15 @@ class ArusKasService
         return $this->repo->updatePengajuan($record, ['status' => self::STATUS_MENUNGGU_APPROVAL]);
     }
 
+    private function batasApprovalUntuk(PengajuanPengeluaranModel $record): float
+    {
+        if (in_array((string) $record->kategori, self::KATEGORI_SELALU_APPROVAL, true)) {
+            return 0.0;
+        }
+
+        return $this->batasApproval((string) $record->id_perusahaan);
+    }
+
     private function kodeApprovalUntuk(PengajuanPengeluaranModel $record): ?string
     {
         $kategori     = (string) $record->kategori;
@@ -566,6 +622,10 @@ class ArusKasService
         }
         if ($this->approvalService->eventTypeDinonaktifkan($kategori, $idPerusahaan)) {
             return null;
+        }
+        if (in_array($kategori, self::KATEGORI_SELALU_APPROVAL, true)) {
+            abort(422, 'Jenis approval ' . self::labelKategori($kategori)
+                . " belum dibuat — buat di Konfigurasi Approval dengan kode \"{$kategori}\" dan atur approvernya");
         }
 
         return $this->approvalService->adaEventTypeAktif('pengajuan_pengeluaran', $idPerusahaan)
@@ -581,7 +641,7 @@ class ArusKasService
             (string) $record->id_perusahaan,
         );
 
-        $batas = $this->batasApproval((string) $record->id_perusahaan);
+        $batas = $this->batasApprovalUntuk($record);
         if ((float) $record->nominal < $batas) {
             $updated = $this->repo->updatePengajuan($record, [
                 'status'         => self::STATUS_DISETUJUI,
@@ -1059,6 +1119,10 @@ class ArusKasService
                 }
             }
 
+            $pengisianKasKecil = $terkunci->id_pengisian_kas_kecil !== null
+                ? $this->pengisianKasKecilSiapDiterima((string) $terkunci->id_pengisian_kas_kecil, $tanggalTransfer)
+                : null;
+
             $statusPembelian = null;
             if ($terkunci->id_pembelian !== null) {
                 $statusPembelian = $this->repo->statusPembelian($terkunci->id_pembelian);
@@ -1117,12 +1181,59 @@ class ArusKasService
             if ($terkunci->id_invoice_vendor !== null) {
                 $this->catatPembayaranInvoiceVendor($updated, $tanggalTransfer);
             }
+            if ($pengisianKasKecil !== null) {
+                $this->catatPenerimaanKasKecil($pengisianKasKecil, $updated, $tanggalTransfer);
+            }
             $this->beritahuTimPelaksana($updated, 'pengadaan_ditransfer',
                 'sudah ditransfer',
                 "sudah ditransfer oleh Keuangan pada {$tanggalTransfer}.");
             $this->beritahuPembuatKasbon($updated, 'dicairkan', $tanggalTransfer);
             return $updated;
         });
+    }
+
+    private function pengisianKasKecilSiapDiterima(string $idPengisian, string $tanggalTransfer): object
+    {
+        $pengisian = $this->kasKecilRepo->findPengisian($idPengisian);
+        if ($pengisian === null) {
+            abort(409, 'Data pengisian kas kecil tidak ditemukan — transfer tidak bisa dicatat');
+        }
+
+        $tanggal          = Carbon::parse($tanggalTransfer)->toDateString();
+        $tanggalPengisian = substr((string) $pengisian->tanggal, 0, 10);
+
+        if ($tanggal > now()->toDateString()) {
+            abort(422, 'Tanggal transfer pengisian kas kecil tidak boleh melewati hari ini');
+        }
+        if ($tanggal < $tanggalPengisian) {
+            abort(422, 'Tanggal transfer tidak boleh sebelum tanggal pengisian kas kecil ('
+                . Carbon::parse($tanggalPengisian)->format('d/m/Y') . ')');
+        }
+
+        return $pengisian;
+    }
+
+    private function catatPenerimaanKasKecil(object $pengisian, PengajuanPengeluaranModel $pengajuan, string $tanggalTransfer): void
+    {
+        $idPerusahaan = (string) $pengisian->id_perusahaan;
+
+        $this->kasKecilRepo->kunciPerusahaan($idPerusahaan);
+
+        if ($this->kasKecilRepo->penerimaanPengisianAda((string) $pengisian->id_pengisian)) {
+            return;
+        }
+
+        $this->kasKecilRepo->createTransaksi([
+            'id_perusahaan'   => $idPerusahaan,
+            'nomor_transaksi' => $this->kasKecilRepo->nomorTransaksiBerikutnya($idPerusahaan),
+            'tanggal'         => Carbon::parse($tanggalTransfer)->toDateString(),
+            'arah'            => 'masuk',
+            'jenis'           => \App\Modules\KasKecil\KasKecilService::JENIS_PENGISIAN,
+            'nominal'         => round((float) $pengajuan->nominal, 2),
+            'keterangan'      => "Pengisian kas kecil {$pengisian->nomor_pengisian} dari rekening",
+            'url_bukti'       => $pengajuan->url_bukti,
+            'id_pengisian'    => $pengisian->id_pengisian,
+        ]);
     }
 
     private function beritahuPembuatKasbon(PengajuanPengeluaranModel $record, string $kejadian, string $rincian): void
@@ -1761,7 +1872,7 @@ class ArusKasService
         $b = [
             'op_pelanggan' => 0.0, 'op_pengembalian' => 0.0, 'op_masuk_lain' => 0.0,
             'op_uang_jalan' => 0.0, 'op_perawatan' => 0.0, 'op_sparepart' => 0.0,
-            'op_legalitas' => 0.0, 'op_gaji' => 0.0, 'op_kasbon' => 0.0, 'op_vendor' => 0.0, 'op_keluar_lain' => 0.0,
+            'op_legalitas' => 0.0, 'op_gaji' => 0.0, 'op_kasbon' => 0.0, 'op_kas_kecil' => 0.0, 'op_vendor' => 0.0, 'op_keluar_lain' => 0.0,
             'inv_jual_aset' => 0.0, 'inv_beli_aset' => 0.0,
             'dana_modal' => 0.0, 'dana_bayar_pinjaman' => 0.0,
         ];
@@ -1793,6 +1904,7 @@ class ArusKasService
                 'legalitas'           => $b['op_legalitas'] += $nominal,
                 'penggajian'          => $b['op_gaji'] += $nominal,
                 'kasbon'              => $b['op_kasbon'] += $nominal,
+                self::KATEGORI_PENGISIAN_KAS_KECIL => $b['op_kas_kecil'] += $nominal,
                 'pembelian_aset'      => $b['inv_beli_aset'] += $nominal,
                 'pembayaran_pinjaman' => $b['dana_bayar_pinjaman'] += $nominal,
                 default               => $b['op_keluar_lain'] += $nominal,
@@ -1813,6 +1925,7 @@ class ArusKasService
                     ['label' => 'Pembayaran legalitas',           'arah' => 'keluar', 'nominal' => $b['op_legalitas']],
                     ['label' => 'Pembayaran gaji karyawan',       'arah' => 'keluar', 'nominal' => $b['op_gaji']],
                     ['label' => 'Pemberian kasbon karyawan',      'arah' => 'keluar', 'nominal' => $b['op_kasbon']],
+                    ['label' => 'Pengisian kas kecil',            'arah' => 'keluar', 'nominal' => $b['op_kas_kecil']],
                     ['label' => 'Pembayaran ke vendor',           'arah' => 'keluar', 'nominal' => $b['op_vendor']],
                     ['label' => 'Pembayaran operasional lainnya', 'arah' => 'keluar', 'nominal' => $b['op_keluar_lain']],
                 ],
@@ -1932,6 +2045,31 @@ class ArusKasService
     public function hapusPengajuanKasbon(string $idPengajuan, string $idPerusahaan): void
     {
         $this->hapusPengajuanTertaut('id_kasbon', 'Kasbon', $idPengajuan, $idPerusahaan);
+    }
+
+    public function buatPengajuanPengisianKasKecil(
+        string $idPerusahaan,
+        string $idPengisian,
+        float $nominal,
+        string $penerima,
+        string $keterangan,
+    ): PengajuanPengeluaranModel {
+        return $this->buatPengajuanTertaut('id_pengisian_kas_kecil', $idPengisian, self::KATEGORI_PENGISIAN_KAS_KECIL, $idPerusahaan, $nominal, $penerima, $keterangan);
+    }
+
+    public function perbaruiPengajuanPengisianKasKecil(
+        string $idPengajuan,
+        string $idPerusahaan,
+        float $nominal,
+        string $penerima,
+        string $keterangan,
+    ): PengajuanPengeluaranModel {
+        return $this->perbaruiPengajuanTertaut('id_pengisian_kas_kecil', 'Pengisian kas kecil', $idPengajuan, $idPerusahaan, $nominal, $penerima, $keterangan);
+    }
+
+    public function hapusPengajuanPengisianKasKecil(string $idPengajuan, string $idPerusahaan): void
+    {
+        $this->hapusPengajuanTertaut('id_pengisian_kas_kecil', 'Pengisian kas kecil', $idPengajuan, $idPerusahaan);
     }
 
     private function buatPengajuanTertaut(

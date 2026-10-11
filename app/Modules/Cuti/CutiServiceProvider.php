@@ -30,7 +30,7 @@ class CutiServiceProvider extends ServiceProvider
             });
 
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:cuti|karyawan|trip|penugasan'])
+            ->middleware(['api', 'auth:sanctum', 'izin:cuti|karyawan|penugasan'])
             ->group(function () {
                 Route::get('pengajuan-cuti/aktif', [CutiController::class, 'cutiAktif']);
             });

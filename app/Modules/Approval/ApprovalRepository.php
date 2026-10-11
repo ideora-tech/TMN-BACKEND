@@ -24,6 +24,7 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         'pembayaran_vendor',
         'pengadaan',
         'kasbon',
+        'pengisian_kas_kecil',
         'lainnya',
         'persetujuan_transfer',
     ];
@@ -351,6 +352,7 @@ class ApprovalRepository implements ApprovalRepositoryInterface
             ->where('id_event_type', $idEventType)
             ->where('id_referensi', $idReferensi)
             ->where('status', '!=', 'dibatalkan')
+            ->orderByRaw("CASE WHEN status = 'menunggu' THEN 0 ELSE 1 END")
             ->orderByDesc('dibuat_pada')
             ->first();
     }

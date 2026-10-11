@@ -15,13 +15,14 @@ class ArusKasWorkbookExport implements WithMultipleSheets
         private readonly string $namaPerusahaan,
         private readonly ?string $dari = null,
         private readonly ?string $sampai = null,
+        private readonly ?string $asalFrontend = null,
     ) {}
 
     public function sheets(): array
     {
         return [
             new LaporanArusKasSheet($this->laporan, $this->namaPerusahaan, $this->dari, $this->sampai),
-            new ArusKasExport($this->transaksi, $this->dari, $this->sampai),
+            new ArusKasExport($this->transaksi, $this->dari, $this->sampai, $this->asalFrontend),
         ];
     }
 }
