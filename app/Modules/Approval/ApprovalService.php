@@ -421,20 +421,22 @@ class ApprovalService
 
     private function selesaikanKeputusan(ApprovalPengajuanModel $pengajuan, ApprovalEventTypeModel $eventType, string $keputusan, ?string $alasanDitolak, string $idPengguna): void
     {
-        $this->notifikasiService->buatDanKirim([
-            'id_perusahaan'  => $pengajuan->id_perusahaan,
-            'id_pengguna'    => $pengajuan->id_pengguna_pengaju,
-            'judul'          => "Approval {$eventType->nama} Anda: " . ($keputusan === 'disetujui' ? 'Disetujui' : 'Ditolak'),
-            'isi'            => $alasanDitolak ?? 'Pengajuan Anda telah diputuskan',
-            'tipe'           => 'approval_keputusan',
-            'referensi_id'   => $pengajuan->id_approval,
-            'referensi_tipe' => 'approval_keputusan',
-            'link'           => $this->linkReferensi($eventType->kode, (string) $pengajuan->id_referensi),
-            'dibaca'         => 0,
-        ], [
-            'kode_event' => $eventType->kode,
-            'keputusan'  => $keputusan,
-        ]);
+        if (!$this->repo->pengajuAdalahSupirPengeluaran($eventType->kode, (string) $pengajuan->id_referensi, (string) $pengajuan->id_pengguna_pengaju)) {
+            $this->notifikasiService->buatDanKirim([
+                'id_perusahaan'  => $pengajuan->id_perusahaan,
+                'id_pengguna'    => $pengajuan->id_pengguna_pengaju,
+                'judul'          => "Approval {$eventType->nama} Anda: " . ($keputusan === 'disetujui' ? 'Disetujui' : 'Ditolak'),
+                'isi'            => $alasanDitolak ?? 'Pengajuan Anda telah diputuskan',
+                'tipe'           => 'approval_keputusan',
+                'referensi_id'   => $pengajuan->id_approval,
+                'referensi_tipe' => 'approval_keputusan',
+                'link'           => $this->linkReferensi($eventType->kode, (string) $pengajuan->id_referensi),
+                'dibaca'         => 0,
+            ], [
+                'kode_event' => $eventType->kode,
+                'keputusan'  => $keputusan,
+            ]);
+        }
 
         event(new \App\Events\ApprovalDiputuskan(
             $pengajuan->id_perusahaan,

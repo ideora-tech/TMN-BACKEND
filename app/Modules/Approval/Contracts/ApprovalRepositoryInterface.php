@@ -51,4 +51,5 @@ interface ApprovalRepositoryInterface
     public function listMenungguApprovalSaya(string $idPengguna, string $idPerusahaan): Collection;
     public function listRiwayatApprovalSaya(string $idPengguna, string $idPerusahaan): Collection;
     public function voidKeputusanUntukApproval(string $idApproval): void;
+    public function pengajuAdalahSupirPengeluaran(string $kode, string $idReferensi, string $idPenggunaPengaju): bool;
 }

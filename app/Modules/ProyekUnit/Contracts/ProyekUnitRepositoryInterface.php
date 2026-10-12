@@ -33,4 +33,10 @@ interface ProyekUnitRepositoryInterface
 
     /** @return ProyekUnitModel[] */
     public function findBanyakMilikProyek(string $idProyek, array $ids): array;
+
+    /**
+     * @param string[] $idArmada
+     * @return string[]
+     */
+    public function idSupirPemegang(array $idArmada, string $idPerusahaan): array;
 }

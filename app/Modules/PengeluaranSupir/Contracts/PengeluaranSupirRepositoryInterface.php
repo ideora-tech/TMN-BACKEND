@@ -24,6 +24,8 @@ interface PengeluaranSupirRepositoryInterface
 
     public function adaKembaran(string $idSupir, string $jenis, ?string $idArmada, ?string $idArmadaVendor, string $tanggal, float $nominal, string $sejak): bool;
 
+    public function jumlahSejak(string $idSupir, string $sejak): int;
+
     public function nomorBerikutnya(string $idPerusahaan): string;
 
     /** @param list<string> $urlFoto */

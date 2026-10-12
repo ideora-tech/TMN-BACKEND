@@ -557,6 +557,20 @@ class ApprovalRepository implements ApprovalRepositoryInterface
             });
     }
 
+    public function pengajuAdalahSupirPengeluaran(string $kode, string $idReferensi, string $idPenggunaPengaju): bool
+    {
+        if (!in_array($kode, self::KODE_REFERENSI_PENGELUARAN, true)) {
+            return false;
+        }
+
+        return DB::table('pengajuan_pengeluaran as pp')
+            ->join('pengeluaran_supir as ps', 'ps.id_pengeluaran_supir', '=', 'pp.id_pengeluaran_supir')
+            ->join('supir as s', 's.id_supir', '=', 'ps.id_supir')
+            ->where('pp.id_pengajuan', $idReferensi)
+            ->where('s.id_pengguna', $idPenggunaPengaju)
+            ->exists();
+    }
+
     private function ringkasanReferensi(string $kode, string $idReferensi): array
     {
         $kosong = ['nomor' => null, 'keterangan' => null, 'pihak' => null];

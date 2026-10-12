@@ -204,6 +204,53 @@ class ProyekUnitTest extends TestCase
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
     }
 
+    public function test_tambah_unit_memasukkan_supir_pemegangnya_ke_daftar_supir_proyek(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek();
+        $idA = $this->makeArmada('B 1001 AA');
+        $idB = $this->makeArmada('B 1002 BB');
+        $idC = $this->makeArmada('B 1003 CC');
+        $idBudi = $this->makeSupir('Budi', $idA);
+        $this->makeSupir('Supir Nonaktif', $idB, 'nonaktif');
+        $idVendor = $this->makeVendor();
+        $idAv = $this->makeArmadaVendor($idVendor, 'B 2001 VV', $this->makeKontrak($idVendor), $this->makeSupirVendor($idVendor, 'Joko Vendor'));
+
+        $res = $this->postJson("/api/proyek/{$idProyek}/unit", ['unit' => [
+            ['sumber' => 'internal', 'id_armada' => $idA],
+            ['sumber' => 'internal', 'id_armada' => $idB],
+            ['sumber' => 'internal', 'id_armada' => $idC],
+            ['sumber' => 'vendor', 'id_armada_vendor' => $idAv],
+        ]])->assertStatus(201)->assertJsonCount(4, 'data');
+
+        $this->assertStringContainsString('1 supir pemegang unit', (string) $res->json('message'));
+        $this->assertSame(
+            [$idBudi],
+            DB::table('supir_proyek')->where('id_proyek', $idProyek)->whereNull('dihapus_pada')->pluck('id_supir')->all(),
+        );
+        $this->getJson("/api/supir-proyek?id_proyek={$idProyek}")->assertStatus(200)->assertJsonCount(1, 'data');
+        $this->assertSame(0, DB::table('jadwal_shift')->where('id_proyek', $idProyek)->count());
+    }
+
+    public function test_supir_yang_sudah_ada_di_proyek_tidak_didobel_dan_hapus_unit_tidak_mengeluarkannya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek();
+        $idA = $this->makeArmada('B 1001 AA');
+        $idBudi = $this->makeSupir('Budi', $idA);
+        DB::table('supir_proyek')->insert([
+            'id_supir_proyek' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_proyek' => $idProyek, 'id_supir' => $idBudi, 'dibuat_pada' => now(),
+        ]);
+
+        $res = $this->postJson("/api/proyek/{$idProyek}/unit", ['unit' => [['sumber' => 'internal', 'id_armada' => $idA]]])->assertStatus(201);
+        $this->assertStringNotContainsString('supir pemegang', (string) $res->json('message'));
+        $this->assertSame(1, DB::table('supir_proyek')->where('id_proyek', $idProyek)->whereNull('dihapus_pada')->count());
+
+        $this->deleteJson("/api/proyek/{$idProyek}/unit/" . $res->json('data.0.id_proyek_unit'))->assertStatus(200);
+        $this->assertSame(1, DB::table('supir_proyek')->where('id_proyek', $idProyek)->whereNull('dihapus_pada')->count());
+    }
+
     public function test_unit_yang_sudah_ada_di_proyek_ditolak_dan_hilang_dari_opsi(): void
     {
         $this->actingAsRole('SUPERADMIN');

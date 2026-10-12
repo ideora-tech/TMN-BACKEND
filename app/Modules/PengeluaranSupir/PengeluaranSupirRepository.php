@@ -72,6 +72,14 @@ class PengeluaranSupirRepository implements PengeluaranSupirRepositoryInterface
             ->exists();
     }
 
+    public function jumlahSejak(string $idSupir, string $sejak): int
+    {
+        return DB::table('pengeluaran_supir')
+            ->where('id_supir', $idSupir)
+            ->where('dibuat_pada', '>=', $sejak)
+            ->count();
+    }
+
     public function nomorBerikutnya(string $idPerusahaan): string
     {
         $prefix   = 'BSP-' . now()->format('Ym') . '-';
@@ -122,7 +130,9 @@ class PengeluaranSupirRepository implements PengeluaranSupirRepositoryInterface
 
         $dariPengganti = DB::table('jadwal_shift')
             ->whereNull('dihapus_pada')
-            ->where(fn (Builder $q) => $q->where('id_supir', $idSupir)->orWhere('id_supir_pengganti', $idSupir))
+            ->where(fn (Builder $q) => $q
+                ->where(fn (Builder $asli) => $asli->where('id_supir', $idSupir)->whereNull('id_supir_pengganti'))
+                ->orWhere('id_supir_pengganti', $idSupir))
             ->whereDate('tanggal', '>=', $dari)
             ->whereDate('tanggal', '<=', $sampai)
             ->whereNotNull('id_armada_override')

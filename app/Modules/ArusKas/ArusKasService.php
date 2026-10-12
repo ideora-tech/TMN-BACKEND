@@ -584,12 +584,13 @@ class ArusKasService
 
     private function masukTahapApproval(PengajuanPengeluaranModel $record, ?string $aktorId = null): PengajuanPengeluaranModel
     {
-        $aktor = $aktorId ?? auth()->id() ?? $record->dibuat_oleh;
-        $batas = $this->batasApprovalUntuk($record);
+        $aktor     = $aktorId ?? auth()->id() ?? $record->dibuat_oleh;
+        $penyetuju = $record->id_pengeluaran_supir !== null ? null : $aktor;
+        $batas     = $this->batasApprovalUntuk($record);
         if ((float) $record->nominal < $batas) {
             $updated = $this->repo->updatePengajuan($record, [
                 'status'          => self::STATUS_DISETUJUI,
-                'disetujui_oleh'  => $aktor,
+                'disetujui_oleh'  => $penyetuju,
                 'disetujui_pada'  => now(),
             ]);
             $this->jalankanHookSetujui($updated);
@@ -600,7 +601,7 @@ class ArusKasService
         if ($kode === null) {
             $updated = $this->repo->updatePengajuan($record, [
                 'status'          => self::STATUS_DISETUJUI,
-                'disetujui_oleh'  => $aktor,
+                'disetujui_oleh'  => $penyetuju,
                 'disetujui_pada'  => now(),
             ]);
             $this->jalankanHookSetujui($updated);
@@ -623,8 +624,7 @@ class ArusKasService
         if (in_array((string) $record->kategori, self::KATEGORI_SELALU_APPROVAL, true)) {
             return 0.0;
         }
-        if ($record->id_pengeluaran_supir !== null
-            && $this->approvalService->adaEventTypeAktif(self::KODE_APPROVAL_PENGELUARAN_SUPIR, (string) $record->id_perusahaan)) {
+        if ($record->id_pengeluaran_supir !== null) {
             return 0.0;
         }
 

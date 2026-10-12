@@ -156,6 +156,8 @@ class PengeluaranSupirTest extends TestCase
         $idLama    = $this->buatArmada('B 3333 CC');
         $idBatal   = $this->buatArmada('B 4444 DD');
         $idGanti   = $this->buatArmada('B 6666 FF');
+        $idDilepas = $this->buatArmada('B 7777 GG');
+        $idDiambil = $this->buatArmada('B 8888 HH');
         $idVendor  = $this->buatArmadaVendor('B 5555 EE');
 
         $idKaryawan = (string) Str::uuid();
@@ -175,21 +177,35 @@ class PengeluaranSupirTest extends TestCase
             'id_supir' => $supir['id_supir'], 'tanggal' => now()->subDay()->toDateString(),
             'id_armada_override' => $idGanti, 'dibuat_pada' => now(),
         ]);
+        $rekan = $this->buatSupir(null, ['nama' => 'Tono Supir']);
+        DB::table('jadwal_shift')->insert([
+            'id_jadwal_shift' => (string) Str::uuid(), 'id_proyek' => $this->idProyek(), 'id_shift' => (string) Str::uuid(),
+            'id_supir' => $supir['id_supir'], 'id_supir_pengganti' => $rekan['id_supir'], 'tanggal' => now()->subDays(2)->toDateString(),
+            'id_armada_override' => $idDilepas, 'dibuat_pada' => now(),
+        ]);
+        DB::table('jadwal_shift')->insert([
+            'id_jadwal_shift' => (string) Str::uuid(), 'id_proyek' => $this->idProyek(), 'id_shift' => (string) Str::uuid(),
+            'id_supir' => $rekan['id_supir'], 'id_supir_pengganti' => $supir['id_supir'], 'tanggal' => now()->subDays(3)->toDateString(),
+            'id_armada_override' => $idDiambil, 'dibuat_pada' => now(),
+        ]);
+
+        $this->masuk($rekan['pengguna']);
+        $this->assertSame(['B 7777 GG'], array_column($this->getJson('/api/pengeluaran-supir/saya/opsi')->json('data.unit'), 'nopol'));
 
         $this->masuk($supir['pengguna']);
         $res = $this->getJson('/api/pengeluaran-supir/saya/opsi')->assertStatus(200);
 
         $this->assertSame(['tambal_ban', 'cuci_mobil'], array_column($res->json('data.jenis'), 'value'));
         $this->assertSame(['Tambal Ban', 'Cuci Mobil'], array_column($res->json('data.jenis'), 'label'));
-        $this->assertSame(['B 1111 AA', 'B 2222 BB', 'B 6666 FF', 'B 5555 EE'], array_column($res->json('data.unit'), 'nopol'));
+        $this->assertSame(['B 1111 AA', 'B 2222 BB', 'B 6666 FF', 'B 8888 HH', 'B 5555 EE'], array_column($res->json('data.unit'), 'nopol'));
         $res->assertJsonPath('data.unit.0.id_armada', $idDefault)
             ->assertJsonPath('data.unit.0.kunci', 'armada:' . $idDefault)
             ->assertJsonPath('data.unit.0.keterangan', 'Hino Dutro')
             ->assertJsonPath('data.unit.0.unit_vendor', false)
-            ->assertJsonPath('data.unit.3.id_armada', null)
-            ->assertJsonPath('data.unit.3.id_armada_vendor', $idVendor)
-            ->assertJsonPath('data.unit.3.unit_vendor', true)
-            ->assertJsonPath('data.unit.3.keterangan', 'Unit vendor PT Mitra Angkut')
+            ->assertJsonPath('data.unit.4.id_armada', null)
+            ->assertJsonPath('data.unit.4.id_armada_vendor', $idVendor)
+            ->assertJsonPath('data.unit.4.unit_vendor', true)
+            ->assertJsonPath('data.unit.4.keterangan', 'Unit vendor PT Mitra Angkut')
             ->assertJsonPath('data.rekening.nama_bank', 'BCA')
             ->assertJsonPath('data.rekening.nomor_rekening', '1234567890')
             ->assertJsonPath('data.rekening.atas_nama_rekening', 'Budi Santoso')
@@ -244,6 +260,8 @@ class PengeluaranSupirTest extends TestCase
         $this->assertSame('tambal_ban', $pengajuan->kategori);
         $this->assertSame('Budi Supir', $pengajuan->penerima);
         $this->assertSame('disetujui', $pengajuan->status);
+        $this->assertNull($pengajuan->disetujui_oleh);
+        $this->assertNotNull($pengajuan->disetujui_pada);
         $this->assertEquals(25000, $pengajuan->nominal);
         $this->assertStringContainsString('B 1111 AA', (string) $pengajuan->keterangan);
         $this->assertStringContainsString('rest area KM 57', (string) $pengajuan->keterangan);
@@ -298,14 +316,16 @@ class PengeluaranSupirTest extends TestCase
         $this->getJson("/api/pengeluaran-supir/saya/{$id}")
             ->assertJsonPath('data.status', 'menunggu_pembayaran')
             ->assertJsonPath('data.bisa_dibatalkan', false);
-        $this->assertTrue(DB::table('notifikasi')
-            ->where('id_pengguna', $supir['pengguna']->id_pengguna)
-            ->where('tipe', 'pengeluaran_supir_disetujui')
-            ->where('referensi_id', $id)
-            ->exists());
+        $notifikasi = DB::table('notifikasi')->where('id_pengguna', $supir['pengguna']->id_pengguna)->get(['tipe', 'referensi_id', 'referensi_tipe']);
+        $this->assertCount(1, $notifikasi);
+        $this->assertSame('pengeluaran_supir_disetujui', $notifikasi[0]->tipe);
+        $this->assertSame('pengeluaran_supir', $notifikasi[0]->referensi_tipe);
+        $this->assertSame($id, $notifikasi[0]->referensi_id);
+        $this->assertSame((string) $approver->id_pengguna, DB::table('pengajuan_pengeluaran')
+            ->where('id_pengeluaran_supir', $id)->value('disetujui_oleh'));
     }
 
-    public function test_tanpa_jenis_approval_khusus_mengikuti_batas_dan_approval_umum(): void
+    public function test_tanpa_jenis_approval_khusus_tetap_lewat_approval_umum_berapa_pun_nominalnya(): void
     {
         $approver = $this->buatPengguna('SUPERADMIN');
         $this->aturApproval('pengajuan_pengeluaran', (string) $approver->id_pengguna);
@@ -315,13 +335,31 @@ class PengeluaranSupirTest extends TestCase
         $supir    = $this->buatSupir($idArmada);
         $this->masuk($supir['pengguna']);
 
-        $this->kirim($idArmada, ['nominal' => 25000])->assertStatus(201)->assertJsonPath('data.status', 'menunggu_pembayaran');
-        $this->kirim($idArmada, ['nominal' => 1500000])->assertStatus(201)->assertJsonPath('data.status', 'menunggu_persetujuan');
+        $id = (string) $this->kirim($idArmada, ['nominal' => 25000])->assertStatus(201)
+            ->assertJsonPath('data.status', 'menunggu_persetujuan')->json('data.id_pengeluaran_supir');
+        $idPengajuanLama = $this->idPengajuan($id);
 
-        $this->assertFalse(DB::table('notifikasi')
-            ->where('id_pengguna', $supir['pengguna']->id_pengguna)
-            ->where('tipe', 'like', 'pengeluaran_supir_%')
-            ->exists());
+        $this->masuk($approver);
+        $menunggu = $this->getJson('/api/approval-pengajuan/menunggu-saya')->assertStatus(200)->json('data');
+        $this->assertCount(1, $menunggu);
+        $this->patchJson("/api/approval-pengajuan/{$menunggu[0]['id_approval']}/keputusan", [
+            'keputusan' => 'tolak', 'catatan' => 'Foto nota buram',
+        ])->assertStatus(200);
+
+        $this->masuk($supir['pengguna']);
+        $this->getJson("/api/pengeluaran-supir/saya/{$id}")->assertStatus(200)
+            ->assertJsonPath('data.status', 'ditolak')
+            ->assertJsonPath('data.alasan_ditolak', 'Foto nota buram')
+            ->assertJsonPath('data.bisa_dibatalkan', true);
+        $this->assertSame(['pengeluaran_supir_ditolak'], DB::table('notifikasi')
+            ->where('id_pengguna', $supir['pengguna']->id_pengguna)->pluck('tipe')->all());
+
+        $this->deleteJson("/api/pengeluaran-supir/saya/{$id}")->assertStatus(200);
+        $ulang = $this->kirim($idArmada, ['nominal' => 25000])->assertStatus(201)
+            ->assertJsonPath('data.status', 'menunggu_persetujuan')
+            ->assertJsonPath('data.nomor', 'BSP-' . now()->format('Ym') . '-0002');
+        $this->assertNotSame($idPengajuanLama, $this->idPengajuan((string) $ulang->json('data.id_pengeluaran_supir')));
+        $this->getJson('/api/pengeluaran-supir/saya')->assertJsonPath('meta.total', 1);
     }
 
     public function test_jenis_approval_pengeluaran_supir_nonaktif_berarti_dilewati(): void
@@ -349,6 +387,7 @@ class PengeluaranSupirTest extends TestCase
         $this->assertStringContainsString('Hubungi admin kantor', (string) $res->json('message'));
         $this->assertSame(0, DB::table('pengeluaran_supir')->count());
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
+        $this->assertSame([], Storage::disk('public')->allFiles('pengeluaran-supir'));
     }
 
     public function test_validasi_pengajuan(): void
@@ -383,8 +422,82 @@ class PengeluaranSupirTest extends TestCase
 
         $this->assertSame(0, DB::table('pengeluaran_supir')->count());
 
+        $this->assertSame([], Storage::disk('public')->allFiles('pengeluaran-supir'));
+
         DB::table('supir')->where('id_supir', $supir['id_supir'])->update(['status' => 'nonaktif']);
         $this->kirim($idArmada)->assertStatus(403);
+
+        DB::table('supir')->where('id_supir', $supir['id_supir'])->update(['status' => 'aktif']);
+        DB::table('pengguna')->where('id_pengguna', $supir['pengguna']->id_pengguna)->update(['aktif' => 0]);
+        $this->masuk(Pengguna::findOrFail($supir['pengguna']->id_pengguna));
+        $this->kirim($idArmada)->assertStatus(403);
+        $this->getJson('/api/pengeluaran-supir/saya')->assertStatus(403);
+    }
+
+    public function test_batas_pengajuan_harian_per_supir(): void
+    {
+        $idArmada = $this->buatArmada('B 1111 AA');
+        $supir    = $this->buatSupir($idArmada);
+        $this->masuk($supir['pengguna']);
+
+        $baris = [];
+        for ($i = 1; $i <= 20; $i++) {
+            $baris[] = [
+                'id_pengeluaran_supir' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'nomor' => 'BSP-LAMA-' . $i,
+                'id_supir' => $supir['id_supir'], 'jenis' => 'cuci_mobil', 'tanggal' => now()->toDateString(), 'nominal' => 1000 + $i,
+                'id_armada' => $idArmada, 'nopol' => 'B 1111 AA', 'dibuat_pada' => now(),
+            ];
+        }
+        DB::table('pengeluaran_supir')->insert($baris);
+
+        $tolak = $this->kirim($idArmada)->assertStatus(429);
+        $this->assertStringContainsString('Batas pengajuan hari ini', (string) $tolak->json('message'));
+        $this->assertSame([], Storage::disk('public')->allFiles('pengeluaran-supir'));
+
+        DB::table('pengeluaran_supir')->update(['dibuat_pada' => now()->subDay()]);
+        $this->kirim($idArmada)->assertStatus(201);
+    }
+
+    public function test_perusahaan_lain_tidak_bisa_melihat_atau_memakai_data_perusahaan_ini(): void
+    {
+        $idPerusahaanLain = (string) Str::uuid();
+        DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
+
+        $idArmada = $this->buatArmada('B 1111 AA');
+        $supir    = $this->buatSupir($idArmada);
+        $this->masuk($supir['pengguna']);
+        $id          = (string) $this->kirim($idArmada)->assertStatus(201)->json('data.id_pengeluaran_supir');
+        $idPengajuan = $this->idPengajuan($id);
+
+        $idArmadaAsing = $this->buatArmada('B 9999 XX', ['id_perusahaan' => $idPerusahaanLain]);
+        $this->tugaskan($supir['id_supir'], now()->toDateString(), $idArmadaAsing);
+        $this->assertSame(['B 1111 AA'], array_column($this->getJson('/api/pengeluaran-supir/saya/opsi')->json('data.unit'), 'nopol'));
+        $this->kirim($idArmadaAsing)->assertStatus(422)->assertJsonValidationErrors(['id_armada']);
+
+        $penggunaLain = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => $idPerusahaanLain, 'kode_peran' => 'SUPIR',
+            'username' => 'u_' . Str::random(8), 'email' => Str::random(8) . '@test.id', 'kata_sandi' => bcrypt('Password123!'), 'aktif' => 1,
+        ]);
+        DB::table('supir')->insert([
+            'id_supir' => (string) Str::uuid(), 'id_pengguna' => $penggunaLain->id_pengguna, 'id_perusahaan' => $idPerusahaanLain,
+            'id_armada_default' => $idArmada, 'nama' => 'Supir Lain', 'no_sim' => 'SIM-LAIN', 'jenis_sim' => 'B2',
+            'status' => 'aktif', 'dibuat_pada' => now(),
+        ]);
+        $this->masuk($penggunaLain);
+        $this->getJson('/api/pengeluaran-supir/saya')->assertStatus(200)->assertJsonPath('meta.total', 0);
+        $this->getJson("/api/pengeluaran-supir/saya/{$id}")->assertStatus(404);
+        $this->deleteJson("/api/pengeluaran-supir/saya/{$id}")->assertStatus(404);
+        $this->assertSame([], $this->getJson('/api/pengeluaran-supir/saya/opsi')->json('data.unit'));
+        $this->kirim($idArmada)->assertStatus(422)->assertJsonValidationErrors(['id_armada']);
+
+        $adminLain = Pengguna::create([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => $idPerusahaanLain, 'kode_peran' => 'SUPERADMIN',
+            'username' => 'u_' . Str::random(8), 'email' => Str::random(8) . '@test.id', 'kata_sandi' => bcrypt('Password123!'), 'aktif' => 1,
+        ]);
+        $this->masuk($adminLain);
+        $this->getJson("/api/arus-kas/pengajuan/{$idPengajuan}/rincian-sumber")->assertStatus(404);
+        $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/tolak", ['alasan' => 'Bukan urusan saya'])->assertStatus(404);
+        $this->assertSame('disetujui', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
     }
 
     public function test_unit_vendor_yang_ditugaskan_boleh_diajukan_dan_ditandai(): void
@@ -500,6 +613,13 @@ class PengeluaranSupirTest extends TestCase
         $this->patchJson('/api/arus-kas/pengajuan/' . $this->idPengajuan($idDitolak) . '/tolak', ['alasan' => 'Nota tidak terbaca'])->assertStatus(200);
         $idPengajuan = $this->idPengajuan($idDibayar);
         $this->patchJson("/api/arus-kas/pengajuan/{$idPengajuan}/cek")->assertStatus(200)->assertJsonPath('data.status', 'siap_transfer');
+
+        $this->masuk($supir['pengguna']);
+        $this->getJson("/api/pengeluaran-supir/saya/{$idDibayar}")->assertJsonPath('data.status', 'menunggu_pembayaran');
+        $this->deleteJson("/api/pengeluaran-supir/saya/{$idDibayar}")->assertStatus(409);
+        $this->assertSame('siap_transfer', DB::table('pengajuan_pengeluaran')->where('id_pengajuan', $idPengajuan)->value('status'));
+
+        $this->masuk($keuangan);
         $this->patch("/api/arus-kas/pengajuan/{$idPengajuan}/transfer", [
             'tanggal_transfer' => now()->toDateString(),
             'bukti'            => UploadedFile::fake()->create('bukti.jpg', 5, 'image/jpeg'),

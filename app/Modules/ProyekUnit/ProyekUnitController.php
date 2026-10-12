@@ -30,8 +30,12 @@ class ProyekUnitController extends Controller
 
     public function store(StoreProyekUnitRequest $request, string $idProyek): JsonResponse
     {
-        $baru = $this->service->tambah($idProyek, $request->validated()['unit'], (string) $request->user()->id_perusahaan);
-        return ApiResponse::success(ProyekUnitResource::collection($baru), 'Unit berhasil ditambahkan ke proyek', 201);
+        $hasil = $this->service->tambah($idProyek, $request->validated()['unit'], (string) $request->user()->id_perusahaan);
+        $jumlahSupir = $hasil['supir_ditambahkan'];
+        $pesan = count($hasil['unit']) . ' unit ditambahkan ke proyek'
+            . ($jumlahSupir > 0 ? " — {$jumlahSupir} supir pemegang unit ikut masuk ke jadwal shift proyek ini" : '');
+
+        return ApiResponse::success(ProyekUnitResource::collection($hasil['unit']), $pesan, 201);
     }
 
     public function destroyMassal(HapusMassalProyekUnitRequest $request, string $idProyek): JsonResponse

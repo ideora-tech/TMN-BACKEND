@@ -10,6 +10,7 @@ use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -31,6 +32,7 @@ class PengeluaranSupirService
     public const HARI_MUNDUR      = 30;
     public const NOMINAL_MAKSIMAL = 10_000_000;
     public const MAKS_FOTO        = 3;
+    public const MAKS_PER_HARI    = 20;
 
     private const STATUS_PENGAJUAN = [
         self::STATUS_MENUNGGU_PERSETUJUAN => [ArusKasService::STATUS_DIAJUKAN, ArusKasService::STATUS_MENUNGGU_APPROVAL],
@@ -69,8 +71,12 @@ class PengeluaranSupirService
         return in_array($record->status_pengajuan ?? null, self::STATUS_BISA_DIBATALKAN, true);
     }
 
-    public function supirUntukPengguna(string $idPengguna): object
+    public function supirUntukPengguna(string $idPengguna, bool $akunAktif = true): object
     {
+        if (!$akunAktif) {
+            abort(403, 'Akun Anda sudah tidak aktif');
+        }
+
         $supir = $this->supirRepo->findByPengguna($idPengguna);
         if ($supir === null) {
             abort(403, 'Pengajuan pengeluaran hanya untuk supir internal');
@@ -142,9 +148,8 @@ class PengeluaranSupirService
             abort(403, 'Akun supir Anda sudah tidak aktif');
         }
 
-        $idSupir      = (string) $supir->id_supir;
-        $idPerusahaan = (string) $supir->id_perusahaan;
-        $jenis        = (string) $data['jenis'];
+        $idSupir = (string) $supir->id_supir;
+        $jenis   = (string) $data['jenis'];
         if (!isset(ArusKasService::KATEGORI_PENGELUARAN_SUPIR[$jenis])) {
             $this->tolak('jenis', 'Jenis pengeluaran tidak dikenal');
         }
@@ -159,15 +164,46 @@ class PengeluaranSupirService
         $sejak    = now()->subMinutes(self::MENIT_CEGAH_KEMBAR)->toDateTimeString();
 
         $this->pastikanBukanKembaran($idSupir, $jenis, $unit, $tanggal, $nominal, $sejak);
+        $this->pastikanDiBawahBatasHarian($idSupir);
 
         $urlFoto = array_map(
             static fn (UploadedFile $berkas) => PenyimpananBerkas::simpan($berkas, 'pengeluaran-supir'),
             array_values($foto),
         );
 
+        try {
+            return $this->simpan($supir, $jenis, $unit, $nominal, $tanggal, $catatan, $bank, $rekening, $atasNama, $sejak, $urlFoto);
+        } catch (\Throwable $e) {
+            Storage::disk('public')->delete($urlFoto);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * @param array{id_armada: ?string, id_armada_vendor: ?string, nopol: string} $unit
+     * @param list<string> $urlFoto
+     */
+    private function simpan(
+        object $supir,
+        string $jenis,
+        array $unit,
+        float $nominal,
+        string $tanggal,
+        string $catatan,
+        string $bank,
+        string $rekening,
+        string $atasNama,
+        string $sejak,
+        array $urlFoto,
+    ): object {
+        $idSupir      = (string) $supir->id_supir;
+        $idPerusahaan = (string) $supir->id_perusahaan;
+
         return DB::transaction(function () use ($supir, $idSupir, $idPerusahaan, $jenis, $unit, $nominal, $tanggal, $catatan, $bank, $rekening, $atasNama, $sejak, $urlFoto) {
             $this->repo->kunciSupir($idSupir);
             $this->pastikanBukanKembaran($idSupir, $jenis, $unit, $tanggal, $nominal, $sejak);
+            $this->pastikanDiBawahBatasHarian($idSupir);
 
             $id    = (string) Str::uuid();
             $nomor = $this->repo->nomorBerikutnya($idPerusahaan);
@@ -331,6 +367,13 @@ class PengeluaranSupirService
     {
         if ($this->repo->adaKembaran($idSupir, $jenis, $unit['id_armada'], $unit['id_armada_vendor'], $tanggal, $nominal, $sejak)) {
             abort(409, 'Pengajuan yang sama baru saja dikirim — periksa daftar pengajuan Anda');
+        }
+    }
+
+    private function pastikanDiBawahBatasHarian(string $idSupir): void
+    {
+        if ($this->repo->jumlahSejak($idSupir, now()->startOfDay()->toDateTimeString()) >= self::MAKS_PER_HARI) {
+            abort(429, 'Batas pengajuan hari ini sudah tercapai (' . self::MAKS_PER_HARI . ' pengajuan). Coba lagi besok atau hubungi admin kantor.');
         }
     }
 

@@ -129,6 +129,23 @@ class ProyekUnitRepository implements ProyekUnitRepositoryInterface
             ->all();
     }
 
+    public function idSupirPemegang(array $idArmada, string $idPerusahaan): array
+    {
+        if ($idArmada === []) {
+            return [];
+        }
+
+        return DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('status', 'aktif')
+            ->whereIn('id_armada_default', $idArmada)
+            ->orderBy('nama')
+            ->pluck('id_supir')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
     private function pemegangInternal(string $kolomArmada): Builder
     {
         return DB::table('supir as s')

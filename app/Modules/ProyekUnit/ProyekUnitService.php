@@ -6,6 +6,7 @@ namespace App\Modules\ProyekUnit;
 
 use App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface;
 use App\Modules\ProyekUnit\Contracts\ProyekUnitRepositoryInterface;
+use App\Modules\SupirProyek\SupirProyekService;
 use Illuminate\Support\Facades\DB;
 
 class ProyekUnitService
@@ -15,6 +16,7 @@ class ProyekUnitService
     public function __construct(
         private readonly ProyekUnitRepositoryInterface $repo,
         private readonly ArmadaVendorRepositoryInterface $armadaVendorRepo,
+        private readonly SupirProyekService $supirProyekService,
     ) {}
 
     /** @return object[] */
@@ -39,7 +41,7 @@ class ProyekUnitService
 
     /**
      * @param array<int, array<string, mixed>> $units
-     * @return object[]
+     * @return array{unit: object[], supir_ditambahkan: int}
      */
     public function tambah(string $idProyek, array $units, string $idPerusahaan): array
     {
@@ -50,7 +52,7 @@ class ProyekUnitService
             $tersedia[$this->kunciUnit($unit)] = $unit;
         }
 
-        $idBaru = DB::transaction(function () use ($idProyek, $units, $idPerusahaan, $tersedia) {
+        [$idBaru, $supirDitambahkan] = DB::transaction(function () use ($idProyek, $units, $idPerusahaan, $tersedia) {
             $this->repo->kunciProyek($idProyek);
             $sudahAda = $this->repo->kunciUnitProyek($idProyek);
             $diminta = [];
@@ -78,13 +80,25 @@ class ProyekUnitService
                 ])->id_proyek_unit;
             }
 
-            return $idBaru;
+            $idArmada = array_values(array_filter(array_map(
+                static fn (array $unit) => $unit['sumber'] === 'vendor' ? null : (string) $unit['id_armada'],
+                $units,
+            )));
+            $pemegang = $this->repo->idSupirPemegang($idArmada, $idPerusahaan);
+            $supirDitambahkan = $pemegang === []
+                ? 0
+                : $this->supirProyekService->tambahBatch($idProyek, $pemegang, $idPerusahaan)['sukses'];
+
+            return [$idBaru, $supirDitambahkan];
         });
 
-        return array_values(array_filter(
-            $this->repo->listByProyek($idProyek, $idPerusahaan),
-            fn (object $baris) => in_array($baris->id_proyek_unit, $idBaru, true),
-        ));
+        return [
+            'unit' => array_values(array_filter(
+                $this->repo->listByProyek($idProyek, $idPerusahaan),
+                fn (object $baris) => in_array($baris->id_proyek_unit, $idBaru, true),
+            )),
+            'supir_ditambahkan' => $supirDitambahkan,
+        ];
     }
 
     public function hapus(string $idProyek, string $id, string $idPerusahaan): void

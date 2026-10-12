@@ -66,6 +66,8 @@ class PengeluaranSupirController extends Controller
 
     private function supir(Request $request): object
     {
-        return $this->service->supirUntukPengguna((string) $request->user()->id_pengguna);
+        $pengguna = $request->user();
+
+        return $this->service->supirUntukPengguna((string) $pengguna->id_pengguna, (int) $pengguna->aktif === 1);
     }
 }
