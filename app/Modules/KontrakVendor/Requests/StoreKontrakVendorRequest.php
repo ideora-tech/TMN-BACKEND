@@ -43,6 +43,7 @@ class StoreKontrakVendorRequest extends FormRequest
             'unit.*.tahun'              => ['sometimes', 'nullable', 'integer'],
             'unit.*.masa_berlaku_stnk'  => ['required', 'date'],
             'unit.*.masa_berlaku_kir'   => ['required', 'date'],
+            'unit.*.harga_kontrak'      => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999999'],
             'unit.*.supir_index'        => ['sometimes', 'nullable', 'integer', 'min:0'],
             'supir'                  => ['sometimes', 'array'],
             'supir.*.nama'             => ['required', 'string', 'max:150'],

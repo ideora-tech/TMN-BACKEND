@@ -104,6 +104,12 @@
                 <td class="label">Status</td><td class="titik">:</td>
                 <td>{{ $statusLabel[$kontrak->status] ?? strtoupper((string) $kontrak->status) }}</td>
             </tr>
+            @if ($kontrak->nomor_po)
+                <tr>
+                    <td class="label">No. PO</td><td class="titik">:</td>
+                    <td>{{ $kontrak->nomor_po }}</td>
+                </tr>
+            @endif
         </table>
 
         <p class="subjudul">{{ $paket ? 'Pasangan Unit + Driver' : 'Unit Disewa' }} ({{ count($units) }})</p>
@@ -122,6 +128,9 @@
                     @endif
                     <th>HABIS STNK</th>
                     <th>HABIS KIR</th>
+                    @if ($adaHarga)
+                        <th style="text-align: right;">HARGA</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -139,10 +148,19 @@
                         @endif
                         <td>{{ $tgl($u->masa_berlaku_stnk) }}</td>
                         <td>{{ $tgl($u->masa_berlaku_kir) }}</td>
+                        @if ($adaHarga)
+                            <td style="text-align: right;">{{ $u->harga_kontrak !== null ? 'Rp ' . number_format($u->harga_kontrak, 0, ',', '.') : '-' }}</td>
+                        @endif
                     </tr>
                 @empty
                     <tr><td colspan="{{ $paket ? 10 : 7 }}" class="ket">Belum ada unit tertaut ke kontrak ini.</td></tr>
                 @endforelse
+                @if ($adaHarga)
+                    <tr>
+                        <td colspan="{{ $paket ? 10 : 7 }}" style="text-align: right;"><strong>TOTAL HARGA UNIT</strong></td>
+                        <td style="text-align: right;"><strong>Rp {{ number_format($totalHarga, 0, ',', '.') }}</strong></td>
+                    </tr>
+                @endif
             </tbody>
         </table>
 

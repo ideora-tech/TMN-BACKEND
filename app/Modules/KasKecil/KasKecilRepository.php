@@ -26,12 +26,16 @@ class KasKecilRepository implements KasKecilRepositoryInterface
             ->first(['id_perusahaan']);
     }
 
-    public function rekeningPerusahaan(string $idPerusahaan): ?object
+    public function daftarRekeningPerusahaan(string $idPerusahaan): array
     {
-        return DB::table('perusahaan')
+        return DB::table('rekening_perusahaan')
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['nama_bank', 'nomor_rekening', 'atas_nama_rekening']);
+            ->orderByDesc('utama')
+            ->orderBy('nama_bank')
+            ->orderBy('nomor_rekening')
+            ->get(['id_rekening_perusahaan', 'nama_bank', 'nomor_rekening', 'atas_nama_rekening', 'utama'])
+            ->all();
     }
 
     public function saldo(string $idPerusahaan): float

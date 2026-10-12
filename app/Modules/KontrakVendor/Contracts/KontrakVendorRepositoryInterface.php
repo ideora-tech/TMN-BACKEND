@@ -22,6 +22,8 @@ interface KontrakVendorRepositoryInterface
     public function adaPenugasanUntukKontrak(string $idKontrakVendor): bool;
     public function adaPenugasanAktifUntukKontrak(string $idKontrakVendor): bool;
     public function getNamaVendor(string $idVendor): ?string;
+    public function getVendor(string $idVendor): ?object;
+    public function usernamePengguna(string $idPengguna): ?string;
     public function turunkanKeDraftJikaPerluApprovalUlang(string $idKontrak): ?string;
     public function getPerusahaan(string $idPerusahaan): ?object;
     public function adaPenugasanNonFinalUntukArmadaVendor(string $idArmadaVendor): bool;
@@ -29,4 +31,8 @@ interface KontrakVendorRepositoryInterface
     public function adaInvoiceUntukKontrak(string $idKontrakVendor): bool;
     public function lepasTautanUnitDanSupir(string $idKontrakVendor): void;
     public function jumlahTurunan(string $idKontrakVendor): int;
+    public function ringkasanHargaUnit(string $idKontrakVendor, bool $kunci = false): array;
+    public function kunci(string $idKontrakVendor): void;
+    public function isiNoPoInvoiceKosong(string $idKontrakVendor, string $nomorPo): void;
+    public function sinkronNilaiDariHargaUnit(string $idKontrakVendor): ?float;
 }

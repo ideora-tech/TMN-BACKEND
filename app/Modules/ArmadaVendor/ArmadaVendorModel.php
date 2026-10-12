@@ -24,12 +24,14 @@ class ArmadaVendorModel extends BaseModel
         'tahun',
         'masa_berlaku_stnk',
         'masa_berlaku_kir',
+        'harga_kontrak',
         'aktif',
     ];
 
     protected $casts = [
         'masa_berlaku_stnk' => 'date',
         'masa_berlaku_kir'  => 'date',
+        'harga_kontrak'     => 'float',
     ];
 
     protected $attributes = [

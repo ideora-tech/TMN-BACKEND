@@ -277,6 +277,9 @@ class InvoiceVendorService
     {
         $this->pastikanVendorMilikPerusahaan($data['id_vendor'], $idPerusahaan);
         $kontrak = $this->validasiKontrak($data['id_kontrak_vendor'] ?? null, $data['id_vendor'], $idPerusahaan);
+        if ($kontrak !== null && (string) ($kontrak->nomor_po ?? '') !== '') {
+            $data['no_po'] = (string) $kontrak->nomor_po;
+        }
 
         if ($this->repo->nomorSudahDipakai($data['nomor_invoice'], $idPerusahaan)) {
             abort(409, 'Nomor invoice sudah digunakan');
@@ -361,6 +364,12 @@ class InvoiceVendorService
             $kontrak = !empty($idKontrakEfektif)
                 ? $this->repo->findKontrakMilikPerusahaan($idKontrakEfektif, $idPerusahaan)
                 : null;
+        }
+
+        if ($kontrak !== null
+            && (string) ($kontrak->nomor_po ?? '') !== ''
+            && ($kontrakBerubah || array_key_exists('no_po', $data))) {
+            $data['no_po'] = (string) $kontrak->nomor_po;
         }
 
         if (isset($data['nomor_invoice'])

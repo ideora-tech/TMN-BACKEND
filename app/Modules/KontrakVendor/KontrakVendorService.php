@@ -13,6 +13,7 @@ use App\Modules\PermintaanVendor\PermintaanVendorService;
 use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
 use App\Modules\SupirVendor\Imports\SupirVendorImport;
 use App\Support\ExcelCellHelper;
+use App\Support\KodeOtomatis;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -21,6 +22,12 @@ class KontrakVendorService
 {
     private const TAHUN_MIN = 1950;
     private const TAHUN_MAX = 2100;
+
+    private const LABEL_MEKANISME = [
+        'unit_only'   => 'Unit Only',
+        'unit_driver' => 'Unit + Driver',
+        'full'        => 'All In',
+    ];
 
     public function __construct(
         private readonly KontrakVendorRepositoryInterface $repo,
@@ -79,7 +86,7 @@ class KontrakVendorService
             $this->validasiKontrakInduk((string) $data['id_kontrak_induk'], (string) $data['id_vendor'], (string) $data['id_perusahaan']);
         }
 
-        $unitList  = $data['unit'] ?? [];
+        $unitList  = $this->normalkanHargaUnit($data['unit'] ?? []);
         $supirList = $data['supir'] ?? [];
         $salinDari = $data['salin_dari_kontrak'] ?? null;
         $idPermintaan = $data['id_permintaan'] ?? null;
@@ -109,7 +116,7 @@ class KontrakVendorService
 
         // Kolom nilai_kontrak NOT NULL DEFAULT 0 — input kosong dari klien
         // (null) dinormalisasi supaya tidak meledak di constraint DB.
-        $data['nilai_kontrak'] = (float) ($data['nilai_kontrak'] ?? 0);
+        $data['nilai_kontrak'] = $this->totalHargaUnitLengkap($unitList) ?? (float) ($data['nilai_kontrak'] ?? 0);
         $this->pastikanRateWajibUntukPerTrip($data['satuan'] ?? null, $data['rate'] ?? null);
         $this->pastikanRateTidakMelebihiNilai($data['rate'] ?? null, $data['nilai_kontrak']);
 
@@ -178,8 +185,42 @@ class KontrakVendorService
                 $this->repo->relinkUnitDanSupir((string) $kontrakSumber->id_kontrak_vendor, (string) $kontrak->id_kontrak_vendor);
             }
 
+            $nilaiDariUnit = $this->repo->sinkronNilaiDariHargaUnit((string) $kontrak->id_kontrak_vendor);
+            if ($nilaiDariUnit !== null) {
+                $kontrak->nilai_kontrak = $nilaiDariUnit;
+                $kontrak->syncOriginalAttribute('nilai_kontrak');
+            }
+
             return $kontrak;
         });
+    }
+
+    private function normalkanHargaUnit(array $unitList): array
+    {
+        return array_map(static function (array $unit): array {
+            $harga = $unit['harga_kontrak'] ?? null;
+            $unit['harga_kontrak'] = $harga !== null && (float) $harga > 0 ? round((float) $harga) : null;
+
+            return $unit;
+        }, $unitList);
+    }
+
+    private function totalHargaUnitLengkap(array $unitList): ?float
+    {
+        $berharga = array_filter($unitList, static fn (array $unit) => ($unit['harga_kontrak'] ?? null) !== null);
+        if ($berharga === []) {
+            return null;
+        }
+        if (count($berharga) !== count($unitList)) {
+            abort(422, 'Harga unit wajib diisi untuk semua unit bila salah satunya diisi');
+        }
+
+        return round((float) array_sum(array_column($unitList, 'harga_kontrak')), 2);
+    }
+
+    private function hargaBerbeda(mixed $lama, mixed $baru): bool
+    {
+        return abs((float) ($lama ?? 0) - (float) ($baru ?? 0)) >= 0.005;
     }
 
     private function pastikanPermintaanBisaDikontrakkan(string $idPermintaan, string $idPerusahaan, bool $kunci = false): PermintaanVendorModel
@@ -310,11 +351,14 @@ class KontrakVendorService
         );
 
         return DB::transaction(function () use ($kontrak, $parse, $idPerusahaan, $gagal) {
+            $this->repo->kunci((string) $kontrak->id_kontrak_vendor);
+            $nopolGagal = $this->nopolBarisGagal($parse['baris_gagal']);
             $lama = $this->armadaVendorRepo->listAktifByKontrak((string) $kontrak->id_kontrak_vendor)
                 ->keyBy(fn ($u) => mb_strtoupper(trim((string) $u->nopol)));
 
             $ditambah = 0;
             $diperbarui = 0;
+            $hargaBerubah = false;
             $kunciBaru = [];
 
             foreach ($parse['baris_valid'] as $unit) {
@@ -328,7 +372,7 @@ class KontrakVendorService
 
                 $ada = $lama->get($kunci);
                 if ($ada !== null) {
-                    $this->armadaVendorRepo->update($ada, [
+                    $ubah = [
                         'merk'               => $unit['merk'] ?? null,
                         'jenis'              => $unit['jenis'] ?? null,
                         'id_jenis_kendaraan' => $unit['id_jenis_kendaraan'] ?? null,
@@ -336,7 +380,12 @@ class KontrakVendorService
                         'tahun'              => $unit['tahun'] ?? null,
                         'masa_berlaku_stnk'  => $unit['masa_berlaku_stnk'] ?? null,
                         'masa_berlaku_kir'   => $unit['masa_berlaku_kir'] ?? null,
-                    ]);
+                    ];
+                    if (($unit['harga_kontrak'] ?? null) !== null) {
+                        $ubah['harga_kontrak'] = $unit['harga_kontrak'];
+                        $hargaBerubah = $hargaBerubah || $this->hargaBerbeda($ada->harga_kontrak, $ubah['harga_kontrak']);
+                    }
+                    $this->armadaVendorRepo->update($ada, $ubah);
                     $diperbarui++;
                     continue;
                 }
@@ -365,7 +414,7 @@ class KontrakVendorService
 
             $dihapus = 0;
             foreach ($lama as $kunci => $model) {
-                if (!isset($kunciBaru[$kunci])) {
+                if (!isset($kunciBaru[$kunci]) && !isset($nopolGagal[$kunci])) {
                     if ($this->repo->adaPenugasanNonFinalUntukArmadaVendor((string) $model->id_armada_vendor)) {
                         $gagal[] = ['label' => (string) $model->nopol, 'alasan' => 'Tidak dihapus — masih dipakai penugasan aktif, selesaikan/batalkan dulu penugasannya'];
                         continue;
@@ -375,9 +424,10 @@ class KontrakVendorService
                 }
             }
 
-            if ($ditambah > 0 || $dihapus > 0) {
+            if ($ditambah > 0 || $dihapus > 0 || $hargaBerubah) {
                 $this->tarikApprovalKarenaUnit((string) $kontrak->id_kontrak_vendor, $idPerusahaan);
             }
+            $this->repo->sinkronNilaiDariHargaUnit((string) $kontrak->id_kontrak_vendor);
 
             return [
                 'ditambah'   => $ditambah,
@@ -410,9 +460,12 @@ class KontrakVendorService
         );
 
         return DB::transaction(function () use ($kontrak, $parse, $idPerusahaan, $gagal) {
+            $this->repo->kunci((string) $kontrak->id_kontrak_vendor);
+            $nopolGagal = $this->nopolBarisGagal($parse['baris_gagal']);
             $lama = $this->armadaVendorRepo->listAktifByKontrak((string) $kontrak->id_kontrak_vendor)
                 ->keyBy(fn ($u) => mb_strtoupper(trim((string) $u->nopol)));
 
+            $hargaBerubah = false;
             $unitDitambah = 0;
             $unitDiperbarui = 0;
             $driverDitambah = 0;
@@ -456,6 +509,14 @@ class KontrakVendorService
                 if ($ada === null && $this->armadaVendorRepo->nopolTerdaftar($nopol, $idPerusahaan)) {
                     $gagal[] = ['label' => $nopol, 'alasan' => 'Nopol sudah terdaftar di kontrak/vendor lain'];
                     continue;
+                }
+
+                $unitLama = $lama->get($kunci);
+                if ($unitLama === null || ($baris['harga_kontrak'] ?? null) !== null) {
+                    $dataUnit['harga_kontrak'] = $baris['harga_kontrak'] ?? null;
+                    if ($unitLama !== null && $this->hargaBerbeda($unitLama->harga_kontrak, $dataUnit['harga_kontrak'])) {
+                        $hargaBerubah = true;
+                    }
                 }
 
                 $idDriverDefault = $ada?->id_supir_vendor_default;
@@ -510,7 +571,7 @@ class KontrakVendorService
 
             $unitDihapus = 0;
             foreach ($lama as $kunci => $model) {
-                if (!isset($kunciBaru[$kunci])) {
+                if (!isset($kunciBaru[$kunci]) && !isset($nopolGagal[$kunci])) {
                     if ($this->repo->adaPenugasanNonFinalUntukArmadaVendor((string) $model->id_armada_vendor)) {
                         $gagal[] = ['label' => (string) $model->nopol, 'alasan' => 'Tidak dihapus — masih dipakai penugasan aktif, selesaikan/batalkan dulu penugasannya'];
                         continue;
@@ -520,9 +581,10 @@ class KontrakVendorService
                 }
             }
 
-            if ($unitDitambah > 0 || $unitDihapus > 0) {
+            if ($unitDitambah > 0 || $unitDihapus > 0 || $hargaBerubah) {
                 $this->tarikApprovalKarenaUnit((string) $kontrak->id_kontrak_vendor, $idPerusahaan);
             }
+            $this->repo->sinkronNilaiDariHargaUnit((string) $kontrak->id_kontrak_vendor);
 
             return [
                 'ditambah'          => $unitDitambah,
@@ -659,8 +721,9 @@ class KontrakVendorService
             $namaDriver         = ExcelCellHelper::cellToString($row['nama_driver'] ?? null);
             $teleponDriver      = ExcelCellHelper::cellToString($row['telepon_driver'] ?? null);
             $noSimDriver        = ExcelCellHelper::cellToString($row['no_sim_driver'] ?? null);
+            $hargaRaw           = ExcelCellHelper::cellToString($row['harga'] ?? null);
 
-            $semuaSel = [$nopol, $merk, $jenis, $namaJenisKendaraan, $kapasitas, $tahunRaw, $stnkRaw, $kirRaw, $namaDriver, $teleponDriver, $noSimDriver];
+            $semuaSel = [$nopol, $merk, $jenis, $namaJenisKendaraan, $kapasitas, $tahunRaw, $stnkRaw, $kirRaw, $namaDriver, $teleponDriver, $noSimDriver, $hargaRaw];
             if (array_filter($semuaSel, static fn ($v) => $v !== null) === []) {
                 continue;
             }
@@ -720,6 +783,12 @@ class KontrakVendorService
                 continue;
             }
 
+            $harga = ExcelCellHelper::parseHarga($hargaRaw);
+            if ($harga === false) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => 'Harga tidak valid (isi angka saja, mis. 15000000)'];
+                continue;
+            }
+
             $barisValid[] = [
                 'nopol'              => $nopol,
                 'merk'               => $merk,
@@ -729,13 +798,18 @@ class KontrakVendorService
                 'tahun'              => $tahun,
                 'masa_berlaku_stnk'  => $masaStnk,
                 'masa_berlaku_kir'   => $masaKir,
+                'harga_kontrak'      => $harga,
                 'driver_nama'        => $namaDriver,
                 'driver_telepon'     => $teleponDriver,
                 'driver_no_sim'      => $noSimDriver,
             ];
         }
 
-        return ['baris_valid' => $barisValid, 'baris_gagal' => $barisGagal];
+        return [
+            'baris_valid'     => $barisValid,
+            'baris_gagal'     => $this->lampirkanNopol($barisGagal, $rows),
+            'ada_kolom_harga' => $this->adaKolomHarga($rows),
+        ];
     }
 
     public function parseUnit(UploadedFile $file, string $idPerusahaan): array
@@ -766,8 +840,9 @@ class KontrakVendorService
             $tahunRaw           = ExcelCellHelper::cellToString($row['tahun'] ?? null);
             $stnkRaw            = ExcelCellHelper::cellToString($row['masa_berlaku_stnk'] ?? null);
             $kirRaw             = ExcelCellHelper::cellToString($row['masa_berlaku_kir'] ?? null);
+            $hargaRaw           = ExcelCellHelper::cellToString($row['harga'] ?? null);
 
-            $semuaSel = [$kodeVendor, $nopol, $merk, $jenis, $namaJenisKendaraan, $kapasitas, $tahunRaw, $stnkRaw, $kirRaw];
+            $semuaSel = [$kodeVendor, $nopol, $merk, $jenis, $namaJenisKendaraan, $kapasitas, $tahunRaw, $stnkRaw, $kirRaw, $hargaRaw];
             if (array_filter($semuaSel, static fn ($v) => $v !== null) === []) {
                 continue;
             }
@@ -820,6 +895,12 @@ class KontrakVendorService
                 continue;
             }
 
+            $harga = ExcelCellHelper::parseHarga($hargaRaw);
+            if ($harga === false) {
+                $barisGagal[] = ['baris' => $baris, 'alasan' => 'Harga tidak valid (isi angka saja, mis. 15000000)'];
+                continue;
+            }
+
             $barisValid[] = [
                 'nopol'              => $nopol,
                 'merk'               => $merk,
@@ -829,10 +910,50 @@ class KontrakVendorService
                 'tahun'              => $tahun,
                 'masa_berlaku_stnk'  => $masaStnk,
                 'masa_berlaku_kir'   => $masaKir,
+                'harga_kontrak'      => $harga,
             ];
         }
 
-        return ['baris_valid' => $barisValid, 'baris_gagal' => $barisGagal];
+        return [
+            'baris_valid'     => $barisValid,
+            'baris_gagal'     => $this->lampirkanNopol($barisGagal, $rows),
+            'ada_kolom_harga' => $this->adaKolomHarga($rows),
+        ];
+    }
+
+    private function lampirkanNopol(array $barisGagal, array $rows): array
+    {
+        return array_map(static function (array $gagal) use ($rows): array {
+            $row = $rows[((int) $gagal['baris']) - 2] ?? [];
+            $gagal['nopol'] = is_array($row) ? ExcelCellHelper::cellToString($row['nopol'] ?? null) : null;
+
+            return $gagal;
+        }, $barisGagal);
+    }
+
+    /** @return array<string, true> */
+    private function nopolBarisGagal(array $barisGagal): array
+    {
+        $hasil = [];
+        foreach ($barisGagal as $gagal) {
+            $nopol = trim((string) ($gagal['nopol'] ?? ''));
+            if ($nopol !== '') {
+                $hasil[mb_strtoupper($nopol)] = true;
+            }
+        }
+
+        return $hasil;
+    }
+
+    private function adaKolomHarga(array $rows): bool
+    {
+        foreach ($rows as $row) {
+            if (is_array($row) && array_key_exists('harga', $row)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function parseSupir(UploadedFile $file): array
@@ -925,6 +1046,7 @@ class KontrakVendorService
                 'tahun'             => $u->tahun,
                 'masa_berlaku_stnk' => $u->masa_berlaku_stnk,
                 'masa_berlaku_kir'  => $u->masa_berlaku_kir,
+                'harga_kontrak'     => $u->harga_kontrak !== null ? (float) $u->harga_kontrak : null,
                 'driver_nama'       => $driver->nama ?? null,
                 'driver_telepon'    => $driver->telepon ?? null,
                 'driver_no_sim'     => $driver->no_sim ?? null,
@@ -939,6 +1061,8 @@ class KontrakVendorService
             'namaVendor' => $this->repo->getNamaVendor($kontrak->id_vendor),
             'paket'      => $paket,
             'units'      => $unitRows,
+            'adaHarga'   => $unitRows->contains(static fn (object $u) => (float) ($u->harga_kontrak ?? 0) > 0),
+            'totalHarga' => round((float) $unitRows->sum(static fn (object $u) => (float) ($u->harga_kontrak ?? 0)), 2),
             'cadangan'   => $cadangan,
             'perusahaan' => $this->repo->getPerusahaan($idPerusahaan),
         ];
@@ -952,16 +1076,21 @@ class KontrakVendorService
             abort(422, 'Hanya kontrak berstatus draft yang bisa diajukan approval');
         }
 
+        if ($this->repo->sinkronNilaiDariHargaUnit($id) !== null) {
+            $record = $this->findOrFail($id, $idPerusahaan);
+        }
+        $this->pastikanRateTidakMelebihiNilai($record->rate, $record->nilai_kontrak);
+
         $approvalService = app(\App\Modules\Approval\ApprovalService::class);
 
         if (!$approvalService->eventTypeAktifAda('kontrak_vendor', $idPerusahaan)) {
-            return DB::transaction(function () use ($record) {
+            return DB::transaction(function () use ($record, $idPengguna) {
                 $aktif = $this->repo->update($record, [
                     'status'                  => 'aktif',
                     'alasan_ditolak_internal' => null,
                 ]);
                 $this->selesaikanPermintaanUntukKontrak($aktif);
-                return $aktif;
+                return $this->terbitkanPoBilaBelum($aktif, $idPengguna);
             });
         }
 
@@ -1001,7 +1130,114 @@ class KontrakVendorService
         DB::transaction(function () use ($record) {
             $aktif = $this->repo->update($record, ['status' => 'aktif']);
             $this->selesaikanPermintaanUntukKontrak($aktif);
+            $this->terbitkanPoBilaBelum($aktif, auth()->id() !== null ? (string) auth()->id() : null);
         });
+    }
+
+    public function terbitkanPo(string $id, string $idPengguna, string $idPerusahaan): KontrakVendorModel
+    {
+        $this->findOrFail($id, $idPerusahaan);
+
+        return DB::transaction(function () use ($id, $idPengguna, $idPerusahaan) {
+            $record = $this->repo->findForUpdate($id, $idPerusahaan);
+            if ($record === null) {
+                abort(404, 'Kontrak vendor tidak ditemukan');
+            }
+            if ($record->status !== 'aktif') {
+                abort(422, 'PO hanya bisa diterbitkan untuk kontrak yang sudah aktif');
+            }
+            if ((string) ($record->nomor_po ?? '') !== '') {
+                abort(422, 'PO kontrak ini sudah terbit');
+            }
+
+            return $this->terbitkanPoBilaBelum($record, $idPengguna);
+        });
+    }
+
+    private function terbitkanPoBilaBelum(KontrakVendorModel $kontrak, ?string $idPengguna): KontrakVendorModel
+    {
+        if ((string) ($kontrak->nomor_po ?? '') !== '') {
+            return $kontrak;
+        }
+
+        $nomorPo = KodeOtomatis::berikutnya((string) $kontrak->id_perusahaan, 'purchase_order');
+        $terbit  = $this->repo->update($kontrak, [
+            'nomor_po'       => $nomorPo,
+            'tanggal_po'     => now()->toDateString(),
+            'po_dibuat_oleh' => $idPengguna,
+        ]);
+        $this->repo->isiNoPoInvoiceKosong((string) $kontrak->id_kontrak_vendor, $nomorPo);
+
+        return $terbit;
+    }
+
+    public function dataPurchaseOrder(string $id, string $idPerusahaan): array
+    {
+        $kontrak = $this->findOrFail($id, $idPerusahaan);
+        if ((string) ($kontrak->nomor_po ?? '') === '') {
+            abort(422, 'PO belum terbit — PO terbit otomatis saat kontrak aktif');
+        }
+        if (!in_array($kontrak->status, ['aktif', 'selesai'], true)) {
+            abort(422, 'Kontrak sedang menunggu persetujuan ulang — PO bisa dicetak setelah kontrak aktif kembali');
+        }
+
+        $units     = $this->armadaVendorRepo->listAktifByKontrak($id)->sortBy('nopol')->values();
+        $ringkasan = $this->repo->ringkasanHargaUnit($id);
+        $subtotal  = round((float) $kontrak->nilai_kontrak, 2);
+        $label     = self::LABEL_MEKANISME[$kontrak->mekanisme] ?? (string) $kontrak->mekanisme;
+        if ($subtotal <= 0) {
+            abort(422, 'Nilai kontrak masih Rp 0 — isi nilai kontrak atau harga unit dulu sebelum mencetak PO');
+        }
+
+        if ($ringkasan['lengkap'] && abs($ringkasan['total'] - $subtotal) < 0.005) {
+            $baris = $units->map(static fn ($u) => [
+                'uraian'     => 'Sewa unit ' . $u->nopol,
+                'keterangan' => trim(implode(' · ', array_filter([$u->merk, $u->jenis, $u->kapasitas]))) ?: null,
+                'qty'        => 1,
+                'satuan'     => 'unit',
+                'harga'      => (float) $u->harga_kontrak,
+                'jumlah'     => (float) $u->harga_kontrak,
+            ])->all();
+        } else {
+            $layanan = trim((string) ($kontrak->jenis_layanan ?? '')) !== '' ? (string) $kontrak->jenis_layanan : "Sewa {$label}";
+            $baris   = [[
+                'uraian'     => $layanan . ' sesuai kontrak ' . ($kontrak->nomor_kontrak ?? '-'),
+                'keterangan' => $units->isNotEmpty() ? $units->count() . ' unit: ' . $units->pluck('nopol')->implode(', ') : null,
+                'qty'        => 1,
+                'satuan'     => 'paket',
+                'harga'      => $subtotal,
+                'jumlah'     => $subtotal,
+            ]];
+        }
+
+        $pajakPersen = (float) ($kontrak->pajak_persen ?? 0);
+        $pajak       = round($subtotal * $pajakPersen / 100);
+
+        $catatan = [];
+        if ($kontrak->rate !== null && (float) $kontrak->rate > 0) {
+            $catatan[] = 'Rate Rp ' . number_format((float) $kontrak->rate, 0, ',', '.')
+                . ($kontrak->satuan !== null ? ' ' . $kontrak->satuan : '');
+        }
+        if ($kontrak->jumlah_trip !== null) {
+            $catatan[] = 'Jumlah trip ' . number_format((int) $kontrak->jumlah_trip, 0, ',', '.');
+        }
+        if ($kontrak->jumlah_hari !== null) {
+            $catatan[] = 'Jumlah hari ' . number_format((int) $kontrak->jumlah_hari, 0, ',', '.');
+        }
+
+        return [
+            'kontrak'     => $kontrak,
+            'vendor'      => $this->repo->getVendor((string) $kontrak->id_vendor),
+            'namaProyek'  => $kontrak->nama_proyek ?? null,
+            'baris'       => $baris,
+            'subtotal'    => $subtotal,
+            'pajakPersen' => $pajakPersen,
+            'pajak'       => $pajak,
+            'total'       => $subtotal + $pajak,
+            'catatan'     => $catatan,
+            'pembuat'     => $kontrak->dibuat_oleh !== null ? $this->repo->usernamePengguna((string) $kontrak->dibuat_oleh) : null,
+            'perusahaan'  => $this->repo->getPerusahaan($idPerusahaan),
+        ];
     }
 
     private function pastikanRateWajibUntukPerTrip(mixed $satuan, mixed $rate): void
@@ -1049,6 +1285,7 @@ class KontrakVendorService
     public function update(string $id, array $data, string $idPerusahaan): KontrakVendorModel
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+        unset($data['status']);
 
         if ($record->status === 'selesai') {
             abort(422, 'Kontrak yang sudah selesai tidak bisa diubah');
@@ -1067,6 +1304,11 @@ class KontrakVendorService
 
         if (array_key_exists('nilai_kontrak', $data) && $data['nilai_kontrak'] === null) {
             $data['nilai_kontrak'] = 0;
+        }
+
+        $hargaUnit = $this->repo->ringkasanHargaUnit((string) $record->id_kontrak_vendor);
+        if ($hargaUnit['lengkap']) {
+            $data['nilai_kontrak'] = $hargaUnit['total'];
         }
 
         if (array_key_exists('rate', $data) || array_key_exists('satuan', $data)) {

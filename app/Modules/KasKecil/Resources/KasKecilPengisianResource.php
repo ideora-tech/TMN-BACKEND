@@ -20,6 +20,7 @@ class KasKecilPengisianResource extends JsonResource
             'tanggal'            => substr((string) $this->tanggal, 0, 10),
             'nominal'            => (float) $this->nominal,
             'keterangan'         => $this->keterangan,
+            'id_rekening_perusahaan' => $this->id_rekening_perusahaan ?? null,
             'nama_bank'          => $this->nama_bank,
             'nomor_rekening'     => $this->nomor_rekening,
             'atas_nama_rekening' => $this->atas_nama_rekening,

@@ -96,7 +96,16 @@ class KasKecilService
             now()->endOfMonth()->toDateString(),
         );
         $diproses = $this->repo->pengisianDiproses($idPerusahaan);
-        $rekening = $this->repo->rekeningPerusahaan($idPerusahaan);
+        $daftarRekening = array_map(
+            static fn (object $r) => [
+                'id_rekening_perusahaan' => $r->id_rekening_perusahaan,
+                'nama_bank'              => $r->nama_bank,
+                'nomor_rekening'         => $r->nomor_rekening,
+                'atas_nama_rekening'     => $r->atas_nama_rekening,
+                'utama'                  => (bool) $r->utama,
+            ],
+            $this->repo->daftarRekeningPerusahaan($idPerusahaan),
+        );
 
         return [
             'saldo'              => $this->repo->saldo($idPerusahaan),
@@ -108,11 +117,8 @@ class KasKecilService
             ],
             'ada_transaksi'      => $this->repo->adaTransaksi($idPerusahaan),
             'ada_saldo_awal'     => $this->repo->findSaldoAwal($idPerusahaan) !== null,
-            'rekening_sumber'    => $this->rekeningTerisi($rekening) ? [
-                'nama_bank'          => $rekening->nama_bank,
-                'nomor_rekening'     => $rekening->nomor_rekening,
-                'atas_nama_rekening' => $rekening->atas_nama_rekening,
-            ] : null,
+            'rekening_sumber'    => $daftarRekening[0] ?? null,
+            'daftar_rekening'    => $daftarRekening,
             'opsi_kategori'      => array_map(
                 static fn (string $value, string $label) => ['value' => $value, 'label' => $label],
                 array_keys(self::KATEGORI),
@@ -351,7 +357,7 @@ class KasKecilService
             $isi      = $this->rapikanPengisian($data);
             $id       = (string) Str::uuid();
             $nomor    = $this->repo->nomorPengisianBerikutnya($idPerusahaan);
-            $rekening = $this->repo->rekeningPerusahaan($idPerusahaan);
+            $rekening = $this->pilihRekening($data['id_rekening_perusahaan'] ?? null, $idPerusahaan);
 
             $idPengajuan = $this->arusKasService->buatPengajuanPengisianKasKecil(
                 $idPerusahaan,
@@ -361,14 +367,11 @@ class KasKecilService
                 $this->keteranganPengajuan($nomor, $isi['keterangan']),
             )->id_pengajuan;
 
-            return $this->repo->createPengisian(array_merge($isi, [
-                'id_pengisian'       => $id,
-                'id_perusahaan'      => $idPerusahaan,
-                'nomor_pengisian'    => $nomor,
-                'nama_bank'          => $rekening->nama_bank ?? null,
-                'nomor_rekening'     => $rekening->nomor_rekening ?? null,
-                'atas_nama_rekening' => $rekening->atas_nama_rekening ?? null,
-                'id_pengajuan'       => $idPengajuan,
+            return $this->repo->createPengisian(array_merge($isi, $rekening, [
+                'id_pengisian'    => $id,
+                'id_perusahaan'   => $idPerusahaan,
+                'nomor_pengisian' => $nomor,
+                'id_pengajuan'    => $idPengajuan,
             ]));
         }, 3);
     }
@@ -383,6 +386,9 @@ class KasKecilService
             $this->pastikanPengisianBisaDiubah($record, 'diubah');
 
             $isi = $this->rapikanPengisian($data);
+            if (!empty($data['id_rekening_perusahaan'])) {
+                $isi = array_merge($isi, $this->pilihRekening((string) $data['id_rekening_perusahaan'], $idPerusahaan));
+            }
 
             $this->arusKasService->perbaruiPengajuanPengisianKasKecil(
                 (string) $record->id_pengajuan,
@@ -497,11 +503,32 @@ class KasKecilService
         return Str::limit("Pengisian kas kecil {$nomor} — {$keterangan}", 255, '');
     }
 
-    private function rekeningTerisi(?object $rekening): bool
+    private function pilihRekening(?string $idRekening, string $idPerusahaan): array
     {
-        return $rekening !== null
-            && trim((string) ($rekening->nama_bank ?? '')) !== ''
-            && trim((string) ($rekening->nomor_rekening ?? '')) !== '';
+        $daftar  = $this->repo->daftarRekeningPerusahaan($idPerusahaan);
+        $dipilih = $daftar[0] ?? null;
+
+        if ($idRekening !== null && $idRekening !== '') {
+            $dipilih = null;
+            foreach ($daftar as $rekening) {
+                if ($rekening->id_rekening_perusahaan === $idRekening) {
+                    $dipilih = $rekening;
+                    break;
+                }
+            }
+            if ($dipilih === null) {
+                throw ValidationException::withMessages([
+                    'id_rekening_perusahaan' => 'Rekening sumber tidak ditemukan — pilih ulang dari master Rekening Perusahaan',
+                ]);
+            }
+        }
+
+        return [
+            'id_rekening_perusahaan' => $dipilih->id_rekening_perusahaan ?? null,
+            'nama_bank'              => $dipilih->nama_bank ?? null,
+            'nomor_rekening'         => $dipilih->nomor_rekening ?? null,
+            'atas_nama_rekening'     => $dipilih->atas_nama_rekening ?? null,
+        ];
     }
 
     /** @return array{0: string, 1: string} */

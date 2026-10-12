@@ -70,6 +70,14 @@ class KontrakVendorController extends Controller
         );
     }
 
+    public function templateUnit(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Modules\ArmadaVendor\Exports\ArmadaVendorTemplateExport(true),
+            'template-import-unit-kontrak.xlsx',
+        );
+    }
+
     public function parsePasangan(ParseExcelKontrakVendorRequest $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
@@ -87,6 +95,26 @@ class KontrakVendorController extends Controller
         );
 
         return ApiResponse::success(new KontrakVendorResource($record), 'Kontrak diajukan untuk approval');
+    }
+
+    public function terbitkanPo(Request $request, string $id): JsonResponse
+    {
+        $record = $this->service->terbitkanPo(
+            $id,
+            (string) $request->user()->id_pengguna,
+            (string) $request->user()->id_perusahaan,
+        );
+
+        return ApiResponse::success(new KontrakVendorResource($record), 'PO kontrak berhasil diterbitkan');
+    }
+
+    public function cetakPo(Request $request, string $id): Response
+    {
+        $data = $this->service->dataPurchaseOrder($id, (string) $request->user()->id_perusahaan);
+
+        $pdf = Pdf::loadView('exports.purchase-order-kontrak-vendor', $data + ['logoBase64' => $this->logoBase64()]);
+
+        return $pdf->download($this->namaFileAman($data['kontrak']->nomor_po) . '.pdf');
     }
 
     public function selesaikan(Request $request, string $id): JsonResponse

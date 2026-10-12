@@ -674,12 +674,14 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('av.id_kontrak_vendor', $idKontrak)
             ->whereNull('av.dihapus_pada')
             ->orderBy('av.nopol')
-            ->get(['av.nopol', 'av.jenis', 'av.merk', 'jk.nama_jenis'])
+            ->get(['av.nopol', 'av.jenis', 'av.merk', 'av.harga_kontrak', 'jk.nama_jenis'])
             ->map(fn (object $satu) => [
                 'nopol' => $satu->nopol,
                 'jenis' => $this->teksAtauNull($satu->nama_jenis) ?? $satu->jenis,
                 'merk'  => $satu->merk,
+                'harga' => (float) ($satu->harga_kontrak ?? 0) > 0 ? round((float) $satu->harga_kontrak, 2) : null,
             ])->all();
+        $totalHargaUnit = round((float) array_sum(array_map(static fn (array $satu) => (float) ($satu['harga'] ?? 0), $unit)), 2);
 
         $supir = DB::table('supir_vendor')
             ->where('id_kontrak_vendor', $idKontrak)
@@ -710,7 +712,8 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                     $this->kolom('nopol', 'Nopol'),
                     $this->kolom('jenis', 'Jenis'),
                     $this->kolom('merk', 'Merk'),
-                ], $unit),
+                    ...($totalHargaUnit > 0 ? [$this->kolom('harga', 'Harga', 'rupiah')] : []),
+                ], $unit, $totalHargaUnit > 0 ? $totalHargaUnit : null, 'Total Harga Unit'),
                 ...$this->bagian('Supir', [
                     $this->kolom('nama', 'Nama'),
                 ], $supir),

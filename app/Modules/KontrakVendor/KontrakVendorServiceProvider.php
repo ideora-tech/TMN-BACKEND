@@ -33,6 +33,7 @@ class KontrakVendorServiceProvider extends ServiceProvider
                 // Standalone CRUD for kontrak-vendor
                 Route::post('kontrak-vendor', [KontrakVendorController::class, 'store']);
                 Route::get('kontrak-vendor/template-pasangan', [KontrakVendorController::class, 'templatePasangan']);
+                Route::get('kontrak-vendor/template-unit', [KontrakVendorController::class, 'templateUnit']);
                 Route::post('kontrak-vendor/parse-pasangan', [KontrakVendorController::class, 'parsePasangan']);
                 Route::post('kontrak-vendor/parse-unit', [KontrakVendorController::class, 'parseUnit']);
                 Route::post('kontrak-vendor/{id}/timpa-unit', [KontrakVendorController::class, 'timpaUnit']);
@@ -41,6 +42,7 @@ class KontrakVendorServiceProvider extends ServiceProvider
                 Route::post('kontrak-vendor/{id}/timpa-supir', [KontrakVendorController::class, 'timpaSupir']);
                 Route::post('kontrak-vendor/parse-supir', [KontrakVendorController::class, 'parseSupir']);
                 Route::get('kontrak-vendor/{id}/export/pdf', [KontrakVendorController::class, 'exportPdf']);
+                Route::post('kontrak-vendor/{id}/po', [KontrakVendorController::class, 'terbitkanPo']);
                 Route::patch('kontrak-vendor/{id}/selesai', [KontrakVendorController::class, 'selesaikan']);
                 Route::get('kontrak-vendor/{id}', [KontrakVendorController::class, 'show']);
                 Route::put('kontrak-vendor/{id}', [KontrakVendorController::class, 'update']);
@@ -51,6 +53,7 @@ class KontrakVendorServiceProvider extends ServiceProvider
             ->middleware(['api', 'auth:sanctum', 'izin:vendor|invoice-vendor'])
             ->group(function () {
                 Route::get('kontrak-vendor', [KontrakVendorController::class, 'index']);
+                Route::get('kontrak-vendor/{id}/po/pdf', [KontrakVendorController::class, 'cetakPo']);
             });
     }
 }

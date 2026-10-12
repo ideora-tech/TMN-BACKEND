@@ -13,7 +13,6 @@ class PerusahaanService
     public function list(int $page = 1, int $limit = 10): array
     {
         $result = $this->repo->paginate($page, $limit);
-
         return [
             'data' => $result->items(),
             'meta' => [

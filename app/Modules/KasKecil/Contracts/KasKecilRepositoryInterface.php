@@ -10,7 +10,7 @@ interface KasKecilRepositoryInterface
 {
     public function kunciPerusahaan(string $idPerusahaan): void;
 
-    public function rekeningPerusahaan(string $idPerusahaan): ?object;
+    public function daftarRekeningPerusahaan(string $idPerusahaan): array;
 
     public function saldo(string $idPerusahaan): float;
 

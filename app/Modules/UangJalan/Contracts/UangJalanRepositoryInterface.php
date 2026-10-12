@@ -19,7 +19,6 @@ interface UangJalanRepositoryInterface
         ?string $dari = null,
         ?string $sampai = null,
         ?string $idProyek = null,
-        ?array $kelompok = null,
     ): LengthAwarePaginator;
 
     public function paginateKelompok(

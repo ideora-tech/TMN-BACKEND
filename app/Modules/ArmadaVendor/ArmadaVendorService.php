@@ -7,6 +7,7 @@ namespace App\Modules\ArmadaVendor;
 use App\Modules\ArmadaVendor\Contracts\ArmadaVendorRepositoryInterface;
 use App\Modules\ArmadaVendor\Imports\ArmadaVendorImport;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ArmadaVendorService
@@ -52,13 +53,28 @@ class ArmadaVendorService
         $this->pastikanKontrakMilikVendor($data, $idPerusahaan, (string) $data['id_vendor']);
         $this->pastikanSupirDefaultSeVendor($data, (string) $data['id_vendor']);
 
-        $record = $this->repo->create($data);
+        $data['harga_kontrak'] = !empty($data['id_kontrak_vendor'])
+            ? $this->hargaBersih($data['harga_kontrak'] ?? null)
+            : null;
 
-        if (!empty($data['id_kontrak_vendor'])) {
-            $this->tarikApprovalKontrak((string) $data['id_kontrak_vendor'], $idPerusahaan);
-        }
+        return DB::transaction(function () use ($data, $idPerusahaan) {
+            if (!empty($data['id_kontrak_vendor'])) {
+                $this->kontrakVendorRepo->kunci((string) $data['id_kontrak_vendor']);
+            }
+            $record = $this->repo->create($data);
 
-        return $record;
+            if (!empty($data['id_kontrak_vendor'])) {
+                $this->tarikApprovalKontrak((string) $data['id_kontrak_vendor'], $idPerusahaan);
+                $this->kontrakVendorRepo->sinkronNilaiDariHargaUnit((string) $data['id_kontrak_vendor']);
+            }
+
+            return $record;
+        });
+    }
+
+    private function hargaBersih(mixed $harga): ?float
+    {
+        return $harga !== null && $harga !== '' && (float) $harga > 0 ? round((float) $harga) : null;
     }
 
     public function update(string $id, array $data, string $idPerusahaan): ArmadaVendorModel
@@ -78,17 +94,42 @@ class ArmadaVendorService
         $this->pastikanKontrakMilikVendor($data, $idPerusahaan, (string) ($data['id_vendor'] ?? $record->id_vendor));
 
         $kontrakSebelum = $record->id_kontrak_vendor;
-        $diperbarui = $this->repo->update($record, $data);
+        $kontrakSesudah = array_key_exists('id_kontrak_vendor', $data) ? ($data['id_kontrak_vendor'] ?? null) : $kontrakSebelum;
+        $pindahKontrak  = $kontrakSesudah !== $kontrakSebelum;
+        $hargaSebelum   = $this->hargaBersih($record->harga_kontrak);
 
-        if (array_key_exists('id_kontrak_vendor', $data) && ($data['id_kontrak_vendor'] ?? null) !== $kontrakSebelum) {
-            foreach ([$kontrakSebelum, $data['id_kontrak_vendor'] ?? null] as $idKontrak) {
-                if (!empty($idKontrak)) {
-                    $this->tarikApprovalKontrak((string) $idKontrak, $idPerusahaan);
-                }
-            }
+        if (empty($kontrakSesudah)) {
+            $data['harga_kontrak'] = null;
+        } elseif (array_key_exists('harga_kontrak', $data)) {
+            $data['harga_kontrak'] = $this->hargaBersih($data['harga_kontrak']);
+        } elseif ($pindahKontrak) {
+            $data['harga_kontrak'] = null;
         }
+        $hargaBerubah = array_key_exists('harga_kontrak', $data)
+            && abs((float) ($data['harga_kontrak'] ?? 0) - (float) ($hargaSebelum ?? 0)) >= 0.005;
 
-        return $diperbarui;
+        return DB::transaction(function () use ($record, $data, $idPerusahaan, $kontrakSebelum, $kontrakSesudah, $pindahKontrak, $hargaBerubah) {
+            $terlibat = array_values(array_unique(array_filter([(string) $kontrakSebelum, (string) $kontrakSesudah])));
+            sort($terlibat);
+            foreach ($terlibat as $idKontrak) {
+                $this->kontrakVendorRepo->kunci($idKontrak);
+            }
+            $diperbarui = $this->repo->update($record, $data);
+
+            if ($pindahKontrak) {
+                foreach ([$kontrakSebelum, $kontrakSesudah] as $idKontrak) {
+                    if (!empty($idKontrak)) {
+                        $this->tarikApprovalKontrak((string) $idKontrak, $idPerusahaan);
+                        $this->kontrakVendorRepo->sinkronNilaiDariHargaUnit((string) $idKontrak);
+                    }
+                }
+            } elseif ($hargaBerubah && !empty($kontrakSesudah)) {
+                $this->tarikApprovalKontrak((string) $kontrakSesudah, $idPerusahaan);
+                $this->kontrakVendorRepo->sinkronNilaiDariHargaUnit((string) $kontrakSesudah);
+            }
+
+            return $diperbarui;
+        });
     }
 
     private function pastikanKontrakMilikVendor(array $data, string $idPerusahaan, string $idVendor): void
@@ -137,17 +178,23 @@ class ArmadaVendorService
             abort(422, 'Unit masih dipakai penugasan aktif — selesaikan atau batalkan penugasannya terlebih dahulu');
         }
 
-        $this->repo->delete($record);
+        DB::transaction(function () use ($record, $idPerusahaan) {
+            if (!empty($record->id_kontrak_vendor)) {
+                $this->kontrakVendorRepo->kunci((string) $record->id_kontrak_vendor);
+            }
+            $this->repo->delete($record);
 
-        if (!empty($record->id_kontrak_vendor)) {
-            $this->tarikApprovalKontrak((string) $record->id_kontrak_vendor, $idPerusahaan);
-        }
+            if (!empty($record->id_kontrak_vendor)) {
+                $this->tarikApprovalKontrak((string) $record->id_kontrak_vendor, $idPerusahaan);
+                $this->kontrakVendorRepo->sinkronNilaiDariHargaUnit((string) $record->id_kontrak_vendor);
+            }
+        });
     }
 
     private function tarikApprovalKontrak(string $idKontrak, string $idPerusahaan): void
     {
         $statusSebelum = $this->kontrakVendorRepo->turunkanKeDraftJikaPerluApprovalUlang($idKontrak);
-        if ($statusSebelum === 'menunggu_approval') {
+        if (in_array($statusSebelum, ['menunggu_approval', 'aktif'], true)) {
             app(\App\Modules\Approval\ApprovalService::class)
                 ->batalkanUntukReferensi(['kontrak_vendor'], $idKontrak, $idPerusahaan);
         }

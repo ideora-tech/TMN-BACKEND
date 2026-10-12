@@ -26,6 +26,7 @@ class UpdateArmadaVendorRequest extends FormRequest
             'tahun'             => ['sometimes', 'nullable', 'integer'],
             'masa_berlaku_stnk' => ['sometimes', 'nullable', 'date'],
             'masa_berlaku_kir'  => ['sometimes', 'nullable', 'date'],
+            'harga_kontrak'     => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999999'],
             'id_supir_vendor_default' => ['sometimes', 'nullable', 'string', 'max:36'],
             'aktif'             => ['sometimes', 'boolean'],
         ];

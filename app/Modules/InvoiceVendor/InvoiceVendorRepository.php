@@ -99,7 +99,7 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
             ->where('id_kontrak_vendor', $idKontrak)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['id_kontrak_vendor', 'id_vendor', 'nomor_kontrak', 'termin_pembayaran_hari', 'nilai_kontrak']);
+            ->first(['id_kontrak_vendor', 'id_vendor', 'nomor_kontrak', 'termin_pembayaran_hari', 'nilai_kontrak', 'nomor_po']);
     }
 
     public function kunciKontrak(string $idKontrak): ?object

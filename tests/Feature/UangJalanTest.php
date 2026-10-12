@@ -935,44 +935,35 @@ class UangJalanTest extends TestCase
         return ['proyek' => $proyek, 'a1' => $a1, 'a2' => $a2, 'b' => $b, 'c' => $c];
     }
 
-    public function test_kelompok_menggabungkan_driver_dan_proyek_yang_sama(): void
+    public function test_kelompok_menggabungkan_uang_jalan_per_proyek(): void
     {
         $d = $this->siapkanDataKelompok();
-        $m = $this->master();
 
         $res = $this->getJson('/api/uang-jalan/kelompok');
 
         $res->assertStatus(200)
-            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.total', 2)
             ->assertJsonPath('meta.page', 1)
-            ->assertJsonCount(3, 'data')
-            ->assertJsonPath('data.0.kunci', "vendor|{$m['supir_vendor']}|{$d['proyek']}")
-            ->assertJsonPath('data.0.tipe_driver', 'vendor')
-            ->assertJsonPath('data.0.kunci_driver', $m['supir_vendor'])
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.kunci', $d['proyek'])
             ->assertJsonPath('data.0.id_proyek', $d['proyek'])
-            ->assertJsonPath('data.0.nama_driver', 'Al Wanton')
-            ->assertJsonPath('data.0.nama_vendor', 'PT. Bayu Chandra Logistik')
             ->assertJsonPath('data.0.nama_proyek', 'Proyek Logistik STR')
-            ->assertJsonPath('data.0.jumlah', 2)
-            ->assertJsonPath('data.0.total_trip', 5)
-            ->assertJsonPath('data.0.total_nominal', 1150000)
-            ->assertJsonPath('data.0.tanggal_awal', '2026-10-02')
+            ->assertJsonPath('data.0.jumlah', 3)
+            ->assertJsonPath('data.0.jumlah_driver', 2)
+            ->assertJsonPath('data.0.total_trip', 7)
+            ->assertJsonPath('data.0.total_nominal', 1610000)
+            ->assertJsonPath('data.0.tanggal_awal', '2026-10-01')
             ->assertJsonPath('data.0.tanggal_akhir', '2026-10-05')
-            ->assertJsonPath('data.0.jumlah_nopol', 1)
-            ->assertJsonPath('data.0.nopol', 'B 9550 FXY')
-            ->assertJsonPath('data.0.jumlah_rute', 1)
-            ->assertJsonPath('data.0.rute', 'STR - BTS20 - STR')
-            ->assertJsonPath('data.0.status', ['menunggu_approval' => 1, 'ditransfer' => 1])
+            ->assertJsonPath('data.0.status', ['menunggu_approval' => 2, 'ditransfer' => 1])
             ->assertJsonPath('data.0.tunggal', null)
-            ->assertJsonPath('data.1.jumlah', 1)
+            ->assertJsonPath('data.1.kunci', 'tanpa-proyek')
             ->assertJsonPath('data.1.id_proyek', null)
+            ->assertJsonPath('data.1.jumlah', 1)
+            ->assertJsonPath('data.1.jumlah_driver', 1)
             ->assertJsonPath('data.1.tunggal.id_uang_jalan', $d['b'])
             ->assertJsonPath('data.1.tunggal.status_pengajuan', 'menunggu_approval')
-            ->assertJsonPath('data.1.tunggal.bisa_diubah', true)
-            ->assertJsonPath('data.2.tipe_driver', 'internal')
-            ->assertJsonPath('data.2.kunci_driver', $m['supir'])
-            ->assertJsonPath('data.2.nama_driver', 'Budi Santoso')
-            ->assertJsonPath('data.2.tunggal.id_uang_jalan', $d['c']);
+            ->assertJsonPath('data.1.tunggal.bisa_diubah', true);
+        $this->assertArrayNotHasKey('kunci_driver', $res->json('data.0'));
     }
 
     public function test_kelompok_mengikuti_filter_daftar_dan_paginasi(): void
@@ -984,57 +975,84 @@ class UangJalanTest extends TestCase
             ->assertJsonPath('data.0.jumlah', 1)
             ->assertJsonPath('data.0.status', ['ditransfer' => 1])
             ->assertJsonPath('data.0.tunggal.id_uang_jalan', $d['a1']);
+        $this->getJson('/api/uang-jalan/kelompok?status=menunggu_approval')
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.jumlah', 2)
+            ->assertJsonPath('data.0.total_nominal', 1150000)
+            ->assertJsonPath('data.0.tunggal', null);
         $this->getJson('/api/uang-jalan/kelompok?search=Budi')
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.tunggal.id_uang_jalan', $d['c']);
-        $this->getJson("/api/uang-jalan/kelompok?id_proyek={$d['proyek']}")->assertJsonPath('meta.total', 2);
+        $this->getJson("/api/uang-jalan/kelompok?id_proyek={$d['proyek']}")
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.jumlah', 3);
+        $this->getJson('/api/uang-jalan/kelompok?id_proyek=tanpa')
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.tunggal.id_uang_jalan', $d['b']);
         $this->getJson('/api/uang-jalan/kelompok?dari=2026-10-04')
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.tunggal.id_uang_jalan', $d['a2']);
         $this->getJson('/api/uang-jalan/kelompok?sampai=2026-10-01')->assertJsonPath('meta.total', 1);
         $this->getJson('/api/uang-jalan/kelompok?limit=1&page=2')
-            ->assertJsonPath('meta.totalPages', 3)
+            ->assertJsonPath('meta.totalPages', 2)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.tunggal.id_uang_jalan', $d['b']);
-        $this->getJson('/api/uang-jalan/kelompok?search[]=x&status[]=y')->assertStatus(200)->assertJsonPath('meta.total', 3);
+        $this->getJson('/api/uang-jalan/kelompok?search[]=x&status[]=y')->assertStatus(200)->assertJsonPath('meta.total', 2);
+        $this->getJson('/api/uang-jalan/kelompok?dari=2026-10-02&sampai=2026-10-03')
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('data.0.tunggal.id_uang_jalan', $d['b'])
+            ->assertJsonPath('data.1.tunggal.id_uang_jalan', $d['a1']);
+        $this->getJson('/api/uang-jalan/kelompok?dari=abc&sampai=2026-13-45')->assertStatus(200)->assertJsonPath('meta.total', 2);
+        $this->getJson('/api/uang-jalan?dari=abc&sampai=31-10-2026')->assertStatus(200)->assertJsonPath('meta.total', 4);
     }
 
-    public function test_daftar_bisa_disaring_per_kelompok_untuk_baris_anak(): void
+    public function test_kelompok_memakai_nama_proyek_terkini_dari_master(): void
     {
         $d = $this->siapkanDataKelompok();
-        $m = $this->master();
-        $vendor = "kelompok_tipe=vendor&kelompok_driver={$m['supir_vendor']}";
+        DB::table('proyek')->where('id_proyek', $d['proyek'])->update(['kode_proyek' => 'PRJ-BARU', 'nama_proyek' => 'Angkutan Zamrud']);
 
-        $this->getJson("/api/uang-jalan?{$vendor}&kelompok_proyek={$d['proyek']}")
-            ->assertStatus(200)
-            ->assertJsonPath('meta.total', 2)
-            ->assertJsonPath('data.0.id_uang_jalan', $d['a2'])
-            ->assertJsonPath('data.1.id_uang_jalan', $d['a1']);
-        $this->getJson("/api/uang-jalan?{$vendor}&kelompok_proyek={$d['proyek']}&status=ditransfer")
-            ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.id_uang_jalan', $d['a1']);
-        $this->getJson("/api/uang-jalan?{$vendor}")
-            ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.id_uang_jalan', $d['b']);
-        $this->getJson("/api/uang-jalan?{$vendor}&kelompok_proyek=")
-            ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.id_uang_jalan', $d['b']);
-        $this->getJson("/api/uang-jalan?kelompok_tipe=internal&kelompok_driver={$m['supir']}&kelompok_proyek={$d['proyek']}")
-            ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.id_uang_jalan', $d['c']);
-        $this->getJson("/api/uang-jalan?kelompok_tipe=internal&kelompok_driver={$m['supir_vendor']}&kelompok_proyek={$d['proyek']}")
-            ->assertJsonPath('meta.total', 0);
-        $this->getJson('/api/uang-jalan?kelompok_tipe=vendor')->assertJsonPath('meta.total', 4);
-        $this->getJson('/api/uang-jalan?kelompok_tipe[]=vendor&kelompok_driver[]=x')->assertStatus(200)->assertJsonPath('meta.total', 4);
+        $this->getJson('/api/uang-jalan/kelompok')
+            ->assertJsonPath('data.0.id_proyek', $d['proyek'])
+            ->assertJsonPath('data.0.kode_proyek', 'PRJ-BARU')
+            ->assertJsonPath('data.0.nama_proyek', 'Angkutan Zamrud');
+
+        DB::table('proyek')->where('id_proyek', $d['proyek'])->update(['dihapus_pada' => now()]);
+        $this->getJson('/api/uang-jalan/kelompok')->assertJsonPath('data.0.nama_proyek', 'Angkutan Zamrud');
+
+        DB::table('proyek')->where('id_proyek', $d['proyek'])->delete();
+        $this->getJson('/api/uang-jalan/kelompok')
+            ->assertJsonPath('data.0.jumlah', 3)
+            ->assertJsonPath('data.0.nama_proyek', 'Proyek Logistik STR');
     }
 
-    public function test_kelompok_data_lama_tanpa_tautan_master_memakai_nama_driver(): void
+    public function test_baris_anak_kelompok_diambil_lewat_filter_proyek(): void
+    {
+        $d = $this->siapkanDataKelompok();
+
+        $this->getJson("/api/uang-jalan?id_proyek={$d['proyek']}")
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('data.0.id_uang_jalan', $d['a2'])
+            ->assertJsonPath('data.1.id_uang_jalan', $d['a1'])
+            ->assertJsonPath('data.2.id_uang_jalan', $d['c']);
+        $this->getJson("/api/uang-jalan?id_proyek={$d['proyek']}&status=ditransfer")
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id_uang_jalan', $d['a1']);
+        $this->getJson("/api/uang-jalan?id_proyek={$d['proyek']}&limit=2&page=2")
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id_uang_jalan', $d['c']);
+        $this->getJson('/api/uang-jalan?id_proyek=tanpa')
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id_uang_jalan', $d['b']);
+    }
+
+    public function test_kelompok_di_luar_proyek_menggabungkan_semua_driver(): void
     {
         $this->actingAsRole('SUPERADMIN');
-        foreach (['UJ-202609-0001', 'UJ-202609-0002'] as $i => $nomor) {
+        foreach (['Driver Lama', 'Driver Lama', 'Driver Lain'] as $i => $nama) {
             DB::table('uang_jalan')->insert([
-                'id_uang_jalan' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'nomor_uang_jalan' => $nomor,
-                'tanggal' => '2026-09-1' . $i, 'nama_driver' => 'Driver Lama', 'tipe_driver' => 'internal',
+                'id_uang_jalan' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'nomor_uang_jalan' => 'UJ-202609-000' . ($i + 1),
+                'tanggal' => '2026-09-1' . $i, 'nama_driver' => $nama, 'tipe_driver' => 'internal',
                 'nopol' => 'B 200' . $i . ' ZZ', 'rute' => 'A - B', 'uang_jalan_per_trip' => 100000, 'jumlah_trip' => 1,
                 'nominal' => 100000, 'nomor_rekening' => '123', 'nama_bank' => 'BRI', 'dibuat_pada' => now(),
             ]);
@@ -1043,38 +1061,41 @@ class UangJalanTest extends TestCase
         $this->getJson('/api/uang-jalan/kelompok')
             ->assertStatus(200)
             ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.jumlah', 2)
-            ->assertJsonPath('data.0.kunci_driver', 'Driver Lama')
-            ->assertJsonPath('data.0.jumlah_nopol', 2)
-            ->assertJsonPath('data.0.total_nominal', 200000)
+            ->assertJsonPath('data.0.kunci', 'tanpa-proyek')
+            ->assertJsonPath('data.0.jumlah', 3)
+            ->assertJsonPath('data.0.jumlah_driver', 2)
+            ->assertJsonPath('data.0.total_nominal', 300000)
+            ->assertJsonPath('data.0.tanggal_awal', '2026-09-10')
+            ->assertJsonPath('data.0.tanggal_akhir', '2026-09-12')
             ->assertJsonPath('data.0.status', [])
             ->assertJsonPath('data.0.tunggal', null);
-        $this->getJson('/api/uang-jalan?kelompok_tipe=internal&kelompok_driver=Driver Lama')
-            ->assertJsonPath('meta.total', 2)
-            ->assertJsonPath('data.0.nomor_uang_jalan', 'UJ-202609-0002');
+        $this->getJson('/api/uang-jalan?id_proyek=tanpa')
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('data.0.nomor_uang_jalan', 'UJ-202609-0003');
     }
 
     public function test_kelompok_terisolasi_per_perusahaan_dan_mengikuti_izin_menu(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $m = $this->master();
+        $proyek = $this->buatProyek($m['rute'])['id_proyek'];
 
         $idPerusahaanLain = (string) Str::uuid();
         DB::table('perusahaan')->insert(['id_perusahaan' => $idPerusahaanLain, 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
         DB::table('uang_jalan')->insert([
             'id_uang_jalan' => (string) Str::uuid(), 'id_perusahaan' => $idPerusahaanLain, 'nomor_uang_jalan' => 'UJ-202610-0001',
             'tanggal' => '2026-10-02', 'nama_driver' => 'Al Wanton', 'tipe_driver' => 'vendor', 'id_supir_vendor' => $m['supir_vendor'],
-            'nopol' => 'B 1 X', 'rute' => 'A - B', 'uang_jalan_per_trip' => 100000, 'jumlah_trip' => 1, 'nominal' => 100000,
-            'nomor_rekening' => '123', 'nama_bank' => 'BRI', 'dibuat_pada' => now(),
+            'id_proyek' => $proyek, 'nopol' => 'B 1 X', 'rute' => 'A - B', 'uang_jalan_per_trip' => 100000, 'jumlah_trip' => 1,
+            'nominal' => 100000, 'nomor_rekening' => '123', 'nama_bank' => 'BRI', 'dibuat_pada' => now(),
         ]);
-        $milikSendiri = $this->buatUangJalan();
+        $milikSendiri = $this->buatUangJalan($this->payload(['id_proyek' => $proyek]));
 
         $this->getJson('/api/uang-jalan/kelompok')
             ->assertStatus(200)
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.jumlah', 1)
             ->assertJsonPath('data.0.tunggal.id_uang_jalan', $milikSendiri);
-        $this->getJson("/api/uang-jalan?kelompok_tipe=vendor&kelompok_driver={$m['supir_vendor']}")
+        $this->getJson("/api/uang-jalan?id_proyek={$proyek}")
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.id_uang_jalan', $milikSendiri);
 

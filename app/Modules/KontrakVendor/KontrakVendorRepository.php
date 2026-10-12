@@ -246,6 +246,20 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
         return DB::table('vendor')->where('id_vendor', $idVendor)->value('nama_vendor');
     }
 
+    public function getVendor(string $idVendor): ?object
+    {
+        return DB::table('vendor')
+            ->where('id_vendor', $idVendor)
+            ->first(['id_vendor', 'nama_vendor', 'alamat', 'telepon', 'email']);
+    }
+
+    public function usernamePengguna(string $idPengguna): ?string
+    {
+        $username = DB::table('pengguna')->where('id_pengguna', $idPengguna)->value('username');
+
+        return $username !== null ? (string) $username : null;
+    }
+
     public function getPerusahaan(string $idPerusahaan): ?object
     {
         return DB::table('perusahaan')->where('id_perusahaan', $idPerusahaan)->first();
@@ -327,13 +341,74 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
     public function lepasTautanUnitDanSupir(string $idKontrakVendor): void
     {
         foreach (['armada_vendor', 'supir_vendor'] as $tabel) {
+            $ubah = ['id_kontrak_vendor' => null, 'diubah_pada' => now()];
+            if ($tabel === 'armada_vendor') {
+                $ubah['harga_kontrak'] = null;
+            }
+
             DB::table($tabel)
                 ->whereNull('dihapus_pada')
                 ->where('id_kontrak_vendor', $idKontrakVendor)
-                ->update([
-                    'id_kontrak_vendor' => null,
-                    'diubah_pada'       => now(),
-                ]);
+                ->update($ubah);
         }
+    }
+
+    public function kunci(string $idKontrakVendor): void
+    {
+        DB::table('kontrak_vendor')
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->lockForUpdate()
+            ->first(['id_kontrak_vendor']);
+    }
+
+    public function isiNoPoInvoiceKosong(string $idKontrakVendor, string $nomorPo): void
+    {
+        DB::table('invoice_vendor')
+            ->whereNull('dihapus_pada')
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->where(fn ($q) => $q->whereNull('no_po')->orWhere('no_po', ''))
+            ->update(['no_po' => $nomorPo, 'diubah_pada' => now()]);
+    }
+
+    public function ringkasanHargaUnit(string $idKontrakVendor, bool $kunci = false): array
+    {
+        $baris = DB::table('armada_vendor')
+            ->whereNull('dihapus_pada')
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->when($kunci, fn ($q) => $q->lockForUpdate())
+            ->selectRaw('COUNT(*) as jumlah, '
+                . 'COALESCE(SUM(CASE WHEN harga_kontrak > 0 THEN 1 ELSE 0 END), 0) as berharga, '
+                . 'COALESCE(SUM(CASE WHEN harga_kontrak > 0 THEN harga_kontrak ELSE 0 END), 0) as total')
+            ->first();
+
+        $jumlah   = (int) ($baris->jumlah ?? 0);
+        $berharga = (int) ($baris->berharga ?? 0);
+
+        return [
+            'jumlah'   => $jumlah,
+            'berharga' => $berharga,
+            'total'    => round((float) ($baris->total ?? 0), 2),
+            'lengkap'  => $jumlah > 0 && $berharga === $jumlah,
+        ];
+    }
+
+    public function sinkronNilaiDariHargaUnit(string $idKontrakVendor): ?float
+    {
+        $kontrak = KontrakVendorModel::active()
+            ->where('id_kontrak_vendor', $idKontrakVendor)
+            ->lockForUpdate()
+            ->first();
+        if ($kontrak === null || $kontrak->status === 'selesai') {
+            return null;
+        }
+
+        $ringkasan = $this->ringkasanHargaUnit($idKontrakVendor, true);
+        if (!$ringkasan['lengkap'] || abs((float) $kontrak->nilai_kontrak - $ringkasan['total']) < 0.005) {
+            return null;
+        }
+
+        $kontrak->update(['nilai_kontrak' => $ringkasan['total']]);
+
+        return $ringkasan['total'];
     }
 }

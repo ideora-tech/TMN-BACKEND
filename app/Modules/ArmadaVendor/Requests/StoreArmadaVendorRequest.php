@@ -26,6 +26,7 @@ class StoreArmadaVendorRequest extends FormRequest
             'tahun'             => ['sometimes', 'nullable', 'integer'],
             'masa_berlaku_stnk' => ['required', 'date'],
             'masa_berlaku_kir' => ['required', 'date'],
+            'harga_kontrak'     => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999999999999'],
             'id_supir_vendor_default' => ['sometimes', 'nullable', 'string', 'max:36'],
             'aktif'             => ['sometimes', 'boolean'],
         ];

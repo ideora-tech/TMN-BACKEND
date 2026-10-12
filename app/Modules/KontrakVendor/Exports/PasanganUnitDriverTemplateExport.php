@@ -16,7 +16,7 @@ class PasanganUnitDriverTemplateExport implements FromArray, WithHeadings, Shoul
             [
                 'B 5678 VND', 'Hino', 'Dump Truck', 'Tronton', '20 ton', 2021,
                 '2027-03-01', '2026-12-15',
-                'Budi Santoso', '081255501234', '320124000123',
+                'Budi Santoso', '081255501234', '320124000123', 15000000,
             ],
         ];
     }
@@ -26,7 +26,7 @@ class PasanganUnitDriverTemplateExport implements FromArray, WithHeadings, Shoul
         return [
             'nopol', 'merk', 'jenis', 'jenis_kendaraan', 'kapasitas', 'tahun',
             'masa_berlaku_stnk', 'masa_berlaku_kir',
-            'nama_driver', 'telepon_driver', 'no_sim_driver',
+            'nama_driver', 'telepon_driver', 'no_sim_driver', 'harga',
         ];
     }
 }

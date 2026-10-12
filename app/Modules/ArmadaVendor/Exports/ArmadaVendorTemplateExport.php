@@ -10,12 +10,15 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 
 class ArmadaVendorTemplateExport implements FromArray, WithHeadings, ShouldAutoSize
 {
+    public function __construct(private readonly bool $denganHarga = false) {}
+
     public function array(): array
     {
         return [
             [
                 'VDR-001', 'B 5678 VND', 'Hino', 'Dump Truck', 'Tronton',
                 '20 ton', 2021, '2027-03-01', '2026-12-15',
+                ...($this->denganHarga ? [15000000] : []),
             ],
         ];
     }
@@ -25,6 +28,7 @@ class ArmadaVendorTemplateExport implements FromArray, WithHeadings, ShouldAutoS
         return [
             'kode_vendor', 'nopol', 'merk', 'jenis', 'jenis_kendaraan',
             'kapasitas', 'tahun', 'masa_berlaku_stnk', 'masa_berlaku_kir',
+            ...($this->denganHarga ? ['harga'] : []),
         ];
     }
 }

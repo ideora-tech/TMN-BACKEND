@@ -497,9 +497,11 @@ class KontrakVendorPaketTest extends TestCase
         $valid = $res->json('data.baris_valid');
         $this->assertCount(2, $valid);
         $this->assertSame(
-            ['nopol', 'merk', 'jenis', 'id_jenis_kendaraan', 'kapasitas', 'tahun', 'masa_berlaku_stnk', 'masa_berlaku_kir'],
+            ['nopol', 'merk', 'jenis', 'id_jenis_kendaraan', 'kapasitas', 'tahun', 'masa_berlaku_stnk', 'masa_berlaku_kir', 'harga_kontrak'],
             array_keys($valid[0])
         );
+        $this->assertNull($valid[0]['harga_kontrak']);
+        $this->assertFalse($res->json('data.ada_kolom_harga'));
         $this->assertSame('B 1111 PRS', $valid[0]['nopol']);
         $this->assertSame('Hino', $valid[0]['merk']);
         $this->assertSame($idJenis, $valid[0]['id_jenis_kendaraan']);

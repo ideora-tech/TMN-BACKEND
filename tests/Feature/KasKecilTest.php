@@ -109,8 +109,10 @@ class KasKecilTest extends TestCase
     {
         $this->lewatiApproval();
         $this->actingAsRole('KEUANGAN');
-        DB::table('perusahaan')->where('id_perusahaan', self::PERUSAHAAN_ID)->update([
+        DB::table('rekening_perusahaan')->insert([
+            'id_rekening_perusahaan' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
             'nama_bank' => 'BCA', 'nomor_rekening' => '1234567890', 'atas_nama_rekening' => 'PT TMN Transport',
+            'utama' => 1, 'dibuat_pada' => now(),
         ]);
 
         $res = $this->postJson('/api/kas-kecil/pengisian', [

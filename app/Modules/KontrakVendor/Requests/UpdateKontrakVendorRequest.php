@@ -31,7 +31,6 @@ class UpdateKontrakVendorRequest extends FormRequest
             'jumlah_hari'            => ['sometimes', 'nullable', 'integer', 'min:0', 'max:3660'],
             'tanggal_mulai'          => ['sometimes', 'nullable', 'date'],
             'tanggal_selesai'        => ['sometimes', 'nullable', 'date', 'after_or_equal:tanggal_mulai'],
-            'status'                 => ['sometimes', 'string', 'max:50'],
         ];
     }
 }

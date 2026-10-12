@@ -42,10 +42,9 @@ class UangJalanService
         ?string $dari = null,
         ?string $sampai = null,
         ?string $idProyek = null,
-        ?array $kelompok = null,
     ): array {
         return $this->halaman(
-            $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status, $dari, $sampai, $idProyek, $kelompok),
+            $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $search, $status, $dari, $sampai, $idProyek),
         );
     }
 

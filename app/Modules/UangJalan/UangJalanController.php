@@ -25,10 +25,9 @@ class UangJalanController extends Controller
             min(100, max(1, (int) $request->get('limit', 10))),
             $this->teks($request, 'search'),
             $this->teks($request, 'status'),
-            $this->teks($request, 'dari'),
-            $this->teks($request, 'sampai'),
+            $this->tanggal($request, 'dari'),
+            $this->tanggal($request, 'sampai'),
             $this->teks($request, 'id_proyek'),
-            $this->kelompokDari($request),
         );
 
         return ApiResponse::paginated(UangJalanResource::collection($result['data']), $result['meta']);
@@ -42,8 +41,8 @@ class UangJalanController extends Controller
             min(100, max(1, (int) $request->get('limit', 10))),
             $this->teks($request, 'search'),
             $this->teks($request, 'status'),
-            $this->teks($request, 'dari'),
-            $this->teks($request, 'sampai'),
+            $this->tanggal($request, 'dari'),
+            $this->tanggal($request, 'sampai'),
             $this->teks($request, 'id_proyek'),
         );
 
@@ -99,15 +98,16 @@ class UangJalanController extends Controller
         return is_string($nilai) ? $nilai : null;
     }
 
-    private function kelompokDari(Request $request): ?array
+    private function tanggal(Request $request, string $kunci): ?string
     {
-        $tipe   = $this->teks($request, 'kelompok_tipe');
-        $driver = $this->teks($request, 'kelompok_driver');
-        if ($tipe === null || $tipe === '' || $driver === null || $driver === '') {
+        $nilai = $this->teks($request, $kunci);
+        if ($nilai === null) {
             return null;
         }
 
-        return ['tipe' => $tipe, 'driver' => $driver, 'proyek' => $this->teks($request, 'kelompok_proyek')];
+        $tanggal = \DateTimeImmutable::createFromFormat('!Y-m-d', $nilai);
+
+        return $tanggal !== false && $tanggal->format('Y-m-d') === $nilai ? $nilai : null;
     }
 
     public function show(Request $request, string $id): JsonResponse

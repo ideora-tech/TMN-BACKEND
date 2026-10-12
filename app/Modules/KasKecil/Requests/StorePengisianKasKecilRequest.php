@@ -19,6 +19,7 @@ class StorePengisianKasKecilRequest extends FormRequest
             'tanggal'    => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'nominal'    => ['required', 'numeric', 'min:1', 'max:1000000000'],
             'keterangan' => ['required', 'string', 'max:500'],
+            'id_rekening_perusahaan' => ['sometimes', 'nullable', 'string', 'size:36'],
         ];
     }
 
