@@ -14,6 +14,7 @@ class DokumenVendorRepository implements DokumenVendorRepositoryInterface
         return DokumenVendorModel::active()
             ->where('id_vendor', $idVendor)
             ->orderBy('berlaku_sampai')
+            ->orderBy('id_dokumen_vendor')
             ->paginate($limit, ['*'], 'page', $page);
     }
 
