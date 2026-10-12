@@ -73,16 +73,7 @@ class DashboardRepository implements DashboardRepositoryInterface
             ->whereBetween('d.berlaku_sampai', [$today, $batas])
             ->select('d.jenis_dokumen', 'a.nopol as pemilik', 'd.berlaku_sampai', DB::raw("'armada' as tipe"));
 
-        $dokVendor = DB::table('dokumen_vendor as d')
-            ->join('vendor as v', 'd.id_vendor', '=', 'v.id_vendor')
-            ->where('v.id_perusahaan', $idPerusahaan)
-            ->whereNull('d.dihapus_pada')
-            ->whereNull('v.dihapus_pada')
-            ->whereNotNull('d.berlaku_sampai')
-            ->whereBetween('d.berlaku_sampai', [$today, $batas])
-            ->select('d.jenis_dokumen', 'v.nama_vendor as pemilik', 'd.berlaku_sampai', DB::raw("'vendor' as tipe"));
-
-        return $dokArmada->unionAll($dokVendor)->get();
+        return $dokArmada->get();
     }
 
     public function tripTerlambat(string $idPerusahaan, int $jamBatas = 24): Collection

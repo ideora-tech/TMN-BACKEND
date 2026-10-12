@@ -9,7 +9,6 @@ use App\Modules\JadwalKeberangkatan\JadwalKeberangkatanModel;
 use App\Modules\Penugasan\PenugasanModel;
 use App\Modules\Proyek\ProyekModel;
 use App\Modules\Trip\TripModel;
-use App\Modules\Vendor\VendorModel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -25,15 +24,6 @@ class DashboardStatsTest extends TestCase
             'id_perusahaan' => self::PERUSAHAAN_ID,
             'nopol'         => 'B ' . random_int(1000, 9999) . ' ' . Str::random(3),
             'status'        => $status,
-        ]);
-    }
-
-    private function makeVendor(): VendorModel
-    {
-        return VendorModel::create([
-            'id_perusahaan' => self::PERUSAHAAN_ID,
-            'kode_vendor'   => 'VDR-' . Str::random(8),
-            'nama_vendor'   => 'Vendor Dashboard Test',
         ]);
     }
 
@@ -96,25 +86,16 @@ class DashboardStatsTest extends TestCase
         $this->assertArrayNotHasKey('armadaAktif', $res->json('data'));
     }
 
-    public function test_alerts_dokumen_expiring_menggabungkan_armada_dan_vendor(): void
+    public function test_alerts_dokumen_expiring_berisi_dokumen_armada(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $armada = $this->makeArmada();
-        $vendor = $this->makeVendor();
 
         DB::table('dokumen_armada')->insert([
             'id_dokumen_armada' => (string) Str::uuid(),
             'id_armada'         => $armada->id_armada,
             'jenis_dokumen'     => 'STNK',
             'berlaku_sampai'    => now()->addDays(10)->toDateString(),
-            'dibuat_pada'       => now(),
-        ]);
-
-        DB::table('dokumen_vendor')->insert([
-            'id_dokumen_vendor' => (string) Str::uuid(),
-            'id_vendor'         => $vendor->id_vendor,
-            'jenis_dokumen'     => 'SIUP',
-            'berlaku_sampai'    => now()->addDays(5)->toDateString(),
             'dibuat_pada'       => now(),
         ]);
 
@@ -130,20 +111,15 @@ class DashboardStatsTest extends TestCase
         $res = $this->getJson('/api/dashboard/stats');
 
         $res->assertStatus(200)
-            ->assertJsonPath('data.alerts.dokumenExpiring.total', 2);
+            ->assertJsonPath('data.alerts.dokumenExpiring.total', 1);
 
         $items = $res->json('data.alerts.dokumenExpiring.items');
-        $this->assertCount(2, $items);
+        $this->assertCount(1, $items);
 
-        // Urut ascending oleh berlaku_sampai -> dokumen vendor (5 hari) tampil lebih dulu
-        $this->assertSame('vendor', $items[0]['tipe']);
-        $this->assertSame($vendor->nama_vendor, $items[0]['pemilik']);
-        $this->assertSame('SIUP', $items[0]['jenis_dokumen']);
+        $this->assertSame('armada', $items[0]['tipe']);
+        $this->assertSame($armada->nopol, $items[0]['pemilik']);
+        $this->assertSame('STNK', $items[0]['jenis_dokumen']);
         $this->assertArrayHasKey('berlaku_sampai', $items[0]);
-
-        $this->assertSame('armada', $items[1]['tipe']);
-        $this->assertSame($armada->nopol, $items[1]['pemilik']);
-        $this->assertSame('STNK', $items[1]['jenis_dokumen']);
     }
 
     public function test_alerts_trip_terlambat_dihitung_dari_checkin_lebih_24_jam(): void
