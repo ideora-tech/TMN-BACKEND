@@ -45,6 +45,8 @@ interface InvoiceVendorRepositoryInterface
 
     public function outstandingUntukMonitoring(string $idPerusahaan): array;
 
+    public function rekapHutang(string $idPerusahaan, string $dari, string $sampai): array;
+
     /** @return array<int, array{id_trip: string, tanggal: string, nopol: ?string, driver_nama: ?string, id_proyek: string, kode_proyek: ?string, nama_proyek: string, rute: ?string}> */
     public function tripSiapTagih(string $idPerusahaan, string $idKontrakVendor, ?string $dari, ?string $sampai, ?string $idProyek = null, bool $lock = false): array;
 

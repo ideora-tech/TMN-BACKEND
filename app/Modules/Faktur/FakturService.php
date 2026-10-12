@@ -16,6 +16,8 @@ class FakturService
 {
     private const BATAS_POTONGAN_PERSEN = 10;
 
+    private const PERSEN_PPH_REKAP = 2.0;
+
     private const VALID_TRANSITIONS = [
         'draft'             => ['batal'],
         'menunggu_approval' => ['batal'],
@@ -666,6 +668,79 @@ class FakturService
 
             return $this->repo->findById($id);
         });
+    }
+
+    public function ubahNomorFakturPajak(string $id, ?string $nomor, string $idPerusahaan): FakturModel
+    {
+        $record = $this->findOrFail($id, $idPerusahaan);
+        if ($record->status === 'batal') {
+            abort(422, 'Invoice yang sudah dibatalkan tidak dapat diubah');
+        }
+
+        $nomor = trim((string) $nomor);
+        $baru  = $nomor !== '' ? $nomor : null;
+        if ($baru === $record->nomor_faktur_pajak) {
+            return $record;
+        }
+
+        $updated = $this->repo->update($record, ['nomor_faktur_pajak' => $baru]);
+        $this->repo->insertStatusLog(
+            (string) $record->id_faktur,
+            'diedit',
+            $baru !== null ? "No. faktur pajak diisi: {$baru}" : 'No. faktur pajak dikosongkan',
+        );
+
+        return $updated;
+    }
+
+    public function rekapBulanan(string $idPerusahaan, string $bulan): array
+    {
+        $awal   = Carbon::createFromFormat('Y-m-d', $bulan . '-01')->startOfDay();
+        $faktur = $this->repo->rekapInvoice($idPerusahaan, $awal->toDateString(), $awal->copy()->endOfMonth()->toDateString());
+
+        $idFakturList = array_map(fn ($f) => (string) $f->id_faktur, $faktur);
+        $dppItem      = $this->repo->dppUntukBanyak($idFakturList);
+        $pajakMap     = $this->repo->pajakUntukBanyak($idFakturList);
+
+        $baris  = [];
+        $jumlah = ['dpp' => 0.0, 'ppn' => 0.0, 'total' => 0.0, 'pph' => 0.0, 'bersih' => 0.0];
+
+        foreach ($faktur as $f) {
+            $id     = (string) $f->id_faktur;
+            $total  = round((float) $f->total);
+            $persen = isset($pajakMap[$id])
+                ? array_sum(array_column($pajakMap[$id], 'persen'))
+                : (float) ($f->persen_pajak ?? 0);
+            $dpp = array_key_exists($id, $dppItem)
+                ? round($dppItem[$id])
+                : round((float) $f->total / (1 + $persen / 100));
+            $pph = round($dpp * self::PERSEN_PPH_REKAP / 100);
+
+            $satu = [
+                'tanggal'            => substr((string) $f->tanggal, 0, 10),
+                'nomor_faktur_pajak' => $f->nomor_faktur_pajak,
+                'nomor_faktur'       => $f->nomor_faktur,
+                'nama_klien'         => $f->nama_klien,
+                'nama_proyek'        => $f->nama_proyek,
+                'dpp'                => $dpp,
+                'ppn'                => $total - $dpp,
+                'total'              => $total,
+                'pph'                => $pph,
+                'bersih'             => $total - $pph,
+            ];
+            $baris[] = $satu;
+
+            foreach (array_keys($jumlah) as $kunci) {
+                $jumlah[$kunci] += $satu[$kunci];
+            }
+        }
+
+        return [
+            'bulan'      => $bulan,
+            'persen_pph' => self::PERSEN_PPH_REKAP,
+            'baris'      => $baris,
+            'jumlah'     => $jumlah,
+        ];
     }
 
     public function outstanding(string $idPerusahaan, array $filter = [], ?int $page = 1, int $limit = 10): array

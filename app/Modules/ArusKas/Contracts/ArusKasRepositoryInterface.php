@@ -51,6 +51,7 @@ interface ArusKasRepositoryInterface
     public function deletePemasukan(PemasukanModel $model): void;
     public function pemasukanTertautKasbon(string $idPemasukan): bool;
     public function infoKasbonUntukNotifikasi(string $idKasbon): ?object;
+    public function infoPengeluaranSupirUntukNotifikasi(string $idPengeluaranSupir): ?object;
     public function nomorPemasukanBerikutnya(string $idPerusahaan): string;
     public function listPemasukanGabungan(string $idPerusahaan, string $dari, string $sampai): Collection;
     public function getPengaturan(string $idPerusahaan, string $kunci): ?string;

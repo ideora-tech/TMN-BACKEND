@@ -117,6 +117,15 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->first(['k.nomor_kasbon', 'k.dibuat_oleh', 'kr.nama_karyawan', 'kr.aktif as karyawan_aktif']);
     }
 
+    public function infoPengeluaranSupirUntukNotifikasi(string $idPengeluaranSupir): ?object
+    {
+        return DB::table('pengeluaran_supir as ps')
+            ->leftJoin('supir as s', 's.id_supir', '=', 'ps.id_supir')
+            ->where('ps.id_pengeluaran_supir', $idPengeluaranSupir)
+            ->whereNull('ps.dihapus_pada')
+            ->first(['ps.nomor', 'ps.nopol', 'ps.id_supir', 's.id_pengguna']);
+    }
+
     public function pemasukanTertautKasbon(string $idPemasukan): bool
     {
         return DB::table('kasbon_pembayaran')

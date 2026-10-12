@@ -6,9 +6,12 @@ namespace App\Modules\Faktur;
 
 use App\Helpers\ApiResponse;
 use App\Modules\Faktur\Exports\OutstandingFakturExport;
+use App\Modules\Faktur\Exports\RekapInvoiceBulananExport;
 use App\Modules\Faktur\Requests\HapusPembayaranFakturRequest;
+use App\Modules\Faktur\Requests\RekapInvoiceBulananRequest;
 use App\Modules\Faktur\Requests\StoreFakturRequest;
 use App\Modules\Faktur\Requests\StorePembayaranFakturRequest;
+use App\Modules\Faktur\Requests\UbahNomorFakturPajakRequest;
 use App\Modules\Faktur\Requests\UpdateFakturRequest;
 use App\Modules\Faktur\Requests\UpdateStatusFakturRequest;
 use App\Modules\Faktur\Resources\FakturResource;
@@ -112,6 +115,23 @@ class FakturController extends Controller
         );
 
         return Excel::download(new OutstandingFakturExport($laporan), 'piutang-outstanding-' . date('Ymd') . '.xlsx');
+    }
+
+    public function exportRekapBulanan(RekapInvoiceBulananRequest $request): BinaryFileResponse
+    {
+        $export = new RekapInvoiceBulananExport($this->service->rekapBulanan(
+            (string) $request->user()->id_perusahaan,
+            (string) $request->validated('bulan'),
+        ));
+
+        return Excel::download($export, $export->namaFile());
+    }
+
+    public function updateNomorFakturPajak(UbahNomorFakturPajakRequest $request, string $id): JsonResponse
+    {
+        $record = $this->service->ubahNomorFakturPajak($id, $request->validated('nomor_faktur_pajak'), (string) $request->user()->id_perusahaan);
+
+        return ApiResponse::success(new FakturResource($this->detail($record)), 'No. faktur pajak berhasil disimpan');
     }
 
     public function storePembayaran(StorePembayaranFakturRequest $request, string $id): JsonResponse

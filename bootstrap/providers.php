@@ -49,6 +49,7 @@ return [
     App\Modules\ParameterTagihanTrip\ParameterTagihanTripServiceProvider::class,
     App\Modules\Payroll\PayrollServiceProvider::class,
     App\Modules\PembelianSparepart\PembelianSparepartServiceProvider::class,
+    App\Modules\PengeluaranSupir\PengeluaranSupirServiceProvider::class,
     App\Modules\PenagihanTrip\PenagihanTripServiceProvider::class,
     App\Modules\Pengadaan\PengadaanServiceProvider::class,
     App\Modules\PengaturanKode\PengaturanKodeServiceProvider::class,

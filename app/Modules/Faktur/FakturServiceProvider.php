@@ -37,7 +37,9 @@ class FakturServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:faktur'])
             ->group(function () {
+                Route::get('faktur/export/rekap-bulanan', [FakturController::class, 'exportRekapBulanan']);
                 Route::get('faktur/{id}/export/pdf', [FakturController::class, 'exportPdf']);
+                Route::patch('faktur/{id}/nomor-faktur-pajak', [FakturController::class, 'updateNomorFakturPajak']);
 
                 Route::apiResource('faktur', FakturController::class)
                     ->parameters(['faktur' => 'id']);

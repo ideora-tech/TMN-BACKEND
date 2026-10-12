@@ -39,5 +39,7 @@ interface FakturRepositoryInterface
     public function pembayaranUntukBanyak(array $idFakturList): array;
     /** @return object[] */
     public function outstanding(string $idPerusahaan): array;
+    public function rekapInvoice(string $idPerusahaan, string $dari, string $sampai): array;
+    public function dppUntukBanyak(array $idFakturList): array;
     public function diterimaAntara(string $idPerusahaan, string $dari, string $sampai): float;
 }

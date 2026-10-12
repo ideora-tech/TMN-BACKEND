@@ -168,6 +168,49 @@ class InvoiceVendorService
         ], $rows);
     }
 
+    public function rekapHutangBulanan(string $idPerusahaan, string $bulan): array
+    {
+        $awal = Carbon::createFromFormat('Y-m-d', $bulan . '-01')->startOfDay();
+        $rows = $this->repo->rekapHutang($idPerusahaan, $awal->toDateString(), $awal->copy()->endOfMonth()->toDateString());
+
+        $baris  = [];
+        $jumlah = ['dpp' => 0.0, 'ppn' => 0.0, 'pph' => 0.0, 'total' => 0.0];
+
+        foreach ($rows as $row) {
+            $dpp = round((float) $row->dpp);
+            $ppn = round((float) $row->ppn);
+            $pph = round((float) $row->pph);
+
+            $keterangan = trim((string) $row->keterangan);
+            $tipe       = trim((string) $row->tipe_kendaraan);
+            if ($keterangan === '' && $tipe !== '') {
+                $keterangan = 'Sewa unit ' . $tipe;
+            }
+
+            $satu = [
+                'tanggal'       => substr((string) $row->tanggal_invoice, 0, 10),
+                'nomor_invoice' => $row->nomor_invoice,
+                'nama_vendor'   => $row->nama_vendor,
+                'keterangan'    => $keterangan,
+                'dpp'           => $dpp,
+                'ppn'           => $ppn,
+                'pph'           => $pph,
+                'total'         => max(0.0, $dpp + $ppn - $pph),
+            ];
+            $baris[] = $satu;
+
+            foreach (array_keys($jumlah) as $kunci) {
+                $jumlah[$kunci] += $satu[$kunci];
+            }
+        }
+
+        return [
+            'bulan'  => $bulan,
+            'baris'  => $baris,
+            'jumlah' => $jumlah,
+        ];
+    }
+
     public function monitoring(string $idPerusahaan): array
     {
         $rows = $this->repo->outstandingUntukMonitoring($idPerusahaan);

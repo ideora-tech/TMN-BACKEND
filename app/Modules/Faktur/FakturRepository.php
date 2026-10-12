@@ -349,6 +349,44 @@ class FakturRepository implements FakturRepositoryInterface
             ->all();
     }
 
+    public function rekapInvoice(string $idPerusahaan, string $dari, string $sampai): array
+    {
+        $tanggal = 'DATE(COALESCE(f.tanggal_faktur, f.dibuat_pada))';
+
+        return DB::table('faktur as f')
+            ->leftJoin('klien as k', function ($join) use ($idPerusahaan) {
+                $join->on('k.id_klien', '=', 'f.id_klien')->where('k.id_perusahaan', $idPerusahaan);
+            })
+            ->leftJoin('proyek as p', function ($join) use ($idPerusahaan) {
+                $join->on('p.id_proyek', '=', 'f.id_proyek')->where('p.id_perusahaan', $idPerusahaan);
+            })
+            ->whereNull('f.dihapus_pada')
+            ->where('f.id_perusahaan', $idPerusahaan)
+            ->whereIn('f.status', ['terkirim', 'lunas'])
+            ->whereRaw("{$tanggal} BETWEEN ? AND ?", [$dari, $sampai])
+            ->orderByRaw($tanggal)
+            ->orderBy('f.nomor_faktur')
+            ->selectRaw("f.id_faktur, {$tanggal} as tanggal, f.nomor_faktur_pajak, f.nomor_faktur, f.total, f.persen_pajak, k.nama_klien, p.nama_proyek")
+            ->get()
+            ->all();
+    }
+
+    public function dppUntukBanyak(array $idFakturList): array
+    {
+        if ($idFakturList === []) {
+            return [];
+        }
+
+        return DB::table('faktur_item')
+            ->whereNull('dihapus_pada')
+            ->whereIn('id_faktur', $idFakturList)
+            ->groupBy('id_faktur')
+            ->selectRaw('id_faktur, SUM(subtotal) as dpp')
+            ->get()
+            ->mapWithKeys(fn ($r) => [(string) $r->id_faktur => (float) $r->dpp])
+            ->all();
+    }
+
     public function diterimaAntara(string $idPerusahaan, string $dari, string $sampai): float
     {
         return round((float) DB::table('pembayaran_faktur as pf')

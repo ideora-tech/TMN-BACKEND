@@ -23,6 +23,8 @@ use App\Modules\KasKecil\Resources\KasKecilPengisianResource;
 use App\Modules\Kasbon\KasbonService;
 use App\Modules\Kasbon\Resources\KasbonResource;
 use App\Modules\Payroll\PayrollService;
+use App\Modules\PengeluaranSupir\PengeluaranSupirService;
+use App\Modules\PengeluaranSupir\Resources\PengeluaranSupirResource;
 use App\Modules\PembelianSparepart\PembelianSparepartService;
 use App\Modules\PembelianSparepart\Resources\PembelianSparepartResource;
 use App\Modules\PerawatanArmada\PerawatanArmadaService;
@@ -128,6 +130,7 @@ class ArusKasController extends Controller
         UangJalanService $uangJalanService,
         KasbonService $kasbonService,
         KasKecilService $kasKecilService,
+        PengeluaranSupirService $pengeluaranSupirService,
         string $id
     ): JsonResponse {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
@@ -156,6 +159,15 @@ class ArusKasController extends Controller
                 'tipe' => 'pengisian_kas_kecil',
                 'data' => new KasKecilPengisianResource(
                     $kasKecilService->findPengisianOrFail((string) $pengajuan->id_pengisian_kas_kecil, $idPerusahaan)
+                ),
+            ]);
+        }
+
+        if ($pengajuan->id_pengeluaran_supir !== null) {
+            return ApiResponse::success([
+                'tipe' => 'pengeluaran_supir',
+                'data' => new PengeluaranSupirResource(
+                    $pengeluaranSupirService->detail((string) $pengajuan->id_pengeluaran_supir, $idPerusahaan)
                 ),
             ]);
         }

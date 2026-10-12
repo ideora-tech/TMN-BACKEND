@@ -18,7 +18,7 @@ class LinkReferensiApproval
             'permintaan_pembelian', 'permintaan_pembelian_aset' => "/permintaan-pembelian?detail={$idReferensi}",
             'pengajuan_pengeluaran', 'uang_jalan', 'legalitas', 'perawatan', 'sparepart',
             'penggajian', 'pembelian_aset', 'pembayaran_pinjaman', 'pengadaan', 'lainnya',
-            'persetujuan_transfer', 'pembayaran_vendor' => '/proses-pembayaran',
+            'persetujuan_transfer', 'pembayaran_vendor', 'pengeluaran_supir' => '/proses-pembayaran',
             'kasbon'            => '/kasbon',
             'pengisian_kas_kecil' => '/kas-kecil?tab=pengisian',
             default             => '/persetujuan-saya',

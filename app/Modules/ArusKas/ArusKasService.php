@@ -43,6 +43,13 @@ class ArusKasService
 
     private const KATEGORI_SELALU_APPROVAL = [self::KATEGORI_PENGISIAN_KAS_KECIL];
 
+    public const KATEGORI_PENGELUARAN_SUPIR = [
+        'tambal_ban' => 'Tambal Ban',
+        'cuci_mobil' => 'Cuci Mobil',
+    ];
+
+    public const KODE_APPROVAL_PENGELUARAN_SUPIR = 'pengeluaran_supir';
+
     private const LABEL_KATEGORI = [
         'uang_jalan'          => 'Uang Jalan',
         'legalitas'           => 'Legalitas',
@@ -55,6 +62,7 @@ class ArusKasService
         'pengadaan'           => 'Pengadaan',
         'kasbon'              => 'Kasbon',
         self::KATEGORI_PENGISIAN_KAS_KECIL => 'Pengisian Kas Kecil',
+        ...self::KATEGORI_PENGELUARAN_SUPIR,
         'lainnya'             => 'Lainnya',
     ];
 
@@ -86,6 +94,7 @@ class ArusKasService
         'pengadaan',
         'kasbon',
         self::KATEGORI_PENGISIAN_KAS_KECIL,
+        self::KODE_APPROVAL_PENGELUARAN_SUPIR,
         'lainnya',
     ];
 
@@ -474,6 +483,9 @@ class ArusKasService
         if ($record->id_pengisian_kas_kecil !== null) {
             abort(422, 'Pengajuan pengisian kas kecil diubah lewat menu Kas Kecil');
         }
+        if ($record->id_pengeluaran_supir !== null) {
+            abort(422, 'Pengajuan pengeluaran supir tidak bisa diubah dari sini — supir membatalkan lalu mengajukan ulang lewat aplikasi mobile');
+        }
         if ($record->id_permintaan_pembelian !== null) {
             abort(422, 'Pengajuan pembayaran PR diubah lewat halaman Permintaan Pembelian (Ajukan Ulang Pembayaran)');
         }
@@ -514,6 +526,9 @@ class ArusKasService
         }
         if ($record->id_pengisian_kas_kecil !== null) {
             abort(422, 'Pengajuan pengisian kas kecil dihapus lewat menu Kas Kecil');
+        }
+        if ($record->id_pengeluaran_supir !== null) {
+            abort(422, 'Pengajuan pengeluaran supir tidak bisa dihapus dari sini — tolak pengajuannya, atau supir membatalkannya lewat aplikasi mobile');
         }
         if ($record->id_permintaan_pembelian !== null) {
             abort(422, 'Pengajuan pembayaran PR tidak bisa dihapus — bila ditolak, ajukan ulang dari halaman Permintaan Pembelian');
@@ -608,13 +623,19 @@ class ArusKasService
         if (in_array((string) $record->kategori, self::KATEGORI_SELALU_APPROVAL, true)) {
             return 0.0;
         }
+        if ($record->id_pengeluaran_supir !== null
+            && $this->approvalService->adaEventTypeAktif(self::KODE_APPROVAL_PENGELUARAN_SUPIR, (string) $record->id_perusahaan)) {
+            return 0.0;
+        }
 
         return $this->batasApproval((string) $record->id_perusahaan);
     }
 
     private function kodeApprovalUntuk(PengajuanPengeluaranModel $record): ?string
     {
-        $kategori     = (string) $record->kategori;
+        $kategori     = $record->id_pengeluaran_supir !== null
+            ? self::KODE_APPROVAL_PENGELUARAN_SUPIR
+            : (string) $record->kategori;
         $idPerusahaan = (string) $record->id_perusahaan;
 
         if ($this->approvalService->adaEventTypeAktif($kategori, $idPerusahaan)) {
@@ -698,6 +719,7 @@ class ArusKasService
 
     private function jalankanHookSetujui(PengajuanPengeluaranModel $record): void
     {
+        $this->beritahuSupirPengeluaran($record, 'disetujui');
         if ($record->id_pembelian !== null) {
             $this->repo->sinkronPembelianSetujui($record->id_pembelian);
         }
@@ -714,6 +736,7 @@ class ArusKasService
     }
     private function jalankanHookTolak(PengajuanPengeluaranModel $record, string $alasan): void
     {
+        $this->beritahuSupirPengeluaran($record, 'ditolak', $alasan);
         if ($record->id_pembelian !== null) {
             $this->repo->sinkronPembelianTolak($record->id_pembelian, $alasan);
         }
@@ -1188,6 +1211,7 @@ class ArusKasService
                 'sudah ditransfer',
                 "sudah ditransfer oleh Keuangan pada {$tanggalTransfer}.");
             $this->beritahuPembuatKasbon($updated, 'dicairkan', $tanggalTransfer);
+            $this->beritahuSupirPengeluaran($updated, 'dibayar', $tanggalTransfer);
             return $updated;
         });
     }
@@ -1234,6 +1258,48 @@ class ArusKasService
             'url_bukti'       => $pengajuan->url_bukti,
             'id_pengisian'    => $pengisian->id_pengisian,
         ]);
+    }
+
+    private function beritahuSupirPengeluaran(PengajuanPengeluaranModel $record, string $kejadian, string $rincian = ''): void
+    {
+        if ($record->id_pengeluaran_supir === null) {
+            return;
+        }
+
+        $info = $this->repo->infoPengeluaranSupirUntukNotifikasi((string) $record->id_pengeluaran_supir);
+        if ($info === null || ($info->id_pengguna !== null && (string) $info->id_pengguna === (string) auth()->id())) {
+            return;
+        }
+
+        $label   = self::labelKategori((string) $record->kategori);
+        $nominal = number_format((float) $record->nominal, 0, ',', '.');
+        $rincian = trim($rincian);
+        $ringkas = "{$info->nomor} ({$info->nopol}, Rp {$nominal})";
+
+        [$judul, $isi] = match ($kejadian) {
+            'dibayar' => [
+                "Pengajuan {$label} sudah dibayar",
+                "{$ringkas} sudah dibayar pada " . date('d/m/Y', strtotime($rincian)) . '.',
+            ],
+            'ditolak' => [
+                "Pengajuan {$label} ditolak",
+                "{$ringkas} ditolak" . ($rincian !== '' ? ': ' . Str::limit($rincian, 200) : '') . '.',
+            ],
+            default => [
+                "Pengajuan {$label} disetujui",
+                "{$ringkas} sudah disetujui dan menunggu pembayaran.",
+            ],
+        };
+
+        $this->notifikasiService->kirimKeSupir(
+            (string) $info->id_supir,
+            (string) $record->id_perusahaan,
+            $judul,
+            $isi,
+            'pengeluaran_supir_' . $kejadian,
+            'pengeluaran_supir',
+            (string) $record->id_pengeluaran_supir,
+        );
     }
 
     private function beritahuPembuatKasbon(PengajuanPengeluaranModel $record, string $kejadian, string $rincian): void
@@ -2070,6 +2136,26 @@ class ArusKasService
     public function hapusPengajuanPengisianKasKecil(string $idPengajuan, string $idPerusahaan): void
     {
         $this->hapusPengajuanTertaut('id_pengisian_kas_kecil', 'Pengisian kas kecil', $idPengajuan, $idPerusahaan);
+    }
+
+    public function buatPengajuanPengeluaranSupir(
+        string $idPerusahaan,
+        string $idPengeluaranSupir,
+        string $jenis,
+        float $nominal,
+        string $penerima,
+        string $keterangan,
+    ): PengajuanPengeluaranModel {
+        if (!isset(self::KATEGORI_PENGELUARAN_SUPIR[$jenis])) {
+            abort(400, 'Jenis pengeluaran supir tidak dikenal');
+        }
+
+        return $this->buatPengajuanTertaut('id_pengeluaran_supir', $idPengeluaranSupir, $jenis, $idPerusahaan, $nominal, $penerima, $keterangan);
+    }
+
+    public function hapusPengajuanPengeluaranSupir(string $idPengajuan, string $idPerusahaan): void
+    {
+        $this->hapusPengajuanTertaut('id_pengeluaran_supir', 'Pengeluaran supir', $idPengajuan, $idPerusahaan);
     }
 
     private function buatPengajuanTertaut(

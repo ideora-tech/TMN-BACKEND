@@ -185,6 +185,26 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
             ->all();
     }
 
+    public function rekapHutang(string $idPerusahaan, string $dari, string $sampai): array
+    {
+        return DB::table('invoice_vendor as iv')
+            ->leftJoin('vendor as v', function ($join) use ($idPerusahaan) {
+                $join->on('v.id_vendor', '=', 'iv.id_vendor')->where('v.id_perusahaan', $idPerusahaan);
+            })
+            ->where('iv.id_perusahaan', $idPerusahaan)
+            ->whereNull('iv.dihapus_pada')
+            ->where('iv.status', 'diverifikasi')
+            ->whereRaw('DATE(iv.tanggal_invoice) BETWEEN ? AND ?', [$dari, $sampai])
+            ->orderByRaw('DATE(iv.tanggal_invoice)')
+            ->orderBy('iv.dibuat_pada')
+            ->orderBy('iv.nomor_invoice')
+            ->get([
+                'iv.tanggal_invoice', 'iv.nomor_invoice', 'v.nama_vendor', 'iv.keterangan', 'iv.tipe_kendaraan',
+                'iv.dpp', 'iv.ppn', 'iv.pph',
+            ])
+            ->all();
+    }
+
     public function tripSiapTagih(string $idPerusahaan, string $idKontrakVendor, ?string $dari, ?string $sampai, ?string $idProyek = null, bool $lock = false): array
     {
         $rows = DB::table('trip as t')

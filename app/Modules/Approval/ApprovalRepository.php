@@ -25,6 +25,7 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         'pengadaan',
         'kasbon',
         'pengisian_kas_kecil',
+        'pengeluaran_supir',
         'lainnya',
         'persetujuan_transfer',
     ];

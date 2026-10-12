@@ -7,6 +7,7 @@ namespace App\Modules\Approval;
 use App\Modules\Approval\Contracts\RincianReferensiRepositoryInterface;
 use App\Modules\IntervalPerawatan\IntervalLabelBuilder;
 use App\Support\LinkReferensiApproval;
+use App\Support\PenyimpananBerkas;
 use Closure;
 use Illuminate\Database\Query\JoinClause;
 use Illuminate\Support\Facades\DB;
@@ -67,7 +68,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('id_pengajuan', $idPengajuan)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['nomor_pengajuan', 'kategori', 'penerima', 'nominal', 'tanggal_pengajuan', 'keterangan', 'id_perawatan', 'id_pembelian', 'id_uang_jalan', 'id_kasbon', 'id_pengisian_kas_kecil']);
+            ->first(['nomor_pengajuan', 'kategori', 'penerima', 'nominal', 'tanggal_pengajuan', 'keterangan', 'id_perawatan', 'id_pembelian', 'id_uang_jalan', 'id_kasbon', 'id_pengisian_kas_kecil', 'id_pengeluaran_supir']);
         if ($pengajuan === null) {
             return null;
         }
@@ -81,6 +82,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             $kategori === 'uang_jalan' && $pengajuan->id_uang_jalan !== null => $this->sumberUangJalan((string) $pengajuan->id_uang_jalan, $idPerusahaan),
             $kategori === 'kasbon' && $pengajuan->id_kasbon !== null       => $this->sumberKasbon((string) $pengajuan->id_kasbon, $idPerusahaan),
             $pengajuan->id_pengisian_kas_kecil !== null                    => $this->sumberPengisianKasKecil((string) $pengajuan->id_pengisian_kas_kecil, (float) $pengajuan->nominal, $idPerusahaan),
+            $pengajuan->id_pengeluaran_supir !== null                      => $this->sumberPengeluaranSupir((string) $pengajuan->id_pengeluaran_supir, $idPerusahaan),
             default                                                        => null,
         };
 
@@ -319,6 +321,42 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->kolom('total', 'Total', 'rupiah'),
             ], $baris, (float) $pengeluaran->sum('total')),
         ];
+    }
+
+    private function sumberPengeluaranSupir(string $idPengeluaranSupir, string $idPerusahaan): ?array
+    {
+        $klaim = DB::table('pengeluaran_supir as ps')
+            ->leftJoin('supir as s', $this->milik('s', 's.id_supir', 'ps.id_supir', $idPerusahaan))
+            ->where('ps.id_pengeluaran_supir', $idPengeluaranSupir)
+            ->where('ps.id_perusahaan', $idPerusahaan)
+            ->whereNull('ps.dihapus_pada')
+            ->first([
+                'ps.nomor', 'ps.tanggal', 'ps.nopol', 'ps.id_armada_vendor', 'ps.keterangan',
+                'ps.nama_bank', 'ps.nomor_rekening', 'ps.atas_nama_rekening', 's.nama as nama_supir',
+            ]);
+        if ($klaim === null) {
+            return null;
+        }
+
+        $foto = DB::table('pengeluaran_supir_foto')
+            ->where('id_pengeluaran_supir', $idPengeluaranSupir)
+            ->whereNull('dihapus_pada')
+            ->orderBy('urutan')
+            ->pluck('url_foto');
+
+        $info = [
+            $this->teks('No. Pengeluaran Supir', $klaim->nomor),
+            $this->tanggal('Tanggal Pengeluaran', $klaim->tanggal),
+            $this->teks('Supir', $klaim->nama_supir),
+            $this->teks('Unit', $klaim->nopol . ($klaim->id_armada_vendor !== null ? ' (unit vendor)' : '')),
+            $this->teks('Lokasi / Catatan', $klaim->keterangan),
+            $this->teks('Rekening Tujuan', $this->gabungJudul($klaim->nama_bank, $klaim->nomor_rekening, $klaim->atas_nama_rekening) ?: 'Tunai (rekening tidak diisi)'),
+        ];
+        foreach ($foto as $i => $url) {
+            $info[] = ['label' => 'Foto Nota ' . ($i + 1), 'value' => PenyimpananBerkas::url((string) $url), 'tipe' => 'tautan'];
+        }
+
+        return ['info' => $info, 'bagian' => []];
     }
 
     private function sumberPembelianSparepart(string $idPembelian, string $idPerusahaan): ?array

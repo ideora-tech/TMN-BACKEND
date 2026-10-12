@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\InvoiceVendor;
 
 use App\Helpers\ApiResponse;
+use App\Modules\InvoiceVendor\Exports\RekapHutangVendorExport;
+use App\Modules\InvoiceVendor\Requests\RekapHutangVendorRequest;
 use App\Modules\InvoiceVendor\Requests\StoreInvoiceVendorRequest;
 use App\Modules\InvoiceVendor\Requests\UpdateInvoiceVendorRequest;
 use App\Modules\InvoiceVendor\Resources\InvoiceVendorResource;
@@ -13,6 +15,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class InvoiceVendorController extends Controller
 {
@@ -42,6 +46,16 @@ class InvoiceVendorController extends Controller
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         return ApiResponse::success($this->service->monitoring($idPerusahaan));
+    }
+
+    public function exportRekapHutang(RekapHutangVendorRequest $request): BinaryFileResponse
+    {
+        $export = new RekapHutangVendorExport($this->service->rekapHutangBulanan(
+            (string) $request->user()->id_perusahaan,
+            (string) $request->validated('bulan'),
+        ));
+
+        return Excel::download($export, $export->namaFile());
     }
 
     public function ringkasanKontrak(Request $request, string $idKontrak): JsonResponse
