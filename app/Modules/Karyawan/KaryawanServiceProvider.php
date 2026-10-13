@@ -14,6 +14,7 @@ class KaryawanServiceProvider extends ServiceProvider
     {
         $this->app->bind(KaryawanRepositoryInterface::class, KaryawanRepository::class);
         $this->app->bind(KaryawanService::class);
+        $this->app->bind(KaryawanImportService::class);
     }
 
     public function boot(): void
@@ -21,6 +22,9 @@ class KaryawanServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:karyawan'])
             ->group(function () {
+                Route::get('karyawan/import/template', [KaryawanController::class, 'downloadTemplate']);
+                Route::post('karyawan/import', [KaryawanController::class, 'import']);
+                Route::get('karyawan/export/excel', [KaryawanController::class, 'exportExcel']);
                 Route::get('karyawan/{id}/exit-history', [KaryawanController::class, 'exitHistory']);
                 Route::get('karyawan/{id}/riwayat-jabatan', [KaryawanController::class, 'riwayatJabatan']);
                 Route::patch('karyawan/{id}/riwayat-jabatan/{idRiwayat}', [KaryawanController::class, 'koreksiRiwayatJabatan']);

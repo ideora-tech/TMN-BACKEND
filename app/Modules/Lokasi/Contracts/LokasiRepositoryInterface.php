@@ -15,4 +15,6 @@ interface LokasiRepositoryInterface
     public function update(LokasiModel $model, array $data): LokasiModel;
     public function delete(LokasiModel $model): void;
     public function dipakaiRute(string $idLokasi): bool;
+
+    public function semuaMilikPerusahaan(string $idPerusahaan, int $batas): array;
 }

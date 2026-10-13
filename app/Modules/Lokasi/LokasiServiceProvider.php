@@ -28,6 +28,9 @@ class LokasiServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:lokasi'])
             ->group(function () {
+                Route::get('lokasi/import/template', [LokasiController::class, 'downloadTemplate']);
+                Route::post('lokasi/import', [LokasiController::class, 'import']);
+                Route::get('lokasi/export/excel', [LokasiController::class, 'exportExcel']);
                 Route::post('lokasi', [LokasiController::class, 'store']);
                 Route::match(['put', 'patch'], 'lokasi/{id}', [LokasiController::class, 'update']);
                 Route::delete('lokasi/{id}', [LokasiController::class, 'destroy']);

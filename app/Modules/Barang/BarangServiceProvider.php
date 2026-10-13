@@ -21,6 +21,9 @@ class BarangServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:master-barang'])
             ->group(function () {
+                Route::get('barang/import/template', [BarangController::class, 'downloadTemplate']);
+                Route::post('barang/import', [BarangController::class, 'import']);
+                Route::get('barang/export/excel', [BarangController::class, 'exportExcel']);
                 Route::post('barang/{id}/pemakaian', [BarangController::class, 'pemakaian']);
                 Route::post('barang/{id}/penyesuaian', [BarangController::class, 'penyesuaian']);
                 Route::post('barang/buat-cepat', [BarangController::class, 'buatCepat']);

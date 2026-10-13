@@ -14,4 +14,7 @@ interface RuteRepositoryInterface {
      * Rute masih dirujuk penawaran/proyek/penugasan/jadwal hidup — pengunci penghapusan.
      */
     public function dipakaiRelasiAktif(string $idRute): bool;
+
+    public function namaTerpakai(string $idPerusahaan): array;
+    public function semuaUntukExport(string $idPerusahaan, int $batas): array;
 }

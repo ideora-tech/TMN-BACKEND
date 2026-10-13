@@ -76,4 +76,29 @@ class RuteRepository implements RuteRepositoryInterface {
         }
         return false;
     }
+
+    public function namaTerpakai(string $idPerusahaan): array {
+        return DB::table('rute')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->pluck('nama_rute')
+            ->all();
+    }
+
+    public function semuaUntukExport(string $idPerusahaan, int $batas): array {
+        return DB::table('rute as r')
+            ->leftJoin('lokasi as la', 'la.id_lokasi', '=', 'r.id_lokasi_asal')
+            ->leftJoin('lokasi as lt', 'lt.id_lokasi', '=', 'r.id_lokasi_tujuan')
+            ->whereNull('r.dihapus_pada')
+            ->where('r.id_perusahaan', $idPerusahaan)
+            ->orderBy('r.nama_rute')
+            ->orderBy('r.kode_rute')
+            ->limit($batas)
+            ->get([
+                'r.nama_rute', 'r.asal', 'r.tujuan', 'r.estimasi_jarak_km', 'r.estimasi_durasi_menit', 'r.keterangan', 'r.aktif',
+                'la.nama_lokasi as nama_lokasi_asal', 'la.kota as kota_asal',
+                'lt.nama_lokasi as nama_lokasi_tujuan', 'lt.kota as kota_tujuan',
+            ])
+            ->all();
+    }
 }

@@ -14,6 +14,9 @@ class RuteServiceProvider extends ServiceProvider {
             ->middleware(['api', 'auth:sanctum', 'izin:rute'])
             ->group(function () {
                 Route::get('rute/estimasi-bok', [RuteController::class, 'estimasiBok']);
+                Route::get('rute/import/template', [RuteController::class, 'downloadTemplate']);
+                Route::post('rute/import', [RuteController::class, 'import']);
+                Route::get('rute/export/excel', [RuteController::class, 'exportExcel']);
 
                 Route::apiResource('rute', RuteController::class)
                     ->parameters(['rute' => 'id']);

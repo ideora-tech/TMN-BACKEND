@@ -10,6 +10,9 @@ use App\Modules\Supplier\Resources\SupplierResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use App\Support\Impor\ImporExcelRequest;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SupplierController extends Controller
 {
@@ -60,5 +63,28 @@ class SupplierController extends Controller
     {
         $this->service->delete($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success(null, 'Supplier berhasil dihapus');
+    }
+
+    public function downloadTemplate(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->service->templateImpor((string) $request->user()->id_perusahaan),
+            'template-import-supplier.xlsx'
+        );
+    }
+
+    public function import(ImporExcelRequest $request): JsonResponse
+    {
+        $hasil = $this->service->import($request->file('file'), (string) $request->user()->id_perusahaan);
+
+        return ApiResponse::success($hasil, 'Import supplier selesai diproses');
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->service->exportExcel((string) $request->user()->id_perusahaan),
+            'data-supplier-' . date('Ymd') . '.xlsx'
+        );
     }
 }

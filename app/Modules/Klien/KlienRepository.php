@@ -101,4 +101,25 @@ class KlienRepository implements KlienRepositoryInterface
             ->orderBy('dibuat_pada', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
     }
+
+    public function namaTerpakai(string $idPerusahaan): array
+    {
+        return DB::table('klien')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->pluck('nama_klien')
+            ->all();
+    }
+
+    public function semuaUntukExport(string $idPerusahaan, int $batas): array
+    {
+        return DB::table('klien')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->orderBy('nama_klien')
+            ->orderBy('kode_klien')
+            ->limit($batas)
+            ->get(['nama_klien', 'kontak_pic', 'telepon', 'email', 'alamat', 'aktif'])
+            ->all();
+    }
 }

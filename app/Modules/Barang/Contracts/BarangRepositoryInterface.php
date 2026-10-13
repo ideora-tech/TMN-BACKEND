@@ -32,4 +32,7 @@ interface BarangRepositoryInterface
     public function updateKategori(object $record, array $data): object;
     public function softDeleteKategori(object $record): void;
     public function kategoriDipakai(string $idKategori): bool;
+
+    public function namaTerpakai(string $idPerusahaan): array;
+    public function semuaUntukExport(string $idPerusahaan, int $batas): array;
 }

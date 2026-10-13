@@ -24,4 +24,7 @@ interface KlienRepositoryInterface
      * Riwayat proyek milik satu klien, terbaru lebih dulu.
      */
     public function paginateProyek(string $idKlien, int $page, int $limit): LengthAwarePaginator;
+
+    public function namaTerpakai(string $idPerusahaan): array;
+    public function semuaUntukExport(string $idPerusahaan, int $batas): array;
 }

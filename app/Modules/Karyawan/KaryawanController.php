@@ -14,10 +14,42 @@ use App\Modules\KaryawanExit\Resources\KaryawanExitResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Support\Impor\ImporExcelRequest;
 
 class KaryawanController extends Controller
 {
-    public function __construct(private readonly KaryawanService $service) {}
+    public function __construct(
+        private readonly KaryawanService $service,
+        private readonly KaryawanImportService $importService,
+    ) {}
+
+    public function downloadTemplate(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->importService->template((string) $request->user()->id_perusahaan),
+            'template-import-karyawan.xlsx'
+        );
+    }
+
+    public function import(ImporExcelRequest $request): JsonResponse
+    {
+        $hasil = $this->importService->import($request->file('file'), (string) $request->user()->id_perusahaan);
+
+        return ApiResponse::success($hasil, 'Import karyawan selesai diproses');
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        $status = is_string($request->query('status')) ? $request->query('status') : null;
+        $search = is_string($request->query('search')) ? $request->query('search') : null;
+
+        return Excel::download(
+            $this->importService->export((string) $request->user()->id_perusahaan, $status, $search),
+            'data-karyawan-' . date('Ymd') . '.xlsx'
+        );
+    }
 
     public function index(Request $request): JsonResponse
     {

@@ -21,6 +21,9 @@ class KlienServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:klien'])
             ->group(function () {
+                Route::get('klien/import/template', [KlienController::class, 'downloadTemplate']);
+                Route::post('klien/import', [KlienController::class, 'import']);
+                Route::get('klien/export/excel', [KlienController::class, 'exportExcel']);
                 Route::get('klien/{id}/proyek', [KlienController::class, 'riwayatProyek']);
                 Route::apiResource('klien', KlienController::class)
                     ->parameters(['klien' => 'id']);

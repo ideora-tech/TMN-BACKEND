@@ -13,4 +13,7 @@ interface SupplierRepositoryInterface
     public function update(object $record, array $data): object;
     public function delete(object $record): void;
     public function dipakaiPembelian(string $idSupplier): bool;
+
+    public function namaTerpakai(string $idPerusahaan): array;
+    public function semuaUntukExport(string $idPerusahaan, int $batas): array;
 }

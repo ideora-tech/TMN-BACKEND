@@ -21,4 +21,8 @@ interface KaryawanRepositoryInterface
     public function updateRiwayatJabatan(string $idRiwayat, array $data): void;
     public function riwayatJabatan(string $idKaryawan): array;
     public function infoJabatan(string $idJabatan): ?object;
+    public function referensiJabatan(string $idPerusahaan): array;
+    public function referensiLokasi(string $idPerusahaan): array;
+    public function statusNik(array $daftarNik): array;
+    public function semuaUntukExport(string $idPerusahaan, ?string $status, ?string $search, int $batas): array;
 }

@@ -12,6 +12,9 @@ use App\Modules\Proyek\Resources\ProyekResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use App\Support\Impor\ImporExcelRequest;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class KlienController extends Controller
 {
@@ -84,6 +87,29 @@ class KlienController extends Controller
         return ApiResponse::paginated(
             ProyekResource::collection($result['data']),
             $result['meta']
+        );
+    }
+
+    public function downloadTemplate(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->service->templateImpor((string) $request->user()->id_perusahaan),
+            'template-import-klien.xlsx'
+        );
+    }
+
+    public function import(ImporExcelRequest $request): JsonResponse
+    {
+        $hasil = $this->service->import($request->file('file'), (string) $request->user()->id_perusahaan);
+
+        return ApiResponse::success($hasil, 'Import klien selesai diproses');
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->service->exportExcel((string) $request->user()->id_perusahaan),
+            'data-klien-' . date('Ymd') . '.xlsx'
         );
     }
 }

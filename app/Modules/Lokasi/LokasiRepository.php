@@ -50,4 +50,15 @@ class LokasiRepository implements LokasiRepositoryInterface
             })
             ->exists();
     }
+
+    public function semuaMilikPerusahaan(string $idPerusahaan, int $batas): array
+    {
+        return LokasiModel::active()
+            ->where('id_perusahaan', $idPerusahaan)
+            ->orderBy('nama_lokasi')
+            ->orderBy('kota')
+            ->limit($batas)
+            ->get(['id_lokasi', 'nama_lokasi', 'kota', 'alamat', 'aktif'])
+            ->all();
+    }
 }

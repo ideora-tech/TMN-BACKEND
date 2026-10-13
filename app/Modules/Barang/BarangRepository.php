@@ -177,4 +177,26 @@ class BarangRepository implements BarangRepositoryInterface
     {
         return DB::table('barang')->whereNull('dihapus_pada')->where('id_kategori_barang', $idKategori)->exists();
     }
+
+    public function namaTerpakai(string $idPerusahaan): array
+    {
+        return DB::table('barang')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->pluck('nama')
+            ->all();
+    }
+
+    public function semuaUntukExport(string $idPerusahaan, int $batas): array
+    {
+        return DB::table('barang as b')
+            ->leftJoin('kategori_barang as k', 'k.id_kategori_barang', '=', 'b.id_kategori_barang')
+            ->whereNull('b.dihapus_pada')
+            ->where('b.id_perusahaan', $idPerusahaan)
+            ->orderBy('b.nama')
+            ->orderBy('b.kode')
+            ->limit($batas)
+            ->get(['b.nama', 'k.nama as nama_kategori', 'b.satuan', 'b.harga_standar', 'b.stok_minimum', 'b.aktif'])
+            ->all();
+    }
 }

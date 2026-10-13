@@ -70,4 +70,25 @@ class SupplierRepository implements SupplierRepositoryInterface
             ->where('id_supplier', $idSupplier)
             ->exists();
     }
+
+    public function namaTerpakai(string $idPerusahaan): array
+    {
+        return DB::table('supplier')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->pluck('nama')
+            ->all();
+    }
+
+    public function semuaUntukExport(string $idPerusahaan, int $batas): array
+    {
+        return DB::table('supplier')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->orderBy('nama')
+            ->orderBy('id_supplier')
+            ->limit($batas)
+            ->get(['nama', 'telepon', 'alamat', 'aktif'])
+            ->all();
+    }
 }

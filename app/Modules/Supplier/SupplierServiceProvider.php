@@ -27,6 +27,9 @@ class SupplierServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:supplier'])
             ->group(function () {
+                Route::get('supplier/import/template', [SupplierController::class, 'downloadTemplate']);
+                Route::post('supplier/import', [SupplierController::class, 'import']);
+                Route::get('supplier/export/excel', [SupplierController::class, 'exportExcel']);
                 Route::post('supplier', [SupplierController::class, 'store']);
                 Route::put('supplier/{id}', [SupplierController::class, 'update']);
                 Route::patch('supplier/{id}', [SupplierController::class, 'update']);

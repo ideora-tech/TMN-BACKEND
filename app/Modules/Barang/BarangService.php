@@ -8,9 +8,23 @@ use App\Modules\Barang\Contracts\BarangRepositoryInterface;
 use App\Modules\Notifikasi\NotifikasiService;
 use App\Support\KodeOtomatis;
 use Illuminate\Support\Facades\DB;
+use App\Support\Impor\BukuTemplateImpor;
+use App\Support\Impor\LembarDataImpor;
+use App\Support\Impor\PembacaImpor;
+use Illuminate\Http\UploadedFile;
+use App\Modules\Barang\Requests\StoreBarangRequest;
 
 class BarangService
 {
+    public const KOLOM_EXCEL = [
+        ['kunci' => 'nama',          'wajib' => true,  'teks' => true,  'keterangan' => 'Nama barang, maksimal 150 karakter. Nama yang sudah terdaftar ditolak.', 'contoh' => 'Kertas HVS A4 80 gram'],
+        ['kunci' => 'kategori',      'wajib' => false, 'teks' => true,  'keterangan' => 'Nama kategori barang yang sudah ada di master (lihat sheet Referensi).', 'contoh' => 'ATK'],
+        ['kunci' => 'satuan',        'wajib' => false, 'teks' => true,  'keterangan' => 'Maksimal 30 karakter. Kosong berarti pcs.', 'contoh' => 'rim'],
+        ['kunci' => 'harga_standar', 'wajib' => false, 'teks' => false, 'keterangan' => 'Angka, misalnya 55000. Kosong berarti 0.', 'contoh' => '55000'],
+        ['kunci' => 'stok_minimum',  'wajib' => false, 'teks' => false, 'keterangan' => 'Angka bulat. Kosong berarti 0.', 'contoh' => '5'],
+        ['kunci' => 'aktif',         'wajib' => false, 'teks' => true,  'keterangan' => 'ya atau tidak. Kosong berarti ya.', 'contoh' => 'ya'],
+    ];
+
     public const SATUAN_SARAN = ['pcs', 'box', 'rim', 'pak', 'lusin', 'set', 'unit', 'liter', 'kg', 'meter'];
 
     private const MENU_MASTER_BARANG = ['/master-barang'];
@@ -296,6 +310,109 @@ class BarangService
             '/master-barang',
             null,
             'ubah',
+        );
+    }
+
+    public function templateImpor(string $idPerusahaan): BukuTemplateImpor
+    {
+        $kategori = array_map(
+            static fn ($k) => [(string) $k->nama],
+            $this->repo->listKategori($idPerusahaan, true),
+        );
+
+        return new BukuTemplateImpor('Barang', self::KOLOM_EXCEL, [
+            'Import hanya menambah barang baru. Kode barang dibuat otomatis dan stok dimulai dari 0.',
+            'Barang dengan nama yang sudah terdaftar ditolak dan tidak mengubah data lama.',
+            'Kategori harus sudah ada di master. Daftarnya ada di sheet "Referensi".',
+        ], [
+            ['judul' => ['Kategori Barang'], 'baris' => $kategori],
+        ]);
+    }
+
+    public function exportExcel(string $idPerusahaan): LembarDataImpor
+    {
+        $data = PembacaImpor::batasiExport(
+            $this->repo->semuaUntukExport($idPerusahaan, PembacaImpor::MAKS_EXPORT + 1),
+            PembacaImpor::MAKS_EXPORT,
+            'barang',
+        );
+
+        $baris = array_map(static fn ($b) => [
+            (string) $b->nama, $b->nama_kategori, $b->satuan, (float) $b->harga_standar, (int) $b->stok_minimum,
+            (int) $b->aktif === 1 ? 'ya' : 'tidak',
+        ], $data);
+
+        return new LembarDataImpor('Barang', self::KOLOM_EXCEL, $baris);
+    }
+
+    public function import(UploadedFile $file, string $idPerusahaan): array
+    {
+        $baris = PembacaImpor::baca($file, array_column(self::KOLOM_EXCEL, 'kunci'), ['nama'], 'barang');
+
+        $frekuensi = PembacaImpor::frekuensi($baris, static fn (array $nilai) => PembacaImpor::kecil($nilai['nama']));
+        $terpakai  = array_flip(array_map(
+            static fn ($nama) => PembacaImpor::kecil((string) $nama),
+            $this->repo->namaTerpakai($idPerusahaan),
+        ));
+        $kategori = [];
+        foreach ($this->repo->listKategori($idPerusahaan, true) as $satu) {
+            $kategori[PembacaImpor::kecil((string) $satu->nama)] = (string) $satu->id_kategori_barang;
+        }
+        $aturan = (new StoreBarangRequest())->rules();
+
+        return PembacaImpor::jalankan(
+            $baris,
+            static fn (array $nilai) => $nilai['nama'] ?? '',
+            function (array $nilai, array $asli) use ($frekuensi, $terpakai, $kategori, $aturan, $idPerusahaan): ?string {
+                if ($nilai['nama'] === null) {
+                    return 'Kolom nama wajib diisi';
+                }
+                $kunci = PembacaImpor::kecil($nilai['nama']);
+                if (($frekuensi[$kunci] ?? 0) > 1) {
+                    return 'Nama barang duplikat di dalam file';
+                }
+                if (isset($terpakai[$kunci])) {
+                    return 'Nama barang sudah terdaftar';
+                }
+
+                $idKategori = null;
+                if ($nilai['kategori'] !== null) {
+                    $idKategori = $kategori[PembacaImpor::kecil($nilai['kategori'])] ?? null;
+                    if ($idKategori === null) {
+                        return "Kategori \"{$nilai['kategori']}\" tidak ditemukan di master (lihat sheet Referensi pada template)";
+                    }
+                }
+
+                $harga = $nilai['harga_standar'] === null ? 0.0 : PembacaImpor::angka($asli['harga_standar'] ?? null);
+                if ($harga === null) {
+                    return 'Kolom harga_standar harus berupa angka nol atau lebih';
+                }
+                $stokMinimum = $nilai['stok_minimum'] === null ? 0.0 : PembacaImpor::angka($asli['stok_minimum'] ?? null, 1000000000);
+                if ($stokMinimum === null || floor($stokMinimum) !== $stokMinimum) {
+                    return 'Kolom stok_minimum harus berupa angka bulat nol atau lebih';
+                }
+                $aktif = PembacaImpor::yaTidakAtau($nilai['aktif'], true);
+                if ($aktif === null) {
+                    return 'Kolom aktif harus ya atau tidak';
+                }
+
+                $data = [
+                    'nama'               => $nilai['nama'],
+                    'id_kategori_barang' => $idKategori,
+                    'satuan'             => $nilai['satuan'] ?? 'pcs',
+                    'harga_standar'      => $harga,
+                    'stok_minimum'       => (int) $stokMinimum,
+                    'aktif'              => $aktif,
+                ];
+                $galat = PembacaImpor::validasi($data, $aturan, ['id_kategori_barang' => 'kategori']);
+                if ($galat !== null) {
+                    return $galat;
+                }
+
+                $this->create($data, $idPerusahaan);
+
+                return null;
+            },
         );
     }
 }

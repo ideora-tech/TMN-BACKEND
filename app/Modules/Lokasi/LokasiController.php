@@ -11,6 +11,9 @@ use App\Modules\Lokasi\Resources\LokasiResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use App\Support\Impor\ImporExcelRequest;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class LokasiController extends Controller
 {
@@ -62,5 +65,28 @@ class LokasiController extends Controller
         $idPerusahaan = (string) $request->user()->id_perusahaan;
         $this->service->delete($id, $idPerusahaan);
         return ApiResponse::success(null, 'Lokasi berhasil dihapus');
+    }
+
+    public function downloadTemplate(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->service->templateImpor((string) $request->user()->id_perusahaan),
+            'template-import-lokasi.xlsx'
+        );
+    }
+
+    public function import(ImporExcelRequest $request): JsonResponse
+    {
+        $hasil = $this->service->import($request->file('file'), (string) $request->user()->id_perusahaan);
+
+        return ApiResponse::success($hasil, 'Import lokasi selesai diproses');
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->service->exportExcel((string) $request->user()->id_perusahaan),
+            'data-lokasi-' . date('Ymd') . '.xlsx'
+        );
     }
 }

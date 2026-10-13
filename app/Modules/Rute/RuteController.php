@@ -7,6 +7,9 @@ use App\Helpers\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use App\Support\Impor\ImporExcelRequest;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RuteController extends Controller {
     public function __construct(private readonly RuteService $service) {}
@@ -70,5 +73,28 @@ class RuteController extends Controller {
         );
 
         return ApiResponse::success($estimasi);
+    }
+
+    public function downloadTemplate(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->service->templateImpor((string) $request->user()->id_perusahaan),
+            'template-import-rute.xlsx'
+        );
+    }
+
+    public function import(ImporExcelRequest $request): JsonResponse
+    {
+        $hasil = $this->service->import($request->file('file'), (string) $request->user()->id_perusahaan);
+
+        return ApiResponse::success($hasil, 'Import rute selesai diproses');
+    }
+
+    public function exportExcel(Request $request): BinaryFileResponse
+    {
+        return Excel::download(
+            $this->service->exportExcel((string) $request->user()->id_perusahaan),
+            'data-rute-' . date('Ymd') . '.xlsx'
+        );
     }
 }

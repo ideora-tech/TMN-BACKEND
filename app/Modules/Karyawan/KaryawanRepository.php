@@ -168,6 +168,78 @@ class KaryawanRepository implements KaryawanRepositoryInterface
             ->first(['j.id_jabatan', 'j.nama_jabatan', 'd.nama_departemen']);
     }
 
+    public function referensiJabatan(string $idPerusahaan): array
+    {
+        return DB::table('jabatan as j')
+            ->leftJoin('departemen as d', 'd.id_departemen', '=', 'j.id_departemen')
+            ->whereNull('j.dihapus_pada')
+            ->where('j.id_perusahaan', $idPerusahaan)
+            ->where('j.aktif', 1)
+            ->orderBy('j.nama_jabatan')
+            ->orderBy('j.kode_jabatan')
+            ->get(['j.id_jabatan', 'j.kode_jabatan', 'j.nama_jabatan', 'd.nama_departemen'])
+            ->all();
+    }
+
+    public function referensiLokasi(string $idPerusahaan): array
+    {
+        return DB::table('lokasi_kantor')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('aktif', 1)
+            ->orderBy('nama_lokasi')
+            ->orderBy('kode_lokasi')
+            ->get(['id_lokasi', 'kode_lokasi', 'nama_lokasi'])
+            ->all();
+    }
+
+    public function statusNik(array $daftarNik): array
+    {
+        $hasil = [];
+
+        foreach (array_chunk(array_values(array_unique($daftarNik)), 500) as $potong) {
+            $baris = DB::table('karyawan')->whereIn('nik', $potong)->get(['nik', 'dihapus_pada']);
+
+            foreach ($baris as $satu) {
+                $kunci = mb_strtolower((string) $satu->nik);
+                if ($satu->dihapus_pada === null) {
+                    $hasil[$kunci] = 'aktif';
+                } elseif (!isset($hasil[$kunci])) {
+                    $hasil[$kunci] = 'dihapus';
+                }
+            }
+        }
+
+        return $hasil;
+    }
+
+    public function semuaUntukExport(string $idPerusahaan, ?string $status, ?string $search, int $batas): array
+    {
+        $query = DB::table('karyawan as k')
+            ->leftJoin('jabatan as j', 'j.id_jabatan', '=', 'k.id_jabatan')
+            ->leftJoin('lokasi_kantor as l', 'l.id_lokasi', '=', 'k.id_lokasi')
+            ->whereNull('k.dihapus_pada')
+            ->where('k.id_perusahaan', $idPerusahaan);
+
+        if ($status !== null && $status !== '') {
+            $query->where('k.status_kepegawaian', $status);
+        }
+
+        if ($search !== null && $search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('k.nama_karyawan', 'like', "%{$search}%")
+                  ->orWhere('k.nik', 'like', "%{$search}%");
+            });
+        }
+
+        return $query
+            ->orderBy('k.nama_karyawan')
+            ->orderBy('k.nik')
+            ->limit($batas)
+            ->get(['k.*', 'j.kode_jabatan', 'j.nama_jabatan', 'l.kode_lokasi', 'l.nama_lokasi'])
+            ->all();
+    }
+
     /**
      * Tempel nama jabatan & lokasi via raw query builder (join manual),
      * bukan Eloquent relationship.
