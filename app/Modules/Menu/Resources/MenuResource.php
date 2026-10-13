@@ -18,6 +18,7 @@ class MenuResource extends JsonResource
             'icon'          => $this->icon,
             'urutan'        => (int) $this->urutan,
             'aktif'         => (bool) $this->aktif,
+            'tampil_sidebar' => (bool) ($this->tampil_sidebar ?? 1),
             'children'      => $this->when(
                 isset($this->resource->children),
                 fn () => MenuResource::collection($this->resource->children)

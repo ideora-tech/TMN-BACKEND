@@ -24,6 +24,41 @@ class MenuTest extends TestCase
         return $id;
     }
 
+    public function test_menu_bisa_disembunyikan_dari_sidebar_tanpa_dinonaktifkan(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idMenu = $this->buatMenu(null, '/menu-tersembunyi', 'Menu Tersembunyi');
+
+        $this->getJson("/api/menu/{$idMenu}")->assertStatus(200)->assertJsonPath('data.tampil_sidebar', true);
+        $this->putJson("/api/menu/{$idMenu}", ['tampil_sidebar' => false])
+            ->assertStatus(200)
+            ->assertJsonPath('data.tampil_sidebar', false)
+            ->assertJsonPath('data.aktif', true);
+
+        $this->assertDatabaseHas('menu', ['id_menu' => $idMenu, 'tampil_sidebar' => 0, 'aktif' => 1]);
+
+        $pohon = collect($this->getJson('/api/menu/tree')->assertStatus(200)->json('data'));
+        $this->assertFalse($pohon->firstWhere('id_menu', $idMenu)['tampil_sidebar']);
+        $this->assertNotNull(collect($this->getJson('/api/menu?limit=999')->json('data'))->firstWhere('id_menu', $idMenu));
+    }
+
+    public function test_menu_baru_tampil_di_sidebar_secara_bawaan_dan_menu_pembelian_sparepart_tersembunyi(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $this->postJson('/api/menu', ['nama_menu' => 'Menu Uji', 'path' => '/menu-uji'])
+            ->assertStatus(201)
+            ->assertJsonPath('data.tampil_sidebar', true);
+        $this->postJson('/api/menu', ['nama_menu' => 'Menu Uji Dua', 'path' => '/menu-uji-dua', 'tampil_sidebar' => false])
+            ->assertStatus(201)
+            ->assertJsonPath('data.tampil_sidebar', false);
+
+        $lama = DB::table('menu')->where('path', '/pembelian-sparepart')->first();
+        if ($lama !== null) {
+            $this->assertSame(0, (int) $lama->tampil_sidebar);
+        }
+    }
+
     public function test_tolak_induk_ber_path_saat_create(): void
     {
         $this->actingAsRole('SUPERADMIN');

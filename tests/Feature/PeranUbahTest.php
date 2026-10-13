@@ -24,6 +24,27 @@ class PeranUbahTest extends TestCase
         return $id;
     }
 
+    public function test_daftar_peran_memuat_jumlah_pengguna_perusahaan_sendiri(): void
+    {
+        $this->buatPeran('SALES_UJI', 'Sales Uji');
+        $this->buatPeran('KOSONG_UJI', 'Peran Kosong');
+        $this->actingAsRole('SUPERADMIN');
+        $buat = fn (array $extra) => DB::table('pengguna')->insert(array_merge([
+            'id_pengguna' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_peran' => 'SALES_UJI',
+            'username' => 'u_' . Str::random(8), 'email' => Str::random(8) . '@test.id', 'kata_sandi' => 'x', 'aktif' => 1,
+        ], $extra));
+        $buat([]);
+        $buat(['aktif' => 0]);
+        $buat(['dihapus_pada' => now()]);
+        DB::table('perusahaan')->insertOrIgnore(['id_perusahaan' => 'b8f3c1a2-0000-4000-8000-000000000099', 'nama' => 'Perusahaan Lain', 'dibuat_pada' => now()]);
+        $buat(['id_perusahaan' => 'b8f3c1a2-0000-4000-8000-000000000099']);
+
+        $daftar = collect($this->getJson('/api/peran?limit=999')->assertStatus(200)->json('data'))->keyBy('kode_peran');
+
+        $this->assertSame(2, $daftar['SALES_UJI']['jumlah_pengguna']);
+        $this->assertSame(0, $daftar['KOSONG_UJI']['jumlah_pengguna']);
+    }
+
     public function test_superadmin_bisa_mengubah_nama_dan_status_peran(): void
     {
         $id = $this->buatPeran();

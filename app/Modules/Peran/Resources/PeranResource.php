@@ -17,6 +17,7 @@ class PeranResource extends JsonResource
             'nama_peran'   => $this->nama_peran,
             'is_platform'  => (bool) $this->is_platform,
             'aktif'        => (bool) $this->aktif,
+            'jumlah_pengguna' => $this->jumlah_pengguna !== null ? (int) $this->jumlah_pengguna : null,
             'dibuat_pada'  => $this->dibuat_pada,
             'diubah_pada'  => $this->diubah_pada,
         ];

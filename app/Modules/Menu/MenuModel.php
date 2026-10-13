@@ -21,6 +21,7 @@ class MenuModel extends BaseModel
         'icon',
         'urutan',
         'aktif',
+        'tampil_sidebar',
     ];
 
     public function children(): HasMany

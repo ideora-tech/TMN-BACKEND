@@ -6,12 +6,21 @@ namespace App\Modules\Peran;
 
 use App\Modules\Peran\Contracts\PeranRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class PeranRepository implements PeranRepositoryInterface
 {
     public function paginate(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?string $aktif = null): LengthAwarePaginator
     {
+        $jumlahPengguna = DB::table('pengguna')
+            ->whereColumn('pengguna.kode_peran', 'peran.kode_peran')
+            ->where('pengguna.id_perusahaan', $idPerusahaan)
+            ->whereNull('pengguna.dihapus_pada')
+            ->selectRaw('COUNT(*)');
+
         return PeranModel::active()
+            ->select('peran.*')
+            ->selectSub($jumlahPengguna, 'jumlah_pengguna')
             ->where(function ($q) use ($idPerusahaan) {
                 $q->where('id_perusahaan', $idPerusahaan)->orWhere('is_platform', 1);
             })

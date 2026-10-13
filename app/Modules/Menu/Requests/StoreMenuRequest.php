@@ -21,6 +21,7 @@ class StoreMenuRequest extends FormRequest
             'id_menu_induk' => ['sometimes', 'nullable', 'string', 'exists:menu,id_menu'],
             'urutan'        => ['sometimes', 'integer', 'min:0'],
             'aktif'         => ['sometimes', 'boolean'],
+            'tampil_sidebar' => ['sometimes', 'boolean'],
         ];
     }
 }
