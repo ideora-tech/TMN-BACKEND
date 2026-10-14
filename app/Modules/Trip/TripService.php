@@ -19,6 +19,7 @@ use App\Modules\StatusTrip\Contracts\StatusTripRepositoryInterface;
 use App\Modules\Trip\Contracts\TripRepositoryInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use App\Modules\FeeSupir\FeeSupirService;
 
 class TripService
 {
@@ -36,7 +37,8 @@ class TripService
         private readonly AbsensiSupirRepositoryInterface $absensiRepo,
         private readonly LaporanOperasionalRepositoryInterface $laporanRepo,
         private readonly \App\Modules\LaporanPerjalanan\Contracts\LaporanPerjalananRepositoryInterface $laporanPerjalananRepo,
-        private readonly ArusKasService $arusKasService
+        private readonly ArusKasService $arusKasService,
+        private readonly FeeSupirService $feeSupirService,
     ) {}
 
     /**
@@ -602,6 +604,7 @@ class TripService
 
             $this->catatRiwayatStatus($trip->id_trip, 'selesai', 'Check-out — trip selesai');
             $this->kunciLaporanPerjalanan((string) $trip->id_trip);
+            $this->feeSupirService->sinkronTrip((string) $trip->id_trip, true);
 
             $penugasan = $this->repo->findPenugasanDariTrip($trip->id_trip);
             $this->lepasArmadaJikaAman($penugasan, $trip->id_trip);
@@ -741,7 +744,10 @@ class TripService
             abort(422, 'Trip ditandai Cancellation untuk ditagih — hapus tandanya di Parameter Tagihan terlebih dahulu');
         }
 
-        $this->repo->delete($trip);
+        DB::transaction(function () use ($trip) {
+            $this->repo->delete($trip);
+            $this->feeSupirService->hapusUntukTrip((string) $trip->id_trip);
+        });
     }
 
     public function rekapBiaya(string $id, string $idPerusahaan): array

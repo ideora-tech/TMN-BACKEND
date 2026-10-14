@@ -39,6 +39,7 @@ return [
     App\Modules\KonsolidasiVendor\KonsolidasiVendorServiceProvider::class,
     App\Modules\KontrakVendor\KontrakVendorServiceProvider::class,
     App\Modules\LampiranMaster\LampiranMasterServiceProvider::class,
+    App\Modules\FeeSupir\FeeSupirServiceProvider::class,
     App\Modules\LogError\LogErrorServiceProvider::class,
     App\Modules\LaporanOperasional\LaporanOperasionalServiceProvider::class,
     App\Modules\LaporanProyek\LaporanProyekServiceProvider::class,

@@ -25,6 +25,7 @@ class AssignPenugasanHarianRequest extends FormRequest
             'id_proyek'        => ['required', 'string', 'max:36'],
             'id_rute'          => ['required', 'string', 'max:36'],
             'uang_jalan'       => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'fee_supir'        => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:9999999999999'],
             'keterangan'       => ['sometimes', 'nullable', 'string', 'max:500'],
             'titik_drop'                        => ['sometimes', 'array', 'max:10'],
             'titik_drop.*.lokasi'               => ['required', 'string', 'max:200'],

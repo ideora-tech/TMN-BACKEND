@@ -563,6 +563,8 @@ class PenugasanRepository implements PenugasanRepositoryInterface
                 'p.id_rute',
                 'r.nama_rute',
                 'p.estimasi_biaya',
+                'p.fee_supir',
+                DB::raw('pr.tipe_harga as tipe_harga_proyek'),
                 'p.keterangan',
                 'p.id_pengajuan',
                 'p.status',

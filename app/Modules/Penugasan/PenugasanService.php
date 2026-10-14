@@ -21,6 +21,8 @@ use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Modules\FeeSupir\FeeSupirService;
+use App\Support\TipeHarga;
 
 class PenugasanService
 {
@@ -35,6 +37,7 @@ class PenugasanService
         private readonly SupirRepositoryInterface $supirRepo,
         private readonly ArusKasService $arusKasService,
         private readonly ArmadaRepositoryInterface $armadaRepo,
+        private readonly FeeSupirService $feeSupirService,
     ) {}
 
     public function list(string $idProyek, string $idPerusahaan, int $page = 1, int $limit = 10, ?string $sumber = null, ?string $status = null): array
@@ -376,6 +379,11 @@ class PenugasanService
                 ? (float) $data['uang_jalan']
                 : $this->proyekRuteRepo->tarifUangJalanRute((string) $data['id_proyek'], (string) $data['id_rute'], $idJenisKendaraanUnit);
 
+            $feeSupir = TipeHarga::perRit($proyek->tipe_harga ?? null) && $idSupirInternal !== null
+                && array_key_exists('fee_supir', $data) && $data['fee_supir'] !== null
+                ? (float) $data['fee_supir']
+                : null;
+
             $titikDrop = $data['titik_drop'] ?? null;
 
             $sukses   = 0;
@@ -404,6 +412,7 @@ class PenugasanService
                 $record = $this->repo->create(array_merge($rowDasar, [
                     'tanggal_tugas'  => $tanggal,
                     'estimasi_biaya' => $tarif,
+                    'fee_supir'      => $feeSupir,
                 ]));
 
                 if ($titikDrop !== null) {
@@ -560,6 +569,10 @@ class PenugasanService
 
         return DB::transaction(function () use ($record, $data, $id, $titikDropDikirim, $titikDrop, $supirSebelum, $idPengajuanUntukSinkron) {
             $updated = $this->repo->update($record, $data);
+
+            if (array_key_exists('fee_supir', $data) || array_key_exists('id_rute', $data) || array_key_exists('id_proyek', $data) || array_key_exists('tanggal_tugas', $data)) {
+                $this->feeSupirService->sinkronPenugasan($id);
+            }
 
             if ($titikDropDikirim) {
                 $tripAktif = $this->tripRepo->idTripAktifUntukPenugasan($id);
