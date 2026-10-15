@@ -978,10 +978,11 @@ class ProyekTest extends TestCase
                 'id_jenis_kendaraan'  => null,
                 'harga_penawaran'     => 600000,
                 'estimasi_ritase'     => 2,
-                'uang_jalan'          => 150000,
-                'estimasi_tol'        => 50000,
-                'estimasi_bbm'        => 80000,
-                'estimasi_biaya_lain' => 20000,
+                'komponen_uang_jalan' => [
+                    ['id_komponen_uang_jalan' => $idTol = $this->komponenUangJalan('Tol', 1), 'nominal' => 50000],
+                    ['id_komponen_uang_jalan' => $idBbm = $this->komponenUangJalan('BBM', 2), 'nominal' => 80000],
+                    ['id_komponen_uang_jalan' => $idLain = $this->komponenUangJalan('Biaya Lain', 3), 'nominal' => 20000],
+                ],
             ]],
         ]);
 
@@ -995,10 +996,44 @@ class ProyekTest extends TestCase
             'harga_penawaran'     => 600000,
             'estimasi_ritase'     => 2,
             'uang_jalan'          => 150000,
-            'estimasi_tol'        => 50000,
-            'estimasi_bbm'        => 80000,
-            'estimasi_biaya_lain' => 20000,
         ]);
+        $idProyekRute = DB::table('proyek_rute')->where('id_proyek', $idProyek)->value('id_proyek_rute');
+        foreach ([$idTol => 50000, $idBbm => 80000, $idLain => 20000] as $idKomponen => $nominal) {
+            $this->assertDatabaseHas('proyek_rute_komponen', [
+                'id_proyek_rute' => $idProyekRute, 'id_komponen_uang_jalan' => $idKomponen, 'nominal' => $nominal, 'dihapus_pada' => null,
+            ]);
+        }
+    }
+
+    public function test_galat_komponen_rute_manual_menyebut_baris_rute(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $klien = $this->makeKlien();
+        $nonaktif = $this->komponenUangJalan('Inap', 1);
+        DB::table('komponen_uang_jalan')->where('id_komponen_uang_jalan', $nonaktif)->update(['aktif' => 0]);
+
+        $this->postJson('/api/proyek', [
+            'id_klien'    => $klien->id_klien,
+            'kode_proyek' => 'PRJ-GALAT',
+            'nama_proyek' => 'Proyek Galat Komponen',
+            'rute' => [
+                ['id_rute' => $this->makeRuteUntukProyekTest(), 'komponen_uang_jalan' => [['id_komponen_uang_jalan' => $this->komponenUangJalan('Tol', 2), 'nominal' => 1000]]],
+                ['id_rute' => $this->makeRuteUntukProyekTest(), 'komponen_uang_jalan' => [['id_komponen_uang_jalan' => $nonaktif, 'nominal' => 1000]]],
+            ],
+        ])->assertStatus(422)->assertJsonValidationErrors(['rute.1.komponen_uang_jalan.0.id_komponen_uang_jalan']);
+
+        $this->assertSame(0, DB::table('proyek')->where('nama_proyek', 'Proyek Galat Komponen')->count());
+    }
+
+    private function komponenUangJalan(string $nama, int $urutan): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('komponen_uang_jalan')->insert([
+            'id_komponen_uang_jalan' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama' => $nama, 'urutan' => $urutan, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        return $id;
     }
 
     public function test_store_proyek_manual_rute_tanpa_id_jenis_kendaraan_sama_sekali_tetap_berhasil(): void

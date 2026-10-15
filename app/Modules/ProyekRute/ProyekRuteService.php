@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace App\Modules\ProyekRute;
 
+use App\Modules\KomponenUangJalan\KomponenUangJalanService;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Support\TipeHarga;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ProyekRuteService
 {
-    public function __construct(private readonly ProyekRuteRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly ProyekRuteRepositoryInterface $repo,
+        private readonly KomponenUangJalanService $komponenService,
+    ) {}
 
     public function listByProyek(string $idProyek, string $idPerusahaan): Collection
     {
         $this->pastikanProyekMilikPerusahaan($idProyek, $idPerusahaan);
 
-        return $this->repo->listByProyek($idProyek);
+        return $this->denganKomponen($this->repo->listByProyek($idProyek));
     }
 
     private function pastikanProyekMilikPerusahaan(string $idProyek, string $idPerusahaan): void
@@ -26,7 +31,7 @@ class ProyekRuteService
         }
     }
 
-    public function create(string $idProyek, array $data, string $idPerusahaan): ProyekRuteModel
+    public function create(string $idProyek, array $data, string $idPerusahaan, string $kunciKomponen = 'komponen_uang_jalan'): ProyekRuteModel
     {
         $this->pastikanProyekMilikPerusahaan($idProyek, $idPerusahaan);
 
@@ -41,12 +46,20 @@ class ProyekRuteService
             abort(409, 'Rute dengan jenis kendaraan ini sudah terdaftar di proyek');
         }
 
-        $record = $this->repo->create(array_merge($data, [
-            'id_perusahaan' => $idPerusahaan,
-            'id_proyek'     => $idProyek,
-        ]));
+        [$data, $rincian] = $this->pisahKomponen($data, $idPerusahaan, [], $kunciKomponen);
 
-        return $this->repo->findDetailById($record->id_proyek_rute);
+        return DB::transaction(function () use ($data, $rincian, $idProyek, $idPerusahaan) {
+            $record = $this->repo->create(array_merge($data, [
+                'id_perusahaan' => $idPerusahaan,
+                'id_proyek'     => $idProyek,
+            ]));
+
+            if ($rincian !== null) {
+                $this->repo->simpanKomponen((string) $record->id_proyek_rute, $idPerusahaan, $rincian);
+            }
+
+            return $this->detail((string) $record->id_proyek_rute);
+        });
     }
 
     public function update(string $idProyek, string $id, array $data, string $idPerusahaan): ProyekRuteModel
@@ -66,9 +79,48 @@ class ProyekRuteService
             abort(422, 'Harga terkunci — ubah lewat penawaran revisi');
         }
 
-        $this->repo->update($record, $data);
+        [$data, $rincian] = $this->pisahKomponen($data, $idPerusahaan, $this->repo->idKomponenRute($id), 'komponen_uang_jalan');
 
-        return $this->repo->findDetailById($id);
+        return DB::transaction(function () use ($record, $data, $rincian, $id, $idPerusahaan) {
+            $this->repo->update($record, $data);
+
+            if ($rincian !== null) {
+                $this->repo->simpanKomponen($id, $idPerusahaan, $rincian);
+            }
+
+            return $this->detail($id);
+        });
+    }
+
+    private function pisahKomponen(array $data, string $idPerusahaan, array $idBolehNonaktif, string $kunci): array
+    {
+        unset($data['uang_jalan']);
+
+        if (!array_key_exists('komponen_uang_jalan', $data)) {
+            return [$data, null];
+        }
+
+        $rincian = $this->komponenService->rincianValid($data['komponen_uang_jalan'], $idPerusahaan, $idBolehNonaktif, $kunci);
+        unset($data['komponen_uang_jalan']);
+
+        $total = round(array_sum(array_column($rincian, 'nominal')), 2);
+        $data['uang_jalan'] = $total > 0 ? $total : null;
+
+        return [$data, $rincian];
+    }
+
+    private function detail(string $id): ProyekRuteModel
+    {
+        return $this->denganKomponen(collect([$this->repo->findDetailById($id)]))->first();
+    }
+
+    private function denganKomponen(Collection $baris): Collection
+    {
+        $peta = $this->repo->komponenUntuk($baris->pluck('id_proyek_rute')->map(fn ($id) => (string) $id)->all());
+
+        return $baris->each(function (ProyekRuteModel $r) use ($peta) {
+            $r->setAttribute('komponen_uang_jalan', $peta[(string) $r->id_proyek_rute] ?? []);
+        });
     }
 
     public function delete(string $idProyek, string $id, string $idPerusahaan): void

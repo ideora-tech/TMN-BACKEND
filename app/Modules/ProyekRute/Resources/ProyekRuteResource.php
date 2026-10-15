@@ -10,13 +10,7 @@ class ProyekRuteResource extends JsonResource
 {
     public function toArray($request): array
     {
-        $komponen = [
-            $this->uang_jalan ?? null,
-            $this->estimasi_tol ?? null,
-            $this->estimasi_bbm ?? null,
-            $this->estimasi_biaya_lain ?? null,
-        ];
-        $semuaKosong = collect($komponen)->every(fn ($k) => $k === null);
+        $rincian = $this->komponen_uang_jalan ?? [];
 
         return [
             'id_proyek_rute'      => $this->id_proyek_rute,
@@ -34,10 +28,8 @@ class ProyekRuteResource extends JsonResource
                 ? (float) $this->harga_penawaran * (int) $this->estimasi_ritase
                 : null,
             'uang_jalan'          => $this->uang_jalan !== null ? (float) $this->uang_jalan : null,
-            'estimasi_tol'        => $this->estimasi_tol !== null ? (float) $this->estimasi_tol : null,
-            'estimasi_bbm'        => $this->estimasi_bbm !== null ? (float) $this->estimasi_bbm : null,
-            'estimasi_biaya_lain' => $this->estimasi_biaya_lain !== null ? (float) $this->estimasi_biaya_lain : null,
-            'estimasi_biaya'      => $semuaKosong ? null : array_sum(array_map(fn ($k) => (float) ($k ?? 0), $komponen)),
+            'komponen_uang_jalan' => $rincian,
+            'estimasi_biaya'      => $rincian === [] ? null : round(array_sum(array_column($rincian, 'nominal')), 2),
             'keterangan'          => $this->keterangan,
             'dibuat_pada'         => $this->dibuat_pada,
             'diubah_pada'         => $this->diubah_pada,

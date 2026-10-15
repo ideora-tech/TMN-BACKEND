@@ -315,7 +315,7 @@ class UangJalanRepository implements UangJalanRepositoryInterface
      */
     public function rateCardRute(string $idProyek, string $idRute, ?string $idJenisKendaraan): ?object
     {
-        $kolom = ['estimasi_tol', 'estimasi_bbm', 'estimasi_biaya_lain', 'uang_jalan'];
+        $kolom = ['id_proyek_rute', 'uang_jalan'];
         $dasar = fn () => DB::table('proyek_rute')
             ->where('id_proyek', $idProyek)
             ->where('id_rute', $idRute)
@@ -389,6 +389,79 @@ class UangJalanRepository implements UangJalanRepositoryInterface
         $urut = $terakhir ? ((int) substr((string) $terakhir, -4)) + 1 : 1;
 
         return $prefix . str_pad((string) $urut, 4, '0', STR_PAD_LEFT);
+    }
+
+    public function rincianRateCard(string $idProyekRute): array
+    {
+        return DB::table('proyek_rute_komponen as prk')
+            ->join('komponen_uang_jalan as k', 'k.id_komponen_uang_jalan', '=', 'prk.id_komponen_uang_jalan')
+            ->whereNull('prk.dihapus_pada')
+            ->whereNull('k.dihapus_pada')
+            ->where('prk.id_proyek_rute', $idProyekRute)
+            ->where('prk.nominal', '>', 0)
+            ->orderBy('k.urutan')
+            ->orderBy('k.nama')
+            ->get(['prk.id_komponen_uang_jalan', 'k.nama', 'k.aktif', 'prk.nominal'])
+            ->map(fn ($r) => [
+                'id_komponen_uang_jalan' => (string) $r->id_komponen_uang_jalan,
+                'nama_komponen'          => (string) $r->nama,
+                'aktif'                  => (int) $r->aktif === 1,
+                'nominal'                => (float) $r->nominal,
+            ])
+            ->all();
+    }
+
+    public function idKomponenRateCard(string $idProyek, string $idRute): array
+    {
+        return DB::table('proyek_rute_komponen as prk')
+            ->join('proyek_rute as pr', 'pr.id_proyek_rute', '=', 'prk.id_proyek_rute')
+            ->whereNull('prk.dihapus_pada')
+            ->whereNull('pr.dihapus_pada')
+            ->where('pr.id_proyek', $idProyek)
+            ->where('pr.id_rute', $idRute)
+            ->distinct()
+            ->pluck('prk.id_komponen_uang_jalan')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
+    public function rincianUntuk(string $idUangJalan): array
+    {
+        return DB::table('uang_jalan_rincian as r')
+            ->leftJoin('komponen_uang_jalan as k', function ($join) {
+                $join->on('k.id_komponen_uang_jalan', '=', 'r.id_komponen_uang_jalan')->whereNull('k.dihapus_pada');
+            })
+            ->whereNull('r.dihapus_pada')
+            ->where('r.id_uang_jalan', $idUangJalan)
+            ->orderBy('r.urutan')
+            ->orderBy('r.nama_komponen')
+            ->get(['r.id_komponen_uang_jalan', 'r.nama_komponen', 'r.nominal', 'k.aktif'])
+            ->map(fn ($r) => [
+                'id_komponen_uang_jalan' => $r->id_komponen_uang_jalan !== null ? (string) $r->id_komponen_uang_jalan : null,
+                'nama_komponen'          => (string) $r->nama_komponen,
+                'aktif'                  => (int) ($r->aktif ?? 0) === 1,
+                'nominal'                => (float) $r->nominal,
+            ])
+            ->all();
+    }
+
+    public function simpanRincian(string $idUangJalan, string $idPerusahaan, array $rincian): void
+    {
+        DB::table('uang_jalan_rincian')
+            ->whereNull('dihapus_pada')
+            ->where('id_uang_jalan', $idUangJalan)
+            ->update(RecordHelper::stampDelete());
+
+        foreach (array_values($rincian) as $i => $r) {
+            DB::table('uang_jalan_rincian')->insert(RecordHelper::stampCreate([
+                'id_perusahaan'          => $idPerusahaan,
+                'id_uang_jalan'          => $idUangJalan,
+                'id_komponen_uang_jalan' => $r['id_komponen_uang_jalan'],
+                'nama_komponen'          => $r['nama_komponen'],
+                'urutan'                 => $i + 1,
+                'nominal'                => $r['nominal'],
+            ], 'id_uang_jalan_rincian'));
+        }
     }
 
     public function create(array $data): object

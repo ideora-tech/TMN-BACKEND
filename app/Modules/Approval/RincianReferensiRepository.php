@@ -165,7 +165,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('id_uang_jalan', $idUangJalan)
             ->where('id_perusahaan', $idPerusahaan)
             ->whereNull('dihapus_pada')
-            ->first(['nomor_uang_jalan', 'tanggal', 'nama_driver', 'tipe_driver', 'nama_vendor', 'nopol', 'rute', 'id_proyek', 'kode_proyek', 'nama_proyek', 'alasan_tanpa_proyek', 'tol_per_trip', 'bbm_per_trip', 'biaya_lain_per_trip', 'uang_jalan_per_trip', 'jumlah_trip', 'nomor_rekening', 'nama_bank', 'catatan']);
+            ->first(['nomor_uang_jalan', 'tanggal', 'nama_driver', 'tipe_driver', 'nama_vendor', 'nopol', 'rute', 'id_proyek', 'kode_proyek', 'nama_proyek', 'alasan_tanpa_proyek', 'uang_jalan_per_trip', 'jumlah_trip', 'nomor_rekening', 'nama_bank', 'catatan']);
         if ($uangJalan === null) {
             return null;
         }
@@ -190,9 +190,15 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->teks('No. Polisi', $uangJalan->nopol),
                 $this->teks('Rute', $uangJalan->rute),
                 ...$proyek,
-                $this->rupiah('Estimasi Tol per Trip', $uangJalan->tol_per_trip),
-                $this->rupiah('Estimasi BBM per Trip', $uangJalan->bbm_per_trip),
-                $this->rupiah('Estimasi Biaya Lain per Trip', $uangJalan->biaya_lain_per_trip),
+                ...array_map(
+                    fn ($r) => $this->rupiah("Estimasi {$r->nama_komponen} per Trip", $r->nominal),
+                    DB::table('uang_jalan_rincian')
+                        ->whereNull('dihapus_pada')
+                        ->where('id_uang_jalan', $idUangJalan)
+                        ->orderBy('urutan')
+                        ->get(['nama_komponen', 'nominal'])
+                        ->all(),
+                ),
                 $this->rupiah('UJ per Trip', $uangJalan->uang_jalan_per_trip),
                 $this->angka('Jumlah Trip', $uangJalan->jumlah_trip),
                 $this->teks('Nomor Rekening', $uangJalan->nomor_rekening),

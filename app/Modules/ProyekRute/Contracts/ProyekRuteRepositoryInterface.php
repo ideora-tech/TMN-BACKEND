@@ -48,6 +48,10 @@ interface ProyekRuteRepositoryInterface
 
     public function create(array $data): ProyekRuteModel;
 
+    public function komponenUntuk(array $idProyekRute): array;
+    public function idKomponenRute(string $idProyekRute): array;
+    public function simpanKomponen(string $idProyekRute, string $idPerusahaan, array $rincian): void;
+
     public function update(ProyekRuteModel $model, array $data): ProyekRuteModel;
 
     public function delete(ProyekRuteModel $model): void;

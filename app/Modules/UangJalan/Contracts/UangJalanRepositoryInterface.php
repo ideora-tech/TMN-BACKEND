@@ -71,6 +71,10 @@ interface UangJalanRepositoryInterface
 
     public function nomorBerikutnya(string $idPerusahaan): string;
 
+    public function rincianRateCard(string $idProyekRute): array;
+    public function idKomponenRateCard(string $idProyek, string $idRute): array;
+    public function rincianUntuk(string $idUangJalan): array;
+    public function simpanRincian(string $idUangJalan, string $idPerusahaan, array $rincian): void;
     public function create(array $data): object;
 
     public function update(object $record, array $data): object;

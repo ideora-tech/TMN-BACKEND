@@ -139,8 +139,8 @@ class ProyekService
                 $this->permintaanVendorRepo->tautkanProyekDariPenawaran((string) $penawaran->id_penawaran, (string) $proyek->id_proyek);
             }
 
-            foreach ($ruteManual as $baris) {
-                $this->proyekRuteService->create($proyek->id_proyek, $baris, $idPerusahaan);
+            foreach (array_values($ruteManual) as $i => $baris) {
+                $this->proyekRuteService->create($proyek->id_proyek, $baris, $idPerusahaan, "rute.{$i}.komponen_uang_jalan");
             }
 
             return $proyek;

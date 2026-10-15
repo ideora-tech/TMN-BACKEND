@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\UangJalan;
 
 use App\Modules\ArusKas\ArusKasService;
+use App\Modules\KomponenUangJalan\KomponenUangJalanService;
 use App\Modules\UangJalan\Contracts\UangJalanRepositoryInterface;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,7 @@ class UangJalanService
     public function __construct(
         private readonly UangJalanRepositoryInterface $repo,
         private readonly ArusKasService $arusKasService,
+        private readonly KomponenUangJalanService $komponenService,
     ) {}
 
     public function list(
@@ -83,6 +85,13 @@ class UangJalanService
             abort(404, 'Uang jalan tidak ditemukan');
         }
 
+        return $this->denganRincian($record);
+    }
+
+    private function denganRincian(object $record): object
+    {
+        $record->rincian = $this->repo->rincianUntuk((string) $record->id_uang_jalan);
+
         return $record;
     }
 
@@ -132,19 +141,16 @@ class UangJalanService
             return null;
         }
 
-        $tol   = round((float) ($baris->estimasi_tol ?? 0), 2);
-        $bbm   = round((float) ($baris->estimasi_bbm ?? 0), 2);
-        $lain  = round((float) ($baris->estimasi_biaya_lain ?? 0), 2);
+        $rincian = $this->repo->rincianRateCard((string) $baris->id_proyek_rute);
+        $total   = round(array_sum(array_column($rincian, 'nominal')), 2);
 
-        if ($tol + $bbm + $lain <= 0) {
+        if ($total <= 0) {
             return null;
         }
 
         return [
-            'tol_per_trip'        => $tol,
-            'bbm_per_trip'        => $bbm,
-            'biaya_lain_per_trip' => $lain,
-            'uang_jalan_per_trip' => round($tol + $bbm + $lain, 2),
+            'rincian'             => $rincian,
+            'uang_jalan_per_trip' => $total,
         ];
     }
 
@@ -167,7 +173,7 @@ class UangJalanService
     public function create(array $data, string $idPerusahaan): object
     {
         return DB::transaction(function () use ($data, $idPerusahaan) {
-            $isi = $this->rapikan($data, $idPerusahaan);
+            [$isi, $rincian] = $this->rapikan($data, $idPerusahaan, []);
             $id  = (string) Str::uuid();
 
             $pengajuan = $this->arusKasService->buatPengajuanUangJalanManual(
@@ -178,12 +184,15 @@ class UangJalanService
                 $this->keterangan($isi),
             );
 
-            return $this->repo->create(array_merge($isi, [
+            $record = $this->repo->create(array_merge($isi, [
                 'id_uang_jalan'    => $id,
                 'id_perusahaan'    => $idPerusahaan,
                 'nomor_uang_jalan' => $this->repo->nomorBerikutnya($idPerusahaan),
                 'id_pengajuan'     => $pengajuan->id_pengajuan,
             ]));
+            $this->repo->simpanRincian($id, $idPerusahaan, $rincian);
+
+            return $this->denganRincian($record);
         });
     }
 
@@ -192,8 +201,10 @@ class UangJalanService
         $record = $this->findOrFail($id, $idPerusahaan);
         $this->pastikanBisaDiubah($record, 'diubah');
 
-        return DB::transaction(function () use ($record, $data, $idPerusahaan) {
-            $isi = $this->rapikan($data, $idPerusahaan);
+        $komponenLama = array_values(array_filter(array_column($record->rincian ?? [], 'id_komponen_uang_jalan')));
+
+        return DB::transaction(function () use ($record, $data, $idPerusahaan, $komponenLama) {
+            [$isi, $rincian] = $this->rapikan($data, $idPerusahaan, $komponenLama);
 
             $this->arusKasService->perbaruiPengajuanUangJalan(
                 (string) $record->id_pengajuan,
@@ -203,7 +214,10 @@ class UangJalanService
                 $this->keterangan($isi),
             );
 
-            return $this->repo->update($record, $isi);
+            $baru = $this->repo->update($record, $isi);
+            $this->repo->simpanRincian((string) $record->id_uang_jalan, $idPerusahaan, $rincian);
+
+            return $this->denganRincian($baru);
         }, 3);
     }
 
@@ -225,21 +239,10 @@ class UangJalanService
         }
     }
 
-    private function rapikan(array $data, string $idPerusahaan): array
+    private function rapikan(array $data, string $idPerusahaan, array $komponenLama): array
     {
-        $tol     = round((float) ($data['tol_per_trip'] ?? 0), 2);
-        $bbm     = round((float) ($data['bbm_per_trip'] ?? 0), 2);
-        $lain    = round((float) ($data['biaya_lain_per_trip'] ?? 0), 2);
-        $tarif   = round($tol + $bbm + $lain, 2);
         $trip    = (int) $data['jumlah_trip'];
         $catatan = isset($data['catatan']) ? trim((string) $data['catatan']) : '';
-
-        if ($tarif < 1) {
-            $this->tolak('tol_per_trip', 'Isi minimal salah satu rincian biaya per trip (tol, BBM, atau biaya lain)');
-        }
-        if ($tarif > 100000000) {
-            $this->tolak('tol_per_trip', 'Total uang jalan per trip maksimal Rp 100.000.000');
-        }
 
         $proyek = null;
         if (!empty($data['id_proyek'])) {
@@ -271,7 +274,20 @@ class UangJalanService
             : ($this->repo->findRute((string) $data['id_rute'], $idPerusahaan)
                 ?? $this->tolak('id_rute', 'Rute tidak ditemukan'));
 
-        return array_merge($this->resolusiDriver($data, $idPerusahaan), [
+        $idBolehNonaktif = $proyek !== null
+            ? array_values(array_unique(array_merge($komponenLama, $this->repo->idKomponenRateCard((string) $proyek->id_proyek, (string) $rute->id_rute))))
+            : $komponenLama;
+        $rincian = $this->komponenService->rincianValid($data['rincian'] ?? [], $idPerusahaan, $idBolehNonaktif, 'rincian');
+        $tarif   = round(array_sum(array_column($rincian, 'nominal')), 2);
+
+        if ($tarif < 1) {
+            $this->tolak('rincian', 'Isi minimal salah satu komponen uang jalan per trip');
+        }
+        if ($tarif > 100000000) {
+            $this->tolak('rincian', 'Total uang jalan per trip maksimal Rp 100.000.000');
+        }
+
+        return [array_merge($this->resolusiDriver($data, $idPerusahaan), [
             'tanggal'             => $data['tanggal'],
             'tipe_driver'         => $data['tipe_driver'],
             'id_rute'             => $rute->id_rute,
@@ -281,16 +297,13 @@ class UangJalanService
             'nama_proyek'         => $proyek?->nama_proyek,
             'alasan_tanpa_proyek' => $alasanTanpaProyek,
             'id_penugasan'        => $idPenugasan,
-            'tol_per_trip'        => $tol,
-            'bbm_per_trip'        => $bbm,
-            'biaya_lain_per_trip' => $lain,
             'uang_jalan_per_trip' => $tarif,
             'jumlah_trip'         => $trip,
             'nominal'             => round($tarif * $trip, 2),
             'catatan'             => $catatan !== '' ? $catatan : null,
             'nomor_rekening'      => trim((string) $data['nomor_rekening']),
             'nama_bank'           => trim((string) $data['nama_bank']),
-        ]);
+        ]), $rincian];
     }
 
     private function resolusiDriver(array $data, string $idPerusahaan): array

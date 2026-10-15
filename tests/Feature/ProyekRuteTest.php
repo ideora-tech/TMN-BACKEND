@@ -18,6 +18,28 @@ class ProyekRuteTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function komponen(string $nama, int $urutan = 0, int $aktif = 1): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('komponen_uang_jalan')->insert([
+            'id_komponen_uang_jalan' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama' => $nama, 'urutan' => $urutan, 'aktif' => $aktif, 'dibuat_pada' => now(),
+        ]);
+
+        return $id;
+    }
+
+    private function rincian(array $nominal): array
+    {
+        $urutan = 0;
+        $hasil  = [];
+        foreach ($nominal as $nama => $nilai) {
+            $hasil[] = ['id_komponen_uang_jalan' => $this->komponen($nama, ++$urutan), 'nominal' => $nilai];
+        }
+
+        return $hasil;
+    }
+
     private function makeKlien(): string
     {
         $id = (string) Str::uuid();
@@ -160,12 +182,9 @@ class ProyekRuteTest extends TestCase
         $idJenis  = $this->makeJenisKendaraan();
 
         $this->postJson("/api/proyek/{$idProyek}/rute", [
-            'id_rute'            => $idRute,
-            'id_jenis_kendaraan' => $idJenis,
-            'uang_jalan'         => 150000,
-            'estimasi_tol'       => 50000,
-            'estimasi_bbm'       => 300000,
-            'estimasi_biaya_lain'=> 25000,
+            'id_rute'             => $idRute,
+            'id_jenis_kendaraan'  => $idJenis,
+            'komponen_uang_jalan' => $this->rincian(['Tol' => 50000, 'BBM' => 300000, 'Biaya Lain' => 25000]),
         ]);
 
         $res = $this->getJson("/api/proyek/{$idProyek}/rute");
@@ -174,7 +193,9 @@ class ProyekRuteTest extends TestCase
         $this->assertCount(1, $res->json('data'));
         $this->assertSame('Jakarta - Semarang', $res->json('data.0.nama_rute'));
         $this->assertSame('CDD', $res->json('data.0.nama_jenis'));
-        $this->assertEquals(525000, $res->json('data.0.estimasi_biaya'));
+        $this->assertEquals(375000, $res->json('data.0.estimasi_biaya'));
+        $this->assertEquals(375000, $res->json('data.0.uang_jalan'));
+        $this->assertSame(['Tol', 'BBM', 'Biaya Lain'], array_column($res->json('data.0.komponen_uang_jalan'), 'nama_komponen'));
     }
 
     public function test_store_berhasil_menambah_rute(): void
@@ -245,17 +266,88 @@ class ProyekRuteTest extends TestCase
             'id_rute'             => $this->makeRute(),
             'id_jenis_kendaraan'  => $this->makeJenisKendaraan(),
             'uang_jalan'          => 175000,
-            'estimasi_tol'        => 60000,
-            'estimasi_bbm'        => 350000,
-            'estimasi_biaya_lain' => 30000,
+            'komponen_uang_jalan' => $this->rincian(['Tol' => 60000, 'BBM' => 350000, 'Biaya Lain' => 30000, 'Parkir' => 0]),
         ]);
 
         $res->assertStatus(201);
-        $this->assertEquals(175000, $res->json('data.uang_jalan'));
-        $this->assertEquals(60000, $res->json('data.estimasi_tol'));
-        $this->assertEquals(350000, $res->json('data.estimasi_bbm'));
-        $this->assertEquals(30000, $res->json('data.estimasi_biaya_lain'));
-        $this->assertEquals(615000, $res->json('data.estimasi_biaya'));
+        $this->assertEquals(440000, $res->json('data.uang_jalan'));
+        $this->assertCount(3, $res->json('data.komponen_uang_jalan'));
+        $this->assertEquals(60000, $res->json('data.komponen_uang_jalan.0.nominal'));
+        $this->assertEquals(350000, $res->json('data.komponen_uang_jalan.1.nominal'));
+        $this->assertEquals(30000, $res->json('data.komponen_uang_jalan.2.nominal'));
+        $this->assertEquals(440000, $res->json('data.estimasi_biaya'));
+    }
+
+    public function test_total_uang_jalan_selalu_mengikuti_rincian_komponen(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek();
+
+        $tanpaRincian = $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute' => $this->makeRute(), 'id_jenis_kendaraan' => $this->makeJenisKendaraan(), 'uang_jalan' => 250000,
+        ])->assertStatus(201)->assertJsonPath('data.uang_jalan', null);
+        $this->assertSame([], $tanpaRincian->json('data.komponen_uang_jalan'));
+
+        $id = $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute' => $this->makeRute(), 'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
+            'komponen_uang_jalan' => $this->rincian(['Tol' => 300000]),
+        ])->json('data.id_proyek_rute');
+
+        $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", ['uang_jalan' => 500000, 'keterangan' => 'Ubah ket'])
+            ->assertStatus(200)
+            ->assertJsonPath('data.uang_jalan', 300000)
+            ->assertJsonPath('data.estimasi_biaya', 300000)
+            ->assertJsonPath('data.keterangan', 'Ubah ket');
+    }
+
+    public function test_komponen_tarif_rute_divalidasi_dan_komponen_nonaktif_lama_tetap_boleh(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idProyek = $this->makeProyek();
+        $idTol    = $this->komponen('Tol', 1);
+        $idInap   = $this->komponen('Inap', 2);
+
+        $res = $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'             => $this->makeRute(),
+            'id_jenis_kendaraan'  => $this->makeJenisKendaraan(),
+            'komponen_uang_jalan' => [
+                ['id_komponen_uang_jalan' => $idTol, 'nominal' => 100000],
+                ['id_komponen_uang_jalan' => $idInap, 'nominal' => 50000],
+            ],
+        ])->assertStatus(201);
+        $id = (string) $res->json('data.id_proyek_rute');
+
+        DB::table('komponen_uang_jalan')->where('id_komponen_uang_jalan', $idInap)->update(['aktif' => 0]);
+        $this->getJson("/api/proyek/{$idProyek}/rute")->assertStatus(200)
+            ->assertJsonPath('data.0.komponen_uang_jalan.1.aktif', false);
+
+        $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
+            'komponen_uang_jalan' => [
+                ['id_komponen_uang_jalan' => $idTol, 'nominal' => 120000],
+                ['id_komponen_uang_jalan' => $idInap, 'nominal' => 60000],
+            ],
+        ])->assertStatus(200)->assertJsonPath('data.uang_jalan', 180000);
+
+        $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", ['komponen_uang_jalan' => []])
+            ->assertStatus(200)->assertJsonPath('data.uang_jalan', null)->assertJsonPath('data.komponen_uang_jalan', []);
+
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'             => $this->makeRute(),
+            'id_jenis_kendaraan'  => $this->makeJenisKendaraan(),
+            'komponen_uang_jalan' => [['id_komponen_uang_jalan' => $idInap, 'nominal' => 50000]],
+        ])->assertStatus(422)->assertJsonValidationErrors(['komponen_uang_jalan.0.id_komponen_uang_jalan']);
+
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'             => $this->makeRute(),
+            'id_jenis_kendaraan'  => $this->makeJenisKendaraan(),
+            'komponen_uang_jalan' => [['id_komponen_uang_jalan' => $idTol, 'nominal' => -1]],
+        ])->assertStatus(422);
+
+        $this->postJson("/api/proyek/{$idProyek}/rute", [
+            'id_rute'             => $this->makeRute(),
+            'id_jenis_kendaraan'  => $this->makeJenisKendaraan(),
+            'komponen_uang_jalan' => [['id_komponen_uang_jalan' => (string) Str::uuid(), 'nominal' => 1000]],
+        ])->assertStatus(422)->assertJsonValidationErrors(['komponen_uang_jalan.0.id_komponen_uang_jalan']);
     }
 
     public function test_update_harga_penawaran_ditolak_422_dan_ritase_tetap_boleh(): void
@@ -289,13 +381,12 @@ class ProyekRuteTest extends TestCase
         ])->json('data.id_proyek_rute');
 
         $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
-            'uang_jalan'   => 200000,
-            'estimasi_tol' => 70000,
+            'komponen_uang_jalan' => $this->rincian(['Tol' => 70000]),
         ]);
 
         $res->assertStatus(200);
-        $this->assertEquals(200000, $res->json('data.uang_jalan'));
-        $this->assertEquals(70000, $res->json('data.estimasi_tol'));
+        $this->assertEquals(70000, $res->json('data.uang_jalan'));
+        $this->assertEquals(70000, $res->json('data.komponen_uang_jalan.0.nominal'));
     }
 
     public function test_store_dengan_id_rute_tidak_ada_ditolak_404(): void
@@ -345,16 +436,15 @@ class ProyekRuteTest extends TestCase
         $idProyek = $this->makeProyek();
 
         $this->postJson("/api/proyek/{$idProyek}/rute", [
-            'id_rute'            => $this->makeRute(),
-            'id_jenis_kendaraan' => $this->makeJenisKendaraan(),
-            'estimasi_tol'       => 50000,
-            'uang_jalan'         => 150000,
+            'id_rute'             => $this->makeRute(),
+            'id_jenis_kendaraan'  => $this->makeJenisKendaraan(),
+            'komponen_uang_jalan' => $this->rincian(['Tol' => 50000, 'BBM' => 0]),
         ]);
 
         $res = $this->getJson("/api/proyek/{$idProyek}/rute");
 
         $res->assertStatus(200);
-        $this->assertEquals(200000, $res->json('data.0.estimasi_biaya'));
+        $this->assertEquals(50000, $res->json('data.0.estimasi_biaya'));
     }
 
     public function test_update_berhasil_mengubah_keterangan(): void
@@ -578,13 +668,13 @@ class ProyekRuteTest extends TestCase
             'id_jenis_kendaraan' => $idJenis,
             'harga_penawaran'    => 850000,
             'estimasi_ritase'    => 3,
-            'estimasi_tol'       => 70000,
+            'komponen_uang_jalan' => $this->rincian(['Tol' => 70000]),
             'keterangan'         => 'Lewat tol dalam kota',
         ]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.keterangan', 'Lewat tol dalam kota');
-        $this->assertEquals(70000, $res->json('data.estimasi_tol'));
+        $this->assertEquals(70000, $res->json('data.komponen_uang_jalan.0.nominal'));
     }
 
     public function test_store_rute_proyek_borongan_dengan_penawaran_disetujui_tetap_boleh_201(): void
@@ -685,13 +775,14 @@ class ProyekRuteTest extends TestCase
         $this->makePenawaranDisetujui($idProyek);
 
         $res = $this->putJson("/api/proyek/{$idProyek}/rute/{$id}", [
-            'keterangan'    => 'Muatan mudah pecah',
-            'estimasi_tol'  => 50000,
+            'keterangan'          => 'Muatan mudah pecah',
+            'komponen_uang_jalan' => $this->rincian(['Tol' => 50000]),
         ]);
 
         $res->assertStatus(200)
             ->assertJsonPath('data.keterangan', 'Muatan mudah pecah')
-            ->assertJsonPath('data.estimasi_tol', 50000);
+            ->assertJsonPath('data.komponen_uang_jalan.0.nominal', 50000)
+            ->assertJsonPath('data.uang_jalan', 50000);
     }
 
     public function test_destroy_rute_proyek_per_rit_dengan_penawaran_disetujui_ditolak_422(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\ProyekRute;
 
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
+use App\Support\RecordHelper;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -220,5 +221,58 @@ class ProyekRuteRepository implements ProyekRuteRepositoryInterface
     public function delete(ProyekRuteModel $model): void
     {
         $model->softDelete();
+    }
+
+    public function komponenUntuk(array $idProyekRute): array
+    {
+        if ($idProyekRute === []) {
+            return [];
+        }
+
+        $peta = [];
+        DB::table('proyek_rute_komponen as prk')
+            ->join('komponen_uang_jalan as k', 'k.id_komponen_uang_jalan', '=', 'prk.id_komponen_uang_jalan')
+            ->whereNull('prk.dihapus_pada')
+            ->whereIn('prk.id_proyek_rute', $idProyekRute)
+            ->orderBy('k.urutan')
+            ->orderBy('k.nama')
+            ->get(['prk.id_proyek_rute', 'prk.id_komponen_uang_jalan', 'k.nama', 'k.aktif', 'prk.nominal'])
+            ->each(function ($r) use (&$peta) {
+                $peta[(string) $r->id_proyek_rute][] = [
+                    'id_komponen_uang_jalan' => (string) $r->id_komponen_uang_jalan,
+                    'nama_komponen'          => (string) $r->nama,
+                    'aktif'                  => (int) $r->aktif === 1,
+                    'nominal'                => (float) $r->nominal,
+                ];
+            });
+
+        return $peta;
+    }
+
+    public function idKomponenRute(string $idProyekRute): array
+    {
+        return DB::table('proyek_rute_komponen')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek_rute', $idProyekRute)
+            ->pluck('id_komponen_uang_jalan')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+    }
+
+    public function simpanKomponen(string $idProyekRute, string $idPerusahaan, array $rincian): void
+    {
+        DB::table('proyek_rute_komponen')
+            ->whereNull('dihapus_pada')
+            ->where('id_proyek_rute', $idProyekRute)
+            ->update(RecordHelper::stampDelete());
+
+        foreach ($rincian as $r) {
+            DB::table('proyek_rute_komponen')->insert(RecordHelper::stampCreate([
+                'id_perusahaan'          => $idPerusahaan,
+                'id_proyek_rute'         => $idProyekRute,
+                'id_komponen_uang_jalan' => $r['id_komponen_uang_jalan'],
+                'nominal'                => $r['nominal'],
+            ], 'id_proyek_rute_komponen'));
+        }
     }
 }

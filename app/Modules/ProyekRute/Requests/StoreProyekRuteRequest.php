@@ -20,10 +20,9 @@ class StoreProyekRuteRequest extends FormRequest
             'id_jenis_kendaraan'  => ['sometimes', 'nullable', 'string', 'max:36'],
             'harga_penawaran'     => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'estimasi_ritase'     => ['sometimes', 'integer', 'min:1'],
-            'uang_jalan'          => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'estimasi_tol'        => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'estimasi_bbm'        => ['sometimes', 'nullable', 'numeric', 'min:0'],
-            'estimasi_biaya_lain' => ['sometimes', 'nullable', 'numeric', 'min:0'],
+            'komponen_uang_jalan'                          => ['sometimes', 'nullable', 'array', 'max:50'],
+            'komponen_uang_jalan.*.id_komponen_uang_jalan' => ['required', 'string', 'max:36'],
+            'komponen_uang_jalan.*.nominal'                => ['required', 'numeric', 'min:0', 'max:100000000'],
             'keterangan'          => ['sometimes', 'nullable', 'string'],
         ];
     }

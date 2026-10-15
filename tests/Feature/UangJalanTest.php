@@ -60,8 +60,26 @@ class UangJalanTest extends TestCase
             'id_rute' => $m['rute'], 'id_perusahaan' => self::PERUSAHAAN_ID,
             'kode_rute' => 'RT-' . Str::random(6), 'nama_rute' => 'STR - BTS20 - STR', 'dibuat_pada' => now(),
         ]);
+        foreach (['tol' => ['Tol', 1], 'bbm' => ['BBM', 2], 'lain' => ['Biaya Lain', 3]] as $kunci => [$nama, $urutan]) {
+            $m[$kunci] = (string) Str::uuid();
+            DB::table('komponen_uang_jalan')->insert([
+                'id_komponen_uang_jalan' => $m[$kunci], 'id_perusahaan' => self::PERUSAHAAN_ID,
+                'nama' => $nama, 'urutan' => $urutan, 'aktif' => 1, 'dibuat_pada' => now(),
+            ]);
+        }
 
         return $this->master = $m;
+    }
+
+    private function rincian(float $tol, float $bbm = 0, float $lain = 0): array
+    {
+        $m = $this->master();
+
+        return [
+            ['id_komponen_uang_jalan' => $m['tol'], 'nominal' => $tol],
+            ['id_komponen_uang_jalan' => $m['bbm'], 'nominal' => $bbm],
+            ['id_komponen_uang_jalan' => $m['lain'], 'nominal' => $lain],
+        ];
     }
 
     private function buatProyek(string $idRute): array
@@ -107,9 +125,7 @@ class UangJalanTest extends TestCase
             'id_armada_vendor'    => $m['armada_vendor'],
             'id_rute'             => $m['rute'],
             'alasan_tanpa_proyek' => 'Unit pindah pool',
-            'tol_per_trip'        => 230000,
-            'bbm_per_trip'        => 0,
-            'biaya_lain_per_trip' => 0,
+            'rincian'             => $this->rincian(230000),
             'jumlah_trip'         => 2,
             'nomor_rekening'      => '1630009820674',
             'nama_bank'           => 'Mandiri',
@@ -307,20 +323,94 @@ class UangJalanTest extends TestCase
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
     }
 
-    public function test_uang_jalan_per_trip_dihitung_dari_rincian_tol_bbm_dan_biaya_lain(): void
+    public function test_uang_jalan_per_trip_dihitung_dari_rincian_komponen(): void
     {
         $this->actingAsRole('DISPATCHER');
 
         $res = $this->postJson('/api/uang-jalan', $this->payload([
-            'tol_per_trip' => 100000, 'bbm_per_trip' => 50000, 'biaya_lain_per_trip' => 30000, 'jumlah_trip' => 2,
+            'rincian' => $this->rincian(100000, 50000, 30000), 'jumlah_trip' => 2,
         ]));
 
         $res->assertStatus(201)
-            ->assertJsonPath('data.tol_per_trip', 100000)
-            ->assertJsonPath('data.bbm_per_trip', 50000)
-            ->assertJsonPath('data.biaya_lain_per_trip', 30000)
+            ->assertJsonPath('data.rincian.0.nama_komponen', 'Tol')
+            ->assertJsonPath('data.rincian.0.nominal', 100000)
+            ->assertJsonPath('data.rincian.1.nama_komponen', 'BBM')
+            ->assertJsonPath('data.rincian.1.nominal', 50000)
+            ->assertJsonPath('data.rincian.2.nama_komponen', 'Biaya Lain')
+            ->assertJsonPath('data.rincian.2.nominal', 30000)
             ->assertJsonPath('data.uang_jalan_per_trip', 180000)
             ->assertJsonPath('data.nominal', 360000);
+
+        $this->getJson('/api/uang-jalan/' . $res->json('data.id_uang_jalan'))->assertStatus(200)
+            ->assertJsonCount(3, 'data.rincian');
+    }
+
+    public function test_komponen_tambahan_ikut_dihitung_dan_nama_tersimpan_walau_master_diganti(): void
+    {
+        $approver = $this->buatApprover();
+        $this->aturApproval('uang_jalan', (string) $approver->id_pengguna);
+        $this->actingAsRole('DISPATCHER');
+        $m = $this->master();
+        $idParkir = (string) Str::uuid();
+        DB::table('komponen_uang_jalan')->insert([
+            'id_komponen_uang_jalan' => $idParkir, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama' => 'Parkir', 'urutan' => 4, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        $res = $this->postJson('/api/uang-jalan', $this->payload([
+            'rincian' => [
+                ['id_komponen_uang_jalan' => $idParkir, 'nominal' => 15000],
+                ['id_komponen_uang_jalan' => $m['tol'], 'nominal' => 100000],
+            ],
+            'jumlah_trip' => 1,
+        ]))->assertStatus(201)
+            ->assertJsonPath('data.rincian.0.nama_komponen', 'Tol')
+            ->assertJsonPath('data.rincian.1.nama_komponen', 'Parkir')
+            ->assertJsonPath('data.uang_jalan_per_trip', 115000);
+        $id = (string) $res->json('data.id_uang_jalan');
+
+        $idApproval = DB::table('approval_pengajuan')
+            ->where('id_referensi', DB::table('uang_jalan')->where('id_uang_jalan', $id)->value('id_pengajuan'))
+            ->value('id_approval');
+        $this->actingAsRole('SUPERADMIN');
+        $label = array_column($this->getJson("/api/approval-pengajuan/{$idApproval}/rincian")->assertStatus(200)->json('data.rincian.info'), 'label');
+        $this->assertContains('Estimasi Tol per Trip', $label);
+        $this->assertContains('Estimasi Parkir per Trip', $label);
+        $this->assertNotContains('Estimasi BBM per Trip', $label);
+        $this->actingAsRole('DISPATCHER');
+
+        DB::table('komponen_uang_jalan')->where('id_komponen_uang_jalan', $idParkir)->update(['nama' => 'Parkir Pelabuhan', 'aktif' => 0]);
+        $this->getJson("/api/uang-jalan/{$id}")->assertStatus(200)->assertJsonPath('data.rincian.1.nama_komponen', 'Parkir');
+
+        $this->postJson('/api/uang-jalan', $this->payload([
+            'rincian' => [['id_komponen_uang_jalan' => $idParkir, 'nominal' => 15000]],
+        ]))->assertStatus(422)->assertJsonValidationErrors(['rincian.0.id_komponen_uang_jalan']);
+
+        $this->putJson("/api/uang-jalan/{$id}", $this->payload([
+            'rincian' => [
+                ['id_komponen_uang_jalan' => $idParkir, 'nominal' => 20000],
+                ['id_komponen_uang_jalan' => $m['tol'], 'nominal' => 100000],
+            ],
+            'jumlah_trip' => 1,
+        ]))->assertStatus(200)
+            ->assertJsonPath('data.uang_jalan_per_trip', 120000)
+            ->assertJsonPath('data.rincian.1.nama_komponen', 'Parkir Pelabuhan');
+
+        $this->postJson('/api/uang-jalan', $this->payload([
+            'rincian' => [
+                ['id_komponen_uang_jalan' => $m['tol'], 'nominal' => 100000],
+                ['id_komponen_uang_jalan' => $m['tol'], 'nominal' => 5000],
+            ],
+        ]))->assertStatus(422)->assertJsonValidationErrors(['rincian.1.id_komponen_uang_jalan']);
+
+        $asing = (string) Str::uuid();
+        DB::table('komponen_uang_jalan')->insert([
+            'id_komponen_uang_jalan' => $asing, 'id_perusahaan' => (string) Str::uuid(),
+            'nama' => 'Tol', 'urutan' => 1, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+        $this->postJson('/api/uang-jalan', $this->payload([
+            'rincian' => [['id_komponen_uang_jalan' => $asing, 'nominal' => 100000]],
+        ]))->assertStatus(422)->assertJsonValidationErrors(['rincian.0.id_komponen_uang_jalan']);
     }
 
     public function test_uang_jalan_per_trip_dari_klien_diabaikan_dan_dihitung_ulang_server(): void
@@ -328,7 +418,7 @@ class UangJalanTest extends TestCase
         $this->actingAsRole('DISPATCHER');
 
         $res = $this->postJson('/api/uang-jalan', $this->payload([
-            'uang_jalan_per_trip' => 999999, 'tol_per_trip' => 10000, 'bbm_per_trip' => 0, 'biaya_lain_per_trip' => 0,
+            'uang_jalan_per_trip' => 999999, 'rincian' => $this->rincian(10000),
         ]));
 
         $res->assertStatus(201)->assertJsonPath('data.uang_jalan_per_trip', 10000);
@@ -343,8 +433,10 @@ class UangJalanTest extends TestCase
             'jumlah_trip', 'nomor_rekening', 'nama_bank',
         ]);
 
-        $this->postJson('/api/uang-jalan', $this->payload(['tol_per_trip' => 0, 'bbm_per_trip' => 0, 'biaya_lain_per_trip' => 0]))
-            ->assertStatus(422)->assertJsonValidationErrors(['tol_per_trip']);
+        $this->postJson('/api/uang-jalan', $this->payload(['rincian' => $this->rincian(0)]))
+            ->assertStatus(422)->assertJsonValidationErrors(['rincian']);
+        $this->postJson('/api/uang-jalan', $this->payload(['rincian' => []]))
+            ->assertStatus(422)->assertJsonValidationErrors(['rincian']);
         $this->postJson('/api/uang-jalan', $this->payload(['jumlah_trip' => 0]))
             ->assertStatus(422)->assertJsonValidationErrors(['jumlah_trip']);
         $this->postJson('/api/uang-jalan', $this->payload(['tipe_driver' => 'lainnya']))
@@ -388,7 +480,7 @@ class UangJalanTest extends TestCase
         $idPengajuan = (string) DB::table('uang_jalan')->where('id_uang_jalan', $id)->value('id_pengajuan');
 
         $res = $this->putJson("/api/uang-jalan/{$id}", $this->payloadInternal([
-            'tol_per_trip' => 250000, 'bbm_per_trip' => 0, 'biaya_lain_per_trip' => 0,
+            'rincian' => $this->rincian(250000),
             'jumlah_trip' => 3, 'nomor_rekening' => '9999', 'nama_bank' => 'BCA',
         ]));
 
@@ -1128,12 +1220,22 @@ class UangJalanTest extends TestCase
 
     private function buatRateCard(string $idProyek, string $idRute, ?string $idJenis, float $tol, float $bbm, float $lain): void
     {
+        $m = $this->master();
+        $idProyekRute = (string) Str::uuid();
         DB::table('proyek_rute')->insert([
-            'id_proyek_rute' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'id_proyek_rute' => $idProyekRute, 'id_perusahaan' => self::PERUSAHAAN_ID,
             'id_proyek' => $idProyek, 'id_rute' => $idRute, 'id_jenis_kendaraan' => $idJenis,
-            'estimasi_tol' => $tol, 'estimasi_bbm' => $bbm, 'estimasi_biaya_lain' => $lain,
             'uang_jalan' => $tol + $bbm + $lain, 'dibuat_pada' => now(),
         ]);
+        foreach (['tol' => $tol, 'bbm' => $bbm, 'lain' => $lain] as $kunci => $nominal) {
+            if ($nominal > 0) {
+                DB::table('proyek_rute_komponen')->insert([
+                    'id_proyek_rute_komponen' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
+                    'id_proyek_rute' => $idProyekRute, 'id_komponen_uang_jalan' => $m[$kunci],
+                    'nominal' => $nominal, 'dibuat_pada' => now(),
+                ]);
+            }
+        }
     }
 
     public function test_tarif_rate_card_mengambil_baris_sesuai_jenis_kendaraan(): void
@@ -1149,10 +1251,37 @@ class UangJalanTest extends TestCase
 
         $this->getJson("/api/uang-jalan/tarif-rate-card?id_proyek={$proyek['id_proyek']}&id_rute={$m['rute']}&id_armada={$m['armada']}")
             ->assertStatus(200)
-            ->assertJsonPath('data.tol_per_trip', 200000)
-            ->assertJsonPath('data.bbm_per_trip', 80000)
-            ->assertJsonPath('data.biaya_lain_per_trip', 20000)
+            ->assertJsonPath('data.rincian.0.nama_komponen', 'Tol')
+            ->assertJsonPath('data.rincian.0.nominal', 200000)
+            ->assertJsonPath('data.rincian.1.nominal', 80000)
+            ->assertJsonPath('data.rincian.2.nominal', 20000)
             ->assertJsonPath('data.uang_jalan_per_trip', 300000);
+    }
+
+    public function test_tarif_rate_card_tetap_membawa_komponen_nonaktif_dan_boleh_diajukan(): void
+    {
+        $this->actingAsRole('DISPATCHER');
+        $m = $this->master();
+        $proyek = $this->buatProyek($m['rute']);
+        $this->buatRateCard($proyek['id_proyek'], $m['rute'], null, 100000, 50000, 0);
+        DB::table('komponen_uang_jalan')->where('id_komponen_uang_jalan', $m['bbm'])->update(['aktif' => 0]);
+
+        $this->getJson("/api/uang-jalan/tarif-rate-card?id_proyek={$proyek['id_proyek']}&id_rute={$m['rute']}")
+            ->assertStatus(200)
+            ->assertJsonCount(2, 'data.rincian')
+            ->assertJsonPath('data.rincian.1.aktif', false)
+            ->assertJsonPath('data.uang_jalan_per_trip', 150000);
+
+        $dariRateCard = $this->payload([
+            'id_proyek' => $proyek['id_proyek'], 'alasan_tanpa_proyek' => null,
+            'rincian' => $this->rincian(100000, 50000),
+        ]);
+        $this->postJson('/api/uang-jalan', $dariRateCard)->assertStatus(201)
+            ->assertJsonPath('data.uang_jalan_per_trip', 150000)
+            ->assertJsonPath('data.rincian.1.aktif', false);
+
+        $this->postJson('/api/uang-jalan', $this->payload(['rincian' => $this->rincian(100000, 50000)]))
+            ->assertStatus(422)->assertJsonValidationErrors(['rincian.1.id_komponen_uang_jalan']);
     }
 
     public function test_tarif_rate_card_jatuh_ke_baris_pertama_bila_jenis_tidak_cocok(): void
@@ -1165,7 +1294,7 @@ class UangJalanTest extends TestCase
 
         $this->getJson("/api/uang-jalan/tarif-rate-card?id_proyek={$proyek['id_proyek']}&id_rute={$m['rute']}&id_armada={$m['armada']}")
             ->assertStatus(200)
-            ->assertJsonPath('data.tol_per_trip', 100000);
+            ->assertJsonPath('data.rincian.0.nominal', 100000);
     }
 
     public function test_tarif_rate_card_untuk_unit_vendor_memakai_jenis_armada_vendor(): void
@@ -1179,7 +1308,7 @@ class UangJalanTest extends TestCase
 
         $this->getJson("/api/uang-jalan/tarif-rate-card?id_proyek={$proyek['id_proyek']}&id_rute={$m['rute']}&id_armada_vendor={$m['armada_vendor']}")
             ->assertStatus(200)
-            ->assertJsonPath('data.tol_per_trip', 120000)
+            ->assertJsonPath('data.rincian.0.nominal', 120000)
             ->assertJsonPath('data.uang_jalan_per_trip', 120000);
     }
 

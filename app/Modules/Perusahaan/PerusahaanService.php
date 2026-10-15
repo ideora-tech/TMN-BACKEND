@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Perusahaan;
 
+use App\Modules\KomponenUangJalan\KomponenUangJalanService;
 use App\Modules\Perusahaan\Contracts\PerusahaanRepositoryInterface;
 
 class PerusahaanService
 {
-    public function __construct(private readonly PerusahaanRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly PerusahaanRepositoryInterface $repo,
+        private readonly KomponenUangJalanService $komponenUangJalanService,
+    ) {}
 
     public function list(int $page = 1, int $limit = 10): array
     {
@@ -35,7 +39,10 @@ class PerusahaanService
 
     public function create(array $data): PerusahaanModel
     {
-        return $this->repo->create($data);
+        $record = $this->repo->create($data);
+        $this->komponenUangJalanService->pastikanBawaan((string) $record->id_perusahaan);
+
+        return $record;
     }
 
     public function update(string $id, array $data): PerusahaanModel

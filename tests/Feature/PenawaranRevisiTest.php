@@ -228,11 +228,14 @@ class PenawaranRevisiTest extends TestCase
         $idBaris = $this->makeProyekRute($proyek->id_proyek, $idRute, $idJenis, 500000);
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek);
 
+        $idTol = (string) Str::uuid();
+        DB::table('komponen_uang_jalan')->insert([
+            'id_komponen_uang_jalan' => $idTol, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama' => 'Tol', 'urutan' => 1, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
         $res = $this->putJson("/api/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
-            'uang_jalan'          => 200000,
-            'estimasi_tol'        => 50000,
-            'estimasi_bbm'        => 300000,
-            'estimasi_biaya_lain' => 25000,
+            'komponen_uang_jalan' => [['id_komponen_uang_jalan' => $idTol, 'nominal' => 200000]],
             'keterangan'          => 'Update ops saja',
         ]);
 
@@ -251,10 +254,16 @@ class PenawaranRevisiTest extends TestCase
         $idBaris = $this->makeProyekRute($proyek->id_proyek, $idRute, $idJenis, 500000, 2);
         $this->makePenawaranDisetujui($klien, $proyek->id_proyek);
 
+        $idTol = (string) Str::uuid();
+        DB::table('komponen_uang_jalan')->insert([
+            'id_komponen_uang_jalan' => $idTol, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'nama' => 'Tol', 'urutan' => 1, 'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
         $res = $this->putJson("/api/proyek/{$proyek->id_proyek}/rute/{$idBaris}", [
-            'harga_penawaran' => 500000,
-            'estimasi_ritase' => 2,
-            'uang_jalan'      => 150000,
+            'harga_penawaran'     => 500000,
+            'estimasi_ritase'     => 2,
+            'komponen_uang_jalan' => [['id_komponen_uang_jalan' => $idTol, 'nominal' => 150000]],
         ]);
 
         $res->assertStatus(200);

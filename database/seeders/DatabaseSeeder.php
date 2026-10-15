@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             MenuSeeder::class,
             IzinPeranSeeder::class,
             LokasiKotaSeeder::class,
+            KomponenUangJalanSeeder::class,
         ]);
     }
 }
