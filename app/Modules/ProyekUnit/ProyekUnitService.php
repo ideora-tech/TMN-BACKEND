@@ -39,6 +39,12 @@ class ProyekUnitService
         ));
     }
 
+    /** @return array<int, array<string, mixed>> */
+    public function opsiProyekBaru(string $idPerusahaan): array
+    {
+        return $this->unitTersedia($idPerusahaan);
+    }
+
     /**
      * @param array<int, array<string, mixed>> $units
      * @return array{unit: object[], supir_ditambahkan: int}

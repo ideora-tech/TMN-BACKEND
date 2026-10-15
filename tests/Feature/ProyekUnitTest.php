@@ -278,6 +278,71 @@ class ProyekUnitTest extends TestCase
         }
     }
 
+    private function makeKlien(): string
+    {
+        $id = (string) Str::uuid();
+        DB::table('klien')->insert([
+            'id_klien' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID,
+            'kode_klien' => 'KLN-' . Str::random(8), 'nama_klien' => 'Klien Unit', 'dibuat_pada' => now(),
+        ]);
+
+        return $id;
+    }
+
+    public function test_proyek_baru_bisa_langsung_membawa_unit_dan_supir_pemegangnya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idA = $this->makeArmada('B 1101 AA');
+        $idSupir = $this->makeSupir('Budi', $idA);
+        $idVendor = $this->makeVendor();
+        $idAv = $this->makeArmadaVendor($idVendor, 'B 2101 VV', $this->makeKontrak($idVendor));
+
+        $opsi = collect($this->getJson('/api/proyek-unit/opsi')->assertStatus(200)->json('data'));
+        $this->assertNotNull($opsi->firstWhere('id_armada', $idA));
+        $this->assertNotNull($opsi->firstWhere('id_armada_vendor', $idAv));
+
+        $idProyek = $this->postJson('/api/proyek', [
+            'id_klien' => $this->makeKlien(), 'nama_proyek' => 'Proyek Dengan Unit',
+            'unit' => [
+                ['sumber' => 'internal', 'id_armada' => $idA],
+                ['sumber' => 'vendor', 'id_armada_vendor' => $idAv],
+            ],
+        ])->assertStatus(201)->json('data.id_proyek');
+
+        $daftar = collect($this->getJson("/api/proyek/{$idProyek}/unit")->assertStatus(200)->json('data'));
+        $this->assertCount(2, $daftar);
+        $this->assertTrue(DB::table('supir_proyek')->where('id_proyek', $idProyek)->where('id_supir', $idSupir)->whereNull('dihapus_pada')->exists());
+        $this->assertSame(0, DB::table('penugasan')->where('id_proyek', $idProyek)->count());
+    }
+
+    public function test_proyek_baru_dengan_unit_tidak_valid_batal_seluruhnya(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idA = $this->makeArmada('B 1102 AA');
+
+        $this->postJson('/api/proyek', [
+            'id_klien' => $this->makeKlien(), 'nama_proyek' => 'Proyek Unit Gagal',
+            'unit' => [
+                ['sumber' => 'internal', 'id_armada' => $idA],
+                ['sumber' => 'internal', 'id_armada' => $idA],
+            ],
+        ])->assertStatus(409);
+        $this->postJson('/api/proyek', [
+            'id_klien' => $this->makeKlien(), 'nama_proyek' => 'Proyek Unit Gagal',
+            'unit' => [['sumber' => 'internal', 'id_armada' => (string) Str::uuid()]],
+        ])->assertStatus(422);
+        $this->postJson('/api/proyek', [
+            'id_klien' => $this->makeKlien(), 'nama_proyek' => 'Proyek Unit Gagal',
+            'unit' => [['sumber' => 'internal']],
+        ])->assertStatus(422)->assertJsonValidationErrors(['unit.0.id_armada']);
+
+        $this->assertSame(0, DB::table('proyek')->where('nama_proyek', 'Proyek Unit Gagal')->count());
+        $this->assertSame(0, DB::table('proyek_unit')->count());
+
+        $this->actingAsRole('SUPIR');
+        $this->getJson('/api/proyek-unit/opsi')->assertStatus(403);
+    }
+
     public function test_unit_tidak_tersedia_ditolak_422(): void
     {
         $this->actingAsRole('SUPERADMIN');

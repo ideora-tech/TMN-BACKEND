@@ -15,6 +15,7 @@ use App\Modules\Penawaran\PenawaranModel;
 use App\Modules\Proyek\Contracts\ProyekRepositoryInterface;
 use App\Modules\ProyekRute\Contracts\ProyekRuteRepositoryInterface;
 use App\Modules\ProyekRute\ProyekRuteService;
+use App\Modules\ProyekUnit\ProyekUnitService;
 use App\Support\HtmlAman;
 use App\Support\KodeOtomatis;
 use App\Support\ParameterPenawaran;
@@ -35,6 +36,7 @@ class ProyekService
         private readonly FakturRepositoryInterface $fakturRepo,
         private readonly NotifikasiService $notifikasiService,
         private readonly PermintaanVendorRepositoryInterface $permintaanVendorRepo,
+        private readonly ProyekUnitService $proyekUnitService,
     ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $search = null, ?string $status = null): array
@@ -93,14 +95,15 @@ class ProyekService
 
         $idPenawaran = $data['id_penawaran'] ?? null;
         $ruteManual  = $data['rute'] ?? [];
-        unset($data['id_penawaran'], $data['rute']);
+        $unitManual  = array_values($data['unit'] ?? []);
+        unset($data['id_penawaran'], $data['rute'], $data['unit']);
         $data['tipe_harga'] = $data['tipe_harga'] ?? 'per_rit';
 
         if ($idPenawaran === null && $this->gerbangApprovalAktif((string) $idPerusahaan)) {
             $data['status'] = 'draft';
         }
 
-        $proyekBaru = DB::transaction(function () use ($data, $idPenawaran, $ruteManual, $idPerusahaan) {
+        $proyekBaru = DB::transaction(function () use ($data, $idPenawaran, $ruteManual, $unitManual, $idPerusahaan) {
             $penawaran = null;
             if ($idPenawaran !== null) {
                 $penawaran = $this->penawaranRepo->findForUpdate($idPenawaran);
@@ -141,6 +144,10 @@ class ProyekService
 
             foreach (array_values($ruteManual) as $i => $baris) {
                 $this->proyekRuteService->create($proyek->id_proyek, $baris, $idPerusahaan, "rute.{$i}.komponen_uang_jalan");
+            }
+
+            if ($unitManual !== []) {
+                $this->proyekUnitService->tambah((string) $proyek->id_proyek, $unitManual, $idPerusahaan);
             }
 
             return $proyek;

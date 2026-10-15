@@ -28,6 +28,11 @@ class ProyekUnitController extends Controller
         return ApiResponse::success($this->service->opsi($idProyek, (string) $request->user()->id_perusahaan));
     }
 
+    public function opsiProyekBaru(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->opsiProyekBaru((string) $request->user()->id_perusahaan));
+    }
+
     public function store(StoreProyekUnitRequest $request, string $idProyek): JsonResponse
     {
         $hasil = $this->service->tambah($idProyek, $request->validated()['unit'], (string) $request->user()->id_perusahaan);

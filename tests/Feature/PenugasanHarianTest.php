@@ -279,7 +279,7 @@ class PenugasanHarianTest extends TestCase
         $paket = $this->makeVendorPaket('unit_only');
         DB::table('kontrak_vendor')
             ->where('id_kontrak_vendor', $paket['id_kontrak_vendor'])
-            ->update(['status' => 'draft']);
+            ->update(['status' => 'draft', 'nomor_kontrak' => 'KV/2026/017']);
 
         $res = $this->getJson('/api/penugasan/board?dari=2026-09-01&sampai=2026-09-02')
             ->assertStatus(200);
@@ -288,6 +288,7 @@ class PenugasanHarianTest extends TestCase
             ->firstWhere('id_armada_vendor', $paket['id_armada_vendor']);
         $this->assertNotNull($unit);
         $this->assertSame('draft', $unit['status_kontrak']);
+        $this->assertSame('KV/2026/017', $unit['nomor_kontrak']);
         $this->assertTrue($unit['kontrak_habis']);
     }
 

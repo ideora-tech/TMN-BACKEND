@@ -165,7 +165,7 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 'armada_vendor.id_armada_vendor', 'armada_vendor.nopol', 'armada_vendor.merk', 'armada_vendor.jenis',
                 'armada_vendor.id_vendor', 'armada_vendor.id_kontrak_vendor as id_kontrak_vendor_unit', 'vendor.nama_vendor',
                 'armada_vendor.id_supir_vendor_default', 'sv_default.nama as nama_supir_vendor_default',
-                'kontrak_vendor.id_kontrak_vendor', 'kontrak_vendor.mekanisme',
+                'kontrak_vendor.id_kontrak_vendor', 'kontrak_vendor.mekanisme', 'kontrak_vendor.nomor_kontrak',
                 'kontrak_vendor.status as status_kontrak', 'kontrak_vendor.tanggal_selesai as tanggal_selesai_kontrak',
             )
             ->orderBy('armada_vendor.nopol')
@@ -181,6 +181,7 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 'id_kontrak_vendor'      => $row->id_kontrak_vendor,
                 'id_kontrak_vendor_unit' => $row->id_kontrak_vendor_unit,
                 'mekanisme'              => $row->mekanisme,
+                'nomor_kontrak'          => $row->nomor_kontrak,
                 'kontrak_habis'          => $this->kontrakHabis($row->status_kontrak, $row->tanggal_selesai_kontrak),
                 'status_kontrak'         => $row->status_kontrak,
                 'nopol'                  => $row->nopol,

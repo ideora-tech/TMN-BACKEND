@@ -21,6 +21,7 @@ class ProyekUnitServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:project'])
             ->group(function () {
+                Route::get('proyek-unit/opsi', [ProyekUnitController::class, 'opsiProyekBaru']);
                 Route::get('proyek/{idProyek}/unit/opsi', [ProyekUnitController::class, 'opsi']);
                 Route::get('proyek/{idProyek}/unit', [ProyekUnitController::class, 'index']);
                 Route::post('proyek/{idProyek}/unit', [ProyekUnitController::class, 'store']);

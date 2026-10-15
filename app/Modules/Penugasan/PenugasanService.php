@@ -150,6 +150,7 @@ class PenugasanService
             'mekanisme'              => $baris['mekanisme'],
             'id_kontrak_vendor'      => $baris['id_kontrak_vendor'],
             'id_kontrak_vendor_unit' => $baris['id_kontrak_vendor_unit'],
+            'nomor_kontrak'          => $baris['nomor_kontrak'],
             'kontrak_habis'          => $baris['kontrak_habis'],
             'status_kontrak'         => $baris['status_kontrak'],
             'id_supir_vendor_default' => $baris['id_supir_vendor_default'],

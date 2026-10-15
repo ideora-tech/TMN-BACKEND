@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Proyek\Requests;
 
+use App\Modules\ProyekUnit\ProyekUnitService;
 use App\Support\TipeHarga;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreProyekRequest extends FormRequest
 {
@@ -37,6 +39,10 @@ class StoreProyekRequest extends FormRequest
             'rute.*.komponen_uang_jalan.*.id_komponen_uang_jalan' => ['required', 'string', 'max:36'],
             'rute.*.komponen_uang_jalan.*.nominal'                => ['required', 'numeric', 'min:0', 'max:100000000'],
             'rute.*.keterangan'          => ['sometimes', 'nullable', 'string'],
+            'unit'                       => ['sometimes', 'array', 'max:50'],
+            'unit.*.sumber'              => ['required_with:unit', Rule::in(ProyekUnitService::SUMBER_VALID)],
+            'unit.*.id_armada'           => ['required_if:unit.*.sumber,internal', 'nullable', 'string', 'max:36'],
+            'unit.*.id_armada_vendor'    => ['required_if:unit.*.sumber,vendor', 'nullable', 'string', 'max:36'],
         ];
     }
 
