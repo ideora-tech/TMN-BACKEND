@@ -135,7 +135,10 @@ class SupirRepository implements SupirRepositoryInterface
             ->whereNull('k.dihapus_pada')
             ->where('k.id_perusahaan', $idPerusahaan)
             ->where(function ($q) use ($idKaryawanTambahan) {
-                $q->where(fn ($w) => $w->where('k.aktif', 1)->where('j.is_supir', 1))
+                $q->where(fn ($w) => $w->where('k.aktif', 1)->where(fn ($j) => $j
+                        ->where('j.is_supir', 1)
+                        ->orWhereRaw('LOWER(TRIM(j.nama_jabatan)) LIKE ?', ['supir%'])
+                        ->orWhereRaw('LOWER(TRIM(j.nama_jabatan)) LIKE ?', ['pengemudi%'])))
                   ->when($idKaryawanTambahan !== null, fn ($w) => $w->orWhere('k.id_karyawan', $idKaryawanTambahan));
             })
             ->orderBy('k.nama_karyawan')

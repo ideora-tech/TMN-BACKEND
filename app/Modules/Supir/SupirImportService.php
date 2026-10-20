@@ -213,6 +213,6 @@ class SupirImportService
             return [null, "Karyawan {$karyawan->nama_karyawan} sudah tidak aktif"];
         }
 
-        return [null, "Jabatan karyawan {$karyawan->nama_karyawan} bukan jabatan supir — aktifkan \"Jabatan Supir\" pada jabatannya di Data Master → Jabatan"];
+        return [null, "Jabatan karyawan {$karyawan->nama_karyawan} bukan jabatan supir — jabatannya harus bernama Supir/Pengemudi atau diberi tanda \"Jabatan Supir\" di Data Master → Jabatan"];
     }
 }

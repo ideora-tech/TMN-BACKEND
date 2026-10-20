@@ -101,6 +101,34 @@ class SupirImportKaryawanTest extends TestCase
         $this->assertSame('08111002', $data['1002']['telepon']);
     }
 
+    public function test_opsi_karyawan_ikut_jabatan_bernama_supir_atau_pengemudi_tanpa_tanda(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $jabatan = function (string $nama): string {
+            $id = (string) Str::uuid();
+            DB::table('jabatan')->insert([
+                'id_jabatan' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID, 'kode_jabatan' => 'J-' . Str::random(5),
+                'nama_jabatan' => $nama, 'is_supir' => 0, 'aktif' => 1, 'dibuat_pada' => now(),
+            ]);
+            return $id;
+        };
+        $this->karyawan('8001', 'Pengemudi Biasa', $jabatan('Pengemudi'));
+        $this->karyawan('8002', 'Supir Trailer', $jabatan(' supir trailer'));
+        $this->karyawan('8003', 'Koordinator', $jabatan('Koordinator Supir'));
+        $this->karyawan('8004', 'Supervisor', $jabatan('Supervisor'));
+
+        $nik = collect($this->getJson('/api/supir/opsi-karyawan')->assertStatus(200)->json('data'))->pluck('nik')->sort()->values()->all();
+
+        $this->assertSame(['8001', '8002'], $nik);
+
+        $res = $this->postJson('/api/supir/import', ['file' => $this->berkas([
+            $this->baris(['nik_karyawan' => '8001', 'no_sim' => 'SIM-8001']),
+            $this->baris(['nik_karyawan' => '8003', 'no_sim' => 'SIM-8003']),
+        ])]);
+        $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
+        $this->assertStringContainsString('bukan jabatan supir', $res->json('data.gagal.0.alasan'));
+    }
+
     public function test_opsi_karyawan_dengan_id_supir_ikut_menampilkan_karyawan_tertautnya_walau_bukan_jabatan_supir(): void
     {
         $this->actingAsRole('SUPERADMIN');
