@@ -3,13 +3,13 @@ declare(strict_types=1);
 namespace App\Modules\Supir;
 
 use App\Helpers\ApiResponse;
+use App\Http\Middleware\CheckIzinPeran;
 use App\Modules\Supir\Exports\RiwayatArmadaSupirExport;
-use App\Modules\Supir\Exports\SupirTemplateExport;
-use App\Modules\Supir\Requests\ImportSupirRequest;
 use App\Modules\Supir\Requests\StoreSupirRequest;
 use App\Modules\Supir\Requests\UpdateSupirRequest;
 use App\Modules\Supir\Resources\SupirResource;
 use App\Modules\Trip\Exports\RiwayatTripSheet;
+use App\Support\Impor\ImporExcelRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -19,17 +19,27 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SupirController extends Controller
 {
-    public function __construct(private readonly SupirService $service) {}
+    public function __construct(
+        private readonly SupirService $service,
+        private readonly SupirImportService $importService,
+    ) {}
 
-    public function downloadTemplate(): BinaryFileResponse
+    public function downloadTemplate(Request $request): BinaryFileResponse
     {
-        return Excel::download(new SupirTemplateExport(), 'template-import-supir.xlsx');
+        return Excel::download(
+            $this->importService->template((string) $request->user()->id_perusahaan),
+            'template-import-supir.xlsx'
+        );
     }
 
-    public function import(ImportSupirRequest $request): JsonResponse
+    public function import(ImporExcelRequest $request): JsonResponse
     {
         $idPerusahaan = (string) $request->user()->id_perusahaan;
-        $result = $this->service->import($request->file('file'), $idPerusahaan);
+        $result = $this->importService->import(
+            $request->file('file'),
+            $idPerusahaan,
+            CheckIzinPeran::diizinkan($request->user(), 'supir', 'ubah'),
+        );
 
         return ApiResponse::success($result, 'Import supir selesai diproses');
     }
@@ -116,6 +126,13 @@ class SupirController extends Controller
 
         $record = $this->service->findByPenggunaOrFail($idPengguna);
         return ApiResponse::success(new SupirResource($record));
+    }
+
+    public function opsiKaryawan(Request $request): JsonResponse
+    {
+        $idSupir = is_string($request->query('id_supir')) && $request->query('id_supir') !== '' ? $request->query('id_supir') : null;
+        $result = $this->service->listOpsiKaryawan((string) $request->user()->id_perusahaan, $idSupir);
+        return ApiResponse::success($result);
     }
 
     public function opsiPengguna(Request $request): JsonResponse

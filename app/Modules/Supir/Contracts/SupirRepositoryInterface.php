@@ -12,6 +12,7 @@ interface SupirRepositoryInterface
     public function findPenggunaMilikPerusahaan(string $idPengguna, string $idPerusahaan): ?object;
     public function listOpsiPengguna(string $idPerusahaan): array;
     public function findByKaryawan(string $idKaryawan, ?string $excludeIdSupir = null): ?object;
+    public function listOpsiKaryawan(string $idPerusahaan, ?string $idKaryawanTambahan = null): array;
     public function findByNoSim(string $idPerusahaan, string $noSim): ?object;
     public function findPemegangArmadaDefault(string $idArmada, ?string $excludeIdSupir = null): ?object;
     public function create(array $data): object;

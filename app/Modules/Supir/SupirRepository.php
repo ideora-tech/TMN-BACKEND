@@ -120,6 +120,38 @@ class SupirRepository implements SupirRepositoryInterface
             ->all();
     }
 
+    public function listOpsiKaryawan(string $idPerusahaan, ?string $idKaryawanTambahan = null): array
+    {
+        return DB::table('karyawan as k')
+            ->leftJoin('jabatan as j', function ($join) {
+                $join->on('j.id_jabatan', '=', 'k.id_jabatan')
+                     ->on('j.id_perusahaan', '=', 'k.id_perusahaan')
+                     ->whereNull('j.dihapus_pada');
+            })
+            ->leftJoin('supir as s', function ($join) {
+                $join->on('s.id_karyawan', '=', 'k.id_karyawan')
+                     ->whereNull('s.dihapus_pada');
+            })
+            ->whereNull('k.dihapus_pada')
+            ->where('k.id_perusahaan', $idPerusahaan)
+            ->where(function ($q) use ($idKaryawanTambahan) {
+                $q->where(fn ($w) => $w->where('k.aktif', 1)->where('j.is_supir', 1))
+                  ->when($idKaryawanTambahan !== null, fn ($w) => $w->orWhere('k.id_karyawan', $idKaryawanTambahan));
+            })
+            ->orderBy('k.nama_karyawan')
+            ->get([
+                'k.id_karyawan',
+                'k.nik',
+                'k.nama_karyawan',
+                'k.telepon',
+                'j.nama_jabatan',
+                's.id_supir as id_supir_tertaut',
+                's.nama as nama_supir_tertaut',
+                's.no_sim as no_sim_tertaut',
+            ])
+            ->all();
+    }
+
     public function findByNoSim(string $idPerusahaan, string $noSim): ?object
     {
         return DB::table('supir')
