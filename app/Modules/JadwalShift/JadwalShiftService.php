@@ -288,9 +288,10 @@ class JadwalShiftService
             foreach (array_slice($rows, $barisHeader + 1, null, true) as $idx => $row) {
                 $barisKe   = $idx + 1;
                 $noSim     = trim((string) ($row[0] ?? ''));
+                $namaSupir = trim((string) ($row[1] ?? ''));
                 $namaShift = trim((string) ($row[2] ?? ''));
 
-                if ($noSim === '' && $namaShift === '') {
+                if ($noSim === '' && $namaSupir === '' && $namaShift === '') {
                     continue;
                 }
 
@@ -307,7 +308,18 @@ class JadwalShiftService
                     }
                 }
 
-                $supir = $this->repo->supirByNoSim($noSim, $idPerusahaan);
+                if ($noSim === '') {
+                    $kandidat = $namaSupir === '' ? [] : $this->repo->supirTanpaSimByNama($namaSupir, $idPerusahaan);
+                    if (count($kandidat) !== 1) {
+                        $gagal[] = ['baris' => $barisKe, 'no_sim' => $namaSupir, 'alasan' => count($kandidat) > 1
+                            ? "Ada lebih dari satu supir tanpa No SIM bernama '{$namaSupir}' — isi No SIM-nya di master Supir"
+                            : "No SIM kosong dan supir tanpa SIM bernama '{$namaSupir}' tidak ditemukan"];
+                        continue;
+                    }
+                    $supir = $kandidat[0];
+                } else {
+                    $supir = $this->repo->supirByNoSim($noSim, $idPerusahaan);
+                }
                 if ($supir === null) {
                     $gagal[] = ['baris' => $barisKe, 'no_sim' => $noSim, 'alasan' => "Supir dengan No SIM '{$noSim}' tidak ditemukan"];
                     continue;

@@ -103,6 +103,9 @@ class ArmadaService
     private function lampirkanPerusahaanGrup(ArmadaModel $record): ArmadaModel
     {
         $grup = $record->id_perusahaan_grup !== null ? $this->perusahaanGrupRepo->findById((string) $record->id_perusahaan_grup) : null;
+        if ($grup !== null && (string) $grup->id_perusahaan !== (string) $record->id_perusahaan) {
+            $grup = null;
+        }
         $record->setAttribute('singkatan_perusahaan_grup', $grup?->singkatan);
         $record->setAttribute('nama_lengkap_perusahaan_grup', $grup?->nama_lengkap);
 

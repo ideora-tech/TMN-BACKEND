@@ -212,11 +212,12 @@ class ArmadaKolomLengkapTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->post('/api/armada', [
+            'id_perusahaan_grup' => $this->perusahaanGrupId(),
             'nopol' => 'B 9990 FTO',
             'foto'  => UploadedFile::fake()->create('virus.pdf', 100, 'application/pdf'),
         ], ['Accept' => 'application/json']);
 
-        $res->assertStatus(422);
+        $res->assertStatus(422)->assertJsonValidationErrors('foto')->assertJsonMissingValidationErrors('id_perusahaan_grup');
     }
 
     public function test_store_id_jenis_kendaraan_tidak_terdaftar_ditolak_422(): void

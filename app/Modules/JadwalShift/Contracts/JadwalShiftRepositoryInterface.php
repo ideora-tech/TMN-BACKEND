@@ -21,6 +21,7 @@ interface JadwalShiftRepositoryInterface
     public function listShiftSupir(string $idSupir, string $dari, string $sampai): array;
     public function supirTerdaftarDiProyek(string $idProyek): array;
     public function supirByNoSim(string $noSim, string $idPerusahaan): ?object;
+    public function supirTanpaSimByNama(string $nama, string $idPerusahaan): array;
     public function shiftByNama(string $nama, string $idPerusahaan): ?object;
     public function proyekMilikPerusahaan(string $idProyek, string $idPerusahaan): bool;
     public function namaProyek(string $idProyek): ?string;

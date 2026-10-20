@@ -20,6 +20,7 @@ class ArmadaRepository implements ArmadaRepositoryInterface
             })
             ->leftJoin('perusahaan_grup', function ($join) {
                 $join->on('perusahaan_grup.id_perusahaan_grup', '=', 'armada.id_perusahaan_grup')
+                    ->on('perusahaan_grup.id_perusahaan', '=', 'armada.id_perusahaan')
                     ->whereNull('perusahaan_grup.dihapus_pada');
             })
             ->where('armada.id_perusahaan', $idPerusahaan)

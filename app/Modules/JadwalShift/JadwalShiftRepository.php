@@ -158,6 +158,18 @@ class JadwalShiftRepository implements JadwalShiftRepositoryInterface
             ->first();
     }
 
+    public function supirTanpaSimByNama(string $nama, string $idPerusahaan): array
+    {
+        return DB::table('supir')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where(fn ($q) => $q->whereNull('no_sim')->orWhere('no_sim', ''))
+            ->whereRaw('LOWER(TRIM(nama)) = ?', [mb_strtolower(trim($nama))])
+            ->limit(2)
+            ->get()
+            ->all();
+    }
+
     public function shiftByNama(string $nama, string $idPerusahaan): ?object
     {
         return DB::table('shift')

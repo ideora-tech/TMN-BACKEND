@@ -148,6 +148,34 @@ class JadwalShiftImportTest extends TestCase
         $this->assertDatabaseMissing('jadwal_shift', ['id_supir' => $idSupir, 'tanggal' => '2026-08-11']);
     }
 
+    public function test_import_supir_tanpa_sim_dicocokkan_lewat_nama(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $proyek = $this->makeProyek();
+        $idSupir = $this->makeSupir('Supir Tanpa SIM', 'X');
+        DB::table('supir')->where('id_supir', $idSupir)->update(['no_sim' => null]);
+        $this->makeSupirProyek($proyek->id_proyek, $idSupir);
+        foreach (['Kembar', 'kembar '] as $nama) {
+            $idKembar = $this->makeSupir($nama, 'Y');
+            DB::table('supir')->where('id_supir', $idKembar)->update(['no_sim' => null]);
+            $this->makeSupirProyek($proyek->id_proyek, $idKembar);
+        }
+        $this->makeShiftNamed('Pagi');
+
+        $res = $this->post('/api/jadwal-shift/import', [
+            'id_proyek' => $proyek->id_proyek,
+            'file'      => $this->buatFileMatriks([
+                ['No SIM', 'Nama Supir', 'Shift', '2026-08-10'],
+                ['', 'supir tanpa sim', 'Pagi', 'H'],
+                ['', 'Kembar', 'Pagi', 'H'],
+            ]),
+        ]);
+
+        $res->assertStatus(200)->assertJsonPath('data.sukses', 1)->assertJsonCount(1, 'data.gagal');
+        $this->assertStringContainsString('lebih dari satu supir tanpa No SIM', $res->json('data.gagal.0.alasan'));
+        $this->assertDatabaseHas('jadwal_shift', ['id_supir' => $idSupir, 'tanggal' => '2026-08-10']);
+    }
+
     public function test_import_dengan_baris_judul_di_atas_header_tetap_sukses(): void
     {
         $this->actingAsRole('SUPERADMIN');
