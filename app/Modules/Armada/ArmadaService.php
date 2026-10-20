@@ -7,6 +7,7 @@ namespace App\Modules\Armada;
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\Armada\Imports\ArmadaImport;
 use App\Modules\PermintaanPembelian\PermintaanPembelianService;
+use App\Modules\PerusahaanGrup\Contracts\PerusahaanGrupRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -24,11 +25,12 @@ class ArmadaService
     public function __construct(
         private readonly ArmadaRepositoryInterface $repo,
         private readonly PermintaanPembelianService $permintaanPembelianService,
+        private readonly PerusahaanGrupRepositoryInterface $perusahaanGrupRepo,
     ) {}
 
-    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $status = null, ?string $search = null): array
+    public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $status = null, ?string $search = null, ?string $idPerusahaanGrup = null): array
     {
-        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $status, $search);
+        $result = $this->repo->paginateByPerusahaan($idPerusahaan, $page, $limit, $status, $search, $idPerusahaanGrup);
 
         return [
             'data' => $result->items(),
@@ -54,6 +56,7 @@ class ArmadaService
     {
         $record = $this->findOrFail($id, $idPerusahaan);
         $record->setAttribute('jumlah_penugasan_aktif', $this->repo->countPenugasanAktif($id));
+        $this->lampirkanPerusahaanGrup($record);
         $record->setAttribute('supir_tetap', DB::table('supir')
             ->whereNull('dihapus_pada')
             ->where('id_armada_default', $id)
@@ -72,6 +75,7 @@ class ArmadaService
         }
 
         $this->pastikanNomorRangkaUnik($data['nomor_rangka'] ?? null);
+        $this->pastikanPerusahaanGrupAktif((string) $data['id_perusahaan_grup'], (string) $data['id_perusahaan']);
 
         if ($foto !== null) {
             $data['url_foto'] = $this->simpanFoto($foto);
@@ -81,10 +85,10 @@ class ArmadaService
         $idItem = !empty($data['id_permintaan_pembelian_item']) ? (string) $data['id_permintaan_pembelian_item'] : null;
         $data['id_permintaan_pembelian_item'] = $idItem;
         if ($idItem === null) {
-            return $this->repo->create($data);
+            return $this->lampirkanPerusahaanGrup($this->repo->create($data));
         }
 
-        return DB::transaction(function () use ($data, $idItem, $idPengguna) {
+        return $this->lampirkanPerusahaanGrup(DB::transaction(function () use ($data, $idItem, $idPengguna) {
             $record = $this->repo->create($data);
             $this->permintaanPembelianService->catatUnitDiterima(
                 $idItem,
@@ -93,7 +97,16 @@ class ArmadaService
                 (string) ($idPengguna ?? ''),
             );
             return $record;
-        });
+        }));
+    }
+
+    private function lampirkanPerusahaanGrup(ArmadaModel $record): ArmadaModel
+    {
+        $grup = $record->id_perusahaan_grup !== null ? $this->perusahaanGrupRepo->findById((string) $record->id_perusahaan_grup) : null;
+        $record->setAttribute('singkatan_perusahaan_grup', $grup?->singkatan);
+        $record->setAttribute('nama_lengkap_perusahaan_grup', $grup?->nama_lengkap);
+
+        return $record;
     }
 
     public function update(string $id, array $data, string $idPerusahaan, ?UploadedFile $foto = null): ArmadaModel
@@ -111,12 +124,27 @@ class ArmadaService
             $this->pastikanNomorRangkaUnik($data['nomor_rangka']);
         }
 
+        if (isset($data['id_perusahaan_grup']) && $data['id_perusahaan_grup'] !== $record->id_perusahaan_grup) {
+            $this->pastikanPerusahaanGrupAktif((string) $data['id_perusahaan_grup'], $idPerusahaan);
+        }
+
         if ($foto !== null) {
             $data['url_foto'] = $this->simpanFoto($foto);
         }
         unset($data['foto']);
 
-        return $this->repo->update($record, $data);
+        return $this->lampirkanPerusahaanGrup($this->repo->update($record, $data));
+    }
+
+    private function pastikanPerusahaanGrupAktif(string $idPerusahaanGrup, string $idPerusahaan): void
+    {
+        $grup = $this->perusahaanGrupRepo->findById($idPerusahaanGrup);
+        if ($grup === null || (string) $grup->id_perusahaan !== $idPerusahaan) {
+            abort(422, 'Perusahaan pemilik tidak ditemukan');
+        }
+        if ((int) $grup->aktif !== 1) {
+            abort(422, "Perusahaan pemilik {$grup->singkatan} sudah nonaktif");
+        }
     }
 
     private function pastikanNomorRangkaUnik(?string $nomorRangka): void
@@ -235,11 +263,12 @@ class ArmadaService
             $hargaBeliRaw   = $this->cellToString($row['harga_beli'] ?? null);
             $kondisiBeli    = $this->cellToString($row['kondisi_beli'] ?? null);
             $keterangan     = $this->cellToString($row['keterangan'] ?? null);
+            $pemilikRaw     = $this->cellToString($row['perusahaan_pemilik'] ?? null);
 
             $semuaSel = [
                 $nopol, $merk, $model, $tahunRaw, $statusRaw,
                 $nomorRangka, $nomorMesin, $warna, $bahanBakar, $kapasitasRaw,
-                $tanggalBeliRaw, $hargaBeliRaw, $kondisiBeli, $keterangan,
+                $tanggalBeliRaw, $hargaBeliRaw, $kondisiBeli, $keterangan, $pemilikRaw,
             ];
             if (array_filter($semuaSel, static fn ($v) => $v !== null) === []) {
                 continue;
@@ -257,6 +286,16 @@ class ArmadaService
 
             if (($frekuensiNopol[$nopol] ?? 0) > 1) {
                 $gagal[] = ['baris' => $baris, 'nopol' => $nopol, 'alasan' => 'Nopol duplikat di dalam file'];
+                continue;
+            }
+
+            if ($pemilikRaw === null) {
+                $gagal[] = ['baris' => $baris, 'nopol' => $nopol, 'alasan' => 'Perusahaan pemilik wajib diisi (singkatan, mis. SULITA) — unduh template terbaru'];
+                continue;
+            }
+            $pemilik = $this->perusahaanGrupRepo->findBySingkatanAtauNama($idPerusahaan, $pemilikRaw);
+            if ($pemilik === null || (int) $pemilik->aktif !== 1) {
+                $gagal[] = ['baris' => $baris, 'nopol' => $nopol, 'alasan' => "Perusahaan pemilik {$pemilikRaw} tidak ditemukan atau nonaktif di Data Master → Perusahaan Grup"];
                 continue;
             }
 
@@ -328,6 +367,7 @@ class ArmadaService
 
             $this->repo->create([
                 'id_perusahaan'       => $idPerusahaan,
+                'id_perusahaan_grup'  => (string) $pemilik->id_perusahaan_grup,
                 'nopol'               => $nopol,
                 'merk'                => $merk,
                 'model'               => $model,

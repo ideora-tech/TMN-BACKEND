@@ -21,6 +21,26 @@ abstract class TestCase extends BaseTestCase
         ]);
     }
 
+    protected function perusahaanGrupId(string $singkatan = 'SULITA', string $idPerusahaan = self::PERUSAHAAN_ID): string
+    {
+        $ada = DB::table('perusahaan_grup')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('singkatan', $singkatan)
+            ->whereNull('dihapus_pada')
+            ->value('id_perusahaan_grup');
+        if ($ada !== null) {
+            return (string) $ada;
+        }
+
+        $id = (string) Str::uuid();
+        DB::table('perusahaan_grup')->insert([
+            'id_perusahaan_grup' => $id, 'id_perusahaan' => $idPerusahaan, 'singkatan' => $singkatan,
+            'aktif' => 1, 'dibuat_pada' => now(),
+        ]);
+
+        return $id;
+    }
+
     protected function actingAsRole(string $kodePeran = 'ADMIN'): Pengguna
     {
         $this->ensurePerusahaan();

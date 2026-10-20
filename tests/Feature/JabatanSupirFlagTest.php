@@ -54,13 +54,12 @@ class JabatanSupirFlagTest extends TestCase
         $this->assertSame(1, DB::table('supir')->whereNull('no_sim')->count());
     }
 
-    public function test_form_manual_supir_tetap_wajib_no_sim(): void
+    public function test_form_manual_supir_boleh_tanpa_no_sim(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/supir', ['nama' => 'Supir Manual']);
 
-        $res->assertStatus(422);
-        $this->assertArrayHasKey('no_sim', $res->json('errors'));
+        $res->assertStatus(201)->assertJsonPath('data.no_sim', null);
     }
 }

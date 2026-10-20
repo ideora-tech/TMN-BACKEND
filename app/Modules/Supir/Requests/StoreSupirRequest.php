@@ -15,7 +15,7 @@ class StoreSupirRequest extends FormRequest
     {
         return [
             'nama'                => ['required', 'string', 'max:200'],
-            'no_sim'              => ['required', 'string', 'max:50'],
+            'no_sim'              => ['sometimes', 'nullable', 'string', 'max:50'],
             'jenis_sim'           => ['sometimes', 'string', 'max:20'],
             'tgl_kadaluarsa_sim'  => ['sometimes', 'nullable', 'date'],
             'telepon'             => ['sometimes', 'nullable', 'string', 'max:30'],

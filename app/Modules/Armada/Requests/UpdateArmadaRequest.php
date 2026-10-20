@@ -18,6 +18,7 @@ class UpdateArmadaRequest extends FormRequest
         return [
             'id_jenis_kendaraan'  => ['sometimes', 'nullable', 'string', 'max:36', 'exists:jenis_kendaraan,id_jenis_kendaraan,dihapus_pada,NULL'],
             'id_vendor'           => ['sometimes', 'nullable', 'string', 'max:36'],
+            'id_perusahaan_grup'  => ['sometimes', 'string', 'max:36'],
             'nopol'               => ['sometimes', 'string', 'max:20'],
             'merk'                => ['sometimes', 'nullable', 'string', 'max:100'],
             'model'               => ['sometimes', 'nullable', 'string', 'max:100'],

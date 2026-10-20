@@ -256,6 +256,28 @@ class SupirImportKaryawanTest extends TestCase
         $this->assertSame('2027-12-31', substr((string) $supir->tgl_kadaluarsa_sim, 0, 10));
     }
 
+    public function test_no_sim_opsional_kecuali_untuk_melengkapi_profil(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $pengemudi = $this->jabatan(true);
+        $idOtomatis = $this->karyawan('9001', 'Oki Otomatis', $pengemudi);
+        $this->supir('Oki Otomatis', $idOtomatis, null);
+        $idBaru = $this->karyawan('9002', 'Putra Baru', $pengemudi);
+
+        $this->postJson('/api/supir', ['nama' => 'Tanpa SIM'])->assertStatus(201)->assertJsonPath('data.no_sim', null);
+
+        $res = $this->postJson('/api/supir/import', ['file' => $this->berkas([
+            $this->baris(['nik_karyawan' => '9001']),
+            $this->baris(['nik_karyawan' => '9002']),
+            $this->baris(['nama' => 'Lepas Tanpa SIM']),
+        ])]);
+
+        $res->assertStatus(200)->assertJsonPath('data.berhasil', 2);
+        $this->assertStringContainsString('isi no_sim untuk melengkapinya', $res->json('data.gagal.0.alasan'));
+        $this->assertSame(1, DB::table('supir')->where('id_karyawan', $idBaru)->whereNull('no_sim')->count());
+        $this->assertSame(1, DB::table('supir')->where('nama', 'Lepas Tanpa SIM')->count());
+    }
+
     public function test_template_berisi_sheet_referensi_karyawan_supir(): void
     {
         $this->actingAsRole('SUPERADMIN');

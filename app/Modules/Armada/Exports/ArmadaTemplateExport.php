@@ -14,7 +14,7 @@ class ArmadaTemplateExport implements FromArray, WithHeadings, ShouldAutoSize
     {
         return [
             [
-                'B 1234 XYZ', 'Toyota', 'Kijang Innova', 2022, 'tersedia',
+                'B 1234 XYZ', 'SULITA', 'Toyota', 'Kijang Innova', 2022, 'tersedia',
                 'MHFXW42G5N0000001', '1TR-1234567', 'Putih', 'bensin', 1000,
                 '2023-05-15', 350000000, 'baru', 'Unit operasional Jakarta',
             ],
@@ -24,7 +24,7 @@ class ArmadaTemplateExport implements FromArray, WithHeadings, ShouldAutoSize
     public function headings(): array
     {
         return [
-            'nopol', 'merk', 'model', 'tahun', 'status',
+            'nopol', 'perusahaan_pemilik', 'merk', 'model', 'tahun', 'status',
             'nomor_rangka', 'nomor_mesin', 'warna', 'jenis_bahan_bakar', 'kapasitas_muatan_kg',
             'tanggal_beli', 'harga_beli', 'kondisi_beli', 'keterangan',
         ];

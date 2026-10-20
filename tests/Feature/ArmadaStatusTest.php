@@ -32,6 +32,7 @@ class ArmadaStatusTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/armada', [
+            'id_perusahaan_grup' => $this->perusahaanGrupId(),
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
             'status' => 'tersedia',
         ]);
@@ -44,6 +45,7 @@ class ArmadaStatusTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/armada', [
+            'id_perusahaan_grup' => $this->perusahaanGrupId(),
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
             'status' => 'perawatan',
         ]);
@@ -56,6 +58,7 @@ class ArmadaStatusTest extends TestCase
         $this->actingAsRole('SUPERADMIN');
 
         $res = $this->postJson('/api/armada', [
+            'id_perusahaan_grup' => $this->perusahaanGrupId(),
             'nopol'  => 'B ' . random_int(1000, 9999) . ' TST',
             'status' => 'aktif',
         ]);

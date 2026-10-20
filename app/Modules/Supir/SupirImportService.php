@@ -54,7 +54,7 @@ class SupirImportService
 
     public function import(UploadedFile $file, string $idPerusahaan, bool $bolehUbah): array
     {
-        $baris = PembacaImpor::baca($file, KolomExcelSupir::judul(), ['no_sim'], 'supir');
+        $baris = PembacaImpor::baca($file, KolomExcelSupir::judul(), [], 'supir');
 
         $frekuensiSim   = PembacaImpor::frekuensi($baris, static fn (array $n) => $n['no_sim'] !== null ? mb_strtolower($n['no_sim']) : null);
         $frekuensiNopol = PembacaImpor::frekuensi($baris, static fn (array $n) => PembacaImpor::kecil($n['nopol_armada_default']));
@@ -92,13 +92,10 @@ class SupirImportService
         }
 
         $noSim = $nilai['no_sim'];
-        if ($noSim === null) {
-            return 'No SIM wajib diisi';
-        }
-        if ($this->repo->findByNoSim($idPerusahaan, $noSim) !== null) {
+        if ($noSim !== null && $this->repo->findByNoSim($idPerusahaan, $noSim) !== null) {
             return 'No SIM sudah terdaftar';
         }
-        if (($frekuensiSim[mb_strtolower($noSim)] ?? 0) > 1) {
+        if ($noSim !== null && ($frekuensiSim[mb_strtolower($noSim)] ?? 0) > 1) {
             return 'No SIM duplikat di dalam file';
         }
 
@@ -112,6 +109,9 @@ class SupirImportService
             if ($karyawan->id_supir_tertaut !== null) {
                 if (trim((string) $karyawan->no_sim_tertaut) !== '') {
                     return "Karyawan {$karyawan->nama_karyawan} sudah punya profil supir dengan SIM {$karyawan->no_sim_tertaut} — ubah lewat halaman detail supir";
+                }
+                if ($noSim === null) {
+                    return "Karyawan {$karyawan->nama_karyawan} sudah punya profil supir — isi no_sim untuk melengkapinya";
                 }
                 if (!$bolehUbah) {
                     return "Karyawan {$karyawan->nama_karyawan} sudah punya profil supir — melengkapinya butuh izin Ubah Supir";

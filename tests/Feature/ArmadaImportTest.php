@@ -25,8 +25,21 @@ class ArmadaImportTest extends TestCase
     private function makeXlsxUploadedFile(
         array $rows,
         array $headings = ['nopol', 'merk', 'model', 'tahun', 'status'],
-        string $filename = 'import.xlsx'
+        string $filename = 'import.xlsx',
+        bool $denganPemilik = true
     ): UploadedFile {
+        if ($denganPemilik && !in_array('perusahaan_pemilik', $headings, true)) {
+            $this->perusahaanGrupId();
+            $jumlahKolom = count($headings);
+            $headings[] = 'perusahaan_pemilik';
+            $rows = array_map(static function (array $row) use ($jumlahKolom) {
+                $terisi = array_filter($row, static fn ($v) => $v !== null && $v !== '') !== [];
+                $row = array_pad($row, $jumlahKolom, null);
+                $row[] = $terisi ? 'sulita' : null;
+                return $row;
+            }, $rows);
+        }
+
         $export = new class($rows, $headings) implements FromArray, WithHeadings {
             public function __construct(private array $rows, private array $headings) {}
 
@@ -63,6 +76,27 @@ class ArmadaImportTest extends TestCase
 
         $res->assertStatus(200);
         $res->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+
+    public function test_import_perusahaan_pemilik_wajib_dan_harus_terdaftar(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idSulita = $this->perusahaanGrupId('SULITA');
+
+        $res = $this->postJson('/api/armada/import', ['file' => $this->makeXlsxUploadedFile(
+            [
+                ['B 1010 AAA', 'Toyota', 'Avanza', 2020, 'tersedia', 'Sulita'],
+                ['B 1020 BBB', 'Toyota', 'Avanza', 2020, 'tersedia', null],
+                ['B 1030 CCC', 'Toyota', 'Avanza', 2020, 'tersedia', 'ABC'],
+            ],
+            ['nopol', 'merk', 'model', 'tahun', 'status', 'perusahaan_pemilik'],
+        )]);
+
+        $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
+        $alasan = collect($res->json('data.gagal'))->pluck('alasan', 'baris');
+        $this->assertStringContainsString('Perusahaan pemilik wajib diisi', $alasan[3]);
+        $this->assertStringContainsString('Perusahaan pemilik ABC tidak ditemukan', $alasan[4]);
+        $this->assertSame($idSulita, ArmadaModel::where('nopol', 'B 1010 AAA')->value('id_perusahaan_grup'));
     }
 
     public function test_import_tiga_baris_valid_berhasil_semua_dan_masuk_db(): void

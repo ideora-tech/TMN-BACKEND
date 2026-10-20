@@ -631,6 +631,7 @@ class PermintaanPembelianAsetTest extends TestCase
             'tahun'                        => 2026,
             'kondisi_beli'                 => 'baru',
             'id_permintaan_pembelian_item' => $idItem,
+            'id_perusahaan_grup'           => $this->perusahaanGrupId(),
         ], $override);
     }
 
@@ -739,7 +740,8 @@ class PermintaanPembelianAsetTest extends TestCase
         [, $penggunaLain] = $this->makeTenantLain();
 
         \Laravel\Sanctum\Sanctum::actingAs($penggunaLain, ['*']);
-        $this->postJson('/api/armada', $this->payloadArmada($idItem, ['nopol' => 'B 2002 LAIN']))->assertStatus(404)
+        $grupLain = $this->perusahaanGrupId('SULITA', (string) $penggunaLain->id_perusahaan);
+        $this->postJson('/api/armada', $this->payloadArmada($idItem, ['nopol' => 'B 2002 LAIN', 'id_perusahaan_grup' => $grupLain]))->assertStatus(404)
             ->assertJsonPath('message', 'Item permintaan tidak ditemukan');
         $this->assertSame(0, $this->qtyDiterima($idItem));
         $this->assertSame(0, DB::table('armada')->where('nopol', 'B 2002 LAIN')->count());
@@ -777,7 +779,7 @@ class PermintaanPembelianAsetTest extends TestCase
         $this->assertSame(0, $this->qtyDiterima($prUmum['items'][0]['id_item']));
 
         $this->daftarkanUnit(null, ['nopol' => 'B 2006 XXX'])->assertStatus(201)->assertJsonPath('data.id_permintaan_pembelian_item', null);
-        $this->postJson('/api/armada', ['nopol' => 'B 2007 XXX'])->assertStatus(201);
+        $this->postJson('/api/armada', ['nopol' => 'B 2007 XXX', 'id_perusahaan_grup' => $this->perusahaanGrupId()])->assertStatus(201);
     }
 
     public function test_hapus_armada_dari_pr_dibeli_menurunkan_qty_dan_dari_pr_diterima_ditolak(): void

@@ -18,6 +18,7 @@ class StoreArmadaRequest extends FormRequest
         return [
             'id_jenis_kendaraan'  => ['sometimes', 'nullable', 'string', 'max:36', 'exists:jenis_kendaraan,id_jenis_kendaraan,dihapus_pada,NULL'],
             'id_vendor'           => ['sometimes', 'nullable', 'string', 'max:36'],
+            'id_perusahaan_grup'  => ['required', 'string', 'max:36'],
             'nopol'               => ['required', 'string', 'max:20'],
             'merk'                => ['sometimes', 'nullable', 'string', 'max:100'],
             'model'               => ['sometimes', 'nullable', 'string', 'max:100'],
@@ -48,6 +49,7 @@ class StoreArmadaRequest extends FormRequest
             'foto.mimes'                => 'Foto harus berformat JPG, PNG, atau WEBP',
             'foto.max'                  => 'Ukuran foto maksimal 5 MB',
             'id_jenis_kendaraan.exists' => 'Jenis kendaraan tidak ditemukan',
+            'id_perusahaan_grup.required' => 'Perusahaan pemilik wajib dipilih',
         ];
     }
 }
