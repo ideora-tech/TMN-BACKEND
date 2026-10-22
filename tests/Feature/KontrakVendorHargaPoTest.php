@@ -215,8 +215,9 @@ class KontrakVendorHargaPoTest extends TestCase
         ])->assertStatus(201)->assertJsonPath('data.harga_kontrak', null);
 
         $this->deleteJson("/api/kontrak-vendor/{$id}")->assertStatus(200);
-        $this->assertNull(ArmadaVendorModel::where('nopol', 'B 5002 HU')->value('harga_kontrak'));
-        $this->assertNull(ArmadaVendorModel::where('nopol', 'B 5002 HU')->value('id_kontrak_vendor'));
+        $this->assertNotNull(ArmadaVendorModel::where('nopol', 'B 5002 HU')->value('dihapus_pada'));
+        $this->assertNull(ArmadaVendorModel::where('nopol', 'B 5001 HU')->value('dihapus_pada'));
+        $this->assertNull(ArmadaVendorModel::where('nopol', 'B 5001 HU')->value('harga_kontrak'));
     }
 
     public function test_excel_unit_membaca_kolom_harga_dan_timpa_unit_menghitung_ulang_nilai(): void
@@ -282,6 +283,29 @@ class KontrakVendorHargaPoTest extends TestCase
         $this->assertStringContainsString('pdf', (string) $pdf->headers->get('content-type'));
     }
 
+    public function test_ppn_dan_pph_kontrak_tersimpan_dan_dihitung_di_po(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $id = (string) $this->buatKontrak($vendor->id_vendor, [
+            $this->unit('B 8101 PJ', 10000000),
+        ], ['ppn_persen' => 1.1, 'pph_persen' => 2])->assertStatus(201)
+            ->assertJsonPath('data.ppn_persen', 1.1)
+            ->assertJsonPath('data.pph_persen', 2)
+            ->json('data.id_kontrak_vendor');
+
+        $this->postJson("/api/kontrak-vendor/{$id}/ajukan-approval")->assertStatus(200);
+        $data = app(\App\Modules\KontrakVendor\KontrakVendorService::class)->dataPurchaseOrder($id, self::PERUSAHAAN_ID);
+        $this->assertEquals(110000, $data['ppn']);
+        $this->assertEquals(200000, $data['pph']);
+        $this->assertEquals(9910000, $data['total']);
+        $this->get("/api/kontrak-vendor/{$id}/po/pdf")->assertStatus(200);
+
+        $this->putJson("/api/kontrak-vendor/{$id}", ['pph_persen' => null])->assertStatus(200)
+            ->assertJsonPath('data.pph_persen', null)
+            ->assertJsonPath('data.ppn_persen', 1.1);
+    }
+
     public function test_po_terbit_saat_kontrak_aktif_dan_nomornya_tetap_setelah_approval_ulang(): void
     {
         $this->actingAsRole('SUPERADMIN');
@@ -305,7 +329,9 @@ class KontrakVendorHargaPoTest extends TestCase
         $this->assertCount(2, $data['baris']);
         $this->assertSame('Sewa unit B 8001 HU', $data['baris'][0]['uraian']);
         $this->assertEquals(22000000, $data['subtotal']);
-        $this->assertEquals(2420000, $data['pajak']);
+        $this->assertEquals(11.0, $data['ppnPersen']);
+        $this->assertEquals(2420000, $data['ppn']);
+        $this->assertEquals(0, $data['pph']);
         $this->assertEquals(24420000, $data['total']);
         $this->assertSame('PT Vendor Harga', $data['vendor']->nama_vendor);
 

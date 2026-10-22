@@ -26,6 +26,8 @@ class UpdateKontrakVendorRequest extends FormRequest
             'rate'                   => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'satuan'                 => ['sometimes', 'nullable', 'string', 'in:per trip,per ton,per hari,per bulan,lumpsum'],
             'pajak_persen'           => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
+            'ppn_persen'             => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
+            'pph_persen'             => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:100'],
             'termin_pembayaran_hari' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:365'],
             'jumlah_trip'            => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
             'jumlah_hari'            => ['sometimes', 'nullable', 'integer', 'min:0', 'max:3660'],

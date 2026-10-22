@@ -177,10 +177,16 @@
                     <td colspan="5" class="label-ringkasan">Subtotal</td>
                     <td class="angka">{{ $rp($subtotal) }}</td>
                 </tr>
-                @if ($pajakPersen > 0)
+                @if ($ppnPersen > 0)
                     <tr class="ringkasan">
-                        <td colspan="5" class="label-ringkasan">Pajak {{ $persen($pajakPersen) }}%</td>
-                        <td class="angka">{{ $rp($pajak) }}</td>
+                        <td colspan="5" class="label-ringkasan">PPN {{ $persen($ppnPersen) }}%</td>
+                        <td class="angka">{{ $rp($ppn) }}</td>
+                    </tr>
+                @endif
+                @if ($pphPersen > 0)
+                    <tr class="ringkasan">
+                        <td colspan="5" class="label-ringkasan">PPh {{ $persen($pphPersen) }}%</td>
+                        <td class="angka">({{ $rp($pph) }})</td>
                     </tr>
                 @endif
                 <tr class="total">

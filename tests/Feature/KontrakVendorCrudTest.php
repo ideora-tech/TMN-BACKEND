@@ -104,6 +104,7 @@ class KontrakVendorCrudTest extends TestCase
             'id_kontrak_vendor' => $kontrakDihapus->id_kontrak_vendor,
             'nopol'             => 'B 9999 TS',
         ]);
+        DB::table('armada_vendor')->where('id_armada_vendor', $unit->id_armada_vendor)->update(['dibuat_pada' => now()->subDay()]);
 
         $this->deleteJson("/api/kontrak-vendor/{$kontrakDihapus->id_kontrak_vendor}")->assertStatus(200);
 
@@ -295,6 +296,7 @@ class KontrakVendorCrudTest extends TestCase
             'id_kontrak_vendor' => $kontrakLama->id_kontrak_vendor,
             'nopol'             => 'B 1213 VND',
         ]);
+        DB::table('armada_vendor')->where('id_armada_vendor', $unitLama->id_armada_vendor)->update(['dibuat_pada' => now()->subDay()]);
 
         $this->deleteJson("/api/kontrak-vendor/{$kontrakLama->id_kontrak_vendor}")->assertStatus(200);
 

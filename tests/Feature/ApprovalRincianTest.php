@@ -668,7 +668,7 @@ class ApprovalRincianTest extends TestCase
             'id_kontrak_vendor' => $idKontrak, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_vendor' => $idVendor,
             'id_proyek' => $this->buatProyek($this->buatKlien(), 'Proyek Vendor'),
             'nomor_kontrak' => 'KV-2026-07', 'mekanisme' => 'unit_driver', 'nilai_kontrak' => 60000000, 'rate' => 3000000,
-            'satuan' => 'per hari', 'pajak_persen' => 11, 'termin_pembayaran_hari' => 30, 'jumlah_trip' => 20, 'jumlah_hari' => 20,
+            'satuan' => 'per hari', 'ppn_persen' => 11, 'pph_persen' => 2, 'termin_pembayaran_hari' => 30, 'jumlah_trip' => 20, 'jumlah_hari' => 20,
             'tanggal_mulai' => '2026-10-01', 'tanggal_selesai' => '2026-10-31', 'status' => 'menunggu_approval', 'dibuat_pada' => now(),
         ]);
         $armadaVendor = [
@@ -713,7 +713,8 @@ class ApprovalRincianTest extends TestCase
         $this->assertEquals(60000000, $this->nilaiInfo($res, 'Nilai Kontrak'));
         $this->assertEquals(3000000, $this->nilaiInfo($res, 'Rate'));
         $this->assertSame('per hari', $this->nilaiInfo($res, 'Satuan'));
-        $this->assertSame(11, $this->nilaiInfo($res, 'Pajak (%)'));
+        $this->assertSame(11, $this->nilaiInfo($res, 'PPN (%)'));
+        $this->assertSame(2, $this->nilaiInfo($res, 'PPh (%)'));
         $this->assertSame(30, $this->nilaiInfo($res, 'Termin Pembayaran (hari)'));
         $this->assertSame('2026-10-01', $this->nilaiInfo($res, 'Tanggal Mulai'));
         $this->assertSame('2026-10-31', $this->nilaiInfo($res, 'Tanggal Selesai'));

@@ -95,6 +95,10 @@ class SupirVendorRepository implements SupirVendorRepositoryInterface
 
     public function create(array $data): SupirVendorModel
     {
+        if (!empty($data['id_kontrak_vendor']) && empty($data['id_kontrak_asal'])) {
+            $data['id_kontrak_asal'] = $data['id_kontrak_vendor'];
+        }
+
         return SupirVendorModel::create($data);
     }
 

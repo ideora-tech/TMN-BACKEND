@@ -229,6 +229,9 @@ class ArmadaService
     public function import(UploadedFile $file, string $idPerusahaan): array
     {
         $rows = Excel::toArray(new ArmadaImport(), $file)[0] ?? [];
+        if ($rows !== [] && !array_key_exists('nopol', $rows[0])) {
+            abort(422, 'Format file tidak sesuai template: kolom "nopol" tidak ditemukan di baris pertama — pakai file dari tombol Unduh Template, bukan hasil Export');
+        }
 
         $frekuensiNopol = [];
         foreach ($rows as $row) {

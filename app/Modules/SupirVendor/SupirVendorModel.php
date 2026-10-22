@@ -16,6 +16,7 @@ class SupirVendorModel extends BaseModel
         'id_supir_vendor',
         'id_vendor',
         'id_kontrak_vendor',
+        'id_kontrak_asal',
         'nama',
         'telepon',
         'no_sim',

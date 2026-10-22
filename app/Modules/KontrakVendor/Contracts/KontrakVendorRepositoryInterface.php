@@ -29,6 +29,7 @@ interface KontrakVendorRepositoryInterface
     public function adaPenugasanNonFinalUntukArmadaVendor(string $idArmadaVendor): bool;
     public function adaPenugasanNonFinalUntukSupirVendor(string $idSupirVendor): bool;
     public function adaInvoiceUntukKontrak(string $idKontrakVendor): bool;
+    public function hapusUnitDanSupirBuatanKontrak(string $idKontrakVendor): array;
     public function lepasTautanUnitDanSupir(string $idKontrakVendor): void;
     public function jumlahTurunan(string $idKontrakVendor): int;
     public function ringkasanHargaUnit(string $idKontrakVendor, bool $kunci = false): array;

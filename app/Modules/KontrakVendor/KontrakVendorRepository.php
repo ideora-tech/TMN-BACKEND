@@ -338,6 +338,48 @@ class KontrakVendorRepository implements KontrakVendorRepositoryInterface
             ->exists();
     }
 
+    public function hapusUnitDanSupirBuatanKontrak(string $idKontrakVendor): array
+    {
+        $penanda = \App\Support\RecordHelper::stampDelete();
+        $tanpaRiwayat = static function ($query, string $alias, string $kolom, array $tabelRiwayat): void {
+            foreach ($tabelRiwayat as $tabel) {
+                $query->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($tabel)->whereColumn("{$tabel}.{$kolom}", "{$alias}.{$kolom}"));
+            }
+        };
+
+        $kueriUnit = DB::table('armada_vendor as av')
+            ->whereNull('av.dihapus_pada')
+            ->where('av.id_kontrak_vendor', $idKontrakVendor)
+            ->where('av.id_kontrak_asal', $idKontrakVendor);
+        $tanpaRiwayat($kueriUnit, 'av', 'id_armada_vendor', ['penugasan', 'uang_jalan', 'pengeluaran_supir', 'proyek_unit']);
+        $idUnit = $kueriUnit->pluck('av.id_armada_vendor')->all();
+
+        $kueriSupir = DB::table('supir_vendor as sv')
+            ->whereNull('sv.dihapus_pada')
+            ->where('sv.id_kontrak_vendor', $idKontrakVendor)
+            ->where('sv.id_kontrak_asal', $idKontrakVendor);
+        $tanpaRiwayat($kueriSupir, 'sv', 'id_supir_vendor', ['penugasan', 'uang_jalan', 'jadwal_shift']);
+        $idSupir = $kueriSupir->pluck('sv.id_supir_vendor')->all();
+
+        if ($idUnit !== []) {
+            DB::table('armada_vendor')->whereIn('id_armada_vendor', $idUnit)->update($penanda);
+        }
+
+        if ($idSupir !== []) {
+            $ubah = ['id_supir_vendor_default' => null, 'diubah_pada' => now()];
+            if (auth()->check()) {
+                $ubah['diubah_oleh'] = auth()->id();
+            }
+            DB::table('armada_vendor')
+                ->whereNull('dihapus_pada')
+                ->whereIn('id_supir_vendor_default', $idSupir)
+                ->update($ubah);
+            DB::table('supir_vendor')->whereIn('id_supir_vendor', $idSupir)->update($penanda);
+        }
+
+        return ['unit' => count($idUnit), 'supir' => count($idSupir)];
+    }
+
     public function lepasTautanUnitDanSupir(string $idKontrakVendor): void
     {
         foreach (['armada_vendor', 'supir_vendor'] as $tabel) {

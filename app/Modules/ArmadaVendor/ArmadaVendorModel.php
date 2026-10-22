@@ -15,6 +15,7 @@ class ArmadaVendorModel extends BaseModel
         'id_armada_vendor',
         'id_vendor',
         'id_kontrak_vendor',
+        'id_kontrak_asal',
         'id_supir_vendor_default',
         'nopol',
         'merk',

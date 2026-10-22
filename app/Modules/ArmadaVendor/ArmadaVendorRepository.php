@@ -274,6 +274,10 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
 
     public function create(array $data): ArmadaVendorModel
     {
+        if (!empty($data['id_kontrak_vendor']) && empty($data['id_kontrak_asal'])) {
+            $data['id_kontrak_asal'] = $data['id_kontrak_vendor'];
+        }
+
         return ArmadaVendorModel::create($data);
     }
 

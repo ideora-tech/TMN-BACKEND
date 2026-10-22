@@ -989,13 +989,16 @@ class KontrakVendorPaketTest extends TestCase
         ]);
     }
 
-    public function test_delete_kontrak_bersih_melepas_tautan_unit_dan_supir(): void
+    public function test_delete_kontrak_menghapus_unit_supir_buatannya_dan_melepas_yang_lama(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_driver');
         $unit = $this->makeArmadaVendor($vendor->id_vendor, ['id_kontrak_vendor' => $kontrak->id_kontrak_vendor]);
         $supir = $this->makeSupirVendor($vendor->id_vendor, ['id_kontrak_vendor' => $kontrak->id_kontrak_vendor]);
+        $unitBaru = $this->makeArmadaVendor($vendor->id_vendor, ['id_kontrak_vendor' => $kontrak->id_kontrak_vendor, 'id_kontrak_asal' => $kontrak->id_kontrak_vendor]);
+        $supirBaru = $this->makeSupirVendor($vendor->id_vendor, ['id_kontrak_vendor' => $kontrak->id_kontrak_vendor, 'id_kontrak_asal' => $kontrak->id_kontrak_vendor]);
+        DB::table('armada_vendor')->where('id_armada_vendor', $unit->id_armada_vendor)->update(['id_supir_vendor_default' => $supirBaru->id_supir_vendor]);
 
         $this->deleteJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}")
             ->assertStatus(200);
@@ -1014,6 +1017,48 @@ class KontrakVendorPaketTest extends TestCase
             'id_kontrak_vendor' => null,
             'dihapus_pada'      => null,
         ]);
+        $this->assertNotNull(DB::table('armada_vendor')->where('id_armada_vendor', $unitBaru->id_armada_vendor)->value('dihapus_pada'));
+        $this->assertNotNull(DB::table('supir_vendor')->where('id_supir_vendor', $supirBaru->id_supir_vendor)->value('dihapus_pada'));
+        $this->assertNull(DB::table('armada_vendor')->where('id_armada_vendor', $unit->id_armada_vendor)->value('id_supir_vendor_default'));
+    }
+
+    public function test_hapus_kontrak_hanya_menghapus_unit_supir_asal_kontrak_tanpa_riwayat(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $vendor = $this->makeVendor();
+        $kontrakA = $this->makeKontrak($vendor->id_vendor, 'unit_driver', ['status' => 'draft']);
+        $kontrakB = $this->makeKontrak($vendor->id_vendor, 'unit_driver', ['status' => 'draft']);
+
+        $unitLewatKontrak = $this->postJson('/api/armada-vendor', [
+            'id_vendor' => $vendor->id_vendor, 'id_kontrak_vendor' => $kontrakA->id_kontrak_vendor,
+            'nopol' => 'B 7001 HPS', 'masa_berlaku_stnk' => '2027-01-01', 'masa_berlaku_kir' => '2027-01-01',
+        ])->assertStatus(201)->json('data.id_armada_vendor');
+        $supirLewatKontrak = $this->postJson('/api/supir-vendor', [
+            'id_vendor' => $vendor->id_vendor, 'id_kontrak_vendor' => $kontrakA->id_kontrak_vendor, 'nama' => 'Supir Lewat Kontrak',
+        ])->assertStatus(201)->json('data.id_supir_vendor');
+
+        $unitMaster = $this->postJson('/api/armada-vendor', [
+            'id_vendor' => $vendor->id_vendor, 'nopol' => 'B 7002 HPS', 'masa_berlaku_stnk' => '2027-01-01', 'masa_berlaku_kir' => '2027-01-01',
+        ])->assertStatus(201)->json('data.id_armada_vendor');
+        $this->putJson("/api/armada-vendor/{$unitMaster}", ['id_kontrak_vendor' => $kontrakA->id_kontrak_vendor])->assertStatus(200);
+
+        $unitPindahan = $this->makeArmadaVendor($vendor->id_vendor, ['id_kontrak_vendor' => $kontrakA->id_kontrak_vendor, 'id_kontrak_asal' => $kontrakB->id_kontrak_vendor]);
+
+        $unitDiRoster = $this->makeArmadaVendor($vendor->id_vendor, ['id_kontrak_vendor' => $kontrakA->id_kontrak_vendor, 'id_kontrak_asal' => $kontrakA->id_kontrak_vendor]);
+        DB::table('proyek_unit')->insert([
+            'id_proyek_unit' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_proyek' => (string) Str::uuid(),
+            'sumber' => 'vendor', 'id_armada_vendor' => $unitDiRoster->id_armada_vendor, 'dibuat_pada' => now(),
+        ]);
+
+        $this->deleteJson("/api/kontrak-vendor/{$kontrakA->id_kontrak_vendor}")->assertStatus(200);
+
+        $dihapus = fn (string $tabel, string $kunci, string $id) => DB::table($tabel)->where($kunci, $id)->value('dihapus_pada') !== null;
+        $this->assertTrue($dihapus('armada_vendor', 'id_armada_vendor', $unitLewatKontrak));
+        $this->assertTrue($dihapus('supir_vendor', 'id_supir_vendor', $supirLewatKontrak));
+        foreach ([$unitMaster, $unitPindahan->id_armada_vendor, $unitDiRoster->id_armada_vendor] as $idAman) {
+            $this->assertFalse($dihapus('armada_vendor', 'id_armada_vendor', $idAman));
+            $this->assertNull(DB::table('armada_vendor')->where('id_armada_vendor', $idAman)->value('id_kontrak_vendor'));
+        }
     }
 
 }

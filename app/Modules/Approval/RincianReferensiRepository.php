@@ -667,7 +667,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->where('kv.id_perusahaan', $idPerusahaan)
             ->whereNull('kv.dihapus_pada')
             ->first([
-                'kv.nomor_kontrak', 'kv.mekanisme', 'kv.nilai_kontrak', 'kv.rate', 'kv.satuan', 'kv.pajak_persen',
+                'kv.nomor_kontrak', 'kv.mekanisme', 'kv.nilai_kontrak', 'kv.rate', 'kv.satuan', 'kv.ppn_persen', 'kv.pph_persen',
                 'kv.termin_pembayaran_hari', 'kv.jumlah_trip', 'kv.jumlah_hari', 'kv.tanggal_mulai', 'kv.tanggal_selesai',
                 'v.nama_vendor', 'pr.nama_proyek',
             ]);
@@ -706,7 +706,8 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->rupiah('Nilai Kontrak', $kontrak->nilai_kontrak),
                 $this->rupiah('Rate', $kontrak->rate),
                 $this->teks('Satuan', $kontrak->satuan),
-                $this->angka('Pajak (%)', $kontrak->pajak_persen),
+                $this->angka('PPN (%)', $kontrak->ppn_persen),
+                $this->angka('PPh (%)', $kontrak->pph_persen),
                 $this->angka('Termin Pembayaran (hari)', $kontrak->termin_pembayaran_hari),
                 $this->angka('Jumlah Trip', $kontrak->jumlah_trip),
                 $this->angka('Jumlah Hari', $kontrak->jumlah_hari),

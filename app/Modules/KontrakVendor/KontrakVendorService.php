@@ -76,8 +76,19 @@ class KontrakVendorService
         return $record;
     }
 
+    private function normalisasiPajak(array $data): array
+    {
+        if (array_key_exists('pajak_persen', $data) && !array_key_exists('ppn_persen', $data)) {
+            $data['ppn_persen'] = $data['pajak_persen'];
+        }
+        unset($data['pajak_persen']);
+
+        return $data;
+    }
+
     public function create(array $data): KontrakVendorModel
     {
+        $data = $this->normalisasiPajak($data);
         if (!$this->repo->vendorMilikPerusahaan($data['id_vendor'], $data['id_perusahaan'])) {
             abort(404, 'Vendor tidak ditemukan');
         }
@@ -1210,8 +1221,10 @@ class KontrakVendorService
             ]];
         }
 
-        $pajakPersen = (float) ($kontrak->pajak_persen ?? 0);
-        $pajak       = round($subtotal * $pajakPersen / 100);
+        $ppnPersen = (float) ($kontrak->ppn_persen ?? 0);
+        $pphPersen = (float) ($kontrak->pph_persen ?? 0);
+        $ppn       = round($subtotal * $ppnPersen / 100);
+        $pph       = round($subtotal * $pphPersen / 100);
 
         $catatan = [];
         if ($kontrak->rate !== null && (float) $kontrak->rate > 0) {
@@ -1231,9 +1244,11 @@ class KontrakVendorService
             'namaProyek'  => $kontrak->nama_proyek ?? null,
             'baris'       => $baris,
             'subtotal'    => $subtotal,
-            'pajakPersen' => $pajakPersen,
-            'pajak'       => $pajak,
-            'total'       => $subtotal + $pajak,
+            'ppnPersen'   => $ppnPersen,
+            'ppn'         => $ppn,
+            'pphPersen'   => $pphPersen,
+            'pph'         => $pph,
+            'total'       => max(0, $subtotal + $ppn - $pph),
             'catatan'     => $catatan,
             'pembuat'     => $kontrak->dibuat_oleh !== null ? $this->repo->usernamePengguna((string) $kontrak->dibuat_oleh) : null,
             'perusahaan'  => $this->repo->getPerusahaan($idPerusahaan),
@@ -1284,6 +1299,7 @@ class KontrakVendorService
 
     public function update(string $id, array $data, string $idPerusahaan): KontrakVendorModel
     {
+        $data = $this->normalisasiPajak($data);
         $record = $this->findOrFail($id, $idPerusahaan);
         unset($data['status']);
 
@@ -1393,6 +1409,7 @@ class KontrakVendorService
                 );
             }
 
+            $this->repo->hapusUnitDanSupirBuatanKontrak($idKontrak);
             $this->repo->lepasTautanUnitDanSupir($idKontrak);
             $this->repo->delete($record);
         });

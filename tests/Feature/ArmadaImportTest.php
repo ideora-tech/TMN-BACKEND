@@ -78,6 +78,25 @@ class ArmadaImportTest extends TestCase
         $res->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
 
+    public function test_import_file_laporan_tanpa_judul_template_ditolak_dengan_pesan_jelas(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+
+        $res = $this->postJson('/api/armada/import', ['file' => $this->makeXlsxUploadedFile(
+            [
+                ['Dicetak: 21 Oct 2026 15:36', null],
+                ['Nopol', 'Merk'],
+                ['B 1111 LAP', 'Hino'],
+            ],
+            ['DATA ARMADA AKTIF', null],
+            denganPemilik: false,
+        )]);
+
+        $res->assertStatus(422);
+        $this->assertStringContainsString('kolom "nopol" tidak ditemukan', $res->json('message'));
+        $this->assertSame(0, ArmadaModel::where('nopol', 'B 1111 LAP')->count());
+    }
+
     public function test_import_perusahaan_pemilik_wajib_dan_harus_terdaftar(): void
     {
         $this->actingAsRole('SUPERADMIN');
