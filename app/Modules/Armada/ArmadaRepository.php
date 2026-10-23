@@ -50,7 +50,8 @@ class ArmadaRepository implements ArmadaRepositoryInterface
         if ($search !== null && $search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('armada.nopol', 'like', "%{$search}%")
-                  ->orWhere('armada.merk', 'like', "%{$search}%");
+                  ->orWhere('armada.merk', 'like', "%{$search}%")
+                  ->orWhere('armada.nomor_rangka', 'like', "%{$search}%");
             });
         }
 

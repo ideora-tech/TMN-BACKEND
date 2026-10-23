@@ -95,6 +95,18 @@ class PerusahaanGrupTest extends TestCase
             ->assertJsonPath('data.singkatan_perusahaan_grup', 'TMN');
     }
 
+    public function test_pencarian_armada_mencakup_nomor_rangka(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idGrup = $this->perusahaanGrupId();
+        $this->postJson('/api/armada', ['nopol' => 'B 5101 RGK', 'nomor_rangka' => 'MHFXW42G5N0099887', 'id_perusahaan_grup' => $idGrup])->assertStatus(201);
+        $this->postJson('/api/armada', ['nopol' => 'B 5102 RGK', 'nomor_rangka' => 'MHFXW42G5N0011223', 'id_perusahaan_grup' => $idGrup])->assertStatus(201);
+
+        $hasil = collect($this->getJson('/api/armada?search=N009988')->assertStatus(200)->json('data'))->pluck('nopol')->all();
+
+        $this->assertSame(['B 5101 RGK'], $hasil);
+    }
+
     public function test_daftar_armada_menampilkan_singkatan_dan_bisa_disaring_per_pemilik(): void
     {
         $this->actingAsRole('SUPERADMIN');
