@@ -6,7 +6,9 @@ use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
 use App\Modules\DokumenKaryawan\Contracts\DokumenKaryawanRepositoryInterface;
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
+use App\Support\JenisSim;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SupirService
 {
@@ -149,7 +151,7 @@ class SupirService
         $this->assertArmadaDefaultRules($data, (string) $data['id_perusahaan']);
         $this->assertKaryawanRules($data, (string) $data['id_perusahaan']);
         $this->assertPenggunaRules($data, (string) $data['id_perusahaan']);
-        return $this->repo->create($this->ikutiMasaBerlakuSimDokumen($data, null));
+        return $this->repo->create($this->ikutiMasaBerlakuSimDokumen($this->rapikanJenisSim($data, null), null));
     }
 
     public function update(string $id, array $data, string $idPerusahaan): object
@@ -158,7 +160,36 @@ class SupirService
         $this->assertArmadaDefaultRules($data, $idPerusahaan, $record->id_supir);
         $this->assertKaryawanRules($data, $idPerusahaan, $record->id_supir);
         $this->assertPenggunaRules($data, $idPerusahaan, $record->id_supir);
-        return $this->repo->update($record, $this->ikutiMasaBerlakuSimDokumen($data, $record));
+        return $this->repo->update($record, $this->ikutiMasaBerlakuSimDokumen($this->rapikanJenisSim($data, $record), $record));
+    }
+
+    private function rapikanJenisSim(array $data, ?object $record): array
+    {
+        if (!array_key_exists('jenis_sim', $data)) {
+            return $data;
+        }
+
+        $nilai = $data['jenis_sim'] !== null ? trim((string) $data['jenis_sim']) : '';
+        if ($nilai === '') {
+            unset($data['jenis_sim']);
+
+            return $data;
+        }
+
+        $baku = JenisSim::normalisasi($nilai);
+        if ($baku !== null) {
+            $data['jenis_sim'] = $baku;
+
+            return $data;
+        }
+
+        if ($record !== null && $nilai === (string) $record->jenis_sim) {
+            unset($data['jenis_sim']);
+
+            return $data;
+        }
+
+        throw ValidationException::withMessages(['jenis_sim' => 'Jenis SIM harus ' . JenisSim::teksDaftar()]);
     }
 
     private function ikutiMasaBerlakuSimDokumen(array $data, ?object $record): array

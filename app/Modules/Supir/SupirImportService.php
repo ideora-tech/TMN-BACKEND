@@ -10,12 +10,12 @@ use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Modules\Supir\Requests\StoreSupirRequest;
 use App\Support\Impor\BukuTemplateImpor;
 use App\Support\Impor\PembacaImpor;
+use App\Support\JenisSim;
 use Illuminate\Http\UploadedFile;
 
 class SupirImportService
 {
     private const STATUS_VALID = ['aktif', 'nonaktif'];
-    private const JENIS_SIM    = ['A', 'B1', 'B2', 'C', 'D'];
 
     private const CATATAN = [
         'Driver yang juga karyawan: isi nik_karyawan. Nama dan telepon diambil dari data karyawan bila dikosongkan.',
@@ -130,9 +130,9 @@ class SupirImportService
 
         $jenisSim = null;
         if ($nilai['jenis_sim'] !== null) {
-            $jenisSim = mb_strtoupper(str_replace(' ', '', $nilai['jenis_sim']));
-            if (!in_array($jenisSim, self::JENIS_SIM, true)) {
-                return 'Kolom jenis_sim harus A, B1, B2, C, atau D';
+            $jenisSim = JenisSim::normalisasi($nilai['jenis_sim']);
+            if ($jenisSim === null) {
+                return 'Kolom jenis_sim harus ' . JenisSim::teksDaftar();
             }
         }
 
