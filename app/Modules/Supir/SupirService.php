@@ -7,6 +7,7 @@ use App\Modules\DokumenKaryawan\Contracts\DokumenKaryawanRepositoryInterface;
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use App\Support\JenisSim;
+use App\Support\KodeOtomatis;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -100,6 +101,12 @@ class SupirService
     public function detail(string $id, string $idPerusahaan): object
     {
         [$record] = $this->lampirkanArmadaDefault([$this->findOrFail($id, $idPerusahaan)]);
+
+        $idKaryawan = !empty($record->id_karyawan) ? (string) $record->id_karyawan : null;
+        $nikKaryawan = $idKaryawan !== null ? trim((string) ($this->karyawanRepo->findById($idKaryawan)->nik_ktp ?? '')) : '';
+        $record->nik_ktp_karyawan = $nikKaryawan !== '' ? $nikKaryawan : null;
+        $record->no_ktp = $record->nik_ktp_karyawan ?? $this->dokumenKaryawanRepo->nomorKtpTerbaru((string) $record->id_supir, $idKaryawan);
+
         return $record;
     }
 
@@ -148,10 +155,36 @@ class SupirService
 
     public function create(array $data): object
     {
-        $this->assertArmadaDefaultRules($data, (string) $data['id_perusahaan']);
-        $this->assertKaryawanRules($data, (string) $data['id_perusahaan']);
-        $this->assertPenggunaRules($data, (string) $data['id_perusahaan']);
-        return $this->repo->create($this->ikutiMasaBerlakuSimDokumen($this->rapikanJenisSim($data, null), null));
+        $idPerusahaan = (string) $data['id_perusahaan'];
+        $this->assertArmadaDefaultRules($data, $idPerusahaan);
+        $this->assertKaryawanRules($data, $idPerusahaan);
+        $this->assertPenggunaRules($data, $idPerusahaan);
+
+        return DB::transaction(function () use ($data, $idPerusahaan) {
+            if (empty($data['id_karyawan'])) {
+                $data['id_karyawan'] = $this->buatKaryawanUntukSupir($data, $idPerusahaan);
+            }
+
+            return $this->repo->create($this->ikutiMasaBerlakuSimDokumen($this->rapikanJenisSim($data, null), null));
+        });
+    }
+
+    private function buatKaryawanUntukSupir(array $data, string $idPerusahaan): string
+    {
+        do {
+            $nik = KodeOtomatis::berikutnya($idPerusahaan, 'nik_supir');
+        } while ($this->karyawanRepo->nikTerpakai($nik));
+
+        $karyawan = $this->karyawanRepo->create([
+            'id_perusahaan' => $idPerusahaan,
+            'id_jabatan'    => $this->karyawanRepo->idJabatanSupirBawaan($idPerusahaan),
+            'nik'           => $nik,
+            'nama_karyawan' => (string) $data['nama'],
+            'telepon'       => $data['telepon'] ?? null,
+            'aktif'         => ($data['status'] ?? 'aktif') === 'aktif' ? 1 : 0,
+        ]);
+
+        return (string) $karyawan->id_karyawan;
     }
 
     public function update(string $id, array $data, string $idPerusahaan): object
@@ -160,7 +193,16 @@ class SupirService
         $this->assertArmadaDefaultRules($data, $idPerusahaan, $record->id_supir);
         $this->assertKaryawanRules($data, $idPerusahaan, $record->id_supir);
         $this->assertPenggunaRules($data, $idPerusahaan, $record->id_supir);
-        return $this->repo->update($record, $this->ikutiMasaBerlakuSimDokumen($this->rapikanJenisSim($data, $record), $record));
+
+        return DB::transaction(function () use ($record, $data) {
+            $idKaryawanBaru = array_key_exists('id_karyawan', $data) ? $data['id_karyawan'] : null;
+            if (!empty($idKaryawanBaru) && (string) $idKaryawanBaru !== (string) ($record->id_karyawan ?? '')) {
+                $this->dokumenKaryawanRepo->pindahkanDokumenSupirKeKaryawan((string) $record->id_supir, (string) $idKaryawanBaru);
+                $this->dokumenKaryawanRepo->selaraskanKtpKaryawan((string) $idKaryawanBaru);
+            }
+
+            return $this->repo->update($record, $this->ikutiMasaBerlakuSimDokumen($this->rapikanJenisSim($data, $record), $record));
+        });
     }
 
     private function rapikanJenisSim(array $data, ?object $record): array
@@ -195,11 +237,13 @@ class SupirService
     private function ikutiMasaBerlakuSimDokumen(array $data, ?object $record): array
     {
         $idKaryawan = array_key_exists('id_karyawan', $data) ? $data['id_karyawan'] : ($record->id_karyawan ?? null);
-        if (empty($idKaryawan)) {
+        if (empty($idKaryawan) && $record === null) {
             return $data;
         }
 
-        $maks = $this->dokumenKaryawanRepo->maxBerlakuSimAktif((string) $idKaryawan);
+        $maks = !empty($idKaryawan)
+            ? $this->dokumenKaryawanRepo->maxBerlakuSimAktif((string) $idKaryawan)
+            : $this->dokumenKaryawanRepo->maxBerlakuSimTanpaKaryawan((string) $record->id_supir);
         if ($maks !== null) {
             $data['tgl_kadaluarsa_sim'] = substr($maks, 0, 10);
         }

@@ -242,7 +242,7 @@ class SupirImportKaryawanTest extends TestCase
         $this->assertSame(0, DB::table('supir')->whereIn('no_sim', ['SIM-A', 'SIM-B', 'SIM-C', 'SIM-D', 'SIM-E'])->count());
     }
 
-    public function test_import_tanpa_nik_tetap_membuat_supir_biasa(): void
+    public function test_import_tanpa_nik_membuat_supir_beserta_karyawan_baru(): void
     {
         $this->actingAsRole('SUPERADMIN');
 
@@ -252,7 +252,8 @@ class SupirImportKaryawanTest extends TestCase
 
         $res->assertStatus(200)->assertJsonPath('data.berhasil', 1);
         $supir = DB::table('supir')->where('no_sim', 'SIM-6001')->first();
-        $this->assertNull($supir->id_karyawan);
+        $this->assertNotNull($supir->id_karyawan);
+        $this->assertSame('Lukman Lepas', DB::table('karyawan')->where('id_karyawan', $supir->id_karyawan)->value('nama_karyawan'));
         $this->assertSame('2027-12-31', substr((string) $supir->tgl_kadaluarsa_sim, 0, 10));
     }
 

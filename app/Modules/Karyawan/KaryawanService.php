@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Karyawan;
 
+use App\Modules\DokumenKaryawan\Contracts\DokumenKaryawanRepositoryInterface;
 use App\Modules\Jabatan\Contracts\JabatanRepositoryInterface;
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
@@ -19,6 +20,7 @@ class KaryawanService
         private readonly KaryawanRepositoryInterface $repo,
         private readonly JabatanRepositoryInterface $jabatanRepo,
         private readonly SupirRepositoryInterface $supirRepo,
+        private readonly DokumenKaryawanRepositoryInterface $dokumenKaryawanRepo,
     ) {}
 
     public function list(string $idPerusahaan, int $page = 1, int $limit = 10, ?string $status = null, ?string $search = null): array
@@ -70,6 +72,10 @@ class KaryawanService
                 && ($data['id_jabatan'] ?? null) !== $record->id_jabatan;
 
             $updated = $this->repo->update($record, $data);
+
+            if (array_key_exists('nik_ktp', $data) && trim((string) ($data['nik_ktp'] ?? '')) !== '') {
+                $this->dokumenKaryawanRepo->selaraskanKtpKaryawan($id);
+            }
 
             if ($jabatanBerubah) {
                 $this->catatPerubahanJabatan($record, $data['id_jabatan'] ?? null, [

@@ -14,6 +14,7 @@ class DokumenKaryawanResource extends JsonResource
         return [
             'id_dokumen_karyawan' => $this->id_dokumen_karyawan,
             'id_karyawan'         => $this->id_karyawan,
+            'id_supir'            => $this->id_supir ?? null,
             'jenis_dokumen'       => $this->jenis_dokumen,
             'nomor'               => $this->nomor,
             'berlaku_sampai'      => $this->berlaku_sampai,

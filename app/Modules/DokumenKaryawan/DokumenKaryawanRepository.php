@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 class DokumenKaryawanRepository implements DokumenKaryawanRepositoryInterface
 {
     private const COLUMNS = [
-        'dokumen_karyawan.id_dokumen_karyawan', 'dokumen_karyawan.id_karyawan', 'dokumen_karyawan.jenis_dokumen',
+        'dokumen_karyawan.id_dokumen_karyawan', 'dokumen_karyawan.id_karyawan', 'dokumen_karyawan.id_supir', 'dokumen_karyawan.jenis_dokumen',
         'dokumen_karyawan.nomor', 'dokumen_karyawan.berlaku_sampai', 'dokumen_karyawan.url_file',
         'dokumen_karyawan.dibuat_pada', 'dokumen_karyawan.dibuat_oleh',
         'dokumen_karyawan.diubah_pada', 'dokumen_karyawan.diubah_oleh',
@@ -49,6 +49,96 @@ class DokumenKaryawanRepository implements DokumenKaryawanRepositoryInterface
             ->orderByDesc('dibuat_pada')
             ->get()
             ->all();
+    }
+
+    public function findAllBySupir(string $idSupir, ?string $idKaryawan): array
+    {
+        return DB::table('dokumen_karyawan')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where(function ($q) use ($idSupir, $idKaryawan) {
+                $q->where(fn ($q2) => $q2->whereNull('id_karyawan')->where('id_supir', $idSupir));
+                if ($idKaryawan !== null) {
+                    $q->orWhere('id_karyawan', $idKaryawan);
+                }
+            })
+            ->orderBy('jenis_dokumen')
+            ->orderByDesc('dibuat_pada')
+            ->get()
+            ->all();
+    }
+
+    public function maxBerlakuSimTanpaKaryawan(string $idSupir): ?string
+    {
+        $nilai = DB::table('dokumen_karyawan')
+            ->whereNull('id_karyawan')
+            ->where('id_supir', $idSupir)
+            ->whereRaw("UPPER(jenis_dokumen) = 'SIM'")
+            ->whereNull('dihapus_pada')
+            ->whereNotNull('berlaku_sampai')
+            ->max('berlaku_sampai');
+
+        return $nilai !== null ? (string) $nilai : null;
+    }
+
+    public function sinkronKadaluarsaSimSatuSupir(string $idSupir, string $tanggal): void
+    {
+        DB::table('supir')
+            ->where('id_supir', $idSupir)
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampUpdate(['tgl_kadaluarsa_sim' => $tanggal]));
+    }
+
+    public function pindahkanDokumenSupirKeKaryawan(string $idSupir, string $idKaryawan): void
+    {
+        DB::table('dokumen_karyawan')
+            ->whereNull('dihapus_pada')
+            ->whereNull('id_karyawan')
+            ->where('id_supir', $idSupir)
+            ->update(RecordHelper::stampUpdate(['id_karyawan' => $idKaryawan]));
+    }
+
+    public function selaraskanKtpKaryawan(string $idKaryawan): void
+    {
+        $nik = trim((string) DB::table('karyawan')->where('id_karyawan', $idKaryawan)->value('nik_ktp'));
+        $dokumenKtp = fn () => DB::table('dokumen_karyawan')
+            ->where('id_karyawan', $idKaryawan)
+            ->whereNull('dihapus_pada')
+            ->whereRaw("UPPER(jenis_dokumen) = 'KTP'");
+
+        if ($nik !== '') {
+            $dokumenKtp()
+                ->where(fn ($q) => $q->whereNull('nomor')->orWhere('nomor', '!=', $nik))
+                ->update(RecordHelper::stampUpdate(['nomor' => $nik]));
+
+            return;
+        }
+
+        $nomor = trim((string) $dokumenKtp()->whereNotNull('nomor')->where('nomor', '!=', '')->orderByDesc('dibuat_pada')->value('nomor'));
+        if ($nomor !== '' && mb_strlen($nomor) <= 20) {
+            DB::table('karyawan')
+                ->where('id_karyawan', $idKaryawan)
+                ->update(RecordHelper::stampUpdate(['nik_ktp' => $nomor]));
+        }
+    }
+
+    public function nomorKtpTerbaru(string $idSupir, ?string $idKaryawan): ?string
+    {
+        $nomor = DB::table('dokumen_karyawan')
+            ->whereNull('dihapus_pada')
+            ->whereRaw("UPPER(jenis_dokumen) = 'KTP'")
+            ->whereNotNull('nomor')
+            ->where('nomor', '!=', '')
+            ->where(function ($q) use ($idSupir, $idKaryawan) {
+                $q->where(fn ($q2) => $q2->whereNull('id_karyawan')->where('id_supir', $idSupir));
+                if ($idKaryawan !== null) {
+                    $q->orWhere('id_karyawan', $idKaryawan);
+                }
+            })
+            ->orderByDesc('dibuat_pada')
+            ->value('nomor');
+
+        return $nomor !== null ? (string) $nomor : null;
     }
 
     public function findById(string $id): ?object

@@ -75,6 +75,28 @@ class KaryawanRepository implements KaryawanRepositoryInterface
             ->first();
     }
 
+    public function nikTerpakai(string $nik): bool
+    {
+        return DB::table('karyawan')->where('nik', $nik)->exists();
+    }
+
+    public function idJabatanSupirBawaan(string $idPerusahaan): ?string
+    {
+        $id = DB::table('jabatan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('aktif', 1)
+            ->where(fn ($q) => $q
+                ->where('is_supir', 1)
+                ->orWhereRaw('LOWER(TRIM(nama_jabatan)) LIKE ?', ['supir%'])
+                ->orWhereRaw('LOWER(TRIM(nama_jabatan)) LIKE ?', ['pengemudi%']))
+            ->orderByDesc('is_supir')
+            ->orderBy('dibuat_pada')
+            ->value('id_jabatan');
+
+        return $id !== null ? (string) $id : null;
+    }
+
     public function create(array $data): object
     {
         $data = RecordHelper::stampCreate($data, 'id_karyawan');

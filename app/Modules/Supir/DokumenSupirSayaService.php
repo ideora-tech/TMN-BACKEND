@@ -50,15 +50,19 @@ class DokumenSupirSayaService
 
     public function dokumenUntukSupir(object $supir): array
     {
+        $dokumen = $this->dokumenKaryawan(
+            $this->dokumenKaryawanRepo->findAllBySupir((string) $supir->id_supir, $supir->id_karyawan !== null ? (string) $supir->id_karyawan : null)
+        );
+
         return [
             'tipe_supir'         => 'internal',
-            'terhubung_karyawan' => $supir->id_karyawan !== null,
+            'terhubung_karyawan' => $supir->id_karyawan !== null || $dokumen !== [],
             'sim'                => [
                 'no_sim'         => $supir->no_sim,
                 'jenis_sim'      => $supir->jenis_sim,
                 'berlaku_sampai' => $supir->tgl_kadaluarsa_sim,
             ],
-            'dokumen'            => $supir->id_karyawan !== null ? $this->dokumenKaryawan((string) $supir->id_karyawan) : [],
+            'dokumen'            => $dokumen,
         ];
     }
 
@@ -79,10 +83,10 @@ class DokumenSupirSayaService
         abort(404, 'Data supir tidak ditemukan untuk pengguna ini');
     }
 
-    private function dokumenKaryawan(string $idKaryawan): array
+    private function dokumenKaryawan(array $daftarDokumen): array
     {
         $perJenis = [];
-        foreach ($this->dokumenKaryawanRepo->findAllByKaryawan($idKaryawan) as $dokumen) {
+        foreach ($daftarDokumen as $dokumen) {
             $perJenis[$dokumen->jenis_dokumen][] = $dokumen;
         }
         ksort($perJenis);

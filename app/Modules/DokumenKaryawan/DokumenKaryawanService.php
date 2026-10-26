@@ -48,7 +48,97 @@ class DokumenKaryawanService
 
         $record = $this->repo->create(array_merge($data, ['id_karyawan' => $idKaryawan]));
         $this->sinkronSimSupir($idKaryawan);
+        return $this->selaraskanKtp($record);
+    }
+
+    public function listUntukSupir(object $supir): array
+    {
+        return $this->repo->findAllBySupir((string) $supir->id_supir, $this->idKaryawanSupir($supir));
+    }
+
+    public function createUntukSupir(object $supir, array $data, ?UploadedFile $file = null): object
+    {
+        if ($file) {
+            $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
+        }
+        unset($data['file']);
+
+        $record = $this->repo->create(array_merge($data, [
+            'id_karyawan' => $this->idKaryawanSupir($supir),
+            'id_supir'    => (string) $supir->id_supir,
+        ]));
+        $this->sinkronSimPemilik($record);
+
+        return $this->selaraskanKtp($record);
+    }
+
+    public function updateUntukSupir(object $supir, string $id, array $data, ?UploadedFile $file = null): object
+    {
+        $record = $this->milikSupirOrFail($supir, $id);
+
+        if ($file) {
+            $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
+        }
+        unset($data['file']);
+
+        $updated = $this->repo->update($record, $data);
+        $this->sinkronSimPemilik($record);
+
+        return $this->selaraskanKtp($updated);
+    }
+
+    public function deleteUntukSupir(object $supir, string $id): void
+    {
+        $record = $this->milikSupirOrFail($supir, $id);
+        $this->repo->delete($record);
+        $this->sinkronSimPemilik($record);
+    }
+
+    private function selaraskanKtp(object $record): object
+    {
+        if ($record->id_karyawan === null || mb_strtoupper(trim((string) $record->jenis_dokumen)) !== 'KTP') {
+            return $record;
+        }
+
+        $this->repo->selaraskanKtpKaryawan((string) $record->id_karyawan);
+
+        return $this->repo->findById((string) $record->id_dokumen_karyawan) ?? $record;
+    }
+
+    private function idKaryawanSupir(object $supir): ?string
+    {
+        return !empty($supir->id_karyawan) ? (string) $supir->id_karyawan : null;
+    }
+
+    private function milikSupirOrFail(object $supir, string $id): object
+    {
+        $record = $this->repo->findById($id);
+        $idKaryawan = $this->idKaryawanSupir($supir);
+        $milik = $record !== null && (
+            ($record->id_karyawan === null && (string) $record->id_supir === (string) $supir->id_supir)
+            || ($idKaryawan !== null && (string) $record->id_karyawan === $idKaryawan)
+        );
+        if (!$milik) {
+            abort(404, 'Dokumen supir tidak ditemukan');
+        }
+
         return $record;
+    }
+
+    private function sinkronSimPemilik(object $record): void
+    {
+        if ($record->id_karyawan !== null) {
+            $this->sinkronSimSupir((string) $record->id_karyawan);
+
+            return;
+        }
+
+        if ($record->id_supir !== null) {
+            $maks = $this->repo->maxBerlakuSimTanpaKaryawan((string) $record->id_supir);
+            if ($maks !== null) {
+                $this->repo->sinkronKadaluarsaSimSatuSupir((string) $record->id_supir, $maks);
+            }
+        }
     }
 
     public function update(string $id, string $idPerusahaan, array $data, ?UploadedFile $file = null, ?string $idKaryawan = null): object
@@ -62,7 +152,7 @@ class DokumenKaryawanService
 
         $updated = $this->repo->update($record, $data);
         $this->sinkronSimSupir((string) $record->id_karyawan);
-        return $updated;
+        return $this->selaraskanKtp($updated);
     }
 
     public function delete(string $id, string $idPerusahaan, ?string $idKaryawan = null): void
@@ -83,7 +173,7 @@ class DokumenKaryawanService
     private function findOrFail(string $id, string $idPerusahaan, ?string $idKaryawan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null || ($idKaryawan !== null && (string) $record->id_karyawan !== $idKaryawan)) {
+        if ($record === null || $record->id_karyawan === null || ($idKaryawan !== null && (string) $record->id_karyawan !== $idKaryawan)) {
             abort(404, 'Dokumen karyawan tidak ditemukan');
         }
 

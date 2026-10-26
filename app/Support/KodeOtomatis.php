@@ -25,6 +25,7 @@ class KodeOtomatis
         'barang'               => ['prefix' => 'BRG', 'panjang_digit' => 4, 'reset' => 'tidak'],
         'permintaan_pembelian' => ['prefix' => 'PR',  'panjang_digit' => 4, 'reset' => 'bulanan'],
         'purchase_order'       => ['prefix' => 'PO',  'panjang_digit' => 4, 'reset' => 'bulanan'],
+        'nik_supir'            => ['prefix' => 'DRV', 'panjang_digit' => 4, 'reset' => 'tidak'],
     ];
 
     public static function berikutnya(string $idPerusahaan, string $entitas): string

@@ -11,6 +11,8 @@ interface KaryawanRepositoryInterface
     public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $status = null, ?string $search = null): LengthAwarePaginator;
     public function findById(string $id): ?object;
     public function findByNik(string $nik): ?object;
+    public function nikTerpakai(string $nik): bool;
+    public function idJabatanSupirBawaan(string $idPerusahaan): ?string;
     public function create(array $data): object;
     public function update(object $record, array $data): object;
     public function delete(object $record): void;
