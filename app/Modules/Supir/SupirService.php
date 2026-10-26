@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Modules\Supir;
 
 use App\Modules\Armada\Contracts\ArmadaRepositoryInterface;
+use App\Modules\DokumenKaryawan\Contracts\DokumenKaryawanRepositoryInterface;
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
 use App\Modules\Supir\Contracts\SupirRepositoryInterface;
 use Illuminate\Support\Facades\DB;
@@ -13,6 +14,7 @@ class SupirService
         private readonly SupirRepositoryInterface $repo,
         private readonly ArmadaRepositoryInterface $armadaRepo,
         private readonly KaryawanRepositoryInterface $karyawanRepo,
+        private readonly DokumenKaryawanRepositoryInterface $dokumenKaryawanRepo,
     ) {}
 
     /**
@@ -147,7 +149,7 @@ class SupirService
         $this->assertArmadaDefaultRules($data, (string) $data['id_perusahaan']);
         $this->assertKaryawanRules($data, (string) $data['id_perusahaan']);
         $this->assertPenggunaRules($data, (string) $data['id_perusahaan']);
-        return $this->repo->create($data);
+        return $this->repo->create($this->ikutiMasaBerlakuSimDokumen($data, null));
     }
 
     public function update(string $id, array $data, string $idPerusahaan): object
@@ -156,7 +158,22 @@ class SupirService
         $this->assertArmadaDefaultRules($data, $idPerusahaan, $record->id_supir);
         $this->assertKaryawanRules($data, $idPerusahaan, $record->id_supir);
         $this->assertPenggunaRules($data, $idPerusahaan, $record->id_supir);
-        return $this->repo->update($record, $data);
+        return $this->repo->update($record, $this->ikutiMasaBerlakuSimDokumen($data, $record));
+    }
+
+    private function ikutiMasaBerlakuSimDokumen(array $data, ?object $record): array
+    {
+        $idKaryawan = array_key_exists('id_karyawan', $data) ? $data['id_karyawan'] : ($record->id_karyawan ?? null);
+        if (empty($idKaryawan)) {
+            return $data;
+        }
+
+        $maks = $this->dokumenKaryawanRepo->maxBerlakuSimAktif((string) $idKaryawan);
+        if ($maks !== null) {
+            $data['tgl_kadaluarsa_sim'] = substr($maks, 0, 10);
+        }
+
+        return $data;
     }
 
     /**

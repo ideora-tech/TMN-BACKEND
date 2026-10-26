@@ -51,9 +51,9 @@ class DokumenKaryawanService
         return $record;
     }
 
-    public function update(string $id, string $idPerusahaan, array $data, ?UploadedFile $file = null): object
+    public function update(string $id, string $idPerusahaan, array $data, ?UploadedFile $file = null, ?string $idKaryawan = null): object
     {
-        $record = $this->findOrFail($id, $idPerusahaan);
+        $record = $this->findOrFail($id, $idPerusahaan, $idKaryawan);
 
         if ($file) {
             $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
@@ -65,9 +65,9 @@ class DokumenKaryawanService
         return $updated;
     }
 
-    public function delete(string $id, string $idPerusahaan): void
+    public function delete(string $id, string $idPerusahaan, ?string $idKaryawan = null): void
     {
-        $record = $this->findOrFail($id, $idPerusahaan);
+        $record = $this->findOrFail($id, $idPerusahaan, $idKaryawan);
         $this->repo->delete($record);
         $this->sinkronSimSupir((string) $record->id_karyawan);
     }
@@ -80,10 +80,10 @@ class DokumenKaryawanService
         }
     }
 
-    private function findOrFail(string $id, string $idPerusahaan): object
+    private function findOrFail(string $id, string $idPerusahaan, ?string $idKaryawan = null): object
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($idKaryawan !== null && (string) $record->id_karyawan !== $idKaryawan)) {
             abort(404, 'Dokumen karyawan tidak ditemukan');
         }
 

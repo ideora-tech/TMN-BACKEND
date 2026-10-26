@@ -4,6 +4,10 @@ namespace App\Modules\Supir;
 
 use App\Helpers\ApiResponse;
 use App\Http\Middleware\CheckIzinPeran;
+use App\Modules\DokumenKaryawan\DokumenKaryawanService;
+use App\Modules\DokumenKaryawan\Requests\StoreDokumenKaryawanRequest;
+use App\Modules\DokumenKaryawan\Requests\UpdateDokumenKaryawanRequest;
+use App\Modules\DokumenKaryawan\Resources\DokumenKaryawanResource;
 use App\Modules\Supir\Exports\RiwayatArmadaSupirExport;
 use App\Modules\Supir\Requests\StoreSupirRequest;
 use App\Modules\Supir\Requests\UpdateSupirRequest;
@@ -89,6 +93,49 @@ class SupirController extends Controller
     {
         $supir = $this->service->findOrFail($id, (string) $request->user()->id_perusahaan);
         return ApiResponse::success($dokumenSaya->dokumenUntukSupir($supir));
+    }
+
+    public function dokumenKaryawan(Request $request, string $id, DokumenKaryawanService $dokumen): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+
+        return ApiResponse::success(DokumenKaryawanResource::collection(
+            $dokumen->listByKaryawan($this->karyawanSupir($id, $idPerusahaan), $idPerusahaan)
+        ));
+    }
+
+    public function tambahDokumenKaryawan(StoreDokumenKaryawanRequest $request, string $id, DokumenKaryawanService $dokumen): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $dokumen->create($this->karyawanSupir($id, $idPerusahaan), $idPerusahaan, $request->validated(), $request->file('file'));
+
+        return ApiResponse::success(new DokumenKaryawanResource($record), 'Dokumen supir berhasil dibuat', 201);
+    }
+
+    public function ubahDokumenKaryawan(UpdateDokumenKaryawanRequest $request, string $id, string $idDokumen, DokumenKaryawanService $dokumen): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $record = $dokumen->update($idDokumen, $idPerusahaan, $request->validated(), $request->file('file'), $this->karyawanSupir($id, $idPerusahaan));
+
+        return ApiResponse::success(new DokumenKaryawanResource($record), 'Dokumen supir berhasil diperbarui');
+    }
+
+    public function hapusDokumenKaryawan(Request $request, string $id, string $idDokumen, DokumenKaryawanService $dokumen): JsonResponse
+    {
+        $idPerusahaan = (string) $request->user()->id_perusahaan;
+        $dokumen->delete($idDokumen, $idPerusahaan, $this->karyawanSupir($id, $idPerusahaan));
+
+        return ApiResponse::success(null, 'Dokumen supir berhasil dihapus');
+    }
+
+    private function karyawanSupir(string $id, string $idPerusahaan): string
+    {
+        $supir = $this->service->findOrFail($id, $idPerusahaan);
+        if (empty($supir->id_karyawan)) {
+            abort(422, 'Supir belum ditautkan ke data karyawan — tautkan dulu di form supir');
+        }
+
+        return (string) $supir->id_karyawan;
     }
 
     public function dokumenSaya(Request $request, DokumenSupirSayaService $dokumenSaya): JsonResponse
