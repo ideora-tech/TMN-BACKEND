@@ -8,6 +8,7 @@ use App\Modules\DokumenKaryawan\Contracts\DokumenKaryawanRepositoryInterface;
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 
 class DokumenKaryawanService
 {
@@ -40,6 +41,7 @@ class DokumenKaryawanService
     public function create(string $idKaryawan, string $idPerusahaan, array $data, ?UploadedFile $file = null): object
     {
         $this->karyawanOrFail($idKaryawan, $idPerusahaan);
+        $this->pastikanNomorKtp($data, null);
 
         if ($file) {
             $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
@@ -48,7 +50,7 @@ class DokumenKaryawanService
 
         $record = $this->repo->create(array_merge($data, ['id_karyawan' => $idKaryawan]));
         $this->sinkronSimSupir($idKaryawan);
-        return $this->selaraskanKtp($record);
+        return $this->selaraskanKtp($record, $data);
     }
 
     public function listUntukSupir(object $supir): array
@@ -58,6 +60,8 @@ class DokumenKaryawanService
 
     public function createUntukSupir(object $supir, array $data, ?UploadedFile $file = null): object
     {
+        $this->pastikanNomorKtp($data, null);
+
         if ($file) {
             $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
         }
@@ -69,12 +73,13 @@ class DokumenKaryawanService
         ]));
         $this->sinkronSimPemilik($record);
 
-        return $this->selaraskanKtp($record);
+        return $this->selaraskanKtp($record, $data);
     }
 
     public function updateUntukSupir(object $supir, string $id, array $data, ?UploadedFile $file = null): object
     {
         $record = $this->milikSupirOrFail($supir, $id);
+        $this->pastikanNomorKtp($data, $record);
 
         if ($file) {
             $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
@@ -84,7 +89,7 @@ class DokumenKaryawanService
         $updated = $this->repo->update($record, $data);
         $this->sinkronSimPemilik($record);
 
-        return $this->selaraskanKtp($updated);
+        return $this->selaraskanKtp($updated, $data);
     }
 
     public function deleteUntukSupir(object $supir, string $id): void
@@ -94,12 +99,33 @@ class DokumenKaryawanService
         $this->sinkronSimPemilik($record);
     }
 
-    private function selaraskanKtp(object $record): object
+    private function pastikanNomorKtp(array $data, ?object $record): void
     {
-        if ($record->id_karyawan === null || mb_strtoupper(trim((string) $record->jenis_dokumen)) !== 'KTP') {
+        $jenis = (string) ($data['jenis_dokumen'] ?? $record->jenis_dokumen ?? '');
+        if (!$this->jenisKtp($jenis) || !array_key_exists('nomor', $data)) {
+            return;
+        }
+
+        if (mb_strlen(trim((string) ($data['nomor'] ?? ''))) > 20) {
+            throw ValidationException::withMessages(['nomor' => 'Nomor KTP maksimal 20 karakter']);
+        }
+    }
+
+    private function jenisKtp(string $jenis): bool
+    {
+        return mb_strtoupper(trim($jenis)) === 'KTP';
+    }
+
+    private function selaraskanKtp(object $record, array $data): object
+    {
+        if ($record->id_karyawan === null || !$this->jenisKtp((string) $record->jenis_dokumen)) {
             return $record;
         }
 
+        $nomor = array_key_exists('nomor', $data) ? trim((string) ($data['nomor'] ?? '')) : '';
+        if ($nomor !== '') {
+            $this->repo->ubahNikKtpKaryawan((string) $record->id_karyawan, $nomor);
+        }
         $this->repo->selaraskanKtpKaryawan((string) $record->id_karyawan);
 
         return $this->repo->findById((string) $record->id_dokumen_karyawan) ?? $record;
@@ -144,6 +170,7 @@ class DokumenKaryawanService
     public function update(string $id, string $idPerusahaan, array $data, ?UploadedFile $file = null, ?string $idKaryawan = null): object
     {
         $record = $this->findOrFail($id, $idPerusahaan, $idKaryawan);
+        $this->pastikanNomorKtp($data, $record);
 
         if ($file) {
             $data['url_file'] = PenyimpananBerkas::simpan($file, 'dokumen');
@@ -152,7 +179,7 @@ class DokumenKaryawanService
 
         $updated = $this->repo->update($record, $data);
         $this->sinkronSimSupir((string) $record->id_karyawan);
-        return $this->selaraskanKtp($updated);
+        return $this->selaraskanKtp($updated, $data);
     }
 
     public function delete(string $id, string $idPerusahaan, ?string $idKaryawan = null): void

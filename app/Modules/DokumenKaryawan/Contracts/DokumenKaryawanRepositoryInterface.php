@@ -15,6 +15,7 @@ interface DokumenKaryawanRepositoryInterface
     public function sinkronKadaluarsaSimSatuSupir(string $idSupir, string $tanggal): void;
     public function pindahkanDokumenSupirKeKaryawan(string $idSupir, string $idKaryawan): void;
     public function selaraskanKtpKaryawan(string $idKaryawan): void;
+    public function ubahNikKtpKaryawan(string $idKaryawan, string $nikKtp): void;
     public function nomorKtpTerbaru(string $idSupir, ?string $idKaryawan): ?string;
     public function findById(string $id): ?object;
     public function create(array $data): object;

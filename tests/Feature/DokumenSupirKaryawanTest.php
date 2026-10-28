@@ -196,7 +196,7 @@ class DokumenSupirKaryawanTest extends TestCase
         DB::table('karyawan')->where('id_karyawan', $denganNik)->update(['nik_ktp' => $nik]);
         $idSupir = $this->supir($denganNik);
 
-        $idKtp = $this->postJson("/api/supir/{$idSupir}/dokumen-karyawan", ['jenis_dokumen' => 'KTP', 'nomor' => 'SALAH-KETIK'])
+        $idKtp = $this->postJson("/api/supir/{$idSupir}/dokumen-karyawan", ['jenis_dokumen' => 'KTP'])
             ->assertStatus(201)->assertJsonPath('data.nomor', $nik)->json('data.id_dokumen_karyawan');
         $this->getJson("/api/supir/{$idSupir}")->assertStatus(200)
             ->assertJsonPath('data.no_ktp', $nik)
@@ -246,6 +246,38 @@ class DokumenSupirKaryawanTest extends TestCase
         $this->assertSame('3201000000000999', DB::table('karyawan')->where('id_karyawan', $idKaryawan)->value('nik_ktp'));
 
         $this->putJson("/api/supir/{$idSupir}", ['no_ktp' => str_repeat('1', 21)])->assertStatus(422);
+    }
+
+    public function test_ubah_nomor_dokumen_ktp_ikut_mengubah_nik_ktp_karyawan(): void
+    {
+        $this->actingAsRole(self::PERAN);
+        $this->izinMenu('/supir', ['lihat', 'tambah', 'ubah']);
+        $idKaryawan = $this->karyawan();
+        DB::table('karyawan')->where('id_karyawan', $idKaryawan)->update(['nik_ktp' => '3201000000000001']);
+        $idSupir = $this->supir($idKaryawan);
+        $ktpLama = $this->dokumen($idKaryawan);
+        DB::table('dokumen_karyawan')->where('id_dokumen_karyawan', $ktpLama)->update(['nomor' => '3201000000000001']);
+        $sim = $this->postJson("/api/supir/{$idSupir}/dokumen-karyawan", ['jenis_dokumen' => 'SIM', 'nomor' => 'SIM-777'])
+            ->assertStatus(201)->json('data.id_dokumen_karyawan');
+        $ktp = $this->postJson("/api/supir/{$idSupir}/dokumen-karyawan", ['jenis_dokumen' => 'KTP', 'nomor' => '3201000000000001'])
+            ->assertStatus(201)->json('data.id_dokumen_karyawan');
+
+        $this->putJson("/api/supir/{$idSupir}/dokumen-karyawan/{$ktp}", ['jenis_dokumen' => 'KTP', 'nomor' => '3202172006720001'])
+            ->assertStatus(200)->assertJsonPath('data.nomor', '3202172006720001');
+
+        $this->assertSame('3202172006720001', DB::table('karyawan')->where('id_karyawan', $idKaryawan)->value('nik_ktp'));
+        $this->assertSame('3202172006720001', DB::table('dokumen_karyawan')->where('id_dokumen_karyawan', $ktpLama)->value('nomor'));
+        $this->assertSame('SIM-777', DB::table('dokumen_karyawan')->where('id_dokumen_karyawan', $sim)->value('nomor'));
+        $this->getJson("/api/supir/{$idSupir}")->assertJsonPath('data.no_ktp', '3202172006720001');
+
+        $this->putJson("/api/supir/{$idSupir}/dokumen-karyawan/{$ktp}", ['jenis_dokumen' => 'KTP', 'berlaku_sampai' => '2100-06-20'])->assertStatus(200);
+        $this->putJson("/api/supir/{$idSupir}/dokumen-karyawan/{$ktp}", ['jenis_dokumen' => 'KTP', 'nomor' => ''])
+            ->assertStatus(200)->assertJsonPath('data.nomor', '3202172006720001');
+        $this->assertSame('3202172006720001', DB::table('karyawan')->where('id_karyawan', $idKaryawan)->value('nik_ktp'));
+
+        $this->putJson("/api/supir/{$idSupir}/dokumen-karyawan/{$ktp}", ['jenis_dokumen' => 'KTP', 'nomor' => str_repeat('3', 21)])
+            ->assertStatus(422)->assertJsonValidationErrors('nomor');
+        $this->assertSame('3202172006720001', DB::table('karyawan')->where('id_karyawan', $idKaryawan)->value('nik_ktp'));
     }
 
     public function test_no_ktp_supir_tanpa_karyawan_ditolak_tanpa_mengubah_data(): void

@@ -122,6 +122,14 @@ class DokumenKaryawanRepository implements DokumenKaryawanRepositoryInterface
         }
     }
 
+    public function ubahNikKtpKaryawan(string $idKaryawan, string $nikKtp): void
+    {
+        DB::table('karyawan')
+            ->where('id_karyawan', $idKaryawan)
+            ->where(fn ($q) => $q->whereNull('nik_ktp')->orWhere('nik_ktp', '!=', $nikKtp))
+            ->update(RecordHelper::stampUpdate(['nik_ktp' => $nikKtp]));
+    }
+
     public function nomorKtpTerbaru(string $idSupir, ?string $idKaryawan): ?string
     {
         $nomor = DB::table('dokumen_karyawan')
