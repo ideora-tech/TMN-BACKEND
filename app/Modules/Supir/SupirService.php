@@ -194,15 +194,37 @@ class SupirService
         $this->assertKaryawanRules($data, $idPerusahaan, $record->id_supir);
         $this->assertPenggunaRules($data, $idPerusahaan, $record->id_supir);
 
-        return DB::transaction(function () use ($record, $data) {
+        $noKtp = array_key_exists('no_ktp', $data) ? trim((string) ($data['no_ktp'] ?? '')) : '';
+        unset($data['no_ktp']);
+
+        DB::transaction(function () use ($record, $data, $noKtp) {
             $idKaryawanBaru = array_key_exists('id_karyawan', $data) ? $data['id_karyawan'] : null;
             if (!empty($idKaryawanBaru) && (string) $idKaryawanBaru !== (string) ($record->id_karyawan ?? '')) {
                 $this->dokumenKaryawanRepo->pindahkanDokumenSupirKeKaryawan((string) $record->id_supir, (string) $idKaryawanBaru);
                 $this->dokumenKaryawanRepo->selaraskanKtpKaryawan((string) $idKaryawanBaru);
             }
 
-            return $this->repo->update($record, $this->ikutiMasaBerlakuSimDokumen($this->rapikanJenisSim($data, $record), $record));
+            $updated = $this->repo->update($record, $this->ikutiMasaBerlakuSimDokumen($this->rapikanJenisSim($data, $record), $record));
+
+            if ($noKtp !== '') {
+                $this->ubahNoKtpKaryawan($updated, $noKtp);
+            }
         });
+
+        return $this->detail($id, $idPerusahaan);
+    }
+
+    private function ubahNoKtpKaryawan(object $supir, string $noKtp): void
+    {
+        $karyawan = !empty($supir->id_karyawan) ? $this->karyawanRepo->findById((string) $supir->id_karyawan) : null;
+        if ($karyawan === null) {
+            throw ValidationException::withMessages(['no_ktp' => 'Tautkan supir ke karyawan dulu untuk mengisi No KTP']);
+        }
+
+        if (trim((string) ($karyawan->nik_ktp ?? '')) !== $noKtp) {
+            $this->karyawanRepo->update($karyawan, ['nik_ktp' => $noKtp]);
+        }
+        $this->dokumenKaryawanRepo->selaraskanKtpKaryawan((string) $karyawan->id_karyawan);
     }
 
     private function rapikanJenisSim(array $data, ?object $record): array

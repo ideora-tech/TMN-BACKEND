@@ -107,7 +107,7 @@ class SupirKaryawanOtomatisTest extends TestCase
         DB::table('supir')->insert([
             'id_supir' => $id, 'id_perusahaan' => self::PERUSAHAAN_ID, 'id_karyawan' => $idKaryawan,
             'nama' => $nama, 'telepon' => '0813' . random_int(1000, 9999), 'status' => $status,
-            'dibuat_pada' => now(), 'dihapus_pada' => $dihapus ? now() : null,
+            'dibuat_pada' => now()->addSeconds(DB::table('supir')->count()), 'dihapus_pada' => $dihapus ? now() : null,
         ]);
 
         return $id;

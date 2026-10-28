@@ -24,6 +24,7 @@ class UpdateSupirRequest extends FormRequest
             'id_pengguna'         => ['sometimes', 'nullable', 'string', 'max:36'],
             'id_karyawan'         => ['sometimes', 'nullable', 'string', 'max:36'],
             'id_armada_default'   => ['sometimes', 'nullable', 'string', 'max:36'],
+            'no_ktp'              => ['sometimes', 'nullable', 'string', 'max:20'],
         ];
     }
 }

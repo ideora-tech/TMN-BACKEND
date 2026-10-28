@@ -225,6 +225,40 @@ class DokumenSupirKaryawanTest extends TestCase
         $this->getJson("/api/supir/{$idSupir}")->assertStatus(200)->assertJsonPath('data.nik_ktp_karyawan', '3201999988887777');
     }
 
+    public function test_ubah_no_ktp_di_supir_ikut_mengubah_karyawan_dan_dokumen_ktp(): void
+    {
+        $this->actingAsRole(self::PERAN);
+        $this->izinMenu('/supir', ['lihat', 'ubah']);
+        $idKaryawan = $this->karyawan();
+        DB::table('karyawan')->where('id_karyawan', $idKaryawan)->update(['nik_ktp' => '3201000000000001']);
+        $idSupir = $this->supir($idKaryawan);
+        $idKtp = $this->dokumen($idKaryawan);
+
+        $this->putJson("/api/supir/{$idSupir}", ['no_ktp' => ' 3201000000000999 '])->assertStatus(200)
+            ->assertJsonPath('data.no_ktp', '3201000000000999')
+            ->assertJsonPath('data.nik_ktp_karyawan', '3201000000000999');
+
+        $this->assertSame('3201000000000999', DB::table('karyawan')->where('id_karyawan', $idKaryawan)->value('nik_ktp'));
+        $this->assertSame('3201000000000999', DB::table('dokumen_karyawan')->where('id_dokumen_karyawan', $idKtp)->value('nomor'));
+
+        $this->putJson("/api/supir/{$idSupir}", ['nama' => 'Angga A', 'no_ktp' => ''])->assertStatus(200)
+            ->assertJsonPath('data.no_ktp', '3201000000000999');
+        $this->assertSame('3201000000000999', DB::table('karyawan')->where('id_karyawan', $idKaryawan)->value('nik_ktp'));
+
+        $this->putJson("/api/supir/{$idSupir}", ['no_ktp' => str_repeat('1', 21)])->assertStatus(422);
+    }
+
+    public function test_no_ktp_supir_tanpa_karyawan_ditolak_tanpa_mengubah_data(): void
+    {
+        $this->actingAsRole('SUPERADMIN');
+        $idSupir = $this->supir(null);
+
+        $this->putJson("/api/supir/{$idSupir}", ['nama' => 'Nama Baru', 'no_ktp' => '3201000000000002'])
+            ->assertStatus(422)->assertJsonValidationErrors('no_ktp');
+
+        $this->assertSame('Angga Alfiana', DB::table('supir')->where('id_supir', $idSupir)->value('nama'));
+    }
+
     public function test_izin_mengikuti_aksi_di_menu_supir(): void
     {
         $this->izinMenu('/supir', ['lihat']);
