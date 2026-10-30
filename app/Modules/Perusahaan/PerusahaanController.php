@@ -20,7 +20,8 @@ class PerusahaanController extends Controller
     {
         $result = $this->service->list(
             (int) $request->get('page', 1),
-            (int) $request->get('limit', 10)
+            (int) $request->get('limit', 10),
+            $this->batasPerusahaan($request),
         );
 
         return ApiResponse::paginated(
@@ -29,9 +30,9 @@ class PerusahaanController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new PerusahaanResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new PerusahaanResource($this->service->findOrFail($id, $this->batasPerusahaan($request))));
     }
 
     public function store(StorePerusahaanRequest $request): JsonResponse
@@ -42,7 +43,7 @@ class PerusahaanController extends Controller
 
     public function update(UpdatePerusahaanRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $record = $this->service->update($id, $request->validated(), $this->batasPerusahaan($request));
         return ApiResponse::success(new PerusahaanResource($record), 'Perusahaan berhasil diperbarui');
     }
 
@@ -50,5 +51,10 @@ class PerusahaanController extends Controller
     {
         $this->service->delete($id);
         return ApiResponse::success(null, 'Perusahaan berhasil dihapus');
+    }
+
+    private function batasPerusahaan(Request $request): ?string
+    {
+        return $request->user()->kode_peran === 'SUPERADMIN' ? null : (string) $request->user()->id_perusahaan;
     }
 }

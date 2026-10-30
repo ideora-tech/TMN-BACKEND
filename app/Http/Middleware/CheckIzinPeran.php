@@ -14,9 +14,9 @@ class CheckIzinPeran
 {
     private const AKSI = ['GET' => 'lihat', 'POST' => 'tambah', 'PUT' => 'ubah', 'PATCH' => 'ubah', 'DELETE' => 'hapus'];
 
-    public function handle(Request $request, Closure $next, string $menuKey): Response
+    public function handle(Request $request, Closure $next, string $menuKey, ?string $aksiTetap = null): Response
     {
-        $aksi = self::AKSI[$request->method()] ?? 'lihat';
+        $aksi = $aksiTetap ?? self::AKSI[$request->method()] ?? 'lihat';
 
         if (!self::diizinkan($request->user(), $menuKey, $aksi)) {
             return ApiResponse::error('Anda tidak memiliki izin untuk aksi ini', null, 403);

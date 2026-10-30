@@ -19,7 +19,7 @@ class PengaturanKodeServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN,ADMIN'])
+            ->middleware(['api', 'auth:sanctum', 'izin:format-kode'])
             ->group(function () {
                 Route::get('pengaturan-kode', [PengaturanKodeController::class, 'index']);
                 Route::put('pengaturan-kode/{entitas}', [PengaturanKodeController::class, 'update']);

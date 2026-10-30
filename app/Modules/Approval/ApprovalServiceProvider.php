@@ -24,7 +24,7 @@ class ApprovalServiceProvider extends ServiceProvider
         Route::prefix('api')
             ->middleware(['api', 'auth:sanctum'])
             ->group(function () {
-                Route::middleware('role:SUPERADMIN,ADMIN')->group(function () {
+                Route::middleware('izin:konfigurasi-approval')->group(function () {
                     Route::get('approval-event-type', [ApprovalController::class, 'indexEventType']);
                     Route::post('approval-event-type', [ApprovalController::class, 'storeEventType']);
                     Route::put('approval-event-type/{id}', [ApprovalController::class, 'updateEventType']);

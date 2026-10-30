@@ -19,11 +19,11 @@ class IzinPeranServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN'])
+            ->middleware(['api', 'auth:sanctum'])
             ->group(function () {
-                Route::get('izin-peran', [IzinPeranController::class, 'index']);
-                Route::post('izin-peran/bulk', [IzinPeranController::class, 'bulk']);
-                Route::put('izin-peran/{id}', [IzinPeranController::class, 'update']);
+                Route::get('izin-peran', [IzinPeranController::class, 'index'])->middleware('izin:peran');
+                Route::post('izin-peran/bulk', [IzinPeranController::class, 'bulk'])->middleware('izin:peran,ubah');
+                Route::put('izin-peran/{id}', [IzinPeranController::class, 'update'])->middleware('izin:peran');
             });
     }
 }

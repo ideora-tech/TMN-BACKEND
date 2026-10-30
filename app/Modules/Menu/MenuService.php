@@ -52,13 +52,26 @@ class MenuService
         return $this->repo->create($data);
     }
 
-    public function update(string $id, array $data): MenuModel
+    public function update(string $id, array $data, bool $superadmin = true): MenuModel
     {
         $record = $this->findOrFail($id);
+        if (!$superadmin) {
+            $this->pastikanStrukturTetap($record, $data);
+        }
         if (array_key_exists('id_menu_induk', $data) && $data['id_menu_induk'] !== null) {
             $this->guardIndukGrup($data['id_menu_induk']);
         }
         return $this->repo->update($record, $data);
+    }
+
+    private function pastikanStrukturTetap(MenuModel $record, array $data): void
+    {
+        $berubah = fn (string $kolom) => array_key_exists($kolom, $data)
+            && (($data[$kolom] ?? '') === '' ? null : (string) $data[$kolom]) !== (($record->{$kolom} ?? '') === '' ? null : (string) $record->{$kolom});
+
+        if ($berubah('path') || $berubah('id_menu_induk')) {
+            abort(403, 'Path dan menu induk hanya bisa diubah oleh Superadmin');
+        }
     }
 
     private function guardIndukGrup(string $idInduk): void

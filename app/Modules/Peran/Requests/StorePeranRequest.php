@@ -16,7 +16,7 @@ class StorePeranRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_peran'  => ['required', 'string', 'max:50'],
+            'kode_peran'  => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/'],
             'nama_peran'  => ['required', 'string', 'max:100'],
             'is_platform' => ['sometimes', 'boolean'],
             'aktif'       => ['sometimes', 'boolean'],

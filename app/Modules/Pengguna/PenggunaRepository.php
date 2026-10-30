@@ -40,6 +40,25 @@ class PenggunaRepository implements PenggunaRepositoryInterface
         return Pengguna::active()->where('email', $email)->first();
     }
 
+    public function kodePeranTersedia(string $kodePeran, string $idPerusahaan): bool
+    {
+        return DB::table('peran')
+            ->whereNull('dihapus_pada')
+            ->where('kode_peran', $kodePeran)
+            ->where(fn ($q) => $q->where('id_perusahaan', $idPerusahaan)->orWhere('is_platform', 1))
+            ->pluck('kode_peran')
+            ->contains(fn ($kode) => (string) $kode === $kodePeran);
+    }
+
+    public function karyawanMilikPerusahaan(string $idKaryawan, string $idPerusahaan): bool
+    {
+        return DB::table('karyawan')
+            ->whereNull('dihapus_pada')
+            ->where('id_karyawan', $idKaryawan)
+            ->where('id_perusahaan', $idPerusahaan)
+            ->exists();
+    }
+
     public function create(array $data): Pengguna
     {
         return Pengguna::create($data);

@@ -48,8 +48,11 @@ class PenggunaService
         return $record;
     }
 
-    public function create(array $data): Pengguna
+    public function create(array $data, ?string $kodePeranPelaku = null): Pengguna
     {
+        $this->pastikanBolehKelola($kodePeranPelaku, $data['kode_peran'] ?? null);
+        $this->pastikanPeranTersedia($kodePeranPelaku, $data['kode_peran'] ?? null, (string) $data['id_perusahaan']);
+
         if ($this->repo->findByUsername($data['username'])) {
             abort(409, 'Username sudah digunakan');
         }
@@ -63,6 +66,7 @@ class PenggunaService
         if (in_array($data['kode_peran'] ?? null, ['SUPIR', 'SUPIR_VENDOR'], true)) {
             $data['id_karyawan'] = null;
         }
+        $this->pastikanKaryawanMilikPerusahaan($data['id_karyawan'] ?? null, (string) $data['id_perusahaan']);
 
         $tautan = $this->ambilTautan($data);
 
@@ -73,9 +77,13 @@ class PenggunaService
         });
     }
 
-    public function update(string $id, array $data, ?string $idPerusahaan = null): Pengguna
+    public function update(string $id, array $data, ?string $idPerusahaan = null, ?string $kodePeranPelaku = null): Pengguna
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+        $this->pastikanBolehKelola($kodePeranPelaku, $record->kode_peran, $data['kode_peran'] ?? null);
+        if (array_key_exists('kode_peran', $data) && $data['kode_peran'] !== $record->kode_peran) {
+            $this->pastikanPeranTersedia($kodePeranPelaku, $data['kode_peran'], (string) $record->id_perusahaan);
+        }
 
         // Check username uniqueness if being changed
         if (isset($data['username']) && $data['username'] !== $record->username) {
@@ -104,6 +112,9 @@ class PenggunaService
         if (in_array($kodePeran, ['SUPIR', 'SUPIR_VENDOR'], true)) {
             $data['id_karyawan'] = null;
         }
+        if (array_key_exists('id_karyawan', $data) && $data['id_karyawan'] !== $record->id_karyawan) {
+            $this->pastikanKaryawanMilikPerusahaan($data['id_karyawan'], (string) $record->id_perusahaan);
+        }
 
         $tautan = $this->ambilTautan($data);
 
@@ -112,6 +123,37 @@ class PenggunaService
             $this->terapkanTautan($hasil, $tautan);
             return $hasil;
         });
+    }
+
+    private function pastikanBolehKelola(?string $kodePeranPelaku, ?string ...$kodePeranSasaran): void
+    {
+        if ($kodePeranPelaku === null || strtoupper($kodePeranPelaku) === 'SUPERADMIN') {
+            return;
+        }
+
+        foreach ($kodePeranSasaran as $kode) {
+            if ($kode !== null && strtoupper(trim($kode)) === 'SUPERADMIN') {
+                abort(403, 'Akun Superadmin hanya bisa dikelola oleh Superadmin');
+            }
+        }
+    }
+
+    private function pastikanPeranTersedia(?string $kodePeranPelaku, ?string $kodePeran, string $idPerusahaan): void
+    {
+        if ($kodePeranPelaku === null || $kodePeranPelaku === 'SUPERADMIN' || $kodePeran === null) {
+            return;
+        }
+
+        if (!$this->repo->kodePeranTersedia($kodePeran, $idPerusahaan)) {
+            abort(422, 'Peran tidak ditemukan');
+        }
+    }
+
+    private function pastikanKaryawanMilikPerusahaan(?string $idKaryawan, string $idPerusahaan): void
+    {
+        if ($idKaryawan !== null && $idKaryawan !== '' && !$this->repo->karyawanMilikPerusahaan($idKaryawan, $idPerusahaan)) {
+            abort(422, 'Karyawan tidak ditemukan');
+        }
     }
 
     private function ambilTautan(array &$data): array
@@ -176,9 +218,10 @@ class PenggunaService
         }
     }
 
-    public function delete(string $id, ?string $idPerusahaan = null): void
+    public function delete(string $id, ?string $idPerusahaan = null, ?string $kodePeranPelaku = null): void
     {
         $record = $this->findOrFail($id, $idPerusahaan);
+        $this->pastikanBolehKelola($kodePeranPelaku, $record->kode_peran);
 
         if ($this->repo->terdaftarSebagaiApprover($id)) {
             abort(422, 'Pengguna masih terdaftar sebagai approver di konfigurasi approval — ganti dulu approver-nya');
@@ -191,9 +234,10 @@ class PenggunaService
         $this->repo->delete($record);
     }
 
-    public function changePassword(string $id, string $oldPassword, string $newPassword): void
+    public function changePassword(string $id, string $oldPassword, string $newPassword, ?string $idPerusahaan = null, ?string $kodePeranPelaku = null): void
     {
-        $pengguna = $this->findOrFail($id);
+        $pengguna = $this->findOrFail($id, $idPerusahaan);
+        $this->pastikanBolehKelola($kodePeranPelaku, $pengguna->kode_peran);
         if (!Hash::check($oldPassword, $pengguna->kata_sandi)) {
             abort(422, 'Password lama tidak sesuai');
         }

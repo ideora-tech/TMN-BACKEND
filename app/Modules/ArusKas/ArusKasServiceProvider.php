@@ -52,11 +52,13 @@ class ArusKasServiceProvider extends ServiceProvider
                 Route::middleware('role:SUPERADMIN,MANAGER')->group(function () {
                     Route::patch('arus-kas/pengajuan/{id}/tolak', [ArusKasController::class, 'tolakPengajuan']);
                 });
+            });
 
-                Route::middleware('role:SUPERADMIN,ADMIN')->group(function () {
-                    Route::get('arus-kas/pengaturan-approval', [ArusKasController::class, 'showPengaturanApproval']);
-                    Route::put('arus-kas/pengaturan-approval', [ArusKasController::class, 'updatePengaturanApproval']);
-                });
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:konfigurasi-approval'])
+            ->group(function () {
+                Route::get('arus-kas/pengaturan-approval', [ArusKasController::class, 'showPengaturanApproval']);
+                Route::put('arus-kas/pengaturan-approval', [ArusKasController::class, 'updatePengaturanApproval']);
             });
     }
 }

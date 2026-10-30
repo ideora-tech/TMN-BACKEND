@@ -16,7 +16,7 @@ class BulkSetIzinPeranRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'kode_peran'              => ['required', 'string', 'max:50'],
+            'kode_peran'              => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9_-]+$/'],
             'permissions'             => ['required', 'array', 'min:1'],
             'permissions.*.id_menu'   => ['required', 'string', 'max:36', 'exists:menu,id_menu,dihapus_pada,NULL'],
             'permissions.*.aksi'      => ['required', 'string', 'max:50'],

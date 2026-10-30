@@ -44,7 +44,8 @@ class IzinPeranController extends Controller
         $this->service->bulkSet(
             $idPerusahaan,
             $validated['kode_peran'],
-            $validated['permissions']
+            $validated['permissions'],
+            $request->user()->kode_peran,
         );
 
         return ApiResponse::success(null, 'Izin peran berhasil diperbarui');
@@ -56,7 +57,8 @@ class IzinPeranController extends Controller
      */
     public function update(UpdateIzinPeranRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $batas = $request->user()->kode_peran === 'SUPERADMIN' ? null : (string) $request->user()->id_perusahaan;
+        $record = $this->service->update($id, $request->validated(), $batas);
         return ApiResponse::success(new IzinPeranResource($record), 'Izin peran berhasil diperbarui');
     }
 }

@@ -29,8 +29,12 @@ class IzinPeranService
      *
      * @param array<int, array{id_menu: string, aksi: string, diizinkan: int}> $permissions
      */
-    public function bulkSet(string $idPerusahaan, string $kodePeran, array $permissions): void
+    public function bulkSet(string $idPerusahaan, string $kodePeran, array $permissions, ?string $kodePeranPelaku = null): void
     {
+        if ($kodePeranPelaku !== null && $kodePeranPelaku !== 'SUPERADMIN' && strtoupper(trim($kodePeran)) === 'SUPERADMIN') {
+            abort(403, 'Izin Superadmin tidak bisa diatur');
+        }
+
         foreach ($permissions as $perm) {
             $this->repo->upsert(
                 $idPerusahaan,
@@ -42,9 +46,17 @@ class IzinPeranService
         }
     }
 
-    public function update(string $id, array $data): IzinPeranModel
+    public function update(string $id, array $data, ?string $batasPerusahaan = null): IzinPeranModel
     {
         $record = $this->findOrFail($id);
+        if ($batasPerusahaan !== null) {
+            if ((string) $record->id_perusahaan !== $batasPerusahaan) {
+                abort(404, 'Izin peran tidak ditemukan');
+            }
+            if (strtoupper((string) $record->kode_peran) === 'SUPERADMIN') {
+                abort(403, 'Izin Superadmin tidak bisa diatur');
+            }
+        }
         return $this->repo->update($record, $data);
     }
 }

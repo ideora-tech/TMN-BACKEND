@@ -14,9 +14,9 @@ class PerusahaanService
         private readonly KomponenUangJalanService $komponenUangJalanService,
     ) {}
 
-    public function list(int $page = 1, int $limit = 10): array
+    public function list(int $page = 1, int $limit = 10, ?string $hanyaPerusahaan = null): array
     {
-        $result = $this->repo->paginate($page, $limit);
+        $result = $this->repo->paginate($page, $limit, $hanyaPerusahaan);
         return [
             'data' => $result->items(),
             'meta' => [
@@ -28,10 +28,10 @@ class PerusahaanService
         ];
     }
 
-    public function findOrFail(string $id): PerusahaanModel
+    public function findOrFail(string $id, ?string $hanyaPerusahaan = null): PerusahaanModel
     {
         $record = $this->repo->findById($id);
-        if ($record === null) {
+        if ($record === null || ($hanyaPerusahaan !== null && (string) $record->id_perusahaan !== $hanyaPerusahaan)) {
             abort(404, 'Perusahaan tidak ditemukan');
         }
         return $record;
@@ -45,9 +45,12 @@ class PerusahaanService
         return $record;
     }
 
-    public function update(string $id, array $data): PerusahaanModel
+    public function update(string $id, array $data, ?string $hanyaPerusahaan = null): PerusahaanModel
     {
-        $record = $this->findOrFail($id);
+        $record = $this->findOrFail($id, $hanyaPerusahaan);
+        if ($hanyaPerusahaan !== null) {
+            unset($data['aktif']);
+        }
         return $this->repo->update($record, $data);
     }
 

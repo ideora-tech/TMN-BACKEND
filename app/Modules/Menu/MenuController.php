@@ -55,7 +55,7 @@ class MenuController extends Controller
 
     public function update(UpdateMenuRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $record = $this->service->update($id, $request->validated(), $request->user()->kode_peran === 'SUPERADMIN');
         return ApiResponse::success(new MenuResource($record), 'Menu berhasil diperbarui');
     }
 

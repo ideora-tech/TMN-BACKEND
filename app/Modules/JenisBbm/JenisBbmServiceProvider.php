@@ -19,6 +19,14 @@ class JenisBbmServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:jenis-bbm|parameter-bok'])
+            ->group(function () {
+                Route::apiResource('jenis-bbm', JenisBbmController::class)
+                    ->only(['index'])
+                    ->parameters(['jenis-bbm' => 'id']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'izin:jenis-bbm'])
             ->group(function () {
                 // Route riwayat harga sebelum apiResource agar tidak tertimpa route show/destroy.
@@ -26,6 +34,7 @@ class JenisBbmServiceProvider extends ServiceProvider
                 Route::post('jenis-bbm/{id}/harga', [JenisBbmController::class, 'tambahHarga']);
 
                 Route::apiResource('jenis-bbm', JenisBbmController::class)
+                    ->except(['index'])
                     ->parameters(['jenis-bbm' => 'id']);
             });
     }

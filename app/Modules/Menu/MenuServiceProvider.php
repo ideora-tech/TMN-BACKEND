@@ -25,9 +25,26 @@ class MenuServiceProvider extends ServiceProvider
             });
 
         Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:menu-admin|peran'])
+            ->group(function () {
+                Route::apiResource('menu', MenuController::class)
+                    ->only(['index', 'show'])
+                    ->parameters(['menu' => 'id']);
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:menu-admin'])
+            ->group(function () {
+                Route::apiResource('menu', MenuController::class)
+                    ->only(['update'])
+                    ->parameters(['menu' => 'id']);
+            });
+
+        Route::prefix('api')
             ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN'])
             ->group(function () {
                 Route::apiResource('menu', MenuController::class)
+                    ->only(['store', 'destroy'])
                     ->parameters(['menu' => 'id']);
             });
     }

@@ -22,7 +22,7 @@ class JenisKendaraanServiceProvider extends ServiceProvider
         // penawaran, vendor) — cukup punya izin salah satu modul itu. Tulis tetap
         // terkunci ke izin master Jenis Kendaraan.
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:jenis-kendaraan|perawatan-armada|armada|penawaran|vendor'])
+            ->middleware(['api', 'auth:sanctum', 'izin:jenis-kendaraan|perawatan-armada|armada|penawaran|vendor|parameter-bok'])
             ->group(function () {
                 Route::get('jenis-kendaraan', [JenisKendaraanController::class, 'index']);
                 Route::get('jenis-kendaraan/{id}', [JenisKendaraanController::class, 'show']);

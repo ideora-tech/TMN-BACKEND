@@ -25,7 +25,8 @@ class PeranController extends Controller
             (int) $request->get('page', 1),
             (int) $request->get('limit', 10),
             $request->get('search'),
-            $request->get('aktif')
+            $request->get('aktif'),
+            $this->batasPerusahaan($request) === null,
         );
 
         return ApiResponse::paginated(
@@ -34,9 +35,9 @@ class PeranController extends Controller
         );
     }
 
-    public function show(string $id): JsonResponse
+    public function show(Request $request, string $id): JsonResponse
     {
-        return ApiResponse::success(new PeranResource($this->service->findOrFail($id)));
+        return ApiResponse::success(new PeranResource($this->service->findOrFail($id, $this->batasPerusahaan($request))));
     }
 
     public function store(StorePeranRequest $request): JsonResponse
@@ -46,19 +47,24 @@ class PeranController extends Controller
             ['id_perusahaan' => (string) $request->user()->id_perusahaan]
         );
 
-        $record = $this->service->create($data);
+        $record = $this->service->create($data, $this->batasPerusahaan($request));
         return ApiResponse::success(new PeranResource($record), 'Peran berhasil dibuat', 201);
     }
 
     public function update(UpdatePeranRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated());
+        $record = $this->service->update($id, $request->validated(), $this->batasPerusahaan($request));
         return ApiResponse::success(new PeranResource($record), 'Peran berhasil diperbarui');
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id);
+        $this->service->delete($id, $this->batasPerusahaan($request));
         return ApiResponse::success(null, 'Peran berhasil dihapus');
+    }
+
+    private function batasPerusahaan(Request $request): ?string
+    {
+        return $request->user()->kode_peran === 'SUPERADMIN' ? null : (string) $request->user()->id_perusahaan;
     }
 }

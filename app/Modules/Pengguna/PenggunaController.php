@@ -54,19 +54,19 @@ class PenggunaController extends Controller
             ['id_perusahaan' => (string) $request->user()->id_perusahaan]
         );
 
-        $record = $this->service->create($data);
+        $record = $this->service->create($data, $request->user()->kode_peran);
         return ApiResponse::success(new PenggunaResource($record), 'Pengguna berhasil dibuat', 201);
     }
 
     public function update(UpdatePenggunaRequest $request, string $id): JsonResponse
     {
-        $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan);
+        $record = $this->service->update($id, $request->validated(), (string) $request->user()->id_perusahaan, $request->user()->kode_peran);
         return ApiResponse::success(new PenggunaResource($record), 'Pengguna berhasil diperbarui');
     }
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->service->delete($id, (string) $request->user()->id_perusahaan);
+        $this->service->delete($id, (string) $request->user()->id_perusahaan, $request->user()->kode_peran);
         return ApiResponse::success(null, 'Pengguna berhasil dihapus');
     }
 
@@ -76,7 +76,9 @@ class PenggunaController extends Controller
         $this->service->changePassword(
             $id,
             $validated['password_lama'],
-            $validated['password_baru']
+            $validated['password_baru'],
+            (string) $request->user()->id_perusahaan,
+            $request->user()->kode_peran,
         );
         return ApiResponse::success(null, 'Password berhasil diubah');
     }

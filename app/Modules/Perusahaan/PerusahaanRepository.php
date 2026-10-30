@@ -9,9 +9,11 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class PerusahaanRepository implements PerusahaanRepositoryInterface
 {
-    public function paginate(int $page, int $limit): LengthAwarePaginator
+    public function paginate(int $page, int $limit, ?string $hanyaPerusahaan = null): LengthAwarePaginator
     {
-        return PerusahaanModel::active()->paginate($limit, ['*'], 'page', $page);
+        return PerusahaanModel::active()
+            ->when($hanyaPerusahaan !== null, fn ($q) => $q->where('id_perusahaan', $hanyaPerusahaan))
+            ->paginate($limit, ['*'], 'page', $page);
     }
 
     public function findById(string $id): ?PerusahaanModel

@@ -13,6 +13,8 @@ interface PenggunaRepositoryInterface
     public function findById(string $id): ?Pengguna;
     public function findByUsername(string $username): ?Pengguna;
     public function findByEmail(string $email): ?Pengguna;
+    public function kodePeranTersedia(string $kodePeran, string $idPerusahaan): bool;
+    public function karyawanMilikPerusahaan(string $idKaryawan, string $idPerusahaan): bool;
     public function create(array $data): Pengguna;
     public function update(Pengguna $model, array $data): Pengguna;
     public function delete(Pengguna $model): void;

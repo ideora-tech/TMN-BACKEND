@@ -28,7 +28,7 @@ class JabatanServiceProvider extends ServiceProvider
             });
 
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'izin:jabatan|karyawan'])
+            ->middleware(['api', 'auth:sanctum', 'izin:jabatan|karyawan|konfigurasi-approval'])
             ->group(function () {
                 Route::apiResource('jabatan', JabatanController::class)
                     ->only(['index', 'show'])

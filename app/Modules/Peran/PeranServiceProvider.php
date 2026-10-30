@@ -19,9 +19,16 @@ class PeranServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::prefix('api')
-            ->middleware(['api', 'auth:sanctum', 'role:SUPERADMIN'])
+            ->middleware(['api', 'auth:sanctum', 'izin:peran|pengguna|jabatan'])
+            ->group(function () {
+                Route::get('peran', [PeranController::class, 'index'])->name('peran.index');
+            });
+
+        Route::prefix('api')
+            ->middleware(['api', 'auth:sanctum', 'izin:peran'])
             ->group(function () {
                 Route::apiResource('peran', PeranController::class)
+                    ->except(['index'])
                     ->parameters(['peran' => 'id']);
             });
     }
