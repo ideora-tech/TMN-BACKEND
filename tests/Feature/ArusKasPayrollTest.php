@@ -44,7 +44,7 @@ class ArusKasPayrollTest extends TestCase
         return $id;
     }
 
-    private function buatPeriode(string $bulan = null): string
+    private function buatPeriode(?string $bulan = null): string
     {
         $bulan = $bulan ?? now()->format('Y-m');
         $res = $this->postJson('/api/payroll/periode', ['bulan' => $bulan]);

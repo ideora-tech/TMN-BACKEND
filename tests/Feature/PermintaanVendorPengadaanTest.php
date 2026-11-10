@@ -628,6 +628,7 @@ class PermintaanVendorPengadaanTest extends TestCase
     {
         $timPengadaan = $this->buatPengguna('PENGADAAN');
         $sales = $this->buatPengguna('SALES');
+        $supir = $this->buatPengguna('SUPIR');
         $permintaan = $this->makePermintaan();
         $pelaku = $this->actingAsRole('SUPERADMIN');
 
@@ -638,7 +639,11 @@ class PermintaanVendorPengadaanTest extends TestCase
         $this->assertSame("Permintaan vendor {$permintaan->nomor_permintaan} dibatalkan", $notif[0]->judul);
         $this->assertSame('Klien mundur', $notif[0]->isi);
         $this->assertCount(0, $this->notifikasiUntuk((string) $pelaku->id_pengguna));
-        $this->assertCount(0, $this->notifikasiUntuk((string) $sales->id_pengguna));
+        // Sejak migrasi 2026-10-23 SALES memegang izin /penugasan (tambah), jadi untuk permintaan non-draft
+        // ia ikut menerima kabar pembatalan sebagai bagian dari kelompok operasional.
+        $this->assertCount(1, $this->notifikasiUntuk((string) $sales->id_pengguna));
+        // Peran tanpa izin /kontrak-vendor maupun /penugasan (tambah) tidak boleh menerima.
+        $this->assertCount(0, $this->notifikasiUntuk((string) $supir->id_pengguna));
     }
 
     public function test_batal_oleh_pengadaan_tidak_memberitahu_dirinya_sendiri(): void
