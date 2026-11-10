@@ -56,7 +56,8 @@ class PenggunaService
         if ($this->repo->findByUsername($data['username'])) {
             abort(409, 'Username sudah digunakan');
         }
-        if ($this->repo->findByEmail($data['email'])) {
+        $data['email'] = $this->rapikanEmail($data['email'] ?? null);
+        if ($data['email'] !== null && $this->repo->findByEmail($data['email'])) {
             abort(409, 'Email sudah digunakan');
         }
         $data['kata_sandi'] = Hash::make($data['password']);
@@ -93,6 +94,11 @@ class PenggunaService
             }
         }
 
+        // Email boleh dikosongkan; string kosong dijadikan NULL supaya tidak bentrok di index unik
+        if (array_key_exists('email', $data)) {
+            $data['email'] = $this->rapikanEmail($data['email']);
+        }
+
         // Check email uniqueness if being changed
         if (isset($data['email']) && $data['email'] !== $record->email) {
             $existing = $this->repo->findByEmail($data['email']);
@@ -123,6 +129,13 @@ class PenggunaService
             $this->terapkanTautan($hasil, $tautan);
             return $hasil;
         });
+    }
+
+    private function rapikanEmail(mixed $email): ?string
+    {
+        $email = trim((string) ($email ?? ''));
+
+        return $email !== '' ? $email : null;
     }
 
     private function pastikanBolehKelola(?string $kodePeranPelaku, ?string ...$kodePeranSasaran): void

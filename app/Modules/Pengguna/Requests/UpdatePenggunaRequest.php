@@ -18,7 +18,7 @@ class UpdatePenggunaRequest extends FormRequest
         return [
             'kode_peran'  => ['sometimes', 'nullable', 'string', 'max:50'],
             'username'    => ['sometimes', 'string', 'max:100'],
-            'email'       => ['sometimes', 'email', 'max:150'],
+            'email'       => ['sometimes', 'nullable', 'email', 'max:150'],
             'password'    => ['sometimes', 'string', 'min:8'],
             'id_karyawan' => ['nullable', 'string', 'size:36'],
             'id_supir'    => ['sometimes', 'nullable', 'string', 'max:36'],
