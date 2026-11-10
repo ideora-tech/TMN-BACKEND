@@ -89,12 +89,18 @@ class DokumenKaryawanRepository implements DokumenKaryawanRepositoryInterface
             ->update(RecordHelper::stampUpdate(['tgl_kadaluarsa_sim' => $tanggal]));
     }
 
+    /**
+     * Dokumen yang diunggah lewat halaman supir (id_supir terisi) ikut pindah saat supir
+     * ditautkan ke karyawan lain, termasuk yang tadinya menempel di karyawan lama. Kalau
+     * hanya yang id_karyawan-nya NULL yang dipindah, dokumen di karyawan lama hilang dari
+     * halaman supir (daftar dokumen supir mengikuti karyawan yang tertaut).
+     */
     public function pindahkanDokumenSupirKeKaryawan(string $idSupir, string $idKaryawan): void
     {
         DB::table('dokumen_karyawan')
             ->whereNull('dihapus_pada')
-            ->whereNull('id_karyawan')
             ->where('id_supir', $idSupir)
+            ->where(fn ($q) => $q->whereNull('id_karyawan')->orWhere('id_karyawan', '!=', $idKaryawan))
             ->update(RecordHelper::stampUpdate(['id_karyawan' => $idKaryawan]));
     }
 

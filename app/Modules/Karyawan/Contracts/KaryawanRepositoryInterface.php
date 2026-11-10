@@ -12,6 +12,12 @@ interface KaryawanRepositoryInterface
     public function findById(string $id): ?object;
     public function findByNik(string $nik): ?object;
     public function nikTerpakai(string $nik): bool;
+    /** Karyawan aktif satu perusahaan yang nik_ktp-nya, atau nik 16 digit-nya, sama dengan salah satu $nomor. */
+    public function findByNomorKtp(string $idPerusahaan, array $nomor, ?string $kecualiId = null): ?object;
+    public function daftarIdPerusahaan(): array;
+    public function semuaAktif(string $idPerusahaan): array;
+    /** @return array<string,int> tabel => jumlah baris aktif yang menunjuk karyawan ini (yang nol tidak ikut). */
+    public function hitungRelasi(string $idKaryawan): array;
     public function idJabatanSupirBawaan(string $idPerusahaan): ?string;
     public function create(array $data): object;
     public function update(object $record, array $data): object;

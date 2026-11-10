@@ -222,6 +222,10 @@ class SupirService
         }
 
         if (trim((string) ($karyawan->nik_ktp ?? '')) !== $noKtp) {
+            $dipakai = $this->karyawanRepo->findByNomorKtp((string) $karyawan->id_perusahaan, [$noKtp], (string) $karyawan->id_karyawan);
+            if ($dipakai !== null) {
+                throw ValidationException::withMessages(['no_ktp' => "No KTP sudah dipakai karyawan {$dipakai->nama_karyawan} (NIK {$dipakai->nik})"]);
+            }
             $this->karyawanRepo->update($karyawan, ['nik_ktp' => $noKtp]);
         }
         $this->dokumenKaryawanRepo->selaraskanKtpKaryawan((string) $karyawan->id_karyawan);

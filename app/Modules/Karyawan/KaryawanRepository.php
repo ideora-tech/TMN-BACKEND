@@ -9,6 +9,7 @@ use App\Support\RecordHelper;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class KaryawanRepository implements KaryawanRepositoryInterface
 {
@@ -78,6 +79,71 @@ class KaryawanRepository implements KaryawanRepositoryInterface
     public function nikTerpakai(string $nik): bool
     {
         return DB::table('karyawan')->where('nik', $nik)->exists();
+    }
+
+    public function findByNomorKtp(string $idPerusahaan, array $nomor, ?string $kecualiId = null): ?object
+    {
+        $nomor = array_values(array_unique(array_filter(array_map(static fn ($n) => trim((string) $n), $nomor), static fn ($n) => $n !== '')));
+        if ($nomor === []) {
+            return null;
+        }
+
+        $nik16 = array_values(array_filter($nomor, static fn ($n) => preg_match('/^\d{16}$/', $n) === 1));
+
+        return DB::table('karyawan')
+            ->select(['id_karyawan', 'nik', 'nik_ktp', 'nama_karyawan'])
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->when($kecualiId !== null, fn ($q) => $q->where('id_karyawan', '!=', $kecualiId))
+            ->where(function ($q) use ($nomor, $nik16) {
+                $q->whereIn('nik_ktp', $nomor);
+                if ($nik16 !== []) {
+                    $q->orWhereIn('nik', $nik16);
+                }
+            })
+            ->first();
+    }
+
+    public function daftarIdPerusahaan(): array
+    {
+        return DB::table('karyawan')
+            ->whereNull('dihapus_pada')
+            ->distinct()
+            ->pluck('id_perusahaan')
+            ->map(static fn ($id) => (string) $id)
+            ->all();
+    }
+
+    public function semuaAktif(string $idPerusahaan): array
+    {
+        return DB::table('karyawan')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->orderBy('nama_karyawan')
+            ->orderBy('nik')
+            ->get()
+            ->all();
+    }
+
+    public function hitungRelasi(string $idKaryawan): array
+    {
+        $hasil = [];
+
+        foreach ([
+            'pengguna', 'supir', 'dokumen_karyawan', 'penugasan', 'kontrak_karyawan', 'absensi',
+            'payroll_slip', 'pengajuan_cuti', 'saldo_cuti', 'karyawan_exit', 'kasbon',
+        ] as $tabel) {
+            $jumlah = DB::table($tabel)
+                ->when(Schema::hasColumn($tabel, 'dihapus_pada'), fn ($q) => $q->whereNull('dihapus_pada'))
+                ->where('id_karyawan', $idKaryawan)
+                ->count();
+            if ($jumlah > 0) {
+                $hasil[$tabel] = $jumlah;
+            }
+        }
+
+        return $hasil;
     }
 
     public function idJabatanSupirBawaan(string $idPerusahaan): ?string

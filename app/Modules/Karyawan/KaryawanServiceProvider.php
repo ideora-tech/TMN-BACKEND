@@ -15,6 +15,7 @@ class KaryawanServiceProvider extends ServiceProvider
         $this->app->bind(KaryawanRepositoryInterface::class, KaryawanRepository::class);
         $this->app->bind(KaryawanService::class);
         $this->app->bind(KaryawanImportService::class);
+        $this->app->bind(KaryawanGabungDuplikatService::class);
     }
 
     public function boot(): void

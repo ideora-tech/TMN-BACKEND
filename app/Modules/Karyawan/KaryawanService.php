@@ -53,6 +53,7 @@ class KaryawanService
         if ($existing !== null) {
             abort(422, 'NIK sudah terdaftar');
         }
+        $this->pastikanNomorKtpBelumDipakai((string) $data['id_perusahaan'], $data);
 
         $record = $this->repo->create($data);
         $this->buatSupirJikaPerlu($record);
@@ -67,6 +68,7 @@ class KaryawanService
         return DB::transaction(function () use ($id, $data, $idPerusahaan) {
             $this->repo->kunci($id);
             $record = $this->findOrFail($id, $idPerusahaan);
+            $this->pastikanNomorKtpBelumDipakai((string) $record->id_perusahaan, $data, $record);
 
             $jabatanBerubah = array_key_exists('id_jabatan', $data)
                 && ($data['id_jabatan'] ?? null) !== $record->id_jabatan;
@@ -345,6 +347,37 @@ class KaryawanService
     {
         $this->findOrFail($id, $idPerusahaan);
         return $this->repo->exitHistory($id);
+    }
+
+    /**
+     * Satu orang = satu karyawan. NIK sendiri sudah unik di database, tapi orang yang sama
+     * bisa lolos dua kali dengan NIK berbeda (mis. kode otomatis DRV-xxxx lalu NIK KTP asli).
+     * Jadi nomor KTP-nya yang dijaga: nik_ktp, atau nik bila berupa 16 digit, tidak boleh
+     * sudah dipakai karyawan aktif lain di perusahaan yang sama. Saat update hanya nilai yang
+     * berubah yang dicek, supaya data dobel lama tetap bisa diedit sampai digabung.
+     */
+    private function pastikanNomorKtpBelumDipakai(string $idPerusahaan, array $data, ?object $record = null): void
+    {
+        $nomor = [];
+
+        $nikKtp = trim((string) ($data['nik_ktp'] ?? ''));
+        if ($nikKtp !== '' && $nikKtp !== trim((string) ($record->nik_ktp ?? ''))) {
+            $nomor[] = $nikKtp;
+        }
+
+        $nik = trim((string) ($data['nik'] ?? ''));
+        if (preg_match('/^\d{16}$/', $nik) === 1 && $nik !== (string) ($record->nik ?? '')) {
+            $nomor[] = $nik;
+        }
+
+        if ($nomor === []) {
+            return;
+        }
+
+        $dipakai = $this->repo->findByNomorKtp($idPerusahaan, $nomor, $record !== null ? (string) $record->id_karyawan : null);
+        if ($dipakai !== null) {
+            abort(422, "NIK KTP sudah dipakai karyawan {$dipakai->nama_karyawan} (NIK {$dipakai->nik})");
+        }
     }
 
     private function buatSupirJikaPerlu(object $karyawan): void
