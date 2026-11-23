@@ -357,6 +357,29 @@ class PenugasanRepository implements PenugasanRepositoryInterface
         return $query->exists();
     }
 
+    public function findPenugasanAntreanSupir(string $kolomSupir, string $idSupir, string $tanggal, string $idProyek): ?PenugasanModel
+    {
+        if (!in_array($kolomSupir, ['id_supir', 'id_supir_vendor'], true)) {
+            throw new \InvalidArgumentException('Kolom supir tidak valid');
+        }
+
+        return PenugasanModel::active()
+            ->where($kolomSupir, $idSupir)
+            ->where('tanggal_tugas', $tanggal)
+            ->where('id_proyek', $idProyek)
+            ->whereNotIn('status', ['batal', 'selesai'])
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('trip as t')
+                    ->join('jadwal_keberangkatan as jk', 't.id_jadwal', '=', 'jk.id_jadwal')
+                    ->whereColumn('jk.id_penugasan', 'penugasan.id_penugasan')
+                    ->whereNull('t.dihapus_pada')
+                    ->whereNull('jk.dihapus_pada')
+                    ->where('t.status', '!=', 'dibatalkan');
+            })
+            ->first();
+    }
+
     public function create(array $data): PenugasanModel
     {
         return PenugasanModel::create($data);

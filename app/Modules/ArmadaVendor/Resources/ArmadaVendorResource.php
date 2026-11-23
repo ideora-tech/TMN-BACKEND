@@ -16,6 +16,13 @@ class ArmadaVendorResource extends JsonResource
             'id_kontrak_vendor' => $this->id_kontrak_vendor ?? null,
             'id_supir_vendor_default' => $this->id_supir_vendor_default ?? null,
             'nama_supir_default'      => $this->nama_supir_default ?? null,
+            'telepon_supir_default'   => $this->telepon_supir_default ?? null,
+            'nomor_kontrak_terikat'   => $this->nomor_kontrak_terikat ?? null,
+            'status_kontrak'          => $this->status_kontrak ?? null,
+            // Bebas = boleh dimasukkan ke kontrak baru (tanpa kontrak / kontraknya selesai, batal, dihapus).
+            'bebas_kontrak'           => $this->id_kontrak_vendor === null
+                || in_array($this->status_kontrak ?? null, [null, 'selesai', 'batal'], true),
+            'status_operasional'      => $this->status_operasional ?? null,
             'nopol'             => $this->nopol,
             'merk'              => $this->merk,
             'jenis'             => $this->jenis,

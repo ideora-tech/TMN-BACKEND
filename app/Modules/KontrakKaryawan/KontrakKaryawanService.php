@@ -6,6 +6,7 @@ namespace App\Modules\KontrakKaryawan;
 
 use App\Modules\Karyawan\Contracts\KaryawanRepositoryInterface;
 use App\Modules\KontrakKaryawan\Contracts\KontrakKaryawanRepositoryInterface;
+use App\Support\KodeOtomatis;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
 
@@ -33,6 +34,14 @@ class KontrakKaryawanService
 
         $data['id_karyawan']   = $idKaryawan;
         $data['id_perusahaan'] = $idPerusahaan;
+
+        // Nomor kosong → diterbitkan otomatis sesuai menu Format Kode (entitas
+        // kontrak_karyawan); {JENIS} di prefix diganti jenis kontraknya.
+        if (trim((string) ($data['nomor_kontrak'] ?? '')) === '') {
+            $data['nomor_kontrak'] = KodeOtomatis::berikutnya($idPerusahaan, 'kontrak_karyawan', [
+                'JENIS' => (string) $data['jenis_kontrak'],
+            ]);
+        }
 
         return $this->repo->create($data);
     }

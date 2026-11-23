@@ -11,6 +11,7 @@ use App\Modules\SupirVendor\Contracts\SupirVendorRepositoryInterface;
 use App\Modules\Trip\Exports\RekapTripSupirExport;
 use App\Modules\Trip\Exports\RiwayatTripExport;
 use App\Modules\Trip\Requests\MulaiTripRequest;
+use App\Modules\Trip\Requests\RitaseTripRequest;
 use App\Modules\Trip\Requests\StoreTripRequest;
 use App\Modules\Trip\Resources\TripResource;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -28,6 +29,7 @@ class TripController extends Controller
         private readonly TripService $service,
         private readonly SupirRepositoryInterface $supirRepo,
         private readonly SupirVendorRepositoryInterface $supirVendorRepo,
+        private readonly RitaseSupirService $ritaseService,
     ) {}
 
     /**
@@ -237,6 +239,19 @@ class TripController extends Controller
             $tipe
         );
         return ApiResponse::success(new TripResource($record), 'Trip berhasil dimulai', 201);
+    }
+
+    public function ritaseSaya(RitaseTripRequest $request): JsonResponse
+    {
+        [$tipe, $idSupir] = $this->konteksSupirSaya($request);
+
+        $record = $this->ritaseService->buatDanMulai(
+            $request->validated(),
+            $idSupir,
+            (string) $request->user()->id_perusahaan,
+            $tipe
+        );
+        return ApiResponse::success(new TripResource($record), 'Ritase tambahan dibuat dan trip dimulai', 201);
     }
 
     public function checkoutSaya(Request $request, string $idTrip): JsonResponse

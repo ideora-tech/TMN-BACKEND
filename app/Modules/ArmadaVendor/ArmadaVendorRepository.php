@@ -26,10 +26,32 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
                 $q2->where('armada_vendor.nopol', 'like', "%{$search}%")
                    ->orWhere('armada_vendor.merk', 'like', "%{$search}%");
             }))
-            ->select('armada_vendor.*', 'vendor.nama_vendor', 'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan', 'sv_default.nama as nama_supir_default')
+            ->leftJoin('kontrak_vendor as kv_ikat', 'kv_ikat.id_kontrak_vendor', '=', 'armada_vendor.id_kontrak_vendor')
+            ->select(
+                'armada_vendor.*', 'vendor.nama_vendor', 'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan',
+                'sv_default.nama as nama_supir_default', 'sv_default.telepon as telepon_supir_default',
+                'kv_ikat.nomor_kontrak as nomor_kontrak_terikat',
+            )
+            ->selectRaw('CASE WHEN kv_ikat.dihapus_pada IS NULL THEN kv_ikat.status END as status_kontrak')
+            ->selectRaw(self::SQL_STATUS_OPERASIONAL . ' as status_operasional', [now()->toDateString()])
             ->orderBy('armada_vendor.nopol')
             ->paginate($limit, ['*'], 'page', $page);
     }
+
+    /**
+     * Status pemakaian unit diturunkan dari penugasan (operasional), bukan diisi manual:
+     * digunakan  → ada penugasan aktif, atau pending yang tanggal tugasnya sudah tiba
+     * terjadwal  → hanya ada penugasan pending untuk tanggal mendatang
+     * selesai_digunakan → pernah ditugaskan & semuanya sudah selesai
+     * belum_digunakan   → belum pernah ditugaskan (penugasan batal tidak dihitung)
+     */
+    private const SQL_STATUS_OPERASIONAL = "(SELECT CASE
+            WHEN SUM(p.status = 'aktif' OR (p.status = 'pending' AND p.tanggal_tugas <= ?)) > 0 THEN 'digunakan'
+            WHEN SUM(p.status = 'pending') > 0 THEN 'terjadwal'
+            WHEN SUM(p.status = 'selesai') > 0 THEN 'selesai_digunakan'
+            ELSE 'belum_digunakan' END
+        FROM penugasan p
+        WHERE p.id_armada_vendor = armada_vendor.id_armada_vendor AND p.dihapus_pada IS NULL)";
 
     public function findByIdMilikPerusahaan(string $id, string $idPerusahaan): ?ArmadaVendorModel
     {
@@ -40,6 +62,7 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->whereNull('vendor.dihapus_pada')
             ->select('armada_vendor.*', 'vendor.nama_vendor', 'jenis_kendaraan.nama_jenis as nama_jenis_kendaraan')
+            ->selectRaw(self::SQL_STATUS_OPERASIONAL . ' as status_operasional', [now()->toDateString()])
             ->first();
     }
 
@@ -102,22 +125,35 @@ class ArmadaVendorRepository implements ArmadaVendorRepositoryInterface
         return $id !== null ? (string) $id : null;
     }
 
+    /** Status kontrak yang sudah tidak mengikat unit lagi. */
+    private const STATUS_KONTRAK_LEPAS = ['selesai', 'batal'];
+
     /**
-     * Unit aktif di perusahaan ini yang sedang TIDAK terikat kontrak manapun
-     * (mis. kontraknya baru dihapus/berakhir) — kandidat "diambil alih" oleh
-     * kontrak baru, vendor manapun (di lapangan unit bisa berpindah vendor;
-     * yang mengikat hanya kontrak), alih-alih ditolak sebagai nopol duplikat.
+     * Unit aktif di perusahaan ini yang sedang TIDAK terikat kontrak berjalan
+     * (tanpa kontrak, kontraknya dihapus, atau kontraknya selesai/batal) —
+     * kandidat "diambil alih" oleh kontrak baru, vendor manapun (di lapangan
+     * unit bisa berpindah vendor; yang mengikat hanya kontrak), alih-alih
+     * ditolak sebagai nopol duplikat.
      */
     public function findAktifTanpaKontrakByNopol(string $nopol, string $idPerusahaan): ?ArmadaVendorModel
     {
         return ArmadaVendorModel::active()
             ->join('vendor', 'vendor.id_vendor', '=', 'armada_vendor.id_vendor')
+            ->leftJoin('kontrak_vendor as kv_ikat', 'kv_ikat.id_kontrak_vendor', '=', 'armada_vendor.id_kontrak_vendor')
             ->where('vendor.id_perusahaan', $idPerusahaan)
             ->whereNull('vendor.dihapus_pada')
-            ->whereNull('armada_vendor.id_kontrak_vendor')
+            ->where(fn ($q) => $this->kondisiBebasKontrak($q, 'kv_ikat'))
             ->whereRaw('UPPER(TRIM(armada_vendor.nopol)) = ?', [mb_strtoupper(trim($nopol))])
             ->select('armada_vendor.*')
             ->first();
+    }
+
+    private function kondisiBebasKontrak($query, string $aliasKontrak): void
+    {
+        $query->whereNull('armada_vendor.id_kontrak_vendor')
+            ->orWhereNull("{$aliasKontrak}.id_kontrak_vendor")
+            ->orWhereNotNull("{$aliasKontrak}.dihapus_pada")
+            ->orWhereIn("{$aliasKontrak}.status", self::STATUS_KONTRAK_LEPAS);
     }
 
     public function infoNopolTerdaftar(string $nopol, string $idPerusahaan): ?object

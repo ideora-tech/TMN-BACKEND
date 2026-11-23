@@ -28,6 +28,12 @@ interface PenugasanRepositoryInterface
     /** Guard penugasan harian: satu supir tidak boleh dobel di tanggal yang sama (lintas unit/proyek). */
     public function adaPenugasanSupirPadaTanggal(string $idSupir, string $tanggal, string $idProyek, ?string $idRute, ?string $excludeId = null): bool;
 
+    /**
+     * Penugasan supir (internal: kolom id_supir, vendor: id_supir_vendor) pada
+     * proyek & tanggal yang masih menunggu dijalankan (belum punya trip hidup).
+     */
+    public function findPenugasanAntreanSupir(string $kolomSupir, string $idSupir, string $tanggal, string $idProyek): ?PenugasanModel;
+
     public function adaPenugasanSamaPadaTanggal(string $idProyek, ?string $idRute, string $tanggal, ?string $idArmada, ?string $idArmadaVendor, ?string $idSupir): bool;
     public function listUntukSinkronProyek(string $idProyek): array;
 

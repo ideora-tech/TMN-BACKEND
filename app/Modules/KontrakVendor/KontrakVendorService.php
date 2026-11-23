@@ -135,6 +135,12 @@ class KontrakVendorService
         $data['status'] = 'draft';
 
         return DB::transaction(function () use ($data, $unitList, $supirList, $kontrakSumber, $idPermintaan) {
+            // Nomor kosong → diterbitkan otomatis sesuai menu Format Kode (entitas
+            // kontrak_vendor). Diisi manual tetap dipakai apa adanya (kontrak lama/kertas).
+            if (trim((string) ($data['nomor_kontrak'] ?? '')) === '') {
+                $data['nomor_kontrak'] = KodeOtomatis::berikutnya((string) $data['id_perusahaan'], 'kontrak_vendor');
+            }
+
             $kontrak = $this->repo->create($data);
 
             if (!empty($idPermintaan)) {
@@ -178,6 +184,11 @@ class KontrakVendorService
 
                 $adopsi = $this->armadaVendorRepo->findAktifTanpaKontrakByNopol((string) $unit['nopol'], (string) $kontrak->id_perusahaan);
                 if ($adopsi !== null) {
+                    // Unit lama vendor yang sama tanpa pasangan driver baru: driver
+                    // bawaannya tetap, jangan dikosongkan saat pindah ke kontrak baru.
+                    if ($supirIndex === null && (string) $adopsi->id_vendor === (string) $kontrak->id_vendor) {
+                        unset($dataUnit['id_supir_vendor_default']);
+                    }
                     if ((string) $adopsi->id_vendor !== (string) $kontrak->id_vendor) {
                         $pemilikLama = $this->armadaVendorRepo->infoNopolTerdaftar((string) $unit['nopol'], (string) $kontrak->id_perusahaan);
                         $unitDiambilAlih[] = "{$unit['nopol']} (sebelumnya vendor \"" . ($pemilikLama->nama_vendor ?? '-') . '")';

@@ -15,6 +15,8 @@ class PengaturanKodeResource extends JsonResource
             'prefix'        => $this->prefix,
             'panjang_digit' => (int) $this->panjang_digit,
             'reset'         => $this->reset,
+            'format'        => $this->format ?? 'standar',
+            'placeholder'   => $this->placeholder ?? [],
             'tersimpan'     => (bool) $this->tersimpan,
         ];
     }

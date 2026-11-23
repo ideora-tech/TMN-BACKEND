@@ -23,6 +23,8 @@ class PengaturanKodeService
                 'prefix'        => $row->prefix ?? $default['prefix'],
                 'panjang_digit' => (int) ($row->panjang_digit ?? $default['panjang_digit']),
                 'reset'         => $row->reset ?? $default['reset'],
+                'format'        => KodeOtomatis::format($entitas),
+                'placeholder'   => KodeOtomatis::placeholder($entitas),
                 'tersimpan'     => $row !== null,
             ];
         }
@@ -43,6 +45,8 @@ class PengaturanKodeService
             'prefix'        => $record->prefix,
             'panjang_digit' => (int) $record->panjang_digit,
             'reset'         => $record->reset,
+            'format'        => KodeOtomatis::format($entitas),
+            'placeholder'   => KodeOtomatis::placeholder($entitas),
             'tersimpan'     => true,
         ];
     }
