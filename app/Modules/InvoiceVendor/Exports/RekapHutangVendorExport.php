@@ -27,9 +27,13 @@ class RekapHutangVendorExport implements FromArray, WithTitle, WithEvents, WithC
 
     private readonly bool $adaPpn;
 
+    /** Kolom Biaya Tambahan hanya muncul bila ada invoice yang memakainya (seperti kolom PPN). */
+    private readonly bool $adaBiaya;
+
     public function __construct(private readonly array $rekap)
     {
-        $this->adaPpn = (float) $rekap['jumlah']['ppn'] > 0;
+        $this->adaPpn   = (float) $rekap['jumlah']['ppn'] > 0;
+        $this->adaBiaya = (float) ($rekap['jumlah']['biaya_tambahan'] ?? 0) > 0;
     }
 
     public function title(): string
@@ -47,7 +51,7 @@ class RekapHutangVendorExport implements FromArray, WithTitle, WithEvents, WithC
         $baris = [
             ['RINCIAN HUTANG DAN PPH VENDOR'],
             ['PERIODE ' . mb_strtoupper($this->namaBulan())],
-            array_merge(['NO', 'TANGGAL', 'INVOICE', 'VENDOR', 'KETERANGAN'], $this->nominal('DPP', 'PPN', 'PPH', 'TOTAL')),
+            array_merge(['NO', 'TANGGAL', 'INVOICE', 'VENDOR', 'KETERANGAN'], $this->nominal('DPP', 'PPN', 'PPH', 'BIAYA TAMBAHAN', 'TOTAL')),
         ];
 
         foreach ($this->rekap['baris'] as $i => $satu) {
@@ -57,14 +61,14 @@ class RekapHutangVendorExport implements FromArray, WithTitle, WithEvents, WithC
                 (string) $satu['nomor_invoice'],
                 mb_strtoupper((string) ($satu['nama_vendor'] ?? '')),
                 mb_strtoupper((string) ($satu['keterangan'] ?? '')),
-            ], $this->nominal((float) $satu['dpp'], (float) $satu['ppn'], (float) $satu['pph'], (float) $satu['total']));
+            ], $this->nominal((float) $satu['dpp'], (float) $satu['ppn'], (float) $satu['pph'], (float) $satu['biaya_tambahan'], (float) $satu['total']));
         }
 
         $jumlah  = $this->rekap['jumlah'];
         $baris[] = [''];
         $baris[] = array_merge(
             ['TOTAL', '', '', '', ''],
-            $this->nominal((float) $jumlah['dpp'], (float) $jumlah['ppn'], (float) $jumlah['pph'], (float) $jumlah['total']),
+            $this->nominal((float) $jumlah['dpp'], (float) $jumlah['ppn'], (float) $jumlah['pph'], (float) $jumlah['biaya_tambahan'], (float) $jumlah['total']),
         );
 
         return $baris;
@@ -72,7 +76,7 @@ class RekapHutangVendorExport implements FromArray, WithTitle, WithEvents, WithC
 
     public function columnWidths(): array
     {
-        return ['A' => 7, 'B' => 22, 'C' => 28, 'D' => 38, 'E' => 34, 'F' => 20, 'G' => 20, 'H' => 20, 'I' => 20];
+        return ['A' => 7, 'B' => 22, 'C' => 28, 'D' => 38, 'E' => 34, 'F' => 20, 'G' => 20, 'H' => 20, 'I' => 20, 'J' => 20];
     }
 
     public function bindValue(Cell $cell, $value): bool
@@ -91,7 +95,8 @@ class RekapHutangVendorExport implements FromArray, WithTitle, WithEvents, WithC
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet      = $event->sheet->getDelegate();
-                $akhir      = $this->adaPpn ? 'I' : 'H';
+                // Kolom A–E teks, lalu DPP, [PPN], PPH, [Biaya Tambahan], Total.
+                $akhir      = chr(ord('E') + 3 + ($this->adaPpn ? 1 : 0) + ($this->adaBiaya ? 1 : 0));
                 $header     = self::BARIS_HEADER;
                 $dataAkhir  = $header + count($this->rekap['baris']);
                 $barisTotal = $dataAkhir + 2;
@@ -124,9 +129,15 @@ class RekapHutangVendorExport implements FromArray, WithTitle, WithEvents, WithC
         ];
     }
 
-    private function nominal(mixed $dpp, mixed $ppn, mixed $pph, mixed $total): array
+    private function nominal(mixed $dpp, mixed $ppn, mixed $pph, mixed $biaya, mixed $total): array
     {
-        return $this->adaPpn ? [$dpp, $ppn, $pph, $total] : [$dpp, $pph, $total];
+        return array_merge(
+            [$dpp],
+            $this->adaPpn ? [$ppn] : [],
+            [$pph],
+            $this->adaBiaya ? [$biaya] : [],
+            [$total],
+        );
     }
 
     private function namaBulan(): string

@@ -18,6 +18,12 @@ class ArusKasNotifikasiPengadaanTest extends TestCase
     use RefreshDatabase;
     use MembuatPembelianLangsung;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->isiSaldoKasKecil();
+    }
+
     private function setIzin(string $path, string $kodePeran): void
     {
         $idMenu = DB::table('menu')->where('path', $path)->value('id_menu');

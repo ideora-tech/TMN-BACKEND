@@ -316,12 +316,12 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->teks('No. Pengisian', $pengisian->nomor_pengisian),
                 $this->tanggal('Tanggal Pengisian', $pengisian->tanggal),
                 $this->teks('Rekening Sumber', $this->gabungJudul($pengisian->nama_bank, $pengisian->nomor_rekening, $pengisian->atas_nama_rekening)),
-                $this->rupiah('Saldo Kas Kecil Saat Ini', $saldo),
+                $this->rupiah('Saldo Petty Cash Saat Ini', $saldo),
                 ...($sudahDiterima ? [] : [$this->rupiah('Saldo Setelah Pengisian', $saldo + $nominal)]),
-                $this->tanggal('Penerimaan Kas Kecil Terakhir', $masukTerakhir->tanggal ?? null),
+                $this->tanggal('Penerimaan Petty Cash Terakhir', $masukTerakhir->tanggal ?? null),
                 $this->rupiah('Nominal Penerimaan Terakhir', $masukTerakhir->nominal ?? null),
             ],
-            'bagian' => $this->bagian('Pengeluaran Kas Kecil Sejak Penerimaan Terakhir', [
+            'bagian' => $this->bagian('Pengeluaran Petty Cash Sejak Penerimaan Terakhir', [
                 $this->kolom('kategori', 'Kategori'),
                 $this->kolom('jumlah', 'Transaksi', 'angka'),
                 $this->kolom('total', 'Total', 'rupiah'),
@@ -598,7 +598,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
             ->whereNull('iv.dihapus_pada')
             ->first([
                 'iv.nomor_invoice', 'iv.tanggal_invoice', 'iv.jatuh_tempo', 'iv.periode_dari', 'iv.periode_sampai',
-                'iv.no_po', 'iv.no_kontrak', 'iv.nopol', 'iv.tipe_kendaraan', 'iv.dpp', 'iv.ppn', 'iv.pph', 'iv.total',
+                'iv.no_po', 'iv.no_kontrak', 'iv.nopol', 'iv.tipe_kendaraan', 'iv.dpp', 'iv.ppn', 'iv.pph', 'iv.total_biaya_tambahan', 'iv.total',
                 'iv.keterangan', 'v.nama_vendor', 'kv.nomor_kontrak',
             ]);
         if ($invoice === null) {
@@ -645,6 +645,7 @@ class RincianReferensiRepository implements RincianReferensiRepositoryInterface
                 $this->rupiah('DPP', $invoice->dpp),
                 $this->rupiah('PPN', $invoice->ppn),
                 $this->rupiah('PPh', $invoice->pph),
+                $this->rupiah('Biaya Tambahan', $invoice->total_biaya_tambahan),
                 $this->rupiah('Total', $invoice->total),
                 $this->teks('Keterangan', $invoice->keterangan),
             ],

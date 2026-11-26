@@ -17,6 +17,12 @@ class KasbonTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->isiSaldoKasKecil();
+    }
+
     private function makeKaryawan(string $nama = 'Rudi Hartono', array $extra = []): string
     {
         $this->ensurePerusahaan();
@@ -383,10 +389,12 @@ class KasbonTest extends TestCase
             ->assertJsonPath('data.pembayaran', []);
 
         $rekap = $this->getJson("/api/arus-kas?dari={$hariIni}&sampai={$hariIni}")->assertStatus(200);
-        $baris = collect($rekap->json('data.transaksi'))->where('kategori', 'kasbon')->values();
+        // Kasbon dicairkan dari Kas Kecil, bukan dari rekening bank.
+        $this->assertCount(0, collect($rekap->json('data.transaksi'))->where('kategori', 'kasbon'));
+        $baris = $this->pembayaranKasKecil('kasbon');
         $this->assertCount(1, $baris);
-        $this->assertSame('keluar', $baris[0]['arah']);
-        $this->assertEquals(1500000, $baris[0]['nominal']);
+        $this->assertSame('keluar', $baris[0]->arah);
+        $this->assertEquals(1500000, (float) $baris[0]->nominal);
 
         $psak = app(\App\Modules\ArusKas\ArusKasService::class)->laporanPsak(self::PERUSAHAAN_ID, $hariIni, $hariIni);
         $kasbon = collect($psak['kelompok'][0]['baris'])->firstWhere('label', 'Pemberian kasbon karyawan');
@@ -563,11 +571,11 @@ class KasbonTest extends TestCase
 
         $hariIni = now()->toDateString();
         $this->postJson('/api/arus-kas/pemasukan', [
-            'kategori' => 'lainnya', 'nominal' => 50000, 'tanggal' => $hariIni, 'sumber_dana' => 'Kas kecil',
+            'kategori' => 'lainnya', 'nominal' => 50000, 'tanggal' => $hariIni, 'sumber_dana' => 'Petty cash',
         ])->assertStatus(201);
         $baris = collect($this->getJson("/api/arus-kas/pemasukan?dari={$hariIni}&sampai={$hariIni}")->assertStatus(200)->json('data'));
         $this->assertFalse($baris->firstWhere('id', $idPemasukan)['dapat_diubah']);
-        $this->assertTrue($baris->firstWhere('sumber_dana', 'Kas kecil')['dapat_diubah']);
+        $this->assertTrue($baris->firstWhere('sumber_dana', 'Petty cash')['dapat_diubah']);
     }
 
     public function test_ubah_cicilan_hanya_untuk_kasbon_disetujui_yang_belum_lunas(): void

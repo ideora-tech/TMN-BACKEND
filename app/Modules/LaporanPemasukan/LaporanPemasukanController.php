@@ -27,7 +27,7 @@ class LaporanPemasukanController extends Controller
             $request->batas(),
         );
 
-        return ApiResponse::success($laporan + ['opsi_kategori' => $this->service->opsiKategori()]);
+        return ApiResponse::success($laporan + ['opsi_kategori' => $this->service->opsiKategori((string) $request->user()->id_perusahaan)]);
     }
 
     public function exportExcel(LaporanPemasukanRequest $request, ArusKasService $arusKasService): BinaryFileResponse

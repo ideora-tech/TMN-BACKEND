@@ -38,7 +38,7 @@ class RekeningPerusahaanTest extends TestCase
     {
         DB::table('approval_event_type')->insert([
             'id_event_type' => (string) Str::uuid(), 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'kode' => 'pengisian_kas_kecil', 'nama' => 'Pengisian Kas Kecil', 'mode_resolusi' => 'pinned',
+            'kode' => 'pengisian_kas_kecil', 'nama' => 'Pengisian Petty Cash', 'mode_resolusi' => 'pinned',
             'aktif' => 0, 'dibuat_pada' => now(),
         ]);
     }
@@ -46,7 +46,7 @@ class RekeningPerusahaanTest extends TestCase
     private function ajukanPengisian(array $isi = []): TestResponse
     {
         return $this->postJson('/api/kas-kecil/pengisian', array_merge([
-            'tanggal' => now()->toDateString(), 'nominal' => 2000000, 'keterangan' => 'Isi ulang kas kecil kantor',
+            'tanggal' => now()->toDateString(), 'nominal' => 2000000, 'keterangan' => 'Isi ulang petty cash kantor',
         ], $isi));
     }
 
@@ -266,7 +266,7 @@ class RekeningPerusahaanTest extends TestCase
         $idEventType = (string) Str::uuid();
         DB::table('approval_event_type')->insert([
             'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'kode' => 'pengisian_kas_kecil', 'nama' => 'Pengisian Kas Kecil', 'mode_resolusi' => 'pinned',
+            'kode' => 'pengisian_kas_kecil', 'nama' => 'Pengisian Petty Cash', 'mode_resolusi' => 'pinned',
             'aktif' => 1, 'dibuat_pada' => now(),
         ]);
         DB::table('approval_config_approver')->insert([
@@ -279,7 +279,7 @@ class RekeningPerusahaanTest extends TestCase
         $idLain  = $this->tambah(['nama_bank' => 'Mandiri', 'nomor_rekening' => '9000001'])->json('data.id_rekening_perusahaan');
 
         $id = $this->ajukanPengisian()->assertStatus(201)->assertJsonPath('data.status', 'menunggu_approval')->json('data.id_pengisian');
-        $isi = ['tanggal' => now()->toDateString(), 'nominal' => 2500000, 'keterangan' => 'Isi ulang kas kecil kantor'];
+        $isi = ['tanggal' => now()->toDateString(), 'nominal' => 2500000, 'keterangan' => 'Isi ulang petty cash kantor'];
 
         $this->putJson("/api/kas-kecil/pengisian/{$id}", $isi)
             ->assertStatus(200)

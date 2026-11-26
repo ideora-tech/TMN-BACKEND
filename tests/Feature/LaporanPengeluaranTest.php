@@ -79,7 +79,7 @@ class LaporanPengeluaranTest extends TestCase
 
         $this->buatPengajuan(['nomor_pengajuan' => 'PP-202609-0001']);
         $this->buatPengajuan(['nomor_pengajuan' => 'PP-202609-0002', 'kategori' => 'kasbon', 'nominal' => 2000000, 'penerima' => 'Rudi Hartono', 'id_kasbon' => $idKasbon]);
-        $this->buatPengajuan(['nomor_pengajuan' => 'PP-202609-0003', 'kategori' => 'pengisian_kas_kecil', 'nominal' => 500000, 'penerima' => 'Kas Kecil', 'id_pengisian_kas_kecil' => $idPengisian]);
+        $this->buatPengajuan(['nomor_pengajuan' => 'PP-202609-0003', 'kategori' => 'pengisian_kas_kecil', 'nominal' => 500000, 'penerima' => 'Petty Cash', 'id_pengisian_kas_kecil' => $idPengisian]);
         $this->buatPengajuan(['nomor_pengajuan' => 'PP-202609-0004', 'kategori' => 'pembayaran_vendor', 'nominal' => 4000000, 'id_invoice_vendor' => $idInvoice]);
         $this->buatPengajuan(['nomor_pengajuan' => 'PP-202609-0005', 'status' => 'siap_transfer', 'tanggal_transfer' => null]);
         $this->buatPengajuan(['nomor_pengajuan' => 'PP-202609-0006', 'tanggal_transfer' => '2026-08-31']);
@@ -131,7 +131,7 @@ class LaporanPengeluaranTest extends TestCase
         $this->assertSame('PT Vendor Angkut', $baris['IV-2026-0009']['penerima']);
         $this->assertSame('Pembayaran Vendor', $baris['IV-2026-0009']['label_kategori']);
         $this->assertSame('/proses-pembayaran?tab=ditransfer', $baris['PP-202609-0001']['link_dokumen']);
-        $this->assertSame('Kas Kecil — ATK & Perlengkapan Kantor', $baris['KK-202609-0002']['label_kategori']);
+        $this->assertSame('Petty Cash — ATK & Perlengkapan Kantor', $baris['KK-202609-0002']['label_kategori']);
         $this->assertSame('kas_kecil', $baris['KK-202609-0002']['sumber_dana']);
         $this->assertSame('/kas-kecil?tab=buku&tanggal=2026-09-15&cari=KK-202609-0002', $baris['KK-202609-0002']['link_dokumen']);
         $this->assertStringEndsWith('/storage/bukti-kas/bukti.pdf', $baris['PP-202609-0001']['url_bukti']);
@@ -353,9 +353,9 @@ class LaporanPengeluaranTest extends TestCase
         $kasKecil = $this->get('/api/laporan-pengeluaran/export/excel?dari=2026-09-01&sampai=2026-09-30&sumber_dana=kas_kecil&kategori=kas_kecil');
         $kasKecil->assertStatus(200);
         $bukuKasKecil = IOFactory::load($kasKecil->baseResponse->getFile()->getPathname());
-        $this->assertSame('Periode 01/09/2026 s/d 30/09/2026 · Sumber dana: Kas Kecil', $bukuKasKecil->getSheetByName('Ringkasan')->getCell('A2')->getValue());
+        $this->assertSame('Periode 01/09/2026 s/d 30/09/2026 · Sumber dana: Petty Cash', $bukuKasKecil->getSheetByName('Ringkasan')->getCell('A2')->getValue());
         $this->assertSame(
-            'Periode 01/09/2026 s/d 30/09/2026 · Kategori: Kas Kecil — semua kategori · Sumber dana: Kas Kecil',
+            'Periode 01/09/2026 s/d 30/09/2026 · Kategori: Petty Cash — semua kategori · Sumber dana: Petty Cash',
             $bukuKasKecil->getSheetByName('Rincian')->getCell('A2')->getValue(),
         );
 

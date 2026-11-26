@@ -200,7 +200,7 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
             ->orderBy('iv.nomor_invoice')
             ->get([
                 'iv.tanggal_invoice', 'iv.nomor_invoice', 'v.nama_vendor', 'iv.keterangan', 'iv.tipe_kendaraan',
-                'iv.dpp', 'iv.ppn', 'iv.pph',
+                'iv.dpp', 'iv.ppn', 'iv.pph', 'iv.total_biaya_tambahan',
             ])
             ->all();
     }
@@ -296,6 +296,33 @@ class InvoiceVendorRepository implements InvoiceVendorRepositoryInterface
         }
 
         return DB::table('pengguna')->where('id_pengguna', $idPengguna)->value('username');
+    }
+
+    public function daftarBiayaTambahan(string $idInvoiceVendor): array
+    {
+        return DB::table('invoice_vendor_biaya')
+            ->whereNull('dihapus_pada')
+            ->where('id_invoice_vendor', $idInvoiceVendor)
+            ->orderBy('urutan')
+            ->get(['id_invoice_vendor_biaya', 'nama', 'nominal'])
+            ->all();
+    }
+
+    public function gantiBiayaTambahan(string $idInvoiceVendor, array $biaya): void
+    {
+        DB::table('invoice_vendor_biaya')
+            ->whereNull('dihapus_pada')
+            ->where('id_invoice_vendor', $idInvoiceVendor)
+            ->update(RecordHelper::stampDelete());
+
+        foreach (array_values($biaya) as $i => $baris) {
+            DB::table('invoice_vendor_biaya')->insert(RecordHelper::stampCreate([
+                'id_invoice_vendor' => $idInvoiceVendor,
+                'nama'              => $baris['nama'],
+                'nominal'           => $baris['nominal'],
+                'urutan'            => $i,
+            ], 'id_invoice_vendor_biaya'));
+        }
     }
 
     public function create(array $data): InvoiceVendorModel

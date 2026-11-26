@@ -25,6 +25,8 @@ class ArusKasPsakTest extends TestCase
     private function buatFaktur(array $override = []): string
     {
         $id = (string) Str::uuid();
+        $dibayar = $override['dibayar'] ?? true;
+        unset($override['dibayar']);
         DB::table('faktur')->insert(array_merge([
             'id_faktur'      => $id,
             'id_perusahaan'  => self::PERUSAHAAN_ID,
@@ -34,6 +36,18 @@ class ArusKasPsakTest extends TestCase
             'tanggal_faktur' => '2026-08-05',
             'dibuat_pada'    => now(),
         ], $override));
+        // Kas bank mencatat uang masuk dari PEMBAYARAN klien. Fixture lama memaksudkan
+        // faktur sebagai uang masuk, jadi dianggap lunas di tanggal faktur kecuali 'dibayar' => false.
+        if ($dibayar) {
+            $baris = DB::table('faktur')->where('id_faktur', $id)->first();
+            DB::table('pembayaran_faktur')->insert([
+                'id_pembayaran_faktur' => (string) Str::uuid(),
+                'id_faktur'            => $id,
+                'tanggal_bayar'        => $baris->tanggal_faktur ?? substr((string) $baris->dibuat_pada, 0, 10),
+                'nominal'              => $baris->total,
+                'dibuat_pada'          => now(),
+            ]);
+        }
         return $id;
     }
 
@@ -235,7 +249,7 @@ class ArusKasPsakTest extends TestCase
         $this->assertSame('PT Uji Transport', $labels[0]);
         $this->assertSame('LAPORAN ARUS KAS', $labels[1]);
         $this->assertSame('Periode: 01/08/2026 — 31/08/2026', $labels[2]);
-        $this->assertSame('(Metode Langsung)', $labels[3]);
+        $this->assertSame('(Metode Langsung · Kas Bank + Petty Cash)', $labels[3]);
         $this->assertContains('ARUS KAS DARI AKTIVITAS OPERASI', $labels);
         $this->assertContains('    Penerimaan dari pelanggan', $labels);
         $this->assertNotContains('    Pembayaran uang jalan', $labels);

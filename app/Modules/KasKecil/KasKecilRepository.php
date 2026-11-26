@@ -107,6 +107,14 @@ class KasKecilRepository implements KasKecilRepositoryInterface
         return $this->dasarTransaksi()->where('t.id_transaksi', $id)->first();
     }
 
+    public function findTransaksiByPembayaranVendor(string $idPembayaranVendor): ?object
+    {
+        return DB::table('kas_kecil_transaksi')
+            ->where('id_pembayaran_vendor', $idPembayaranVendor)
+            ->whereNull('dihapus_pada')
+            ->first();
+    }
+
     public function nomorTransaksiBerikutnya(string $idPerusahaan): string
     {
         $prefix   = 'KK-' . now()->format('Ym') . '-';
@@ -259,8 +267,9 @@ class KasKecilRepository implements KasKecilRepositoryInterface
         return DB::table('kas_kecil_transaksi as t')
             ->leftJoin('pengguna as u', 'u.id_pengguna', '=', 't.dibuat_oleh')
             ->leftJoin('kas_kecil_pengisian as p', 'p.id_pengisian', '=', 't.id_pengisian')
+            ->leftJoin('pengajuan_pengeluaran as pp', 'pp.id_pengajuan', '=', 't.id_pengajuan')
             ->whereNull('t.dihapus_pada')
-            ->select(['t.*', 'u.username as dicatat_oleh', 'p.nomor_pengisian']);
+            ->select(['t.*', 'u.username as dicatat_oleh', 'p.nomor_pengisian', 'pp.nomor_pengajuan', 'pp.kategori as kategori_pengajuan']);
     }
 
     private function dasarPengisian(): Builder

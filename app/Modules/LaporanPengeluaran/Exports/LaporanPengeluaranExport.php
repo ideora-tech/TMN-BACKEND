@@ -46,8 +46,8 @@ class LaporanPengeluaranExport implements WithMultipleSheets
         $rows = collect([
             ['Total pengeluaran', '', (float) $ringkasan['total_pengeluaran']],
             ['Dibayar dari rekening', '', (float) $ringkasan['dari_rekening']],
-            ['Dibayar dari kas kecil', '', (float) $ringkasan['dari_kas_kecil']],
-            ['Pengisian kas kecil (pindah dana, tidak dihitung sebagai pengeluaran)', '', (float) $ringkasan['mutasi_kas_kecil']],
+            ['Dibayar dari petty cash', '', (float) $ringkasan['dari_kas_kecil']],
+            ['Pengisian petty cash (pindah dana, tidak dihitung sebagai pengeluaran)', '', (float) $ringkasan['mutasi_kas_kecil']],
             ['', '', ''],
             ['PER KATEGORI', '', ''],
         ]);

@@ -24,6 +24,7 @@ class PermintaanPembelianPenerimaanSebagianTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->isiSaldoKasKecil();
         Storage::fake('public');
         $this->ensurePerusahaan();
         app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);

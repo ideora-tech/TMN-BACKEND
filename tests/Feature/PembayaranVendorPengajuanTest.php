@@ -17,6 +17,12 @@ class PembayaranVendorPengajuanTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->isiSaldoKasKecil();
+    }
+
     private function makeVendor(): VendorModel
     {
         return VendorModel::create([
@@ -277,10 +283,16 @@ class PembayaranVendorPengajuanTest extends TestCase
         $sampai = now()->addDay()->toDateString();
         $res = $this->getJson("/api/arus-kas?dari={$dari}&sampai={$sampai}&arah=keluar")->assertStatus(200);
 
+        // Dibayar dari Kas Kecil: tidak ada di kas bank, sekali di Buku Kas Kecil,
+        // dan sekali di laporan PSAK gabungan (sebagai pembayaran ke vendor).
         $baris = collect($res->json('data.transaksi'))
-            ->filter(fn ($t) => in_array($t['sumber'], ['pengajuan_pengeluaran', 'pembayaran_vendor'], true)
-                && (float) $t['nominal'] === 5000000.0);
-        $this->assertCount(1, $baris);
-        $this->assertSame('pembayaran_vendor', $baris->first()['sumber']);
+            ->filter(fn ($t) => in_array($t['sumber'], ['pengajuan_pengeluaran', 'pembayaran_vendor'], true));
+        $this->assertCount(0, $baris);
+        $this->assertSame(1, DB::table('kas_kecil_transaksi')->where('arah', 'keluar')->where('nominal', 5000000)->whereNull('dihapus_pada')->count());
+
+        $psak = app(\App\Modules\ArusKas\ArusKasService::class)->laporanPsak(self::PERUSAHAAN_ID, $dari, $sampai);
+        $operasi = collect($psak['kelompok'][0]['baris'])->pluck('nominal', 'label');
+        $this->assertEquals(5000000, $operasi['Pembayaran ke vendor']);
+        $this->assertEquals(0, $operasi['Pembayaran operasional lainnya']);
     }
 }

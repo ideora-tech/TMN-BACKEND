@@ -18,6 +18,7 @@ class KasbonPayrollTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->isiSaldoKasKecil();
         $this->ensurePerusahaan();
         app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
     }

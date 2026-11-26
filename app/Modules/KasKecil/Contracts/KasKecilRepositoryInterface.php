@@ -30,6 +30,8 @@ interface KasKecilRepositoryInterface
 
     public function findTransaksi(string $id): ?object;
 
+    public function findTransaksiByPembayaranVendor(string $idPembayaranVendor): ?object;
+
     public function nomorTransaksiBerikutnya(string $idPerusahaan): string;
 
     public function createTransaksi(array $data): object;

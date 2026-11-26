@@ -17,6 +17,7 @@ class PembayaranVendorModel extends BaseModel
         'tanggal_bayar',
         'nominal',
         'metode',
+        'sumber_dana',
         'bank_pengirim',
         'no_referensi',
         'url_bukti',

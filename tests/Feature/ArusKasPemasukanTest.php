@@ -42,6 +42,8 @@ class ArusKasPemasukanTest extends TestCase
     private function buatFaktur(array $override = []): string
     {
         $id = (string) Str::uuid();
+        $dibayar = $override['dibayar'] ?? true;
+        unset($override['dibayar']);
         DB::table('faktur')->insert(array_merge([
             'id_faktur'      => $id,
             'id_perusahaan'  => self::PERUSAHAAN_ID,
@@ -51,6 +53,18 @@ class ArusKasPemasukanTest extends TestCase
             'tanggal_faktur' => '2026-08-05',
             'dibuat_pada'    => now(),
         ], $override));
+        // Kas bank mencatat uang masuk dari PEMBAYARAN klien. Fixture lama memaksudkan
+        // faktur sebagai uang masuk, jadi dianggap lunas di tanggal faktur kecuali 'dibayar' => false.
+        if ($dibayar) {
+            $baris = DB::table('faktur')->where('id_faktur', $id)->first();
+            DB::table('pembayaran_faktur')->insert([
+                'id_pembayaran_faktur' => (string) Str::uuid(),
+                'id_faktur'            => $id,
+                'tanggal_bayar'        => $baris->tanggal_faktur ?? substr((string) $baris->dibuat_pada, 0, 10),
+                'nominal'              => $baris->total,
+                'dibuat_pada'          => now(),
+            ]);
+        }
         return $id;
     }
 
@@ -173,6 +187,84 @@ class ArusKasPemasukanTest extends TestCase
         $this->assertTrue($manual['dapat_diubah']);
         $this->assertSame('pendapatan_jasa', $manual['kategori']);
         $this->assertSame('PT Sumber Dana', $manual['sumber_dana']);
+    }
+
+    public function test_list_pemasukan_invoice_berdasarkan_pembayaran_klien(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $this->buatFaktur(['tanggal_faktur' => '2026-08-03', 'total' => 500000, 'dibayar' => false]);
+        $dicicil = $this->buatFaktur(['tanggal_faktur' => '2026-07-20', 'total' => 900000, 'dibayar' => false]);
+        foreach ([['2026-07-25', 300000], ['2026-08-12', 400000]] as [$tanggal, $nominal]) {
+            DB::table('pembayaran_faktur')->insert([
+                'id_pembayaran_faktur' => (string) Str::uuid(), 'id_faktur' => $dicicil,
+                'tanggal_bayar' => $tanggal, 'nominal' => $nominal, 'dibuat_pada' => now(),
+            ]);
+        }
+
+        $rows = collect($this->getJson('/api/arus-kas/pemasukan?dari=2026-08-01&sampai=2026-08-31')->assertStatus(200)->json('data'));
+
+        // Invoice belum dibayar tidak dihitung; cicilan dihitung sesuai tanggal bayarnya.
+        $this->assertCount(1, $rows);
+        $this->assertSame($dicicil, $rows[0]['id']);
+        $this->assertSame('2026-08-12', substr($rows[0]['tanggal'], 0, 10));
+        $this->assertSame(400000, $rows[0]['nominal']);
+    }
+
+    public function test_rekap_memuat_saldo_awal_dan_akhir_bank(): void
+    {
+        $this->actingAsRole('ADMIN');
+        $this->buatFaktur(['tanggal_faktur' => '2026-07-10', 'total' => 2000000]);
+        $this->buatPemasukan(['tanggal' => '2026-08-09', 'nominal' => 750000]);
+
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31')->assertStatus(200);
+        $this->assertEquals(2000000, $res->json('data.ringkasan.saldo_awal'));
+        $this->assertEquals(2750000, $res->json('data.ringkasan.saldo_akhir'));
+    }
+
+    public function test_saldo_awal_bank_menjadi_titik_awal_saldo(): void
+    {
+        $this->actingAsRole('KEUANGAN');
+        // Transaksi sebelum tanggal saldo awal sudah terwakili oleh saldo rekening koran.
+        $this->buatPemasukan(['tanggal' => '2026-06-15', 'nominal' => 9999999]);
+        $this->buatPemasukan(['tanggal' => '2026-07-20', 'nominal' => 500000]);
+        $this->buatPemasukan(['tanggal' => '2026-08-09', 'nominal' => 750000]);
+
+        $this->putJson('/api/arus-kas/saldo-awal-bank', ['tanggal' => '2026-07-01', 'nominal' => 10000000])
+            ->assertStatus(200)
+            ->assertJsonPath('data.tanggal', '2026-07-01');
+
+        $res = $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31')->assertStatus(200);
+        $this->assertEquals(10500000, $res->json('data.ringkasan.saldo_awal'));
+        $this->assertEquals(11250000, $res->json('data.ringkasan.saldo_akhir'));
+        $this->assertEquals(750000, $res->json('data.ringkasan.total_pemasukan'));
+        $this->assertSame('2026-07-01', $res->json('data.saldo_awal_bank.tanggal'));
+
+        // Periode sebelum tanggal saldo awal dihitung mundur dari saldo awal.
+        $juni = $this->getJson('/api/arus-kas?dari=2026-06-01&sampai=2026-06-30')->assertStatus(200);
+        $this->assertEquals(10000000 - 9999999, $juni->json('data.ringkasan.saldo_awal'));
+        $this->assertEquals(10000000, $juni->json('data.ringkasan.saldo_akhir'));
+
+        // Laporan PSAK memakai saldo awal yang sama (petty cash kosong).
+        $psak = app(\App\Modules\ArusKas\ArusKasService::class)->laporanPsak(self::PERUSAHAAN_ID, '2026-08-01', '2026-08-31');
+        $this->assertEquals(10500000, $psak['saldo_awal']);
+
+        $this->deleteJson('/api/arus-kas/saldo-awal-bank')->assertStatus(200);
+        $this->assertNull($this->getJson('/api/arus-kas/saldo-awal-bank')->json('data'));
+        $this->assertEquals(9999999 + 500000, $this->getJson('/api/arus-kas?dari=2026-08-01&sampai=2026-08-31')->json('data.ringkasan.saldo_awal'));
+    }
+
+    public function test_saldo_awal_bank_validasi_dan_hak_akses(): void
+    {
+        $this->actingAsRole('KEUANGAN');
+        $this->putJson('/api/arus-kas/saldo-awal-bank', ['tanggal' => now()->addDay()->toDateString(), 'nominal' => 1000])
+            ->assertStatus(422)->assertJsonValidationErrors('tanggal');
+        $this->putJson('/api/arus-kas/saldo-awal-bank', ['tanggal' => '2026-07-01', 'nominal' => -5])
+            ->assertStatus(422)->assertJsonValidationErrors('nominal');
+
+        $this->actingAsRole('ADMIN');
+        $this->getJson('/api/arus-kas/saldo-awal-bank')->assertStatus(200);
+        $this->putJson('/api/arus-kas/saldo-awal-bank', ['tanggal' => '2026-07-01', 'nominal' => 1000])->assertStatus(403);
+        $this->deleteJson('/api/arus-kas/saldo-awal-bank')->assertStatus(403);
     }
 
     public function test_list_gabungan_filter_jenis_dan_kategori(): void

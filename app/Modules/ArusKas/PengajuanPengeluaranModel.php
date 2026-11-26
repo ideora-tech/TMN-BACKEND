@@ -37,6 +37,7 @@ class PengajuanPengeluaranModel extends BaseModel
         'penerima',
         'keterangan',
         'status',
+        'sumber_dana',
         'alasan_ditolak',
         'dicek_oleh',
         'dicek_pada',

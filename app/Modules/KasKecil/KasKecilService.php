@@ -19,11 +19,14 @@ class KasKecilService
     public const JENIS_PENGISIAN   = 'pengisian';
     public const JENIS_SALDO_AWAL  = 'saldo_awal';
     public const JENIS_PENGELUARAN = 'pengeluaran';
+    /** Pembayaran pengajuan / invoice vendor yang dananya diambil dari kas kecil. */
+    public const JENIS_PEMBAYARAN  = 'pembayaran';
 
     public const LABEL_JENIS = [
         self::JENIS_PENGISIAN   => 'Pengisian dari Rekening',
         self::JENIS_SALDO_AWAL  => 'Saldo Awal',
         self::JENIS_PENGELUARAN => 'Pengeluaran',
+        self::JENIS_PEMBAYARAN  => 'Pembayaran Pengajuan',
     ];
 
     public const KATEGORI = [
@@ -50,16 +53,16 @@ class KasKecilService
 
     public const PERAN_SALDO_AWAL = ['SUPERADMIN', 'KEUANGAN'];
 
-    public const PENERIMA_PENGISIAN = 'Kas Kecil';
+    public const PENERIMA_PENGISIAN = 'Petty Cash';
 
     private const FOLDER_BUKTI   = 'bukti-kas-kecil';
-    private const TOLERANSI      = 0.004;
     private const RENTANG_MAKS   = 366;
 
     public function __construct(
         private readonly KasKecilRepositoryInterface $repo,
         private readonly ArusKasService $arusKasService,
         private readonly ApprovalService $approvalService,
+        private readonly BukuKasKecil $buku,
     ) {}
 
     public static function statusPengisian(object $pengisian): string
@@ -192,7 +195,7 @@ class KasKecilService
     {
         $record = $this->repo->findTransaksi($id);
         if ($record === null || $record->id_perusahaan !== $idPerusahaan) {
-            abort(404, 'Transaksi kas kecil tidak ditemukan');
+            abort(404, 'Transaksi petty cash tidak ditemukan');
         }
 
         return $record;
@@ -237,7 +240,7 @@ class KasKecilService
 
             $record = $this->findTransaksiOrFail($id, $idPerusahaan);
             if ($record->jenis !== self::JENIS_PENGELUARAN) {
-                abort(409, 'Hanya pengeluaran kas kecil yang bisa diubah');
+                abort(409, 'Hanya pengeluaran petty cash yang bisa diubah');
             }
 
             $tanggalLama = substr((string) $record->tanggal, 0, 10);
@@ -258,10 +261,13 @@ class KasKecilService
 
             $record = $this->findTransaksiOrFail($id, $idPerusahaan);
             if ($record->jenis === self::JENIS_PENGISIAN) {
-                abort(409, 'Penerimaan dari pengisian kas kecil tidak bisa dihapus');
+                abort(409, 'Penerimaan dari pengisian petty cash tidak bisa dihapus');
             }
             if ($record->jenis === self::JENIS_SALDO_AWAL) {
                 abort(409, 'Saldo awal dihapus lewat tombol Hapus Saldo Awal');
+            }
+            if ($record->jenis === self::JENIS_PEMBAYARAN) {
+                abort(409, 'Pembayaran pengajuan tercatat otomatis dari Proses Pembayaran dan tidak bisa dihapus');
             }
 
             $this->repo->deleteTransaksi($record);
@@ -276,10 +282,10 @@ class KasKecilService
             $this->repo->kunciPerusahaan($idPerusahaan);
 
             if ($this->repo->findSaldoAwal($idPerusahaan) !== null) {
-                abort(409, 'Saldo awal kas kecil sudah pernah dicatat');
+                abort(409, 'Saldo awal petty cash sudah pernah dicatat');
             }
             if ($this->repo->adaTransaksi($idPerusahaan)) {
-                abort(409, 'Saldo awal hanya bisa dicatat sebelum ada transaksi kas kecil — untuk menambah dana, ajukan pengisian dari rekening');
+                abort(409, 'Saldo awal hanya bisa dicatat sebelum ada transaksi petty cash — untuk menambah dana, ajukan pengisian dari rekening');
             }
 
             return $this->repo->createTransaksi([
@@ -289,7 +295,7 @@ class KasKecilService
                 'arah'            => 'masuk',
                 'jenis'           => self::JENIS_SALDO_AWAL,
                 'nominal'         => round((float) $data['nominal'], 2),
-                'keterangan'      => Str::limit($keterangan !== '' ? $keterangan : 'Saldo awal kas kecil', 255, ''),
+                'keterangan'      => Str::limit($keterangan !== '' ? $keterangan : 'Saldo awal petty cash', 255, ''),
             ]);
         }, 3);
     }
@@ -301,14 +307,14 @@ class KasKecilService
 
             $record = $this->repo->findSaldoAwal($idPerusahaan);
             if ($record === null) {
-                abort(404, 'Saldo awal kas kecil belum dicatat');
+                abort(404, 'Saldo awal petty cash belum dicatat');
             }
 
             $this->repo->deleteTransaksi($record);
 
             $kurang = $this->titikMinus($idPerusahaan, substr((string) $record->tanggal, 0, 10));
             if ($kurang !== null) {
-                abort(409, 'Saldo awal tidak bisa dihapus — pengeluaran yang sudah tercatat membuat saldo kas kecil minus per '
+                abort(409, 'Saldo awal tidak bisa dihapus — pengeluaran yang sudah tercatat membuat saldo petty cash minus per '
                     . $this->tanggalTampil($kurang['tanggal']) . '. Hapus atau kurangi pengeluarannya dulu.');
             }
         }, 3);
@@ -333,7 +339,7 @@ class KasKecilService
     {
         $record = $this->repo->findPengisian($id);
         if ($record === null || $record->id_perusahaan !== $idPerusahaan) {
-            abort(404, 'Pengisian kas kecil tidak ditemukan');
+            abort(404, 'Pengisian petty cash tidak ditemukan');
         }
 
         return $record;
@@ -424,7 +430,7 @@ class KasKecilService
         }
 
         if (!$this->approvalService->approverTersedia($kode, $idPembuat, $idPerusahaan)) {
-            abort(422, 'Approver Pengisian Kas Kecil belum diatur — tambahkan Direktur Keuangan sebagai approver di Konfigurasi Approval (jenis Pengisian Kas Kecil, kode "pengisian_kas_kecil")');
+            abort(422, 'Approver Pengisian Petty Cash belum diatur — tambahkan Direktur Keuangan sebagai approver di Konfigurasi Approval (jenis Pengisian Petty Cash, kode "pengisian_kas_kecil")');
         }
     }
 
@@ -441,39 +447,19 @@ class KasKecilService
             return;
         }
 
-        abort(409, "Pengisian kas kecil hanya bisa {$aksi} saat status menunggu approval atau ditolak (status saat ini: "
+        abort(409, "Pengisian petty cash hanya bisa {$aksi} saat status menunggu approval atau ditolak (status saat ini: "
             . str_replace('_', ' ', self::statusPengisian($record)) . ')');
     }
 
     private function pastikanSaldoCukup(string $idPerusahaan, string $dariTanggal): void
     {
-        $kurang = $this->titikMinus($idPerusahaan, $dariTanggal);
-        if ($kurang === null) {
-            return;
-        }
-
-        throw ValidationException::withMessages([
-            'nominal' => 'Saldo kas kecil tidak cukup per ' . $this->tanggalTampil($kurang['tanggal'])
-                . ' — kurang Rp ' . number_format($kurang['kurang'], 0, ',', '.')
-                . '. Ajukan pengisian kas kecil atau periksa tanggal dan nominalnya.',
-        ]);
+        $this->buku->pastikanSaldoCukup($idPerusahaan, $dariTanggal);
     }
 
     /** @return array{tanggal: string, kurang: float}|null */
     private function titikMinus(string $idPerusahaan, string $dariTanggal): ?array
     {
-        $saldo = $this->repo->saldoSebelum($idPerusahaan, $dariTanggal, true);
-
-        foreach ($this->repo->mutasiSejak($idPerusahaan, $dariTanggal) as $mutasi) {
-            $nominal = (float) $mutasi->nominal;
-            $saldo   = round($saldo + ($mutasi->arah === 'masuk' ? $nominal : -$nominal), 2);
-
-            if ($saldo < -self::TOLERANSI) {
-                return ['tanggal' => substr((string) $mutasi->tanggal, 0, 10), 'kurang' => abs($saldo)];
-            }
-        }
-
-        return null;
+        return $this->buku->titikMinus($idPerusahaan, $dariTanggal);
     }
 
     private function rapikanPengeluaran(array $data): array
@@ -500,7 +486,7 @@ class KasKecilService
 
     private function keteranganPengajuan(string $nomor, string $keterangan): string
     {
-        return Str::limit("Pengisian kas kecil {$nomor} — {$keterangan}", 255, '');
+        return Str::limit("Pengisian petty cash {$nomor} — {$keterangan}", 255, '');
     }
 
     private function pilihRekening(?string $idRekening, string $idPerusahaan): array

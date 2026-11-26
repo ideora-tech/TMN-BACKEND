@@ -12,6 +12,7 @@ use App\Modules\ArusKas\Requests\StorePengajuanRequest;
 use App\Modules\ArusKas\Requests\TolakPengajuanRequest;
 use App\Modules\ArusKas\Requests\TransferPengajuanRequest;
 use App\Modules\ArusKas\Requests\UpdatePemasukanRequest;
+use App\Modules\ArusKas\Requests\UpdateSaldoAwalBankRequest;
 use App\Modules\ArusKas\Requests\UpdatePengajuanRequest;
 use App\Modules\ArusKas\Resources\PemasukanGabunganResource;
 use App\Modules\ArusKas\Resources\PemasukanResource;
@@ -56,9 +57,33 @@ class ArusKasController extends Controller
         );
 
         return ApiResponse::success([
-            'ringkasan' => $hasil['ringkasan'],
-            'transaksi' => TransaksiArusKasResource::collection($hasil['transaksi']),
+            'ringkasan'       => $hasil['ringkasan'],
+            'saldo_awal_bank' => $hasil['saldo_awal_bank'],
+            'transaksi'       => TransaksiArusKasResource::collection($hasil['transaksi']),
         ]);
+    }
+
+    public function showSaldoAwalBank(Request $request): JsonResponse
+    {
+        return ApiResponse::success($this->service->saldoAwalBank((string) $request->user()->id_perusahaan));
+    }
+
+    public function updateSaldoAwalBank(UpdateSaldoAwalBankRequest $request): JsonResponse
+    {
+        $hasil = $this->service->setSaldoAwalBank(
+            (string) $request->user()->id_perusahaan,
+            (string) $request->validated('tanggal'),
+            (float) $request->validated('nominal'),
+        );
+
+        return ApiResponse::success($hasil, 'Saldo awal bank berhasil disimpan');
+    }
+
+    public function destroySaldoAwalBank(Request $request): JsonResponse
+    {
+        $this->service->hapusSaldoAwalBank((string) $request->user()->id_perusahaan);
+
+        return ApiResponse::success(null, 'Saldo awal bank dihapus');
     }
 
     public function exportExcel(Request $request): BinaryFileResponse
@@ -91,7 +116,8 @@ class ArusKasController extends Controller
             (string) $request->user()->id_perusahaan,
             $request->get('status'),
             $request->get('search'),
-            $request->get('kategori')
+            $request->get('kategori'),
+            $request->get('sumber_dana') === 'rekening',
         );
         $this->service->lampirkanApprovalBanyak($data, (string) $request->user()->id_pengguna);
         return ApiResponse::success(PengajuanPengeluaranResource::collection($data));

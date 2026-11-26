@@ -16,6 +16,7 @@ class PemasukanGabunganResource extends JsonResource
             'id'           => $this->id,
             'nomor'        => $this->nomor,
             'kategori'     => $this->kategori,
+            'label_kategori' => $this->label_kategori ?? null,
             'tanggal'      => $this->tanggal,
             'nominal'      => (float) $this->nominal,
             'sumber_dana'  => $this->sumber_dana,

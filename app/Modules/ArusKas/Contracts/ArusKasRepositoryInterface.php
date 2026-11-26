@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 interface ArusKasRepositoryInterface
 {
-    public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null): Collection;
+    public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null, bool $hanyaKasBank = false): Collection;
     public function findPengajuanById(string $id): ?PengajuanPengeluaranModel;
     public function listMenungguApprovalSaya(string $idPerusahaan, string $idPengguna): Collection;
     public function createPengajuan(array $data): PengajuanPengeluaranModel;
@@ -56,7 +56,11 @@ interface ArusKasRepositoryInterface
     public function listPemasukanGabungan(string $idPerusahaan, string $dari, string $sampai): Collection;
     public function getPengaturan(string $idPerusahaan, string $kunci): ?string;
     public function setPengaturan(string $idPerusahaan, string $kunci, string $nilai): void;
-    public function saldoKasSebelum(string $idPerusahaan, string $sebelumTanggal): float;
+    public function hapusPengaturan(string $idPerusahaan, string $kunci): void;
+    /** Netto kas bank sebelum $sebelumTanggal; bila $sejakTanggal diisi, hanya mulai tanggal itu. */
+    public function saldoKasSebelum(string $idPerusahaan, string $sebelumTanggal, ?string $sejakTanggal = null): float;
+
+    public function rekapGabungan(string $idPerusahaan, string $dari, string $sampai): \Illuminate\Support\Collection;
     public function namaPerusahaan(string $idPerusahaan): ?string;
     public function listApproval(string $idPengajuan): array;
     public function listApprovalBanyak(array $idPengajuanList): array;

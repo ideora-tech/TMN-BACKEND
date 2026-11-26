@@ -34,7 +34,7 @@ class KasKecilTest extends TestCase
         $idEventType = (string) Str::uuid();
         DB::table('approval_event_type')->insert([
             'id_event_type' => $idEventType, 'id_perusahaan' => self::PERUSAHAAN_ID,
-            'kode' => 'pengisian_kas_kecil', 'nama' => 'Pengisian Kas Kecil', 'mode_resolusi' => 'pinned',
+            'kode' => 'pengisian_kas_kecil', 'nama' => 'Pengisian Petty Cash', 'mode_resolusi' => 'pinned',
             'aktif' => $aktif, 'dibuat_pada' => now(),
         ]);
         if ($idApprover !== null) {
@@ -58,7 +58,7 @@ class KasKecilTest extends TestCase
     private function ajukanPengisian(float $nominal = 2000000, array $override = []): string
     {
         $res = $this->postJson('/api/kas-kecil/pengisian', array_merge([
-            'tanggal' => now()->toDateString(), 'nominal' => $nominal, 'keterangan' => 'Isi ulang kas kecil kantor',
+            'tanggal' => now()->toDateString(), 'nominal' => $nominal, 'keterangan' => 'Isi ulang petty cash kantor',
         ], $override));
         $res->assertStatus(201);
 
@@ -116,7 +116,7 @@ class KasKecilTest extends TestCase
         ]);
 
         $res = $this->postJson('/api/kas-kecil/pengisian', [
-            'tanggal' => now()->toDateString(), 'nominal' => 2000000, 'keterangan' => 'Isi ulang kas kecil kantor',
+            'tanggal' => now()->toDateString(), 'nominal' => 2000000, 'keterangan' => 'Isi ulang petty cash kantor',
         ]);
 
         $res->assertStatus(201)
@@ -129,7 +129,7 @@ class KasKecilTest extends TestCase
 
         $pengajuan = DB::table('pengajuan_pengeluaran')->where('id_pengisian_kas_kecil', $res->json('data.id_pengisian'))->first();
         $this->assertSame('pengisian_kas_kecil', $pengajuan->kategori);
-        $this->assertSame('Kas Kecil', $pengajuan->penerima);
+        $this->assertSame('Petty Cash', $pengajuan->penerima);
         $this->assertEquals(2000000, (float) $pengajuan->nominal);
         $this->assertSame('disetujui', $pengajuan->status);
 
@@ -158,10 +158,10 @@ class KasKecilTest extends TestCase
         Sanctum::actingAs($direktur, ['*']);
         $menunggu = $this->getJson('/api/approval-pengajuan/menunggu-saya')->assertStatus(200)->json('data');
         $this->assertCount(1, $menunggu);
-        $this->assertSame('Pengisian Kas Kecil', $menunggu[0]['nama_event_type']);
+        $this->assertSame('Pengisian Petty Cash', $menunggu[0]['nama_event_type']);
         $rincian = $this->getJson("/api/approval-pengajuan/{$menunggu[0]['id_approval']}/rincian")->assertStatus(200);
         $label = array_column($rincian->json('data.rincian.info'), 'value', 'label');
-        $this->assertEquals(0, $label['Saldo Kas Kecil Saat Ini']);
+        $this->assertEquals(0, $label['Saldo Petty Cash Saat Ini']);
         $this->assertEquals(2000000, $label['Saldo Setelah Pengisian']);
         $this->patchJson("/api/approval-pengajuan/{$menunggu[0]['id_approval']}/keputusan", ['keputusan' => 'setuju'])->assertStatus(200);
 
@@ -192,9 +192,11 @@ class KasKecilTest extends TestCase
         $this->assertSame('keluar', $baris[0]['arah']);
         $this->assertEquals(2000000, $baris[0]['nominal']);
 
+        // Laporan PSAK = bank + kas kecil: pengisian hanya pindah dana internal, tidak mengubah kas perusahaan.
         $psak = app(ArusKasService::class)->laporanPsak(self::PERUSAHAAN_ID, $hariIni, $hariIni);
-        $kasKecil = collect($psak['kelompok'][0]['baris'])->firstWhere('label', 'Pengisian kas kecil');
-        $this->assertEquals(2000000, $kasKecil['nominal']);
+        $label = collect($psak['kelompok'][0]['baris'])->pluck('label');
+        $this->assertNotContains('Pengisian petty cash', $label);
+        $this->assertEquals(0, $psak['kenaikan_bersih']);
 
         $this->getJson("/api/kas-kecil/pengisian/{$id}/riwayat")
             ->assertStatus(200)
@@ -229,7 +231,7 @@ class KasKecilTest extends TestCase
         ]);
 
         $res->assertStatus(422);
-        $this->assertStringContainsString('Approver Pengisian Kas Kecil belum diatur', (string) $res->json('message'));
+        $this->assertStringContainsString('Approver Pengisian Petty Cash belum diatur', (string) $res->json('message'));
         $this->assertSame(0, DB::table('kas_kecil_pengisian')->count());
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
     }
@@ -253,7 +255,7 @@ class KasKecilTest extends TestCase
         ]);
 
         $res->assertStatus(422);
-        $this->assertStringContainsString('Approver Pengisian Kas Kecil belum diatur', (string) $res->json('message'));
+        $this->assertStringContainsString('Approver Pengisian Petty Cash belum diatur', (string) $res->json('message'));
         $this->assertSame(0, DB::table('pengajuan_pengeluaran')->count());
         $this->assertSame(0, DB::table('approval_pengajuan')->count());
     }
@@ -296,7 +298,7 @@ class KasKecilTest extends TestCase
         $rincian = app(\App\Modules\Approval\Contracts\RincianReferensiRepositoryInterface::class)
             ->rincian('pengisian_kas_kecil', $idPengajuan, self::PERUSAHAAN_ID);
         $label = array_column($rincian['info'], 'value', 'label');
-        $this->assertEquals(3000000, $label['Saldo Kas Kecil Saat Ini']);
+        $this->assertEquals(3000000, $label['Saldo Petty Cash Saat Ini']);
         $this->assertArrayNotHasKey('Saldo Setelah Pengisian', $label);
     }
 
@@ -422,7 +424,7 @@ class KasKecilTest extends TestCase
 
         $gagal = $this->catatPengeluaran(['nominal' => 350001]);
         $gagal->assertStatus(422);
-        $this->assertStringContainsString('Saldo kas kecil tidak cukup', (string) $gagal->json('errors.nominal.0'));
+        $this->assertStringContainsString('Saldo petty cash tidak cukup', (string) $gagal->json('errors.nominal.0'));
         $this->assertEquals(350000, $this->saldo());
 
         $this->catatPengeluaran(['nominal' => 350000])->assertStatus(201);

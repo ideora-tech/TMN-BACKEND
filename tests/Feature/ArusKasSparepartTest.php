@@ -21,6 +21,7 @@ class ArusKasSparepartTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->isiSaldoKasKecil();
         Storage::fake('public');
         $this->ensurePerusahaan();
 
@@ -338,13 +339,11 @@ class ArusKasSparepartTest extends TestCase
         $dari   = now()->startOfMonth()->toDateString();
         $sampai = now()->endOfMonth()->toDateString();
         $rekap = $this->getJson("/api/arus-kas?dari={$dari}&sampai={$sampai}");
-        $rows = collect($rekap->json('data.transaksi'))
-            ->where('sumber', 'pengajuan_pengeluaran')
-            ->where('kategori', 'sparepart')
-            ->values();
+        $this->assertCount(0, collect($rekap->json('data.transaksi'))->where('kategori', 'sparepart'));
+        $rows = $this->pembayaranKasKecil('sparepart');
         $this->assertCount(1, $rows);
-        $this->assertEquals(200000, $rows[0]['nominal']);
-        $this->assertSame('keluar', $rows[0]['arah']);
+        $this->assertEquals(200000, (float) $rows[0]->nominal);
+        $this->assertSame('keluar', $rows[0]->arah);
     }
 
     public function test_transfer_ditolak_409_jika_pembelian_belum_disetujui_finance(): void
@@ -433,13 +432,11 @@ class ArusKasSparepartTest extends TestCase
         ])->assertStatus(200);
 
         $rekapSesudah = $this->getJson("/api/arus-kas?dari={$dari}&sampai={$sampai}");
-        $rows = collect($rekapSesudah->json('data.transaksi'))
-            ->where('sumber', 'pengajuan_pengeluaran')
-            ->where('kategori', 'sparepart')
-            ->values();
+        $this->assertCount(0, collect($rekapSesudah->json('data.transaksi'))->where('kategori', 'sparepart'));
+        $rows = $this->pembayaranKasKecil('sparepart');
         $this->assertCount(1, $rows);
-        $this->assertEquals(205000, $rows[0]['nominal']);
-        $this->assertSame('keluar', $rows[0]['arah']);
+        $this->assertEquals(205000, (float) $rows[0]->nominal);
+        $this->assertSame('keluar', $rows[0]->arah);
 
         $this->assertCount(0, collect($rekapSesudah->json('data.transaksi'))->where('sumber', 'pembelian_sparepart'));
     }

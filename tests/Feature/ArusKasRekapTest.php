@@ -16,6 +16,8 @@ class ArusKasRekapTest extends TestCase
     private function buatFaktur(array $override = []): string
     {
         $id = (string) Str::uuid();
+        $dibayar = $override['dibayar'] ?? true;
+        unset($override['dibayar']);
         DB::table('faktur')->insert(array_merge([
             'id_faktur'     => $id,
             'id_perusahaan' => self::PERUSAHAAN_ID,
@@ -25,6 +27,18 @@ class ArusKasRekapTest extends TestCase
             'tanggal_faktur' => '2026-08-05',
             'dibuat_pada'   => now(),
         ], $override));
+        // Kas bank mencatat uang masuk dari PEMBAYARAN klien. Fixture lama memaksudkan
+        // faktur sebagai uang masuk, jadi dianggap lunas di tanggal faktur kecuali 'dibayar' => false.
+        if ($dibayar) {
+            $baris = DB::table('faktur')->where('id_faktur', $id)->first();
+            DB::table('pembayaran_faktur')->insert([
+                'id_pembayaran_faktur' => (string) Str::uuid(),
+                'id_faktur'            => $id,
+                'tanggal_bayar'        => $baris->tanggal_faktur ?? substr((string) $baris->dibuat_pada, 0, 10),
+                'nominal'              => $baris->total,
+                'dibuat_pada'          => now(),
+            ]);
+        }
         return $id;
     }
 

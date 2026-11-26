@@ -41,8 +41,8 @@ class BukuKasKecilExport extends SheetTabelTautan
         $rows->push(['', '', '', 'TOTAL', '', '', '', (float) $buku['total_masuk'], (float) $buku['total_keluar'], (float) $buku['saldo_akhir'], '', '']);
 
         parent::__construct(
-            'Buku Kas Kecil',
-            'BUKU KAS KECIL' . ($namaPerusahaan !== '' ? ' — ' . mb_strtoupper($namaPerusahaan) : ''),
+            'Buku Petty Cash',
+            'BUKU PETTY CASH' . ($namaPerusahaan !== '' ? ' — ' . mb_strtoupper($namaPerusahaan) : ''),
             'Periode ' . date('d/m/Y', strtotime($buku['periode']['dari'])) . ' s/d ' . date('d/m/Y', strtotime($buku['periode']['sampai'])),
             ['No', 'Tanggal', 'Nomor', 'Jenis', 'Kategori', 'Dibayar Kepada', 'Keterangan', 'Masuk', 'Keluar', 'Saldo', 'Dicatat Oleh', 'Bukti'],
             $rows,

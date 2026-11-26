@@ -61,4 +61,10 @@ interface InvoiceVendorRepositoryInterface
     public function update(InvoiceVendorModel $model, array $data): InvoiceVendorModel;
 
     public function delete(InvoiceVendorModel $model): void;
+
+    /** @return list<object> biaya tambahan invoice, urut input */
+    public function daftarBiayaTambahan(string $idInvoiceVendor): array;
+
+    /** Ganti seluruh biaya tambahan invoice (baris lama di-soft-delete). */
+    public function gantiBiayaTambahan(string $idInvoiceVendor, array $biaya): void;
 }

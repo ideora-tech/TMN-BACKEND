@@ -1,0 +1,118 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\KategoriPemasukan;
+
+use App\Modules\KategoriPemasukan\Contracts\KategoriPemasukanRepositoryInterface;
+use App\Support\RecordHelper;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+
+class KategoriPemasukanRepository implements KategoriPemasukanRepositoryInterface
+{
+    private const COLUMNS = [
+        'id_kategori_pemasukan', 'id_perusahaan', 'kode', 'nama', 'pos_psak', 'sistem', 'aktif', 'urutan',
+        'dibuat_pada', 'dibuat_oleh', 'diubah_pada', 'diubah_oleh',
+    ];
+
+    public function paginateByPerusahaan(string $idPerusahaan, int $page, int $limit, ?string $search = null, ?bool $aktif = null): LengthAwarePaginator
+    {
+        return DB::table('kategori_pemasukan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->when($search, fn ($q, $v) => $q->where(function ($sub) use ($v) {
+                $sub->where('nama', 'like', '%' . $v . '%')->orWhere('kode', 'like', '%' . $v . '%');
+            }))
+            ->when($aktif !== null, fn ($q) => $q->where('aktif', $aktif ? 1 : 0))
+            ->orderBy('urutan')
+            ->orderBy('nama')
+            ->paginate($limit, self::COLUMNS, 'page', $page);
+    }
+
+    public function semuaByPerusahaan(string $idPerusahaan, bool $hanyaAktif = false): Collection
+    {
+        return DB::table('kategori_pemasukan')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->when($hanyaAktif, fn ($q) => $q->where('aktif', 1))
+            ->orderBy('urutan')
+            ->orderBy('nama')
+            ->get();
+    }
+
+    public function findById(string $id): ?object
+    {
+        return DB::table('kategori_pemasukan')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_kategori_pemasukan', $id)
+            ->first();
+    }
+
+    public function findByKode(string $idPerusahaan, string $kode): ?object
+    {
+        return DB::table('kategori_pemasukan')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('kode', $kode)
+            ->first();
+    }
+
+    public function findByNama(string $idPerusahaan, string $nama, ?string $kecualiId = null): ?object
+    {
+        return DB::table('kategori_pemasukan')
+            ->select(self::COLUMNS)
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->whereRaw('LOWER(nama) = ?', [mb_strtolower(trim($nama))])
+            ->when($kecualiId, fn ($q, $v) => $q->where('id_kategori_pemasukan', '!=', $v))
+            ->first();
+    }
+
+    public function kodeTerpakai(string $idPerusahaan): array
+    {
+        // Termasuk baris terhapus: kode yang pernah dipakai pemasukan tidak boleh berpindah arti.
+        return DB::table('kategori_pemasukan')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->pluck('kode')
+            ->map(fn ($kode) => (string) $kode)
+            ->all();
+    }
+
+    public function create(array $data): object
+    {
+        $data = RecordHelper::stampCreate($data, 'id_kategori_pemasukan');
+        DB::table('kategori_pemasukan')->insert($data);
+
+        return $this->findById($data['id_kategori_pemasukan']);
+    }
+
+    public function update(object $record, array $data): object
+    {
+        DB::table('kategori_pemasukan')
+            ->where('id_kategori_pemasukan', $record->id_kategori_pemasukan)
+            ->update(RecordHelper::stampUpdate($data));
+
+        return $this->findById($record->id_kategori_pemasukan);
+    }
+
+    public function delete(object $record): void
+    {
+        DB::table('kategori_pemasukan')
+            ->where('id_kategori_pemasukan', $record->id_kategori_pemasukan)
+            ->update(RecordHelper::stampDelete());
+    }
+
+    public function jumlahPemakaian(string $idPerusahaan, string $kode): int
+    {
+        return DB::table('pemasukan')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('kategori', $kode)
+            ->count();
+    }
+}

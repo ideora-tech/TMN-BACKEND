@@ -90,7 +90,7 @@ class LaporanPengeluaranRepository implements LaporanPengeluaranRepositoryInterf
             ->selectRaw("
                 pp.id_pengajuan as id_baris,
                 pp.tanggal_transfer as tanggal,
-                'rekening' as sumber_dana,
+                CASE WHEN pp.sumber_dana = 'kas_kecil' THEN 'kas_kecil' ELSE 'rekening' END as sumber_dana,
                 pp.kategori as kategori,
                 NULL as sub_kategori,
                 pp.nomor_pengajuan as nomor,
@@ -130,7 +130,7 @@ class LaporanPengeluaranRepository implements LaporanPengeluaranRepositoryInterf
             ->selectRaw("
                 pv.id_pembayaran_vendor as id_baris,
                 pv.tanggal_bayar as tanggal,
-                'rekening' as sumber_dana,
+                CASE WHEN pv.sumber_dana = 'kas_kecil' THEN 'kas_kecil' ELSE 'rekening' END as sumber_dana,
                 'pembayaran_vendor' as kategori,
                 NULL as sub_kategori,
                 iv.nomor_invoice as nomor,
@@ -152,6 +152,9 @@ class LaporanPengeluaranRepository implements LaporanPengeluaranRepositoryInterf
             ->whereNull('t.dihapus_pada')
             ->where('t.id_perusahaan', $idPerusahaan)
             ->where('t.arah', 'keluar')
+            // Baris 'pembayaran' = pengajuan/pembayaran vendor yang dibayar dari kas kecil;
+            // sudah tampil (lebih lengkap) dari queryPengajuan/queryPembayaranVendor.
+            ->where('t.jenis', '!=', 'pembayaran')
             ->whereBetween('t.tanggal', [$dari, $sampai])
             ->selectRaw("
                 t.id_transaksi as id_baris,

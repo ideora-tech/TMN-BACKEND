@@ -103,7 +103,7 @@ class KasKecilController extends Controller
             $request->file('bukti'),
         );
 
-        return ApiResponse::success(new KasKecilTransaksiResource($record), 'Pengeluaran kas kecil berhasil dicatat', 201);
+        return ApiResponse::success(new KasKecilTransaksiResource($record), 'Pengeluaran petty cash berhasil dicatat', 201);
     }
 
     public function updateTransaksi(StorePengeluaranKasKecilRequest $request, string $id): JsonResponse
@@ -115,28 +115,28 @@ class KasKecilController extends Controller
             $request->file('bukti'),
         );
 
-        return ApiResponse::success(new KasKecilTransaksiResource($record), 'Pengeluaran kas kecil berhasil diperbarui');
+        return ApiResponse::success(new KasKecilTransaksiResource($record), 'Pengeluaran petty cash berhasil diperbarui');
     }
 
     public function destroyTransaksi(Request $request, string $id): JsonResponse
     {
         $this->service->deletePengeluaran($id, (string) $request->user()->id_perusahaan);
 
-        return ApiResponse::success(null, 'Pengeluaran kas kecil berhasil dihapus');
+        return ApiResponse::success(null, 'Pengeluaran petty cash berhasil dihapus');
     }
 
     public function storeSaldoAwal(StoreSaldoAwalKasKecilRequest $request): JsonResponse
     {
         $record = $this->service->catatSaldoAwal($request->validated(), (string) $request->user()->id_perusahaan);
 
-        return ApiResponse::success(new KasKecilTransaksiResource($record), 'Saldo awal kas kecil berhasil dicatat', 201);
+        return ApiResponse::success(new KasKecilTransaksiResource($record), 'Saldo awal petty cash berhasil dicatat', 201);
     }
 
     public function destroySaldoAwal(Request $request): JsonResponse
     {
         $this->service->hapusSaldoAwal((string) $request->user()->id_perusahaan);
 
-        return ApiResponse::success(null, 'Saldo awal kas kecil berhasil dihapus');
+        return ApiResponse::success(null, 'Saldo awal petty cash berhasil dihapus');
     }
 
     public function indexPengisian(Request $request): JsonResponse
@@ -168,21 +168,21 @@ class KasKecilController extends Controller
     {
         $record = $this->service->createPengisian($request->validated(), (string) $request->user()->id_perusahaan);
 
-        return ApiResponse::success(new KasKecilPengisianResource($record), 'Pengisian kas kecil berhasil diajukan', 201);
+        return ApiResponse::success(new KasKecilPengisianResource($record), 'Pengisian petty cash berhasil diajukan', 201);
     }
 
     public function updatePengisian(StorePengisianKasKecilRequest $request, string $id): JsonResponse
     {
         $record = $this->service->updatePengisian($id, $request->validated(), (string) $request->user()->id_perusahaan);
 
-        return ApiResponse::success(new KasKecilPengisianResource($record), 'Pengisian kas kecil berhasil diperbarui');
+        return ApiResponse::success(new KasKecilPengisianResource($record), 'Pengisian petty cash berhasil diperbarui');
     }
 
     public function destroyPengisian(Request $request, string $id): JsonResponse
     {
         $this->service->deletePengisian($id, (string) $request->user()->id_perusahaan);
 
-        return ApiResponse::success(null, 'Pengisian kas kecil berhasil dihapus');
+        return ApiResponse::success(null, 'Pengisian petty cash berhasil dihapus');
     }
 
     /** @return array<string, mixed> */

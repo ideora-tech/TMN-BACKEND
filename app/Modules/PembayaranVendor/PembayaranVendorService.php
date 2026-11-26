@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\PembayaranVendor;
 
+use App\Modules\KasKecil\BukuKasKecil;
 use App\Modules\PembayaranVendor\Contracts\PembayaranVendorRepositoryInterface;
 use App\Support\PenyimpananBerkas;
 use Illuminate\Http\UploadedFile;
@@ -11,7 +12,10 @@ use Illuminate\Support\Facades\DB;
 
 class PembayaranVendorService
 {
-    public function __construct(private readonly PembayaranVendorRepositoryInterface $repo) {}
+    public function __construct(
+        private readonly PembayaranVendorRepositoryInterface $repo,
+        private readonly BukuKasKecil $bukuKasKecil,
+    ) {}
 
     /**
      * Pembayaran invoice vendor tidak lagi dicatat langsung — diajukan dulu ke
@@ -56,7 +60,7 @@ class PembayaranVendorService
 
         // Guard sisa tagihan harus atomik: kunci baris invoice supaya dua
         // pembayaran paralel tidak sama-sama lolos dan melebihi total.
-        return DB::transaction(function () use ($idInvoice, $data) {
+        return DB::transaction(function () use ($idInvoice, $idPerusahaan, $data) {
             $invoice = $this->repo->kunciInvoice($idInvoice);
             if ($invoice === null) {
                 abort(404, 'Invoice vendor tidak ditemukan');
@@ -68,7 +72,21 @@ class PembayaranVendorService
                 abort(409, 'Nominal melebihi sisa tagihan');
             }
 
-            $record = $this->repo->create(array_merge($data, ['id_invoice_vendor' => $idInvoice]));
+            // Pembayaran vendor dibayar dari Kas Kecil (Arus Kas/bank hanya untuk pengisian kas kecil).
+            $record = $this->repo->create(array_merge($data, [
+                'id_invoice_vendor' => $idInvoice,
+                'sumber_dana'       => BukuKasKecil::SUMBER_KAS_KECIL,
+            ]));
+            $info = $this->repo->infoInvoiceUntukPengajuan($idInvoice, $idPerusahaan);
+            $this->bukuKasKecil->catatPembayaran(
+                $idPerusahaan,
+                (string) $data['tanggal_bayar'],
+                $nominal,
+                $info->nama_vendor ?? null,
+                'Pembayaran invoice vendor ' . ($info->nomor_invoice ?? '') . (!empty($data['catatan']) ? ': ' . $data['catatan'] : ''),
+                $record->url_bukti,
+                ['id_pembayaran_vendor' => (string) $record->id_pembayaran_vendor],
+            );
             $this->repo->recalcStatusPembayaran($idInvoice);
 
             return $record;
@@ -90,6 +108,7 @@ class PembayaranVendorService
         DB::transaction(function () use ($record, $idInvoice) {
             $this->repo->kunciInvoice($idInvoice);
             $this->repo->delete($record);
+            $this->bukuKasKecil->hapusPembayaranVendor((string) $record->id_pembayaran_vendor);
             $this->repo->recalcStatusPembayaran($idInvoice);
         });
     }

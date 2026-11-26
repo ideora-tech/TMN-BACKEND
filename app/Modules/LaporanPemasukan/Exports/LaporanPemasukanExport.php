@@ -42,7 +42,7 @@ class LaporanPemasukanExport implements WithMultipleSheets
             ['Dari pembayaran invoice klien', '', (float) $ringkasan['dari_invoice']],
             ['Pemasukan lain', '', (float) $ringkasan['pemasukan_lain']],
             ['Potongan oleh klien (tidak diterima, mis. PPh)', '', (float) $ringkasan['potongan_klien']],
-            ['Invoice tercatat pada periode ini (dasar Arus Kas, termasuk yang masih draft)', (int) $ringkasan['invoice_terbit']['jumlah'], (float) $ringkasan['invoice_terbit']['total']],
+            ['Invoice terbit pada periode ini (termasuk yang masih draft / belum dibayar)', (int) $ringkasan['invoice_terbit']['jumlah'], (float) $ringkasan['invoice_terbit']['total']],
             ['', '', ''],
             ['PER KATEGORI', '', ''],
         ]);

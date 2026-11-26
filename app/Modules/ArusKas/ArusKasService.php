@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\ArusKas;
 
 use App\Modules\ArusKas\Contracts\ArusKasRepositoryInterface;
+use App\Modules\KasKecil\BukuKasKecil;
+use App\Modules\KategoriPemasukan\KategoriPemasukanService;
+use App\Modules\KategoriPengajuan\KategoriPengajuanService;
 use App\Modules\Notifikasi\NotifikasiService;
 use App\Support\PenyimpananBerkas;
 use Carbon\Carbon;
@@ -25,6 +28,7 @@ class ArusKasService
     private const STATUS_PR_BOLEH_BAYAR_DI_MUKA = ['dipesan', 'dibeli', 'diterima_sebagian', 'diterima', 'selesai'];
 
     public const KUNCI_BATAS_APPROVAL = 'batas_approval_keuangan';
+    public const KUNCI_SALDO_AWAL_BANK = 'saldo_awal_bank';
 
     public const KUNCI_WAJIB_APPROVAL_MANUAL = 'wajib_approval_pengajuan_manual';
 
@@ -61,7 +65,7 @@ class ArusKasService
         'pembayaran_vendor'   => 'Pembayaran Vendor',
         'pengadaan'           => 'Pengadaan',
         'kasbon'              => 'Kasbon',
-        self::KATEGORI_PENGISIAN_KAS_KECIL => 'Pengisian Kas Kecil',
+        self::KATEGORI_PENGISIAN_KAS_KECIL => 'Pengisian Petty Cash',
         ...self::KATEGORI_PENGELUARAN_SUPIR,
         'lainnya'             => 'Lainnya',
     ];
@@ -104,17 +108,42 @@ class ArusKasService
         private readonly \App\Modules\Approval\ApprovalService $approvalService,
         private readonly \App\Modules\PembayaranVendor\Contracts\PembayaranVendorRepositoryInterface $pembayaranVendorRepo,
         private readonly \App\Modules\KasKecil\Contracts\KasKecilRepositoryInterface $kasKecilRepo,
+        private readonly BukuKasKecil $bukuKasKecil,
+        private readonly KategoriPemasukanService $kategoriPemasukan,
     ) {}
 
+    /**
+     * Arus Kas = kas bank. Bank hanya mengeluarkan dana untuk pengisian Kas Kecil;
+     * pengajuan lain (biaya, gaji, invoice vendor, PR, pinjaman, ...) dibayar dari Kas Kecil.
+     */
+    private static function sumberDanaPengajuan(PengajuanPengeluaranModel $pengajuan): string
+    {
+        return $pengajuan->id_pengisian_kas_kecil !== null
+            ? BukuKasKecil::SUMBER_REKENING
+            : BukuKasKecil::SUMBER_KAS_KECIL;
+    }
+
+    /**
+     * Nama kategori pengajuan: master Kategori Pengajuan (kategori manual, bisa diganti nama)
+     * lalu daftar kategori sistem. Master dibaca untuk perusahaan pengguna yang login.
+     */
     public static function labelKategori(?string $kategori): string
     {
         $kategori = (string) $kategori;
 
-        return self::LABEL_KATEGORI[$kategori] ?? ucwords(str_replace('_', ' ', $kategori));
+        return app(KategoriPengajuanService::class)->labelUntukPenggunaAktif($kategori)
+            ?? self::LABEL_KATEGORI[$kategori]
+            ?? ucwords(str_replace('_', ' ', $kategori));
     }
 
-    /** @return array<string, string> */
+    /** @return array<string, string> kategori sistem + master perusahaan pengguna yang login */
     public static function daftarLabelKategori(): array
+    {
+        return array_merge(self::LABEL_KATEGORI, app(KategoriPengajuanService::class)->petaLabelPenggunaAktif());
+    }
+
+    /** @return array<string, string> kategori yang dikenal kode (tanpa master) */
+    public static function daftarLabelKategoriSistem(): array
     {
         return self::LABEL_KATEGORI;
     }
@@ -432,9 +461,9 @@ class ArusKasService
             && collect($approval)->contains(fn (array $baris) => $baris['id_pengguna'] === $idPenggunaLogin && $baris['status'] === 'menunggu');
     }
 
-    public function listPengajuan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null): array
+    public function listPengajuan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null, bool $hanyaKasBank = false): array
     {
-        return $this->repo->listPengajuanByPerusahaan($idPerusahaan, $status, $search, $kategori)->all();
+        return $this->repo->listPengajuanByPerusahaan($idPerusahaan, $status, $search, $kategori, $hanyaKasBank)->all();
     }
 
     public function findPengajuanOrFail(string $id, string $idPerusahaan): PengajuanPengeluaranModel
@@ -481,7 +510,7 @@ class ArusKasService
             abort(422, 'Pengajuan kasbon diubah lewat menu Kasbon');
         }
         if ($record->id_pengisian_kas_kecil !== null) {
-            abort(422, 'Pengajuan pengisian kas kecil diubah lewat menu Kas Kecil');
+            abort(422, 'Pengajuan pengisian petty cash diubah lewat menu Petty Cash');
         }
         if ($record->id_pengeluaran_supir !== null) {
             abort(422, 'Pengajuan pengeluaran supir tidak bisa diubah dari sini — supir membatalkan lalu mengajukan ulang lewat aplikasi mobile');
@@ -525,7 +554,7 @@ class ArusKasService
             abort(422, 'Pengajuan kasbon dihapus lewat menu Kasbon');
         }
         if ($record->id_pengisian_kas_kecil !== null) {
-            abort(422, 'Pengajuan pengisian kas kecil dihapus lewat menu Kas Kecil');
+            abort(422, 'Pengajuan pengisian petty cash dihapus lewat menu Petty Cash');
         }
         if ($record->id_pengeluaran_supir !== null) {
             abort(422, 'Pengajuan pengeluaran supir tidak bisa dihapus dari sini — tolak pengajuannya, atau supir membatalkannya lewat aplikasi mobile');
@@ -898,7 +927,7 @@ class ArusKasService
         );
         $kata = $verifikasi ? 'perlu diverifikasi' : 'siap ditransfer';
         $kataAntrian = $verifikasi ? 'menunggu verifikasi' : 'siap ditransfer';
-        $label = self::LABEL_KATEGORI[$record->kategori] ?? ucfirst(str_replace('_', ' ', (string) $record->kategori));
+        $label = self::labelKategori((string) $record->kategori);
         $rincian = "{$label} Rp " . number_format((float) $record->nominal, 0, ',', '.') . " untuk {$record->penerima}";
         $pelaku = auth()->id();
 
@@ -1174,8 +1203,10 @@ class ArusKasService
                 }
             }
 
+            $sumberDana = self::sumberDanaPengajuan($terkunci);
             $data = [
                 'status'           => self::STATUS_DITRANSFER,
+                'sumber_dana'      => $sumberDana,
                 'tanggal_transfer' => $tanggalTransfer,
                 'ditransfer_oleh'  => auth()->id(),
                 'ditransfer_pada'  => now(),
@@ -1207,6 +1238,19 @@ class ArusKasService
             if ($pengisianKasKecil !== null) {
                 $this->catatPenerimaanKasKecil($pengisianKasKecil, $updated, $tanggalTransfer);
             }
+            if ($sumberDana === BukuKasKecil::SUMBER_KAS_KECIL) {
+                // Saldo kas kecil kurang → ValidationException, seluruh transaksi dibatalkan.
+                $this->bukuKasKecil->catatPembayaran(
+                    (string) $updated->id_perusahaan,
+                    $tanggalTransfer,
+                    (float) $updated->nominal,
+                    $updated->penerima,
+                    "Pembayaran {$updated->nomor_pengajuan} (" . self::labelKategori((string) $updated->kategori) . ')'
+                        . ($updated->keterangan ? ": {$updated->keterangan}" : ''),
+                    $updated->url_bukti,
+                    ['id_pengajuan' => (string) $updated->id_pengajuan],
+                );
+            }
             $this->beritahuTimPelaksana($updated, 'pengadaan_ditransfer',
                 'sudah ditransfer',
                 "sudah ditransfer oleh Keuangan pada {$tanggalTransfer}.");
@@ -1220,17 +1264,17 @@ class ArusKasService
     {
         $pengisian = $this->kasKecilRepo->findPengisian($idPengisian);
         if ($pengisian === null) {
-            abort(409, 'Data pengisian kas kecil tidak ditemukan — transfer tidak bisa dicatat');
+            abort(409, 'Data pengisian petty cash tidak ditemukan — transfer tidak bisa dicatat');
         }
 
         $tanggal          = Carbon::parse($tanggalTransfer)->toDateString();
         $tanggalPengisian = substr((string) $pengisian->tanggal, 0, 10);
 
         if ($tanggal > now()->toDateString()) {
-            abort(422, 'Tanggal transfer pengisian kas kecil tidak boleh melewati hari ini');
+            abort(422, 'Tanggal transfer pengisian petty cash tidak boleh melewati hari ini');
         }
         if ($tanggal < $tanggalPengisian) {
-            abort(422, 'Tanggal transfer tidak boleh sebelum tanggal pengisian kas kecil ('
+            abort(422, 'Tanggal transfer tidak boleh sebelum tanggal pengisian petty cash ('
                 . Carbon::parse($tanggalPengisian)->format('d/m/Y') . ')');
         }
 
@@ -1254,7 +1298,7 @@ class ArusKasService
             'arah'            => 'masuk',
             'jenis'           => \App\Modules\KasKecil\KasKecilService::JENIS_PENGISIAN,
             'nominal'         => round((float) $pengajuan->nominal, 2),
-            'keterangan'      => "Pengisian kas kecil {$pengisian->nomor_pengisian} dari rekening",
+            'keterangan'      => "Pengisian petty cash {$pengisian->nomor_pengisian} dari rekening",
             'url_bukti'       => $pengajuan->url_bukti,
             'id_pengisian'    => $pengisian->id_pengisian,
         ]);
@@ -1365,6 +1409,8 @@ class ArusKasService
             'tanggal_bayar'     => $tanggalTransfer,
             'nominal'           => (float) $pengajuan->nominal,
             'metode'            => 'transfer',
+            // Baris Buku Kas Kecil dicatat lewat pengajuannya (id_pengajuan), bukan di sini — hindari dobel.
+            'sumber_dana'       => $pengajuan->sumber_dana ?? BukuKasKecil::SUMBER_REKENING,
             'no_referensi'      => $pengajuan->nomor_pengajuan,
             'url_bukti'         => $pengajuan->url_bukti,
             'catatan'           => $pengajuan->keterangan,
@@ -1474,9 +1520,16 @@ class ArusKasService
 
         $this->validasiRentang($dari, $sampai);
 
+        $label = $this->kategoriPemasukan->petaLabel($idPerusahaan);
+
         return $this->repo->listPemasukanGabungan($idPerusahaan, $dari, $sampai)
             ->when($jenis, fn (Collection $c, string $v) => $c->where('jenis', $v))
             ->when($kategori, fn (Collection $c, string $v) => $c->where('kategori', $v))
+            ->each(function (object $row) use ($label) {
+                $row->label_kategori = $row->jenis === 'manual'
+                    ? ($label[(string) $row->kategori] ?? self::labelKategoriPemasukan($row->kategori))
+                    : null;
+            })
             ->values()
             ->all();
     }
@@ -1916,16 +1969,76 @@ class ArusKasService
         $semua = $this->repo->rekap($idPerusahaan, $dari, $sampai);
 
         $ringkasan = $this->hitungRingkasan($semua);
+        $ringkasan['saldo_awal']  = round($this->saldoBankPada($idPerusahaan, $dari), 2);
+        $ringkasan['saldo_akhir'] = round($ringkasan['saldo_awal'] + $ringkasan['netto'], 2);
 
+        $label = $this->kategoriPemasukan->petaLabel($idPerusahaan);
         $transaksi = $semua
             ->when($arah, fn (Collection $c, string $v) => $c->where('arah', $v))
             ->when($sumber, fn (Collection $c, string $v) => $c->where('sumber', $v))
+            ->each(function (object $row) use ($label) {
+                $row->label_kategori = match ($row->sumber) {
+                    'pemasukan_manual'      => $label[(string) $row->kategori] ?? self::labelKategoriPemasukan($row->kategori),
+                    'pengajuan_pengeluaran' => self::labelKategori((string) $row->kategori),
+                    default                 => null,
+                };
+            })
             ->values();
 
         return [
-            'ringkasan' => $ringkasan,
-            'transaksi' => $transaksi,
+            'ringkasan'       => $ringkasan,
+            'saldo_awal_bank' => $this->saldoAwalBank($idPerusahaan),
+            'transaksi'       => $transaksi,
         ];
+    }
+
+    /**
+     * Saldo rekening bank per awal suatu tanggal (sebelum transaksi hari itu), diisi keuangan
+     * dari rekening koran. Menjadi titik awal hitungan saldo Kas Bank; bukan pemasukan.
+     *
+     * @return array{tanggal: string, nominal: float}|null
+     */
+    public function saldoAwalBank(string $idPerusahaan): ?array
+    {
+        $nilai = $this->repo->getPengaturan($idPerusahaan, self::KUNCI_SALDO_AWAL_BANK);
+        $data  = $nilai !== null ? json_decode($nilai, true) : null;
+        if (!is_array($data) || !isset($data['tanggal'], $data['nominal'])) {
+            return null;
+        }
+
+        return ['tanggal' => (string) $data['tanggal'], 'nominal' => (float) $data['nominal']];
+    }
+
+    /** @return array{tanggal: string, nominal: float} */
+    public function setSaldoAwalBank(string $idPerusahaan, string $tanggal, float $nominal): array
+    {
+        $data = ['tanggal' => Carbon::parse($tanggal)->toDateString(), 'nominal' => round($nominal, 2)];
+        $this->repo->setPengaturan($idPerusahaan, self::KUNCI_SALDO_AWAL_BANK, (string) json_encode($data));
+
+        return $data;
+    }
+
+    public function hapusSaldoAwalBank(string $idPerusahaan): void
+    {
+        $this->repo->hapusPengaturan($idPerusahaan, self::KUNCI_SALDO_AWAL_BANK);
+    }
+
+    /**
+     * Saldo kas bank per awal $tanggal. Tanpa saldo awal bank: akumulasi seluruh transaksi
+     * sejak awal. Dengan saldo awal bank (tanggal T, nominal N): N + netto [T, tanggal)
+     * bila tanggal >= T, atau N - netto [tanggal, T) bila sebelum T. Transaksi sebelum T
+     * tidak memengaruhi saldo sesudah T karena sudah terwakili oleh N.
+     */
+    private function saldoBankPada(string $idPerusahaan, string $tanggal): float
+    {
+        $dasar = $this->saldoAwalBank($idPerusahaan);
+        if ($dasar === null) {
+            return $this->repo->saldoKasSebelum($idPerusahaan, $tanggal);
+        }
+
+        return $tanggal >= $dasar['tanggal']
+            ? $dasar['nominal'] + $this->repo->saldoKasSebelum($idPerusahaan, $tanggal, $dasar['tanggal'])
+            : $dasar['nominal'] - $this->repo->saldoKasSebelum($idPerusahaan, $dasar['tanggal'], $tanggal);
     }
 
     public function laporanPsak(string $idPerusahaan, ?string $dari, ?string $sampai): array
@@ -1943,24 +2056,32 @@ class ArusKasService
             'dana_modal' => 0.0, 'dana_bayar_pinjaman' => 0.0,
         ];
 
-        foreach ($this->repo->rekap($idPerusahaan, $dari, $sampai) as $r) {
+        // Pemasukan manual dijumlahkan ke baris PSAK sesuai pos_psak kategorinya (master).
+        $posPsak = $this->kategoriPemasukan->petaPosPsak($idPerusahaan);
+
+        // Laporan arus kas perusahaan = bank + kas kecil (pengisian kas kecil = pindah dana internal).
+        foreach ($this->repo->rekapGabungan($idPerusahaan, $dari, $sampai) as $r) {
             $nominal = (float) $r->nominal;
             if ($r->arah === 'masuk') {
                 if ($r->sumber === 'faktur') {
                     $b['op_pelanggan'] += $nominal;
                     continue;
                 }
-                match ($r->kategori) {
-                    'pendapatan_jasa'   => $b['op_pelanggan'] += $nominal,
-                    'pengembalian_dana' => $b['op_pengembalian'] += $nominal,
-                    'penjualan_aset'    => $b['inv_jual_aset'] += $nominal,
-                    'modal_pinjaman'    => $b['dana_modal'] += $nominal,
-                    default             => $b['op_masuk_lain'] += $nominal,
+                match ($posPsak[(string) $r->kategori] ?? 'operasi_lain') {
+                    'pelanggan'    => $b['op_pelanggan'] += $nominal,
+                    'pengembalian' => $b['op_pengembalian'] += $nominal,
+                    'investasi'    => $b['inv_jual_aset'] += $nominal,
+                    'pendanaan'    => $b['dana_modal'] += $nominal,
+                    default        => $b['op_masuk_lain'] += $nominal,
                 };
                 continue;
             }
             if ($r->sumber === 'pembayaran_vendor') {
                 $b['op_vendor'] += $nominal;
+                continue;
+            }
+            if ($r->sumber === 'kas_kecil') {
+                $b['op_kas_kecil'] += $nominal;
                 continue;
             }
             match ($r->kategori) {
@@ -1970,7 +2091,6 @@ class ArusKasService
                 'legalitas'           => $b['op_legalitas'] += $nominal,
                 'penggajian'          => $b['op_gaji'] += $nominal,
                 'kasbon'              => $b['op_kasbon'] += $nominal,
-                self::KATEGORI_PENGISIAN_KAS_KECIL => $b['op_kas_kecil'] += $nominal,
                 'pembelian_aset'      => $b['inv_beli_aset'] += $nominal,
                 'pembayaran_pinjaman' => $b['dana_bayar_pinjaman'] += $nominal,
                 default               => $b['op_keluar_lain'] += $nominal,
@@ -1991,7 +2111,7 @@ class ArusKasService
                     ['label' => 'Pembayaran legalitas',           'arah' => 'keluar', 'nominal' => $b['op_legalitas']],
                     ['label' => 'Pembayaran gaji karyawan',       'arah' => 'keluar', 'nominal' => $b['op_gaji']],
                     ['label' => 'Pemberian kasbon karyawan',      'arah' => 'keluar', 'nominal' => $b['op_kasbon']],
-                    ['label' => 'Pengisian kas kecil',            'arah' => 'keluar', 'nominal' => $b['op_kas_kecil']],
+                    ['label' => 'Pengeluaran petty cash',          'arah' => 'keluar', 'nominal' => $b['op_kas_kecil']],
                     ['label' => 'Pembayaran ke vendor',           'arah' => 'keluar', 'nominal' => $b['op_vendor']],
                     ['label' => 'Pembayaran operasional lainnya', 'arah' => 'keluar', 'nominal' => $b['op_keluar_lain']],
                 ],
@@ -2023,7 +2143,16 @@ class ArusKasService
         }
 
         $kenaikan  = (float) array_sum(array_column($kelompok, 'subtotal'));
-        $saldoAwal = $this->repo->saldoKasSebelum($idPerusahaan, $dari);
+        $saldoAwal = $this->saldoBankPada($idPerusahaan, $dari)
+            + $this->kasKecilRepo->saldoSebelum($idPerusahaan, $dari);
+        // Saldo awal kas kecil bukan arus kas; bila dicatat di dalam periode, anggap bagian saldo awal.
+        $saldoAwalKasKecil = $this->kasKecilRepo->findSaldoAwal($idPerusahaan);
+        if ($saldoAwalKasKecil !== null) {
+            $tanggalSaldoAwal = substr((string) $saldoAwalKasKecil->tanggal, 0, 10);
+            if ($tanggalSaldoAwal >= $dari && $tanggalSaldoAwal <= $sampai) {
+                $saldoAwal += (float) $saldoAwalKasKecil->nominal;
+            }
+        }
 
         return [
             'kelompok'        => $kelompok,
@@ -2130,12 +2259,12 @@ class ArusKasService
         string $penerima,
         string $keterangan,
     ): PengajuanPengeluaranModel {
-        return $this->perbaruiPengajuanTertaut('id_pengisian_kas_kecil', 'Pengisian kas kecil', $idPengajuan, $idPerusahaan, $nominal, $penerima, $keterangan);
+        return $this->perbaruiPengajuanTertaut('id_pengisian_kas_kecil', 'Pengisian petty cash', $idPengajuan, $idPerusahaan, $nominal, $penerima, $keterangan);
     }
 
     public function hapusPengajuanPengisianKasKecil(string $idPengajuan, string $idPerusahaan): void
     {
-        $this->hapusPengajuanTertaut('id_pengisian_kas_kecil', 'Pengisian kas kecil', $idPengajuan, $idPerusahaan);
+        $this->hapusPengajuanTertaut('id_pengisian_kas_kecil', 'Pengisian petty cash', $idPengajuan, $idPerusahaan);
     }
 
     public function buatPengajuanPengeluaranSupir(

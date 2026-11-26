@@ -35,6 +35,9 @@ class StoreInvoiceVendorRequest extends FormRequest
             'ppn'               => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0'],
             'pph'               => ['sometimes', 'nullable', 'numeric', 'decimal:0,2', 'min:0'],
             'keterangan'        => ['sometimes', 'nullable', 'string'],
+            'biaya_tambahan'           => ['sometimes', 'array', 'max:30'],
+            'biaya_tambahan.*.nama'    => ['required', 'string', 'max:150'],
+            'biaya_tambahan.*.nominal' => ['required', 'numeric', 'decimal:0,2', 'gt:0'],
             'trip_ids'          => ['sometimes', 'array'],
             'trip_ids.*'        => ['required', 'string', 'max:36'],
         ];

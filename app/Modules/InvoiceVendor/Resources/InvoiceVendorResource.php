@@ -35,6 +35,7 @@ class InvoiceVendorResource extends JsonResource
             'dpp'                => (float) $this->dpp,
             'ppn'                => (float) $this->ppn,
             'pph'                => (float) $this->pph,
+            'total_biaya_tambahan' => (float) $this->total_biaya_tambahan,
             'total'              => (float) $this->total,
             'status'             => $this->status,
             'catatan_verifikasi' => $this->catatan_verifikasi,

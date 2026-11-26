@@ -44,7 +44,7 @@ class LaporanArusKasSheet implements FromCollection, WithEvents, WithTitle
         $this->tambah([$this->namaPerusahaan], true);
         $this->tambah(['LAPORAN ARUS KAS'], true);
         $this->tambah([ArusKasExport::labelPeriode($this->dari, $this->sampai)]);
-        $this->tambah(['(Metode Langsung)']);
+        $this->tambah(['(Metode Langsung · Kas Bank + Petty Cash)']);
         $this->tambah([]);
         $this->barisPertamaAngka = count($this->rows) + 1;
 

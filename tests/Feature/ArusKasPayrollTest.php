@@ -17,6 +17,7 @@ class ArusKasPayrollTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->isiSaldoKasKecil();
         $this->ensurePerusahaan();
         app(\App\Modules\ArusKas\ArusKasService::class)->setBatasApproval(self::PERUSAHAAN_ID, 999999999);
     }
@@ -188,13 +189,12 @@ class ArusKasPayrollTest extends TestCase
 
         $this->assertCount(0, collect($rekapSesudah->json('data.transaksi'))->where('sumber', 'payroll_periode'));
 
-        $rows = collect($rekapSesudah->json('data.transaksi'))
-            ->where('sumber', 'pengajuan_pengeluaran')
-            ->where('kategori', 'penggajian')
-            ->values();
+        // Gaji dibayar dari Kas Kecil: tidak muncul di kas bank, tercatat di Buku Kas Kecil.
+        $this->assertCount(0, collect($rekapSesudah->json('data.transaksi'))->where('kategori', 'penggajian'));
+        $rows = $this->pembayaranKasKecil('penggajian');
         $this->assertCount(1, $rows);
-        $this->assertSame('keluar', $rows[0]['arah']);
-        $this->assertEquals((float) $pengajuan->nominal, $rows[0]['nominal']);
-        $this->assertSame('2026-08-20', $rows[0]['tanggal']);
+        $this->assertSame('keluar', $rows[0]->arah);
+        $this->assertEquals((float) $pengajuan->nominal, (float) $rows[0]->nominal);
+        $this->assertSame('2026-08-20', substr((string) $rows[0]->tanggal, 0, 10));
     }
 }

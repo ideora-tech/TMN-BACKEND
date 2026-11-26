@@ -19,7 +19,7 @@ class LaporanPengeluaranService
 
     public const LABEL_SUMBER_DANA = [
         self::SUMBER_REKENING  => 'Rekening',
-        self::SUMBER_KAS_KECIL => 'Kas Kecil',
+        self::SUMBER_KAS_KECIL => 'Petty Cash',
     ];
 
     public const KATEGORI_KAS_KECIL = 'kas_kecil';
@@ -31,7 +31,7 @@ class LaporanPengeluaranService
     private const DOKUMEN = [
         'uang_jalan'           => ['label' => 'Uang Jalan',          'path' => '/uang-jalan/%s'],
         'kasbon'               => ['label' => 'Kasbon',              'path' => '/kasbon/%s'],
-        'pengisian_kas_kecil'  => ['label' => 'Pengisian Kas Kecil', 'path' => '/kas-kecil/pengisian/%s'],
+        'pengisian_kas_kecil'  => ['label' => 'Pengisian Petty Cash', 'path' => '/kas-kecil/pengisian/%s'],
         'permintaan_pembelian' => ['label' => 'Permintaan Pembelian', 'path' => '/permintaan-pembelian/%s'],
         'pembelian_sparepart'  => ['label' => 'Pembelian Sparepart', 'path' => '/pembelian-sparepart/%s'],
         'payroll'              => ['label' => 'Payroll',             'path' => '/payroll/%s'],
@@ -82,9 +82,9 @@ class LaporanPengeluaranService
         foreach (ArusKasService::daftarLabelKategori() as $value => $label) {
             $opsi[] = ['value' => $value, 'label' => $label];
         }
-        $opsi[] = ['value' => self::KATEGORI_KAS_KECIL, 'label' => 'Kas Kecil — semua kategori'];
+        $opsi[] = ['value' => self::KATEGORI_KAS_KECIL, 'label' => 'Petty Cash — semua kategori'];
         foreach (KasKecilService::KATEGORI as $value => $label) {
-            $opsi[] = ['value' => self::AWALAN_SUB_KAS_KECIL . $value, 'label' => 'Kas Kecil — ' . $label];
+            $opsi[] = ['value' => self::AWALAN_SUB_KAS_KECIL . $value, 'label' => 'Petty Cash — ' . $label];
         }
 
         return $opsi;
@@ -255,7 +255,7 @@ class LaporanPengeluaranService
 
         if ($tipe === 'kas_kecil') {
             return [
-                'label' => 'Buku Kas Kecil',
+                'label' => 'Buku Petty Cash',
                 'path'  => '/kas-kecil?tab=buku&tanggal=' . substr((string) $baris->tanggal, 0, 10) . '&cari=' . rawurlencode((string) $baris->nomor),
             ];
         }
@@ -266,7 +266,7 @@ class LaporanPengeluaranService
     private function labelKategori(string $kategori, ?string $subKategori): string
     {
         if ($kategori === self::KATEGORI_KAS_KECIL) {
-            return 'Kas Kecil — ' . (KasKecilService::labelKategori($subKategori) ?? 'Tanpa kategori');
+            return 'Petty Cash — ' . (KasKecilService::labelKategori($subKategori) ?? 'Tanpa kategori');
         }
 
         return ArusKasService::labelKategori($kategori);

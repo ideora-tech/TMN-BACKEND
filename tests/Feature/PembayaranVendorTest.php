@@ -16,6 +16,12 @@ class PembayaranVendorTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->isiSaldoKasKecil();
+    }
+
     private function makeVendor(?string $idPerusahaan = null): VendorModel
     {
         return VendorModel::create([

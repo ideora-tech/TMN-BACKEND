@@ -31,6 +31,8 @@ return [
     App\Modules\RekapPajak\RekapPajakServiceProvider::class,
     App\Modules\Kasbon\KasbonServiceProvider::class,
     App\Modules\KategoriSparepart\KategoriSparepartServiceProvider::class,
+    App\Modules\KategoriPemasukan\KategoriPemasukanServiceProvider::class,
+    App\Modules\KategoriPengajuan\KategoriPengajuanServiceProvider::class,
     App\Modules\KetersediaanVendor\KetersediaanVendorServiceProvider::class,
     App\Modules\Klien\KlienServiceProvider::class,
     App\Modules\KontrakKaryawan\KontrakKaryawanServiceProvider::class,

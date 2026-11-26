@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class ArusKasRepository implements ArusKasRepositoryInterface
 {
-    public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null): Collection
+    public function listPengajuanByPerusahaan(string $idPerusahaan, ?string $status = null, ?string $search = null, ?string $kategori = null, bool $hanyaKasBank = false): Collection
     {
         return PengajuanPengeluaranModel::active()
             ->select('pengajuan_pengeluaran.*')
@@ -24,6 +24,11 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->where('id_perusahaan', $idPerusahaan)
             ->when($status, fn ($q, $v) => $q->where('status', $v))
             ->when($kategori, fn ($q, $v) => $q->where('kategori', $v))
+            // Kas bank: pengisian Petty Cash + histori yang dulu dibayar langsung dari rekening.
+            ->when($hanyaKasBank, fn ($q) => $q->where(function ($sub) {
+                $sub->whereNotNull('id_pengisian_kas_kecil')
+                    ->orWhere(fn ($lama) => $lama->where('status', 'ditransfer')->where('sumber_dana', 'rekening'));
+            }))
             ->when($search, fn ($q, $v) => $q->where(function ($sub) use ($v) {
                 $sub->where('nomor_pengajuan', 'like', '%' . $v . '%')
                     ->orWhere('penerima', 'like', '%' . $v . '%');
@@ -457,23 +462,20 @@ class ArusKasRepository implements ArusKasRepositoryInterface
 
     public function listPemasukanGabungan(string $idPerusahaan, string $dari, string $sampai): Collection
     {
-        $tanggal = 'COALESCE(faktur.tanggal_faktur, DATE(faktur.dibuat_pada))';
-
-        $invoice = DB::table('faktur')
-            ->whereNull('faktur.dihapus_pada')
-            ->where('faktur.id_perusahaan', $idPerusahaan)
-            ->where('faktur.status', '!=', 'batal')
-            ->whereRaw("{$tanggal} BETWEEN ? AND ?", [$dari, $sampai])
+        // Kas bank: uang masuk dari klien = pembayaran invoice (per tanggal bayar),
+        // bukan invoice terbit. Satu invoice bisa muncul beberapa kali bila dicicil.
+        $invoice = $this->dasarPembayaranKlien($idPerusahaan)
+            ->whereBetween('pf.tanggal_bayar', [$dari, $sampai])
             ->selectRaw("
                 'invoice' as jenis,
                 faktur.id_faktur as id,
                 faktur.nomor_faktur as nomor,
                 NULL as kategori,
-                {$tanggal} as tanggal,
-                faktur.total as nominal,
+                pf.tanggal_bayar as tanggal,
+                pf.nominal as nominal,
                 NULL as sumber_dana,
-                NULL as keterangan,
-                NULL as url_bukti,
+                pf.catatan as keterangan,
+                pf.url_bukti as url_bukti,
                 0 as dari_kasbon
             ");
 
@@ -511,6 +513,15 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         return $nilai !== null ? (string) $nilai : null;
     }
 
+    public function hapusPengaturan(string $idPerusahaan, string $kunci): void
+    {
+        DB::table('pengaturan')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('kunci', $kunci)
+            ->whereNull('dihapus_pada')
+            ->update(RecordHelper::stampDelete());
+    }
+
     public function setPengaturan(string $idPerusahaan, string $kunci, string $nilai): void
     {
         $existing = DB::table('pengaturan')
@@ -533,15 +544,40 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->update(RecordHelper::stampUpdate(['nilai' => $nilai]));
     }
 
+    /**
+     * Mutasi kas BANK (rekening): pembayaran klien, pemasukan manual, dan pengeluaran
+     * yang sumber dananya rekening — sejak aturan sumber dana Kas Kecil, praktis hanya
+     * pengisian Kas Kecil (+ histori pengeluaran lama sebelum aturan berlaku).
+     */
     public function rekap(string $idPerusahaan, string $dari, string $sampai): Collection
     {
-        $queries = [
-            $this->queryFaktur($idPerusahaan, $dari, $sampai),
-            $this->queryPengajuanPengeluaran($idPerusahaan, $dari, $sampai),
-            $this->queryPembayaranVendor($idPerusahaan, $dari, $sampai),
+        return $this->gabungkan([
+            $this->queryPembayaranKlien($idPerusahaan, $dari, $sampai),
+            $this->queryPengajuanPengeluaran($idPerusahaan, $dari, $sampai, true),
+            $this->queryPembayaranVendor($idPerusahaan, $dari, $sampai, true),
             $this->queryPemasukanManual($idPerusahaan, $dari, $sampai),
-        ];
+        ]);
+    }
 
+    /**
+     * Mutasi kas PERUSAHAAN (bank + kas kecil) untuk Laporan Arus Kas PSAK. Pengisian
+     * Kas Kecil adalah pindah dana internal sehingga tidak dihitung; pengeluaran kecil
+     * yang dicatat langsung di Buku Kas Kecil ikut sebagai sumber 'kas_kecil'.
+     */
+    public function rekapGabungan(string $idPerusahaan, string $dari, string $sampai): Collection
+    {
+        return $this->gabungkan([
+            $this->queryPembayaranKlien($idPerusahaan, $dari, $sampai),
+            $this->queryPengajuanPengeluaran($idPerusahaan, $dari, $sampai, false),
+            $this->queryPembayaranVendor($idPerusahaan, $dari, $sampai, false),
+            $this->queryPemasukanManual($idPerusahaan, $dari, $sampai),
+            $this->queryPengeluaranKasKecil($idPerusahaan, $dari, $sampai),
+        ]);
+    }
+
+    /** @param list<Builder> $queries */
+    private function gabungkan(array $queries): Collection
+    {
         $utama = array_shift($queries);
         foreach ($queries as $query) {
             $utama->unionAll($query);
@@ -550,29 +586,35 @@ class ArusKasRepository implements ArusKasRepositoryInterface
         return $utama->orderByDesc('tanggal')->get();
     }
 
-    private function queryFaktur(string $idPerusahaan, string $dari, string $sampai): Builder
+    /** Uang masuk dari klien = pembayaran faktur (Piutang Klien) per tanggal bayar, bukan faktur terbit. */
+    private function queryPembayaranKlien(string $idPerusahaan, string $dari, string $sampai): Builder
     {
-        $tanggal = 'COALESCE(faktur.tanggal_faktur, DATE(faktur.dibuat_pada))';
-
-        return DB::table('faktur')
-            ->whereNull('faktur.dihapus_pada')
-            ->where('faktur.id_perusahaan', $idPerusahaan)
-            ->where('faktur.status', '!=', 'batal')
-            ->whereRaw("{$tanggal} BETWEEN ? AND ?", [$dari, $sampai])
+        return $this->dasarPembayaranKlien($idPerusahaan)
+            ->whereBetween('pf.tanggal_bayar', [$dari, $sampai])
             ->selectRaw("
-                {$tanggal} as tanggal,
+                pf.tanggal_bayar as tanggal,
                 'masuk' as arah,
                 'faktur' as sumber,
                 NULL as kategori,
-                faktur.total as nominal,
+                pf.nominal as nominal,
                 faktur.id_faktur as id_referensi,
                 faktur.nomor_faktur as label,
-                NULL as keterangan,
-                NULL as url_bukti
+                pf.catatan as keterangan,
+                pf.url_bukti as url_bukti
             ");
     }
 
-    private function queryPengajuanPengeluaran(string $idPerusahaan, string $dari, string $sampai): Builder
+    private function dasarPembayaranKlien(string $idPerusahaan): Builder
+    {
+        return DB::table('pembayaran_faktur as pf')
+            ->join('faktur', 'faktur.id_faktur', '=', 'pf.id_faktur')
+            ->whereNull('pf.dihapus_pada')
+            ->whereNull('faktur.dihapus_pada')
+            ->where('faktur.id_perusahaan', $idPerusahaan)
+            ->where('faktur.status', '!=', 'batal');
+    }
+
+    private function queryPengajuanPengeluaran(string $idPerusahaan, string $dari, string $sampai, bool $hanyaRekening): Builder
     {
         // Pengajuan bertaut invoice vendor dikecualikan: realisasinya sudah tercatat
         // sebagai baris pembayaran_vendor (queryPembayaranVendor) — jangan dihitung dobel.
@@ -581,6 +623,8 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->whereNull('id_invoice_vendor')
             ->where('id_perusahaan', $idPerusahaan)
             ->where('status', 'ditransfer')
+            ->when($hanyaRekening, fn (Builder $q) => $q->where('sumber_dana', 'rekening'))
+            ->when(!$hanyaRekening, fn (Builder $q) => $q->whereNull('id_pengisian_kas_kecil'))
             ->whereBetween('tanggal_transfer', [$dari, $sampai])
             ->selectRaw("
                 tanggal_transfer as tanggal,
@@ -595,13 +639,14 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ");
     }
 
-    private function queryPembayaranVendor(string $idPerusahaan, string $dari, string $sampai): Builder
+    private function queryPembayaranVendor(string $idPerusahaan, string $dari, string $sampai, bool $hanyaRekening): Builder
     {
         return DB::table('pembayaran_vendor')
             ->join('invoice_vendor', 'invoice_vendor.id_invoice_vendor', '=', 'pembayaran_vendor.id_invoice_vendor')
             ->whereNull('pembayaran_vendor.dihapus_pada')
             ->whereNull('invoice_vendor.dihapus_pada')
             ->where('invoice_vendor.id_perusahaan', $idPerusahaan)
+            ->when($hanyaRekening, fn (Builder $q) => $q->where('pembayaran_vendor.sumber_dana', 'rekening'))
             ->whereBetween('pembayaran_vendor.tanggal_bayar', [$dari, $sampai])
             ->selectRaw("
                 pembayaran_vendor.tanggal_bayar as tanggal,
@@ -635,21 +680,39 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ");
     }
 
-    public function saldoKasSebelum(string $idPerusahaan, string $sebelumTanggal): float
+    private function queryPengeluaranKasKecil(string $idPerusahaan, string $dari, string $sampai): Builder
     {
-        $tanggalFaktur = 'COALESCE(faktur.tanggal_faktur, DATE(faktur.dibuat_pada))';
+        return DB::table('kas_kecil_transaksi')
+            ->whereNull('dihapus_pada')
+            ->where('id_perusahaan', $idPerusahaan)
+            ->where('jenis', 'pengeluaran')
+            ->whereBetween('tanggal', [$dari, $sampai])
+            ->selectRaw("
+                tanggal as tanggal,
+                arah as arah,
+                'kas_kecil' as sumber,
+                kategori as kategori,
+                nominal as nominal,
+                id_transaksi as id_referensi,
+                nomor_transaksi as label,
+                keterangan as keterangan,
+                url_bukti as url_bukti
+            ");
+    }
 
-        $masukFaktur = (float) DB::table('faktur')
-            ->whereNull('faktur.dihapus_pada')
-            ->where('faktur.id_perusahaan', $idPerusahaan)
-            ->where('faktur.status', '!=', 'batal')
-            ->whereRaw("{$tanggalFaktur} < ?", [$sebelumTanggal])
-            ->sum('faktur.total');
+    /** Saldo kas BANK sebelum tanggal (sumber yang sama dengan rekap()). */
+    public function saldoKasSebelum(string $idPerusahaan, string $sebelumTanggal, ?string $sejakTanggal = null): float
+    {
+        $masukFaktur = (float) $this->dasarPembayaranKlien($idPerusahaan)
+            ->where('pf.tanggal_bayar', '<', $sebelumTanggal)
+            ->when($sejakTanggal, fn (Builder $q, string $v) => $q->where('pf.tanggal_bayar', '>=', $v))
+            ->sum('pf.nominal');
 
         $masukPemasukan = (float) DB::table('pemasukan')
             ->whereNull('dihapus_pada')
             ->where('id_perusahaan', $idPerusahaan)
             ->where('tanggal', '<', $sebelumTanggal)
+            ->when($sejakTanggal, fn (Builder $q, string $v) => $q->where('tanggal', '>=', $v))
             ->sum('nominal');
 
         $keluarPengajuan = (float) DB::table('pengajuan_pengeluaran')
@@ -657,7 +720,9 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->whereNull('id_invoice_vendor')
             ->where('id_perusahaan', $idPerusahaan)
             ->where('status', 'ditransfer')
+            ->where('sumber_dana', 'rekening')
             ->where('tanggal_transfer', '<', $sebelumTanggal)
+            ->when($sejakTanggal, fn (Builder $q, string $v) => $q->where('tanggal_transfer', '>=', $v))
             ->sum('nominal');
 
         $keluarVendor = (float) DB::table('pembayaran_vendor')
@@ -665,7 +730,9 @@ class ArusKasRepository implements ArusKasRepositoryInterface
             ->whereNull('pembayaran_vendor.dihapus_pada')
             ->whereNull('invoice_vendor.dihapus_pada')
             ->where('invoice_vendor.id_perusahaan', $idPerusahaan)
+            ->where('pembayaran_vendor.sumber_dana', 'rekening')
             ->where('pembayaran_vendor.tanggal_bayar', '<', $sebelumTanggal)
+            ->when($sejakTanggal, fn (Builder $q, string $v) => $q->where('pembayaran_vendor.tanggal_bayar', '>=', $v))
             ->sum('pembayaran_vendor.nominal');
 
         return $masukFaktur + $masukPemasukan - $keluarPengajuan - $keluarVendor;

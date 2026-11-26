@@ -152,7 +152,7 @@ class LaporanPemasukanTest extends TestCase
         $this->assertNull($manual['url_bukti']);
     }
 
-    public function test_pemasukan_lain_sama_dengan_pemasukan_manual_arus_kas_dan_invoice_terbit_sama_dengan_dasar_arus_kas(): void
+    public function test_pemasukan_lain_dan_pembayaran_invoice_sama_dengan_kas_bank_di_arus_kas(): void
     {
         $this->siapkanData();
         $this->actingAsRole('KEUANGAN');
@@ -161,7 +161,8 @@ class LaporanPemasukanTest extends TestCase
         $arusKas = collect($this->getJson('/api/arus-kas?dari=2026-09-01&sampai=2026-09-30')->assertStatus(200)->json('data.transaksi'));
 
         $this->assertEquals($arusKas->where('sumber', 'pemasukan_manual')->sum('nominal'), $laporan['pemasukan_lain']);
-        $this->assertEquals($arusKas->where('sumber', 'faktur')->sum('nominal'), $laporan['invoice_terbit']['total']);
+        // Arus Kas = kas bank: uang masuk dari klien adalah pembayaran invoice, bukan invoice terbit.
+        $this->assertEquals($arusKas->where('sumber', 'faktur')->sum('nominal'), $laporan['dari_invoice']);
     }
 
     public function test_filter_kategori_pencarian_halaman_dan_validasi(): void
@@ -222,7 +223,7 @@ class LaporanPemasukanTest extends TestCase
         $this->assertSame('Total pemasukan (uang diterima)', $ringkasan->getCell('A4')->getValue());
         $this->assertEquals(12150000, $ringkasan->getCell('C4')->getValue());
         $this->assertEquals(200000, $ringkasan->getCell('C7')->getValue());
-        $this->assertSame('Invoice tercatat pada periode ini (dasar Arus Kas, termasuk yang masih draft)', $ringkasan->getCell('A8')->getValue());
+        $this->assertSame('Invoice terbit pada periode ini (termasuk yang masih draft / belum dibayar)', $ringkasan->getCell('A8')->getValue());
         $this->assertEquals(5000000, $ringkasan->getCell('C8')->getValue());
 
         $rincian = $workbook->getSheetByName('Rincian');
@@ -291,10 +292,13 @@ class LaporanPemasukanTest extends TestCase
         $this->assertSame('https://app.contoh.test/proses-pembayaran?tab=ditransfer', $sheet->getCell("I{$keluar}")->getHyperlink()->getUrl());
         $this->assertStringEndsWith('/storage/bukti-kas/stnk.pdf', $sheet->getCell("J{$keluar}")->getHyperlink()->getUrl());
 
-        $invoice = $baris['INV-202609-0002'];
-        $this->assertSame('Invoice Klien', $sheet->getCell("D{$invoice}")->getValue());
-        $this->assertEquals(5000000, $sheet->getCell("G{$invoice}")->getValue());
-        $this->assertSame('https://app.contoh.test/faktur/' . $id['faktur_b'], $sheet->getCell("I{$invoice}")->getHyperlink()->getUrl());
+        // Kas bank mencatat pembayaran klien (INV-202608-0001 dibayar 2x di September),
+        // bukan invoice terbit; INV-202609-0002 belum dibayar (pembayarannya dihapus).
+        $this->assertArrayNotHasKey('INV-202609-0002', $baris);
+        $invoice = $baris['INV-202608-0001'];
+        $this->assertSame('Pembayaran Invoice Klien', $sheet->getCell("D{$invoice}")->getValue());
+        $this->assertContains((float) $sheet->getCell("G{$invoice}")->getValue(), [6000000.0, 4900000.0]);
+        $this->assertSame('https://app.contoh.test/faktur/' . $id['faktur'], $sheet->getCell("I{$invoice}")->getHyperlink()->getUrl());
 
         $manual = $baris['PM-202609-0001'];
         $this->assertSame('Penjualan Aset', $sheet->getCell("D{$manual}")->getValue());
@@ -302,9 +306,10 @@ class LaporanPemasukanTest extends TestCase
 
         $akhir = $sheet->getHighestRow();
         $this->assertSame('NETTO', $sheet->getCell("F{$akhir}")->getValue());
-        $this->assertEquals(6250000 - 1500000, $sheet->getCell("G{$akhir}")->getValue());
+        // Masuk = pembayaran klien Sept (6.000.000 + 4.900.000) + pemasukan manual (750.000 + 500.000)
+        $this->assertEquals(12150000 - 1500000, $sheet->getCell("G{$akhir}")->getValue());
         $this->assertSame('TOTAL PEMASUKAN', $sheet->getCell('F' . ($akhir - 2))->getValue());
-        $this->assertEquals(6250000, $sheet->getCell('G' . ($akhir - 2))->getValue());
+        $this->assertEquals(12150000, $sheet->getCell('G' . ($akhir - 2))->getValue());
         $this->assertEquals(1500000, $sheet->getCell('H' . ($akhir - 1))->getValue());
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\LaporanPemasukan;
 
 use App\Modules\ArusKas\ArusKasService;
+use App\Modules\KategoriPemasukan\KategoriPemasukanService;
 use App\Modules\LaporanPemasukan\Contracts\LaporanPemasukanRepositoryInterface;
 use App\Support\Exports\SheetTabelTautan;
 use App\Support\PenyimpananBerkas;
@@ -17,10 +18,17 @@ class LaporanPemasukanService
 
     private const RENTANG_MAKS = 366;
 
-    public function __construct(private readonly LaporanPemasukanRepositoryInterface $repo) {}
+    /** @var array<string, string> kode → nama kategori pemasukan (master) */
+    private array $labelKategori = [];
+
+    public function __construct(
+        private readonly LaporanPemasukanRepositoryInterface $repo,
+        private readonly KategoriPemasukanService $kategoriPemasukan,
+    ) {}
 
     public function laporan(string $idPerusahaan, array $filter, int $page, int $limit): array
     {
+        $this->labelKategori = $this->kategoriPemasukan->petaLabel($idPerusahaan);
         [$dari, $sampai] = $this->rentang($filter['dari'] ?? null, $filter['sampai'] ?? null);
 
         $halaman = $this->repo->paginate($idPerusahaan, $dari, $sampai, $filter, $page, $limit);
@@ -38,6 +46,7 @@ class LaporanPemasukanService
 
     public function untukExport(string $idPerusahaan, array $filter): array
     {
+        $this->labelKategori = $this->kategoriPemasukan->petaLabel($idPerusahaan);
         [$dari, $sampai] = $this->rentang($filter['dari'] ?? null, $filter['sampai'] ?? null);
         $rekap = $this->rekap($idPerusahaan, $dari, $sampai, $filter);
 
@@ -51,11 +60,11 @@ class LaporanPemasukanService
         ];
     }
 
-    public function opsiKategori(): array
+    public function opsiKategori(string $idPerusahaan): array
     {
         $opsi = [['value' => self::KATEGORI_INVOICE, 'label' => self::LABEL_INVOICE]];
-        foreach (ArusKasService::daftarLabelKategoriPemasukan() as $value => $label) {
-            $opsi[] = ['value' => $value, 'label' => $this->labelKategori('manual', $value)];
+        foreach ($this->kategoriPemasukan->opsi($idPerusahaan) as $kategori) {
+            $opsi[] = ['value' => (string) $kategori->kode, 'label' => (string) $kategori->nama];
         }
 
         return $opsi;
@@ -177,7 +186,7 @@ class LaporanPemasukanService
     {
         return $sumber === 'invoice' || $kategori === self::KATEGORI_INVOICE
             ? self::LABEL_INVOICE
-            : ArusKasService::labelKategoriPemasukan($kategori);
+            : ($this->labelKategori[$kategori] ?? ArusKasService::labelKategoriPemasukan($kategori));
     }
 
     /** @return array{0: string, 1: string} */

@@ -16,6 +16,7 @@ class TransaksiArusKasResource extends JsonResource
             'arah'         => $this->arah,
             'sumber'       => $this->sumber,
             'kategori'     => $this->kategori,
+            'label_kategori' => $this->label_kategori ?? null,
             'nominal'      => (float) $this->nominal,
             'referensi'    => [
                 'id'    => $this->id_referensi,

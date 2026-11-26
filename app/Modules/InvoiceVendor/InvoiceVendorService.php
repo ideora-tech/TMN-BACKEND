@@ -90,6 +90,12 @@ class InvoiceVendorService
             'dpp'                => (float) $record->dpp,
             'ppn'                => (float) $record->ppn,
             'pph'                => (float) $record->pph,
+            'total_biaya_tambahan' => (float) $record->total_biaya_tambahan,
+            'biaya_tambahan'     => array_map(static fn (object $b) => [
+                'id_invoice_vendor_biaya' => $b->id_invoice_vendor_biaya,
+                'nama'                    => $b->nama,
+                'nominal'                 => (float) $b->nominal,
+            ], $this->repo->daftarBiayaTambahan((string) $record->id_invoice_vendor)),
             'total'              => (float) $record->total,
             'status'             => $record->status,
             'catatan_verifikasi' => $record->catatan_verifikasi,
@@ -174,12 +180,13 @@ class InvoiceVendorService
         $rows = $this->repo->rekapHutang($idPerusahaan, $awal->toDateString(), $awal->copy()->endOfMonth()->toDateString());
 
         $baris  = [];
-        $jumlah = ['dpp' => 0.0, 'ppn' => 0.0, 'pph' => 0.0, 'total' => 0.0];
+        $jumlah = ['dpp' => 0.0, 'ppn' => 0.0, 'pph' => 0.0, 'biaya_tambahan' => 0.0, 'total' => 0.0];
 
         foreach ($rows as $row) {
             $dpp = round((float) $row->dpp);
             $ppn = round((float) $row->ppn);
             $pph = round((float) $row->pph);
+            $biaya = round((float) ($row->total_biaya_tambahan ?? 0));
 
             $keterangan = trim((string) $row->keterangan);
             $tipe       = trim((string) $row->tipe_kendaraan);
@@ -195,7 +202,8 @@ class InvoiceVendorService
                 'dpp'           => $dpp,
                 'ppn'           => $ppn,
                 'pph'           => $pph,
-                'total'         => max(0.0, $dpp + $ppn - $pph),
+                'biaya_tambahan' => $biaya,
+                'total'         => max(0.0, $dpp + $ppn - $pph) + $biaya,
             ];
             $baris[] = $satu;
 
@@ -294,11 +302,14 @@ class InvoiceVendorService
         $dpp = (float) $data['dpp'];
         $ppn = (float) ($data['ppn'] ?? 0);
         $pph = (float) ($data['pph'] ?? 0);
+        $biaya = $this->rapikanBiayaTambahan($data['biaya_tambahan'] ?? []);
+        unset($data['biaya_tambahan']);
 
         $data['dpp'] = $dpp;
         $data['ppn'] = $ppn;
         $data['pph'] = $pph;
-        $data['total'] = $this->hitungTotal($dpp, $ppn, $pph);
+        $data['total_biaya_tambahan'] = round(array_sum(array_column($biaya, 'nominal')), 2);
+        $data['total'] = $this->hitungTotal($dpp, $ppn, $pph, $data['total_biaya_tambahan']);
 
         if (empty($data['jatuh_tempo']) && $kontrak !== null && !empty($kontrak->termin_pembayaran_hari)) {
             $data['jatuh_tempo'] = Carbon::parse($data['tanggal_invoice'])
@@ -306,7 +317,7 @@ class InvoiceVendorService
                 ->toDateString();
         }
 
-        return DB::transaction(function () use ($data, $idPerusahaan, $kontrak, $tripIds) {
+        return DB::transaction(function () use ($data, $idPerusahaan, $kontrak, $tripIds, $biaya) {
             if ($kontrak !== null) {
                 $this->pastikanDppTidakMelebihiNilaiKontrak((string) $kontrak->id_kontrak_vendor, (float) $data['dpp']);
             }
@@ -316,6 +327,10 @@ class InvoiceVendorService
                 'status'            => 'draft',
                 'status_pembayaran' => 'belum',
             ]));
+
+            if ($biaya !== []) {
+                $this->repo->gantiBiayaTambahan((string) $record->id_invoice_vendor, $biaya);
+            }
 
             if ($tripIds !== []) {
                 $siapTagih = collect($this->repo->tripSiapTagih(
@@ -382,11 +397,18 @@ class InvoiceVendorService
         $dpp = array_key_exists('dpp', $data) ? (float) $data['dpp'] : (float) $record->dpp;
         $ppn = array_key_exists('ppn', $data) ? (float) ($data['ppn'] ?? 0) : (float) $record->ppn;
         $pph = array_key_exists('pph', $data) ? (float) ($data['pph'] ?? 0) : (float) $record->pph;
+        $biayaBaru = array_key_exists('biaya_tambahan', $data)
+            ? $this->rapikanBiayaTambahan($data['biaya_tambahan'] ?? [])
+            : null;
+        unset($data['biaya_tambahan']);
 
         $data['dpp'] = $dpp;
         $data['ppn'] = $ppn;
         $data['pph'] = $pph;
-        $data['total'] = $this->hitungTotal($dpp, $ppn, $pph);
+        $data['total_biaya_tambahan'] = $biayaBaru !== null
+            ? round(array_sum(array_column($biayaBaru, 'nominal')), 2)
+            : (float) $record->total_biaya_tambahan;
+        $data['total'] = $this->hitungTotal($dpp, $ppn, $pph, $data['total_biaya_tambahan']);
 
         $jatuhTempoEfektif = array_key_exists('jatuh_tempo', $data)
             ? $data['jatuh_tempo']
@@ -405,13 +427,17 @@ class InvoiceVendorService
 
         $perluCekNilaiKontrak = $kontrak !== null && ($kontrakBerubah || $dpp > (float) $record->dpp);
 
-        return DB::transaction(function () use ($record, $data, $kontrak, $dpp, $perluCekNilaiKontrak) {
+        return DB::transaction(function () use ($record, $data, $kontrak, $dpp, $perluCekNilaiKontrak, $biayaBaru) {
             if ($perluCekNilaiKontrak) {
                 $this->pastikanDppTidakMelebihiNilaiKontrak(
                     (string) $kontrak->id_kontrak_vendor,
                     $dpp,
                     (string) $record->id_invoice_vendor,
                 );
+            }
+
+            if ($biayaBaru !== null) {
+                $this->repo->gantiBiayaTambahan((string) $record->id_invoice_vendor, $biayaBaru);
             }
 
             return $this->repo->update($record, $data);
@@ -638,8 +664,27 @@ class InvoiceVendorService
         return $kontrak;
     }
 
-    private function hitungTotal(float $dpp, float $ppn, float $pph): float
+    private function hitungTotal(float $dpp, float $ppn, float $pph, float $biayaTambahan = 0.0): float
     {
-        return round(max(0, $dpp + $ppn - $pph), 2);
+        return round(max(0, $dpp + $ppn - $pph) + $biayaTambahan, 2);
+    }
+
+    /**
+     * Rapikan input biaya tambahan: nama di-trim, baris kosong dibuang.
+     *
+     * @return list<array{nama: string, nominal: float}>
+     */
+    private function rapikanBiayaTambahan(array $input): array
+    {
+        $hasil = [];
+        foreach ($input as $baris) {
+            $nama    = trim((string) ($baris['nama'] ?? ''));
+            $nominal = round((float) ($baris['nominal'] ?? 0), 2);
+            if ($nama !== '' && $nominal > 0) {
+                $hasil[] = ['nama' => $nama, 'nominal' => $nominal];
+            }
+        }
+
+        return $hasil;
     }
 }

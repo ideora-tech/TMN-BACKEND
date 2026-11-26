@@ -16,7 +16,7 @@ class ArusKasExport extends SheetTabelTautan
     private const KOLOM_BUKTI   = 10;
 
     private const LABEL_SUMBER = [
-        'faktur'                => 'Invoice',
+        'faktur'                => 'Pembayaran Klien',
         'pengajuan_pengeluaran' => 'Pengajuan Pengeluaran',
         'pembayaran_vendor'     => 'Pembayaran Vendor',
         'pemasukan_manual'      => 'Pemasukan Manual',
@@ -92,10 +92,10 @@ class ArusKasExport extends SheetTabelTautan
     private static function kategori(object $row): string
     {
         return match ($row->sumber) {
-            'faktur'                => 'Invoice Klien',
+            'faktur'                => 'Pembayaran Invoice Klien',
             'pembayaran_vendor'     => 'Pembayaran Vendor',
             'pengajuan_pengeluaran' => ArusKasService::labelKategori($row->kategori ?? null),
-            'pemasukan_manual'      => ArusKasService::labelKategoriPemasukan($row->kategori ?? null),
+            'pemasukan_manual'      => $row->label_kategori ?? ArusKasService::labelKategoriPemasukan($row->kategori ?? null),
             default                 => (string) ($row->kategori ?? ''),
         };
     }
