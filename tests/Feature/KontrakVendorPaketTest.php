@@ -413,13 +413,13 @@ class KontrakVendorPaketTest extends TestCase
         $this->assertNotNull($bebas->fresh()->dihapus_pada);
     }
 
-    public function test_timpa_unit_nopol_kontrak_lain_masuk_daftar_gagal(): void
+    public function test_timpa_unit_nopol_kontrak_lain_disalin_ke_kontrak_ini(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor  = $this->makeVendor();
         $kontrak = $this->makeKontrak($vendor->id_vendor, 'unit_only');
         $lain    = $this->makeKontrak($vendor->id_vendor, 'unit_only');
-        $this->makeArmadaVendor($vendor->id_vendor, ['nopol' => 'B 7777 LN', 'id_kontrak_vendor' => $lain->id_kontrak_vendor]);
+        $asli = $this->makeArmadaVendor($vendor->id_vendor, ['nopol' => 'B 7777 LN', 'id_kontrak_vendor' => $lain->id_kontrak_vendor]);
 
         $file = $this->makeXlsxUploadedFile([
             ['', 'B 7777 LN', '', '', '', '', '', '2027-06-01', '2027-06-02'],
@@ -428,13 +428,17 @@ class KontrakVendorPaketTest extends TestCase
         $res = $this->postJson("/api/kontrak-vendor/{$kontrak->id_kontrak_vendor}/timpa-unit", ['file' => $file]);
 
         $res->assertStatus(200)
-            ->assertJsonPath('data.ditambah', 0)
-            ->assertJsonPath('data.gagal.0.label', 'B 7777 LN');
+            ->assertJsonPath('data.ditambah', 1)
+            ->assertJsonPath('data.gagal', []);
 
-        $this->assertDatabaseMissing('armada_vendor', [
+        // Kontrak ini dapat salinan unit sendiri; kontrak lama tetap memegang unit aslinya.
+        $this->assertDatabaseHas('armada_vendor', [
             'nopol'             => 'B 7777 LN',
             'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
+            'dihapus_pada'      => null,
         ]);
+        $this->assertSame((string) $lain->id_kontrak_vendor, (string) $asli->fresh()->id_kontrak_vendor);
+        $this->assertSame(2, ArmadaVendorModel::where('nopol', 'B 7777 LN')->count());
     }
 
     public function test_timpa_supir_kontrak_unit_only_ditolak_422(): void
@@ -670,14 +674,14 @@ class KontrakVendorPaketTest extends TestCase
         $this->assertDatabaseCount('supir_vendor', 0);
     }
 
-    public function test_nopol_duplikat_atau_sudah_terikat_kontrak_ditolak_422(): void
+    public function test_nopol_duplikat_ditolak_dan_unit_terikat_kontrak_lain_disalin(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
-        // Unit yang MASIH terikat kontrak lain tetap ditolak — hanya unit tanpa
-        // kontrak (yatim) yang boleh diadopsi kontrak baru.
+        // Unit yang masih terikat kontrak lain boleh ikut kontrak baru: datanya disalin
+        // menjadi baris unit milik kontrak baru, unit asli tetap di kontrak lamanya.
         $kontrakLain = $this->makeKontrak($vendor->id_vendor, 'unit_only');
-        $this->makeArmadaVendor($vendor->id_vendor, ['nopol' => 'B 9999 ADA', 'id_kontrak_vendor' => $kontrakLain->id_kontrak_vendor, 'masa_berlaku_stnk' => '2027-06-01', 'masa_berlaku_kir' => '2027-06-02']);
+        $asli = $this->makeArmadaVendor($vendor->id_vendor, ['nopol' => 'B 9999 ADA', 'id_kontrak_vendor' => $kontrakLain->id_kontrak_vendor, 'masa_berlaku_stnk' => '2027-06-01', 'masa_berlaku_kir' => '2027-06-02']);
 
         $this->postJson('/api/kontrak-vendor', [
             'id_vendor' => $vendor->id_vendor,
@@ -685,14 +689,19 @@ class KontrakVendorPaketTest extends TestCase
             'unit'      => [['nopol' => 'B 4444 KVP', 'masa_berlaku_stnk' => '2027-06-01', 'masa_berlaku_kir' => '2027-06-02'], ['nopol' => 'b 4444 kvp', 'masa_berlaku_stnk' => '2027-06-01', 'masa_berlaku_kir' => '2027-06-02']],
         ])->assertStatus(422);
 
-        $this->postJson('/api/kontrak-vendor', [
+        $res = $this->postJson('/api/kontrak-vendor', [
             'id_vendor' => $vendor->id_vendor,
             'mekanisme' => 'unit_only',
             'unit'      => [['nopol' => 'B 9999 ADA', 'masa_berlaku_stnk' => '2027-06-01', 'masa_berlaku_kir' => '2027-06-02']],
-        ])->assertStatus(422);
+        ])->assertStatus(201);
 
-        $this->assertDatabaseCount('kontrak_vendor', 1);
-        $this->assertSame(1, ArmadaVendorModel::count());
+        $this->assertDatabaseCount('kontrak_vendor', 2);
+        $this->assertSame(2, ArmadaVendorModel::count());
+        $this->assertSame((string) $kontrakLain->id_kontrak_vendor, (string) $asli->fresh()->id_kontrak_vendor);
+        $this->assertDatabaseHas('armada_vendor', [
+            'nopol'             => 'B 9999 ADA',
+            'id_kontrak_vendor' => $res->json('data.id_kontrak_vendor'),
+        ]);
     }
 
     public function test_salin_dari_kontrak_memindahkan_tautan_unit_dan_supir(): void

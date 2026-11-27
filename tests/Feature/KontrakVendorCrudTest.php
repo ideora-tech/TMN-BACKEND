@@ -355,18 +355,18 @@ class KontrakVendorCrudTest extends TestCase
             ->where('nopol', 'B 5555 PINDAH')->whereNull('dihapus_pada')->count());
     }
 
-    public function test_kontrak_baru_tetap_menolak_nopol_yang_masih_terikat_kontrak_lain(): void
+    public function test_kontrak_baru_menyalin_nopol_yang_masih_terikat_kontrak_lain(): void
     {
         $this->actingAsRole('SUPERADMIN');
         $vendor = $this->makeVendor();
         $kontrakAktif = $this->makeKontrak($vendor);
-        ArmadaVendorModel::create([
+        $asli = ArmadaVendorModel::create([
             'id_vendor'         => $vendor->id_vendor,
             'id_kontrak_vendor' => $kontrakAktif->id_kontrak_vendor,
             'nopol'             => 'B 7777 VND',
         ]);
 
-        $this->postJson('/api/kontrak-vendor', [
+        $res = $this->postJson('/api/kontrak-vendor', [
             'id_vendor'     => $vendor->id_vendor,
             'mekanisme'     => 'unit_only',
             'nomor_kontrak' => 'KV-ADOPSI-2',
@@ -375,7 +375,14 @@ class KontrakVendorCrudTest extends TestCase
                 'masa_berlaku_stnk' => '2027-03-01',
                 'masa_berlaku_kir'  => '2026-12-15',
             ]],
-        ])->assertStatus(422);
+        ])->assertStatus(201);
+
+        // Unit asli tetap di kontrak lama; kontrak baru punya salinannya sendiri.
+        $this->assertSame((string) $kontrakAktif->id_kontrak_vendor, (string) $asli->fresh()->id_kontrak_vendor);
+        $this->assertDatabaseHas('armada_vendor', [
+            'nopol'             => 'B 7777 VND',
+            'id_kontrak_vendor' => $res->json('data.id_kontrak_vendor'),
+        ]);
     }
 
     public function test_show_kontrak_vendor_perusahaan_lain_mengembalikan_404(): void

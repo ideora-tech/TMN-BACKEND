@@ -315,17 +315,10 @@ class KontrakVendorService
             if (($frekuensi[mb_strtoupper(trim($nopol))] ?? 0) > 1) {
                 abort(422, "Nopol {$nopol} duplikat di dalam daftar unit");
             }
-            // Nopol yang sudah terdaftar tetap boleh selama unitnya sedang TIDAK
-            // terikat kontrak — vendor manapun (unit bisa berpindah vendor di
-            // lapangan); nanti diambil alih (di-relink + pindah vendor) alih-alih
-            // dibuat baru. Yang ditolak hanya unit yang masih terikat kontrak aktif.
-            if ($this->armadaVendorRepo->nopolTerdaftar($nopol, $idPerusahaan)
-                && $this->armadaVendorRepo->findAktifTanpaKontrakByNopol($nopol, $idPerusahaan) === null) {
-                $pemilik = $this->armadaVendorRepo->infoNopolTerdaftar($nopol, $idPerusahaan);
-                abort(422, "Nopol {$nopol} masih terikat kontrak aktif"
-                    . ($pemilik !== null ? " milik vendor \"{$pemilik->nama_vendor}\"" : '')
-                    . ' — akhiri/lepaskan kontrak lamanya dulu');
-            }
+            // Nopol yang sudah terdaftar boleh dipakai lagi. Unit yang sedang TIDAK terikat
+            // kontrak diambil alih (di-relink + pindah vendor). Unit yang masih terikat
+            // kontrak berjalan DISALIN: kontrak ini mendapat baris unit sendiri, kontrak
+            // lamanya tetap memegang unit aslinya (satu nopol bisa ada di beberapa kontrak).
             if (!empty($unit['id_jenis_kendaraan'])
                 && !$this->armadaVendorRepo->jenisKendaraanMilikPerusahaan((string) $unit['id_jenis_kendaraan'], $idPerusahaan)) {
                 abort(404, 'Jenis kendaraan tidak ditemukan');
@@ -419,11 +412,6 @@ class KontrakVendorService
                         'id_kontrak_vendor' => $kontrak->id_kontrak_vendor,
                     ]));
                     $ditambah++;
-                    continue;
-                }
-
-                if ($this->armadaVendorRepo->nopolTerdaftar($nopol, $idPerusahaan)) {
-                    $gagal[] = ['label' => $nopol, 'alasan' => 'Nopol sudah terdaftar di kontrak/vendor lain'];
                     continue;
                 }
 
@@ -526,11 +514,6 @@ class KontrakVendorService
                         $dataUnit['id_kontrak_vendor'] = $kontrak->id_kontrak_vendor;
                         $ada = $adopsi;
                     }
-                }
-
-                if ($ada === null && $this->armadaVendorRepo->nopolTerdaftar($nopol, $idPerusahaan)) {
-                    $gagal[] = ['label' => $nopol, 'alasan' => 'Nopol sudah terdaftar di kontrak/vendor lain'];
-                    continue;
                 }
 
                 $unitLama = $lama->get($kunci);
